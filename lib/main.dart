@@ -24,8 +24,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:pixez/constants.dart';
+import 'package:pixez/custom/window_frame.dart';
 import 'package:pixez/er/fetcher.dart';
-// import 'package:pixez/fluent/fluentui.dart';
+import 'package:pixez/er/leader.dart';
+import 'package:pixez/fluent/fluentui.dart';
 import 'package:pixez/i18n.dart';
 import 'package:pixez/page/novel/history/novel_history_store.dart';
 import 'package:pixez/page/splash/splash_page.dart';
@@ -43,6 +45,7 @@ import 'package:pixez/store/top_store.dart';
 import 'package:pixez/store/user_setting.dart';
 import 'package:rhttp/rhttp.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:window_manager/window_manager.dart';
 
 final RouteObserver<ModalRoute<void>> routeObserver =
     RouteObserver<ModalRoute<void>>();
@@ -57,6 +60,8 @@ final BookTagStore bookTagStore = BookTagStore();
 final SplashStore splashStore = SplashStore();
 final Fetcher fetcher = new Fetcher();
 final FullScreenStore fullScreenStore = FullScreenStore();
+
+final globalNavigatorKey = GlobalKey<NavigatorState>();
 
 main(List<String> args) async {
   await Rhttp.init();
@@ -75,7 +80,11 @@ main(List<String> args) async {
     // Android 和 iOS 应用本身就是单例程序，无需额外操作
     SingleInstancePlugin.initialize();
   }
-  // await initFluent(args);
+  if (Constants.isFluent) {
+    await initFluent(args);
+  } else if (Platform.isWindows || Platform.isLinux) {
+    await initWindows(args);
+  }
 
   runApp(ProviderScope(
     child: MyApp(arguments: args),
@@ -134,10 +143,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   }
 
   Widget build(BuildContext context) {
-    // return Constants.isFluent
-    //     ? buildFluentUI(context)
-    //     : _buildMaterial(context);
-    return _buildMaterial(context);
+    return Constants.isFluent
+        ? buildFluentUI(context)
+        : _buildMaterial(context);
   }
 
   Widget _buildMaterial(BuildContext context) {
@@ -182,6 +190,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         return MaterialApp(
           navigatorObservers: [BotToastNavigatorObserver(), routeObserver],
           locale: userSetting.locale,
+          navigatorKey: globalNavigatorKey,
           home: Builder(builder: (context) {
             return AnnotatedRegion<SystemUiOverlayStyle>(
                 value: SystemUiOverlayStyle(
@@ -196,7 +205,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             if (Platform.isIOS) child = _buildMaskBuilder(context, child);
             child = botToastBuilder(context, child);
             I18n.context = context;
-            return child;
+            return WindowFrame(child);
           },
           themeMode: userSetting.themeMode,
           theme: ThemeData.light().copyWith(
@@ -249,4 +258,24 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       return widget;
     }
   }
+}
+
+Future<void> initWindows(List<String> args) async {
+  // 必须加上这一行。
+  await windowManager.ensureInitialized();
+
+  WindowOptions windowOptions = WindowOptions(
+    //skipTaskbar: false,
+    titleBarStyle: TitleBarStyle.hidden,
+    title: "PixEz",
+  );
+  windowManager.waitUntilReadyToShow(windowOptions, () async {
+    await windowManager.show();
+    await windowManager.focus();
+    if (Platform.isWindows) {
+      var placement = await WindowPlacement.loadFromFile();
+      await placement.applyToWindow();
+      WindowPlacement.loop();
+    }
+  });
 }

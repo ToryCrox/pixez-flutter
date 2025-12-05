@@ -7,7 +7,8 @@
     {
       "name": "Debug",
       "request": "launch",
-      "type": "dart"
+      "type": "dart",
+      "noDebug": true
     },
     {
       "name": "Release",
