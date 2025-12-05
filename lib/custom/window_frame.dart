@@ -686,7 +686,6 @@ class WindowPlacement {
   static Future<WindowPlacement> loadFromFile() async {
     try {
       final jsonString = Prefer.getString('window_frame');
-      print("loadFromFile $jsonString");
       if (jsonString == null || jsonString.isEmpty) {
         return defaultPlacement;
       }
