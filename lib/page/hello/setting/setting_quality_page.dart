@@ -30,6 +30,7 @@ import 'package:pixez/page/hello/setting/copy_text_page.dart';
 import 'package:pixez/page/hello/setting/setting_cross_adapter_page.dart';
 import 'package:pixez/page/network/network_page.dart';
 import 'package:pixez/page/platform/platform_page.dart';
+import 'package:pixez/page/platform/windows_platform_page.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
@@ -86,6 +87,22 @@ class _SettingQualityPageState extends State<SettingQualityPage>
                 onTap: () {
                   Navigator.of(context).push(
                       MaterialPageRoute(builder: (context) => PlatformPage()));
+                },
+              ),
+            if (Platform.isWindows)
+              ListTile(
+                leading: Icon(Icons.window),
+                trailing: const Icon(Icons.arrow_right),
+                title: Text(I18n.of(context).platform_special_setting),
+                subtitle: Text(
+                  "For Windows",
+                  style: TextStyle(color: Colors.blue),
+                ),
+                onTap: () {
+                  showDialog(
+                    context: context,
+                    builder: (context) => WindowsPlatformPage(),
+                  );
                 },
               ),
             ListTile(
