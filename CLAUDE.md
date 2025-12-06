@@ -1,12 +1,14 @@
 # CLAUDE.md
 
 本文件为 Claude Code (claude.ai/code) 在此代码仓库中工作时提供指导。
+以后使用中文和我交流。
 
 ## 项目概述
 
 PixEz 是一个使用 Flutter 构建的第三方 Pixiv 客户端，支持 Android、iOS、Windows 和 Linux 平台。该应用支持中国大陆地区直连。
 
 ## 构建命令
+flutter的构建版本为3.32.8
 
 ```bash
 # 获取依赖
@@ -52,7 +54,7 @@ flutter build ios
 - `lib/page/`：按功能组织的 UI 页面
 - `lib/models/`：带 JSON 序列化的数据模型（`.g.dart` 文件）
 - `lib/er/`：工具模块（hoster、fetcher、leader 用于导航）
-- `lib/fluent/`：页面/组件的 Fluent UI 变体
+- `lib/fluent/`：页面/组件的 Fluent UI 变体，暂时不再使用了
 
 ### 全局单例（定义于 `lib/main.dart`）
 - `userSetting`、`saveStore`、`muteStore`、`accountStore`、`tagHistoryStore`、`topStore`、`bookTagStore`、`fetcher`、`splashStore`
