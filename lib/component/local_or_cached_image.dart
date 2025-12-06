@@ -29,6 +29,7 @@ class LocalOrCachedImage extends StatefulWidget {
   final int illustId;
   final int part;
   final String networkUrl;
+  final String? localPath; // 新增：预加载的本地路径
   final Widget? placeWidget;
   final bool fade;
   final BoxFit? fit;
@@ -40,6 +41,7 @@ class LocalOrCachedImage extends StatefulWidget {
     required this.illustId,
     required this.part,
     required this.networkUrl,
+    this.localPath, // 新增参数
     this.placeWidget,
     this.fade = true,
     this.fit,
@@ -58,7 +60,13 @@ class _LocalOrCachedImageState extends State<LocalOrCachedImage> {
   @override
   void initState() {
     super.initState();
-    _checkLocalFile();
+    // 如果已经提供了本地路径，直接使用
+    if (widget.localPath != null) {
+      _localPath = widget.localPath;
+      _checked = true;
+    } else {
+      _checkLocalFile();
+    }
   }
 
   @override
@@ -66,10 +74,17 @@ class _LocalOrCachedImageState extends State<LocalOrCachedImage> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.illustId != widget.illustId ||
         oldWidget.part != widget.part ||
-        oldWidget.networkUrl != widget.networkUrl) {
+        oldWidget.networkUrl != widget.networkUrl ||
+        oldWidget.localPath != widget.localPath) {
       _checked = false;
       _localPath = null;
-      _checkLocalFile();
+      // 如果提供了新的本地路径，直接使用
+      if (widget.localPath != null) {
+        _localPath = widget.localPath;
+        _checked = true;
+      } else {
+        _checkLocalFile();
+      }
     }
   }
 

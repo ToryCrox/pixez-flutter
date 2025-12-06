@@ -460,18 +460,19 @@ abstract class _DownloadStoreBase with Store {
     downloadingTasks.remove(task.taskKey);
     _notifyProgress(task);
     _runningTask.remove(task.taskKey);
+    await _dbProvider.deletePendingDownload(task.taskKey);
     _processQueue();
-    _dbProvider.deletePendingDownload(task.taskKey);
     await refreshCount();
   }
 
-  void _onDownloadFailed(DownloadTask task, String error) {
+  Future<void> _onDownloadFailed(DownloadTask task, String error) async {
     Log.d(() => "下载失败: ${task.taskKey}, $error");
     task.status = DownloadTaskStatus.failed;
     task.error = error;
-    _notifyProgress(task);
     _runningTask.remove(task.taskKey);
-    _dbProvider.updatePendingDownloadStatus(task.taskKey, task.status.name);
+    downloadingTasks.remove(task.taskKey);
+    await _dbProvider.updatePendingDownloadStatus(task.taskKey, task.status.name);
+    _notifyProgress(task);
     _processQueue();
   }
 

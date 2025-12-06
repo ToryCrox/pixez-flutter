@@ -26,6 +26,8 @@ import 'package:pixez/er/hoster.dart';
 import 'package:pixez/main.dart';
 import 'package:rhttp/rhttp.dart' as r;
 
+import '../custom/log.dart';
+
 const ImageHost = "i.pximg.net";
 const ImageCatHost = "i.pixiv.re";
 const ImageSHost = "s.pximg.net";
@@ -39,6 +41,7 @@ DioCacheManager pixivCacheManager = DioCacheManager.instance;
 
 class PixivImage extends StatefulWidget {
   final String url;
+  final String? localPath; // 新增：本地文件路径
   final Widget? placeWidget;
   final bool fade;
   final BoxFit? fit;
@@ -47,14 +50,17 @@ class PixivImage extends StatefulWidget {
   final double? width;
   final String? host;
 
-  PixivImage(this.url,
-      {this.placeWidget,
-      this.fade = true,
-      this.fit,
-      this.enableMemoryCache,
-      this.height,
-      this.host,
-      this.width});
+  PixivImage(
+    this.url, {
+    this.localPath, // 新增参数
+    this.placeWidget,
+    this.fade = true,
+    this.fit,
+    this.enableMemoryCache,
+    this.height,
+    this.host,
+    this.width,
+  });
 
   @override
   _PixivImageState createState() => _PixivImageState();
@@ -121,6 +127,37 @@ class _PixivImageState extends State<PixivImage> {
 
   @override
   Widget build(BuildContext context) {
+    // 如果提供了本地路径，优先使用本地文件
+    if (widget.localPath != null && widget.localPath!.isNotEmpty) {
+      final localFile = File(widget.localPath!);
+      Log.d("Using local file: ${localFile.path}, width: $width, height: $height");
+      return Image.file(
+        localFile,
+        fit: fit ?? BoxFit.fitWidth,
+        height: height,
+        width: width,
+        frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+          if (wasSynchronouslyLoaded) {
+            return child;
+          }
+          if (frame != null) {
+            return child;
+          }
+          return widget.placeWidget ?? Container(height: height);
+        },
+        errorBuilder: (context, error, stackTrace) {
+          // 本地文件加载失败，回退到网络图片
+          return _buildNetworkImage();
+        },
+      );
+      ;
+    }
+
+    // 没有本地路径，使用网络图片
+    return _buildNetworkImage();
+  }
+
+  Widget _buildNetworkImage() {
     return CachedNetworkImage(
         placeholder: (context, url) =>
             widget.placeWidget ?? Container(height: height),
@@ -128,11 +165,10 @@ class _PixivImageState extends State<PixivImage> {
               height: height,
               child: Center(
                 child: TextButton(
-                  onPressed: () {
-                    setState(() {});
-                  },
-                  child: Text(":("),
-                ),
+                    onPressed: () {
+                      setState(() {});
+                    },
+                    child: Text(":(")),
               ),
             ),
         fadeOutDuration:

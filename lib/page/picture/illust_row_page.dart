@@ -21,7 +21,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:pixez/component/ban_page.dart';
 import 'package:pixez/component/common_back_area.dart';
-import 'package:pixez/component/local_or_cached_image.dart';
+
 import 'package:pixez/component/null_hero.dart';
 import 'package:pixez/component/painter_avatar.dart';
 import 'package:pixez/component/pixiv_image.dart';
@@ -448,6 +448,7 @@ class _IllustRowPageState extends State<IllustRowPage>
             tag: widget.heroString,
             child: PixivImage(
               url,
+              localPath: _illustStore.getLocalImagePath(0),
               fade: false,
               width: MediaQuery.of(context).size.width,
               placeWidget: (url != data.imageUrls.medium)
@@ -495,48 +496,43 @@ class _IllustRowPageState extends State<IllustRowPage>
     final String imageUrl;
     final String mediumImageUrl;
     final double? width;
+    final bool useMediumPlaceHolder;
     if (illust.type == "manga") {
       imageUrl = illust.managaDetailImageUrl(index);
       mediumImageUrl = illust.metaPages[index].imageUrls!.medium;
       width = MediaQuery.of(context).size.width;
+      useMediumPlaceHolder = index == 0 && userSetting.mangaQuality >= 1;
     } else {
       imageUrl = illust.illustDetailImageUrl(index);
       mediumImageUrl = illust.metaPages[index].imageUrls!.medium;
       width = null;
+      useMediumPlaceHolder = index == 0 && userSetting.pictureQuality >= 1;
     }
 
-    Widget child = LocalOrCachedImage(
-      illustId: illust.id,
-      part: index,
-      networkUrl: imageUrl,
-      placeWidget: PixivImage(
+    Widget child = PixivImage(
+      imageUrl,
+      localPath: _illustStore.getLocalImagePath(index),
+      placeWidget: useMediumPlaceHolder ? PixivImage(
         mediumImageUrl,
         width: width,
         fade: false,
+      ) : Container(
+        height: height,
+        child: Center(
+          child: Text('$index',
+              style: Theme.of(context).textTheme.headlineMedium),
+        ),
       ),
       width: width,
       fade: false,
     );
-
-    if (illust.type == "manga") {
-      if (index == 0)
-        return NullHero(
-          child: child,
-          tag: widget.heroString,
-        );
-      return child;
+    if (index == 0) {
+      child = NullHero(
+        child: child,
+        tag: widget.heroString,
+      );
     }
-    return index == 0
-        ? (userSetting.pictureQuality >= 1
-            ? NullHero(
-                child: child,
-                tag: widget.heroString,
-              )
-            : NullHero(
-                child: child,
-                tag: widget.heroString,
-              ))
-        : child;
+    return child;
   }
 
   Future _longPressTag(BuildContext context, Tags f) async {

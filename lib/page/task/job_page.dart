@@ -300,13 +300,14 @@ class _JobPageState extends State<JobPage> with SingleTickerProviderStateMixin {
                       ListTile(
                         title: Text(I18n.of(context).retry_seed_task),
                         onTap: () async {
-                          final results =
-                              await taskPersistProvider.getAllAccount();
-                          results.forEach((element) {
-                            if (element.status == 0) {
-                              _retryJob(element);
-                            }
-                          });
+                          // final results =
+                          //     await taskPersistProvider.getAllAccount();
+                          // results.forEach((element) {
+                          //   if (element.status == 0) {
+                          //     _retryJob(element);
+                          //   }
+                          // });
+                          downloadStore.addDownloadTasks(_pendingTasks);
                           Navigator.of(context).pop();
                         },
                       ),

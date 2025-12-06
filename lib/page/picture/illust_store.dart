@@ -18,6 +18,8 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:mobx/mobx.dart';
+import 'package:pixez/custom/disk_cache.dart';
+import 'package:pixez/main.dart';
 import 'package:pixez/models/error_message.dart';
 import 'package:pixez/models/illust.dart';
 import 'package:pixez/models/illust_series_detail.dart';
@@ -45,8 +47,15 @@ abstract class _IllustStoreBase with Store {
   bool captionFetching = false;
   @observable
   IllustSeriesDetailResponse? illustSeriesDetailResponse;
+  @observable
+  ObservableMap<int, String?> localImagePaths = ObservableMap<int, String?>();
 
   void dispose() {}
+
+  /// 获取指定页面的本地图片路径（同步方法）
+  String? getLocalImagePath(int part) {
+    return localImagePaths[part];
+  }
 
   _IllustStoreBase(this.id, this.illusts) {
     isBookmark = illusts?.isBookmarked ?? false;
@@ -56,6 +65,23 @@ abstract class _IllustStoreBase with Store {
   @action
   fetch() async {
     errorMessage = null;
+
+    // 1. 尝试从缓存加载
+    final cacheKey = 'illust_detail_$id';
+    final cachedData = await DiskCache.readModel(
+      cacheKey,
+      (map) => Illusts.fromJson(map),
+    );
+
+    if (cachedData != null) {
+      illusts = cachedData;
+      isBookmark = illusts!.isBookmarked;
+      state = illusts?.isBookmarked ?? isBookmark ? 2 : 0;
+      // 立即加载本地路径
+      await _loadLocalImagePaths();
+    }
+
+    // 2. 加载网络数据
     if (illusts == null ||
         illusts?.caption == null ||
         illusts?.caption.isEmpty == true) {
@@ -70,6 +96,9 @@ abstract class _IllustStoreBase with Store {
         isBookmark = illusts!.isBookmarked;
         state = illusts?.isBookmarked ?? isBookmark ? 2 : 0;
         captionFetching = false;
+
+        // 3. 更新缓存
+        await DiskCache.writeModel(cacheKey, illusts!.toJson());
       } on DioException catch (e) {
         captionFetching = false;
         if (captionEmtpyCase) {
@@ -92,6 +121,10 @@ abstract class _IllustStoreBase with Store {
         }
       }
     }
+
+    // 4. 加载本地图片路径
+    await _loadLocalImagePaths();
+
     if (illusts != null) {
       try {
         History.insertIllust(illusts!);
@@ -106,6 +139,21 @@ abstract class _IllustStoreBase with Store {
         print(e);
       }
     }
+  }
+
+  /// 批量加载所有页面的本地图片路径
+  Future<void> _loadLocalImagePaths() async {
+    if (illusts == null || !downloadStore.isInitialized) return;
+
+    final paths = <int, String?>{};
+    final pageCount = illusts!.pageCount;
+
+    for (int i = 0; i < pageCount; i++) {
+      final path = await downloadStore.getLocalImagePath(illusts!.id, i);
+      paths[i] = path;
+    }
+
+    localImagePaths = ObservableMap.of(paths);
   }
 
   @action

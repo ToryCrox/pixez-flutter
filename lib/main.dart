@@ -170,10 +170,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     );
 
     if (selectedTaskKeys == null || selectedTaskKeys.isEmpty) {
-      // 用户取消了所有任务,清除数据库记录
-      await downloadStore.clearPendingTasks(
-        pendingTasks.map((t) => t.taskKey).toList(),
-      );
+      // // 用户取消了所有任务,清除数据库记录
+      // await downloadStore.clearPendingTasks(
+      //   pendingTasks.map((t) => t.taskKey).toList(),
+      // );
       return;
     }
 
@@ -187,9 +187,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         .where((t) => !selectedTaskKeys.contains(t.taskKey))
         .map((t) => t.taskKey)
         .toList();
-    if (tasksToRemove.isNotEmpty) {
-      await downloadStore.clearPendingTasks(tasksToRemove);
-    }
+    // if (tasksToRemove.isNotEmpty) {
+    //   await downloadStore.clearPendingTasks(tasksToRemove);
+    // }
 
     // 添加选中的任务到下载队列
     if (tasksToDownload.isNotEmpty) {
