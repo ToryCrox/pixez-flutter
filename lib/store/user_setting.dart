@@ -85,9 +85,15 @@ abstract class _UserSetting with Store {
   static const String ILLUST_DETAIL_SAVE_SKIP_LONG_PRESS_KEY =
       "illust_detail_save_skip_long_press";
   static const String DRAG_START_X_KEY = "drag_start_x";
+  static const String USE_WATERFALL_FLOW_KEY = "use_waterfall_flow";
+  static const String GRID_ASPECT_RATIO_KEY = "grid_aspect_ratio";
 
   @observable
   double dragStartX = 0;
+  @observable
+  bool useWaterfallFlow = true;
+  @observable
+  double gridAspectRatio = 0.7;
   @observable
   bool illustDetailSaveSkipLongPress = false;
   @observable
@@ -196,6 +202,18 @@ abstract class _UserSetting with Store {
   setFeedAIBadge(bool value) async {
     await prefs.setBool(FEED_AI_BADGE_KEY, value);
     feedAIBadge = value;
+  }
+
+  @action
+  setUseWaterfallFlow(bool value) async {
+    await prefs.setBool(USE_WATERFALL_FLOW_KEY, value);
+    useWaterfallFlow = value;
+  }
+
+  @action
+  setGridAspectRatio(double value) async {
+    await prefs.setDouble(GRID_ASPECT_RATIO_KEY, value);
+    gridAspectRatio = value;
   }
 
   @action
@@ -450,6 +468,8 @@ abstract class _UserSetting with Store {
     swipeChangeArtwork = prefs.getBool(SWIPE_CHANGE_ARTWORK_KEY) ?? true;
     useSaunceNaoWebview = prefs.getBool(USE_SAUNCE_NAO_WEBVIEW) ?? false;
     dragStartX = prefs.getDouble(DRAG_START_X_KEY) ?? 0;
+    useWaterfallFlow = prefs.getBool(USE_WATERFALL_FLOW_KEY) ?? true;
+    gridAspectRatio = prefs.getDouble(GRID_ASPECT_RATIO_KEY) ?? 0.7;
     illustDetailSaveSkipLongPress =
         prefs.getBool(ILLUST_DETAIL_SAVE_SKIP_LONG_PRESS_KEY) ?? false;
     if (Platform.isAndroid) {

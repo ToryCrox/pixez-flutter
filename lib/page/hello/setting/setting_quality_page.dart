@@ -366,6 +366,27 @@ class _SettingQualityPageState extends State<SettingQualityPage>
                 onChanged: (value) async {
                   userSetting.setFeedAIBadge(value);
                 }),
+            SwitchListTile(
+                value: userSetting.useWaterfallFlow,
+                title: Text(I18n.of(context).use_waterfall_flow),
+                onChanged: (value) async {
+                  userSetting.setUseWaterfallFlow(value);
+                }),
+            if (!userSetting.useWaterfallFlow)
+              ListTile(
+                title: Text(I18n.of(context).grid_aspect_ratio),
+                subtitle: Slider(
+                  value: userSetting.gridAspectRatio,
+                  min: 0.5,
+                  max: 1.5,
+                  divisions: 20,
+                  label: userSetting.gridAspectRatio.toStringAsFixed(2),
+                  onChanged: (value) {
+                    userSetting.setGridAspectRatio(value);
+                  },
+                ),
+                trailing: Text(userSetting.gridAspectRatio.toStringAsFixed(2)),
+              ),
             Divider(),
             SwitchListTile(
                 value: userSetting.followAfterStar,

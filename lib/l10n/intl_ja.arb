@@ -290,6 +290,8 @@
   "successed": "完了",
   "reply_to": "返信先: ",
   "show_feed_ai_badge": "AI バッジを表示",
+  "use_waterfall_flow": "ウォーターフォールレイアウトを使用",
+  "grid_aspect_ratio": "グリッドアスペクト比",
   "illust_detail_save_skip_confirm": "詳細ページで保存するときの確認をスキップする",
   "secure_window": "セキュアなウインドウ",
   "open_saucenao_using_webview": "WebView を使用して SauceNao を開く",

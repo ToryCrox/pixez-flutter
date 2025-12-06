@@ -290,6 +290,8 @@
   "successed": "Berhasil",
   "reply_to": "Balas ke",
   "show_feed_ai_badge": "Tampilkan lencana AI umpan",
+  "use_waterfall_flow": "Gunakan tata letak alur air terjun",
+  "grid_aspect_ratio": "Rasio aspek grid",
   "illust_detail_save_skip_confirm": "Lewati konfirmasi saat menyimpan pada halaman detail",
   "secure_window": "Jendela aman",
   "open_saucenao_using_webview": "Buka SauceNao menggunakan WebView",

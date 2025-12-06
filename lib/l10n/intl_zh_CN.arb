@@ -290,6 +290,8 @@
   "successed": "加载成功",
   "reply_to": "回复给",
   "show_feed_ai_badge": "显示列表中的AI生成标记",
+  "use_waterfall_flow": "使用瀑布流布局",
+  "grid_aspect_ratio": "网格宽高比",
   "illust_detail_save_skip_confirm": "插画作品页保存时跳过确认",
   "secure_window": "禁用屏幕抓取",
   "open_saucenao_using_webview": "用webview打开Saucenao",

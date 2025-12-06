@@ -317,13 +317,13 @@ entryPoint(SendMessage message) async {
                   state: IsoTaskState.PROGRESS,
                   data: IsoProgressBean(
                       min: min, total: total, url: taskBean.url!)));
-            }).then((value) {
+            }).then((value) async {
               File file = File(savePath);
               // create dir
               if (!file.parent.existsSync()) {
-                file.parent.createSync(recursive: true);
+                await file.parent.create(recursive: true);
               }
-              file.writeAsBytesSync(value.body);
+              await file.writeAsBytes(value.body);
               sendPort.send(
                   IsoContactBean(state: IsoTaskState.COMPLETE, data: taskBean));
             }).catchError((e) {

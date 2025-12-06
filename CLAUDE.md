@@ -89,7 +89,7 @@ flutter build ios
 
 **设置**
 - `lib/page/hello/setting/setting_page.dart`：设置页面入口，包含账户、历史、下载、主题等入口
-- `lib/page/hello/setting/setting_quality_page.dart`：画质设置页面
+- `lib/page/hello/setting/setting_quality_page.dart`：画质设置页面, 偏好设置页面
 - `lib/page/theme/theme_page.dart`：主题设置页面
 - `lib/page/shield/shield_page.dart`：屏蔽设置页面（屏蔽标签/用户/插画）
 - `lib/page/network/network_setting_page.dart`：网络设置页面

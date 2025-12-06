@@ -288,6 +288,8 @@
   "successed": "Matagumpay",
   "reply_to": "Tumugon kay/sa", 
   "show_feed_ai_badge": "Ipakita ang AI badge sa feed",
+  "use_waterfall_flow": "Gumamit ng waterfall flow layout",
+  "grid_aspect_ratio": "Grid aspect ratio",
   "illust_detail_save_skip_confirm": "I-skip ang kumpirmasyon kapag nagsa-save sa pahina ng mga detalye",
   "secure_window": "Secure na window",
   "open_saucenao_using_webview": "Buksan ang SauceNao gamit ang webview",

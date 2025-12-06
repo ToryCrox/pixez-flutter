@@ -290,6 +290,8 @@
   "successed": "載入成功",
   "reply_to": "回覆給",
   "show_feed_ai_badge": "顯示動態清單中的AI生成標記",
+  "use_waterfall_flow": "使用瀑布流佈局",
+  "grid_aspect_ratio": "網格寬高比",
   "illust_detail_save_skip_confirm": "插畫作品頁儲存時跳過確認",
   "secure_window": "停用螢幕擷取",
   "open_saucenao_using_webview": "使用 WebView 開啟 SauceNAO",

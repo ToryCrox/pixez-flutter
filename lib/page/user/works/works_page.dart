@@ -21,6 +21,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:pixez/component/illust_card.dart';
+import 'package:pixez/component/illust_card_grid.dart';
 import 'package:pixez/component/pixez_default_header.dart';
 import 'package:pixez/component/sort_group.dart';
 import 'package:pixez/exts.dart';
@@ -171,10 +172,18 @@ class _WorksPageState extends State<WorksPage> {
                               ),
                             ),
                           ),
-                        SliverWaterfallFlow(
-                          gridDelegate: _buildGridDelegate(),
-                          delegate: _buildSliverChildBuilderDelegate(context),
-                        ),
+                        userSetting.useWaterfallFlow
+                            ? SliverWaterfallFlow(
+                                gridDelegate: _buildGridDelegate(),
+                                delegate:
+                                    _buildSliverChildBuilderDelegate(context),
+                              )
+                            : SliverGrid(
+                                gridDelegate: _buildSliverGridDelegate(),
+                                delegate:
+                                    _buildSliverGridChildBuilderDelegate(
+                                        context),
+                              ),
                         const FooterLocator.sliver(),
                       ],
                     );
@@ -209,6 +218,36 @@ class _WorksPageState extends State<WorksPage> {
         iStores: _store.iStores,
       );
     }, childCount: _store.iStores.length);
+  }
+
+  SliverChildBuilderDelegate _buildSliverGridChildBuilderDelegate(
+      BuildContext context) {
+    _store.iStores
+        .removeWhere((element) => element.illusts!.hateByUser(ai: false));
+    return SliverChildBuilderDelegate((BuildContext context, int index) {
+      return IllustCardGrid(
+        lightingStore: _store,
+        store: _store.iStores[index],
+        iStores: _store.iStores,
+      );
+    }, childCount: _store.iStores.length);
+  }
+
+  int _getCrossAxisCount() {
+    if (userSetting.crossAdapt) {
+      return _buildSliderValue();
+    } else {
+      return (MediaQuery.of(context).orientation == Orientation.portrait)
+          ? userSetting.crossCount
+          : userSetting.hCrossCount;
+    }
+  }
+
+  SliverGridDelegate _buildSliverGridDelegate() {
+    return SliverGridDelegateWithFixedCrossAxisCount(
+      crossAxisCount: _getCrossAxisCount(),
+      childAspectRatio: userSetting.gridAspectRatio,
+    );
   }
 
   int _buildSliderValue() {

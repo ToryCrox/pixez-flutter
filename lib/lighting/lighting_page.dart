@@ -21,6 +21,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:mobx/mobx.dart';
 import 'package:pixez/component/illust_card.dart';
+import 'package:pixez/component/illust_card_grid.dart';
 import 'package:pixez/component/pixez_default_header.dart';
 import 'package:pixez/exts.dart';
 import 'package:pixez/i18n.dart';
@@ -159,16 +160,29 @@ class _LightingListState extends State<LightingList> {
           onLoad: () {
             _store.fetchNext();
           },
-          childBuilder: (context, physics) => WaterfallFlow.builder(
-            physics: physics,
-            controller: widget.isNested ?? false ? null : _scrollController,
-            padding: EdgeInsets.all(5.0),
-            itemCount: _store.iStores.length,
-            itemBuilder: (context, index) {
-              return _buildItem(index);
-            },
-            gridDelegate: _buildGridDelegate(),
-          ),
+          childBuilder: (context, physics) => userSetting.useWaterfallFlow
+              ? WaterfallFlow.builder(
+                  physics: physics,
+                  controller:
+                      widget.isNested ?? false ? null : _scrollController,
+                  padding: EdgeInsets.all(5.0),
+                  itemCount: _store.iStores.length,
+                  itemBuilder: (context, index) {
+                    return _buildItem(index);
+                  },
+                  gridDelegate: _buildGridDelegate(),
+                )
+              : GridView.builder(
+                  physics: physics,
+                  controller:
+                      widget.isNested ?? false ? null : _scrollController,
+                  padding: EdgeInsets.all(5.0),
+                  itemCount: _store.iStores.length,
+                  itemBuilder: (context, index) {
+                    return _buildGridItem(index);
+                  },
+                  gridDelegate: _buildSliverGridDelegate(),
+                ),
         ));
   }
 
@@ -262,10 +276,15 @@ class _LightingListState extends State<LightingList> {
               SliverToBoxAdapter(
                 child: Container(child: widget.header),
               ),
-              SliverWaterfallFlow(
-                gridDelegate: _buildGridDelegate(),
-                delegate: _buildSliverChildBuilderDelegate(context),
-              ),
+              userSetting.useWaterfallFlow
+                  ? SliverWaterfallFlow(
+                      gridDelegate: _buildGridDelegate(),
+                      delegate: _buildSliverChildBuilderDelegate(context),
+                    )
+                  : SliverGrid(
+                      gridDelegate: _buildSliverGridDelegate(),
+                      delegate: _buildSliverGridChildBuilderDelegate(context),
+                    ),
               const FooterLocator.sliver(),
             ],
           );
@@ -280,6 +299,19 @@ class _LightingListState extends State<LightingList> {
         .removeWhere((element) => element.illusts!.hateByUser(ai: _ai));
     return SliverChildBuilderDelegate((BuildContext context, int index) {
       return IllustCard(
+        lightingStore: _store,
+        store: _store.iStores[index],
+        iStores: _store.iStores,
+      );
+    }, childCount: _store.iStores.length);
+  }
+
+  SliverChildBuilderDelegate _buildSliverGridChildBuilderDelegate(
+      BuildContext context) {
+    _store.iStores
+        .removeWhere((element) => element.illusts!.hateByUser(ai: _ai));
+    return SliverChildBuilderDelegate((BuildContext context, int index) {
+      return IllustCardGrid(
         lightingStore: _store,
         store: _store.iStores[index],
         iStores: _store.iStores,
@@ -319,6 +351,31 @@ class _LightingListState extends State<LightingList> {
       store: _store.iStores[index],
       lightingStore: _store,
       iStores: _store.iStores,
+    );
+  }
+
+  Widget _buildGridItem(int index) {
+    return IllustCardGrid(
+      store: _store.iStores[index],
+      lightingStore: _store,
+      iStores: _store.iStores,
+    );
+  }
+
+  int _getCrossAxisCount() {
+    if (userSetting.crossAdapt) {
+      return _buildSliderValue();
+    } else {
+      return (MediaQuery.of(context).orientation == Orientation.portrait)
+          ? userSetting.crossCount
+          : userSetting.hCrossCount;
+    }
+  }
+
+  SliverGridDelegate _buildSliverGridDelegate() {
+    return SliverGridDelegateWithFixedCrossAxisCount(
+      crossAxisCount: _getCrossAxisCount(),
+      childAspectRatio: userSetting.gridAspectRatio,
     );
   }
 }

@@ -290,6 +290,8 @@
   "successed": "Başarılı",
   "reply_to": "Yanıtla",
   "show_feed_ai_badge": "Akışta AI etiketini göster",
+  "use_waterfall_flow": "Şelale akışı düzenini kullan",
+  "grid_aspect_ratio": "Izgara en boy oranı",
   "illust_detail_save_skip_confirm": "Ayrıntılar sayfasında kaydederken onay penceresini atla",
   "secure_window": "Güvenli pencere",
   "open_saucenao_using_webview": "Webview kullanarak SauceNAO'yu aç",

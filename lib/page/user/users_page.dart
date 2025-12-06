@@ -298,15 +298,13 @@ class _UsersPageState extends State<UsersPage> with TickerProviderStateMixin {
                             children: <Widget>[
                               _buildNameFollow(context),
                               _buildComment(context),
-                              Tab(
-                                text: " ",
-                              )
+                              Tab(text: " ")
                             ],
                           ),
                         ),
                       ],
                     ),
-                  )
+                  ),
                 ],
               ),
             ),
@@ -613,7 +611,7 @@ class _UsersPageState extends State<UsersPage> with TickerProviderStateMixin {
             children: <Widget>[
               NullHero(
                 tag: userStore.user?.name ?? "" + widget.heroTag.toString(),
-                child: Text(
+                child: SelectableText(
                   userStore.user?.name ?? "",
                   style: Theme.of(context).textTheme.titleLarge,
                 ),

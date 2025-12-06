@@ -290,6 +290,8 @@
   "successed": "Завершено",
   "reply_to": "Ответить",
   "show_feed_ai_badge": "Показывать значок ленты ИИ",
+  "use_waterfall_flow": "Использовать каскадную раскладку",
+  "grid_aspect_ratio": "Соотношение сторон сетки",
   "illust_detail_save_skip_confirm": "Пропустить подтверждение при сохранении на странице информации",
   "secure_window": "Защищённое окно",
   "open_saucenao_using_webview": "Открывать SauceNao через веб-просмотр",
