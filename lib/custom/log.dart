@@ -7,7 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'logger_pretty_printer.dart';
 
 final excludePaths = [
-  'package:pica_comic/foundation/log.dart',
+  'package:pixez/custom/log.dart',
 ];
 final excludeMethods = <String>[];
 final logMemoryOut = MemoryOutput(

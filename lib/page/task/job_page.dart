@@ -44,7 +44,7 @@ class _JobPageState extends State<JobPage> with SingleTickerProviderStateMixin {
 
   // 新下载器任务列表
   List<DownloadTask> _downloaderTasks = [];
-  StreamSubscription<DownloadProgress>? _downloaderSubscription;
+  StreamSubscription<DownloadTask>? _downloaderSubscription;
 
   // 是否使用新下载器（Windows/Linux）
   bool get _useNewDownloader => Platform.isWindows || Platform.isLinux;
@@ -83,7 +83,13 @@ class _JobPageState extends State<JobPage> with SingleTickerProviderStateMixin {
     super.dispose();
   }
 
-  void _updateDownloaderTasks() {}
+  void _updateDownloaderTasks() {
+    if (mounted) {
+      setState(() {
+        _downloaderTasks = downloadStore.downloadingTasks.values.toList();
+      });
+    }
+  }
 
   initMethod() async {
     await taskPersistProvider.open();

@@ -19,6 +19,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:collection/collection.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:mobx/mobx.dart';
 import 'package:path/path.dart' as path hide context;
 import 'package:pixez/component/pixiv_image.dart';
@@ -29,27 +31,6 @@ import 'package:pixez/models/download_record.dart';
 import 'package:pixez/models/illust.dart';
 
 part 'download_store.g.dart';
-
-// 下载进度信息
-class DownloadProgress {
-  final int illustId;
-  final int part;
-  final int received;
-  final int total;
-  final DownloadTaskStatus status;
-  final String? error;
-
-  DownloadProgress({
-    required this.illustId,
-    required this.part,
-    required this.received,
-    required this.total,
-    required this.status,
-    this.error,
-  });
-
-  double get progress => total > 0 ? received / total : 0;
-}
 
 enum DownloadTaskStatus {
   pending,
@@ -63,6 +44,7 @@ class DownloadTask {
   final Illusts illusts;
   final int part;
   final String url;
+  final int createTime;
   DownloadTaskStatus status;
   int received;
   int total;
@@ -72,6 +54,7 @@ class DownloadTask {
     required this.illusts,
     required this.part,
     required this.url,
+    required this.createTime,
     this.status = DownloadTaskStatus.pending,
     this.received = 0,
     this.total = 0,
@@ -80,6 +63,9 @@ class DownloadTask {
 
   String get taskKey => '${illusts.id}_$part';
 
+  // 下载进度 (0.0 - 1.0)
+  double get progress => total > 0 ? received / total : 0;
+
   PendingDownload toPendingDownload() {
     return PendingDownload(
       id: taskKey,
@@ -87,15 +73,16 @@ class DownloadTask {
       part: part,
       url: url,
       status: status.name,
-      createTime: DateTime.now().millisecondsSinceEpoch,
+      createTime: createTime,
     );
   }
 
-  DownloadTask fromPendingDownload(PendingDownload pendingDownload) {
+  factory DownloadTask.fromPendingDownload(PendingDownload pendingDownload) {
     return DownloadTask(
       illusts: Illusts.fromJson(jsonDecode(pendingDownload.illustJson)),
       part: pendingDownload.part,
       url: pendingDownload.url,
+      createTime: pendingDownload.createTime,
       status: DownloadTaskStatus.values
               .firstWhereOrNull((e) => e.name == pendingDownload.status) ??
           DownloadTaskStatus.pending,
@@ -117,10 +104,10 @@ abstract class _DownloadStoreBase with Store {
   DownloadDatabaseProvider get dbProvider => _dbProvider;
 
   // 下载进度流
-  final StreamController<DownloadProgress> _progressController =
-      StreamController<DownloadProgress>.broadcast();
+  final StreamController<DownloadTask> _progressController =
+      StreamController<DownloadTask>.broadcast();
 
-  Stream<DownloadProgress> get progressStream => _progressController.stream;
+  Stream<DownloadTask> get progressStream => _progressController.stream;
 
   // 正在下载的任务
   @observable
@@ -130,8 +117,11 @@ abstract class _DownloadStoreBase with Store {
   // 下载队列
   final Queue<DownloadTask> _pendingQueue = Queue<DownloadTask>();
 
+  // 下载任务缓冲区
+  final List<DownloadTask> _downloadTaskBuffer = [];
+
   // 正在运行的下载
-  final Set<String> _runningUrls = {};
+  final Set<String> _runningTask = {};
 
   // 最大并发数
   int _maxConcurrent = 3;
@@ -153,6 +143,20 @@ abstract class _DownloadStoreBase with Store {
     Log.d('DownloadStore downloadPath: $downloadPath');
     await _dbProvider.open(downloadPath);
     await refreshCount();
+    await loadPendingTasks();
+  }
+
+  @action
+  Future<List<DownloadTask>> loadPendingTasks() async {
+    final pendingDownloads = await _dbProvider.getPendingDownloadsByStatus(
+      DownloadTaskStatus.values
+          .whereNot((e) => e != DownloadTaskStatus.completed)
+          .map((e) => e.name)
+          .toList(),
+    );
+    return pendingDownloads.map((e) {
+      return DownloadTask.fromPendingDownload(e);
+    }).toList();
   }
 
   @action
@@ -265,17 +269,23 @@ abstract class _DownloadStoreBase with Store {
     Toaster.showText('开始下载插画 ${illusts.id}');
     if (part != null) {
       // 下载单页
-      await _addDownloadTask(illusts, part);
+      _downloadTaskBuffer.add(_createDownloadTask(illusts, part));
     } else {
       // 下载所有页
       if (illusts.pageCount == 1) {
-        await _addDownloadTask(illusts, 0);
+        _downloadTaskBuffer.add(_createDownloadTask(illusts, 0));
       } else {
         for (int i = 0; i < illusts.metaPages.length; i++) {
-          await _addDownloadTask(illusts, i);
+          _downloadTaskBuffer.add(_createDownloadTask(illusts, i));
         }
       }
     }
+    Future.delayed(const Duration(milliseconds: 100), () async {
+      if (_downloadTaskBuffer.isEmpty) return;
+      final list = List.of(_downloadTaskBuffer);
+      _downloadTaskBuffer.clear();
+      addDownloadTasks(list);
+    });
   }
 
   String _getDownloadTaskFileName(DownloadTask task) {
@@ -301,17 +311,7 @@ abstract class _DownloadStoreBase with Store {
     return null;
   }
 
-  Future<void> _addDownloadTask(Illusts illusts, int part) async {
-    final taskKey = '${illusts.id}_$part';
-
-    // 检查是否已在下载队列中
-    if (downloadingTasks.containsKey(taskKey)) {
-      final task = downloadingTasks[taskKey];
-      Log.d(
-          'DownloadStore task $taskKey already exists, ${task?.error}, ${task?.status}');
-      return;
-    }
-
+  DownloadTask _createDownloadTask(Illusts illusts, int part) {
     // 获取下载URL
     String url;
     if (illusts.pageCount == 1) {
@@ -326,35 +326,75 @@ abstract class _DownloadStoreBase with Store {
       part: part,
       url: url,
       status: DownloadTaskStatus.pending,
+      createTime: DateTime.now().millisecondsSinceEpoch,
     );
+    return task;
+  }
+
+  Future<void> addDownloadTasks(List<DownloadTask> tasks) async {
+    final needAddTasks = <DownloadTask>[];
+    for (final task in tasks) {
+      final taskKey = task.taskKey;
+      if (downloadingTasks.containsKey(taskKey)) {
+        final task = downloadingTasks[taskKey];
+        Log.d(
+            'DownloadStore task $taskKey already exists, ${task?.error}, ${task?.status}');
+        continue;
+      }
+      final isDownloaded =
+          await _dbProvider.isImageDownloaded(task.illusts.id, task.part);
+      if (isDownloaded) {
+        Log.d('DownloadStore task $taskKey already downloaded');
+        continue;
+      }
+      needAddTasks.add(task);
+    }
+    if (needAddTasks.isEmpty) {
+      Toaster.showText('所有图片都已下载');
+    } else {
+      Toaster.showText('添加 ${needAddTasks.length} 个下载任务');
+      for (final task in needAddTasks) {
+        _addDownloadTask(task);
+      }
+    }
+  }
+
+  Future<void> _addDownloadTask(DownloadTask task) async {
+    // 获取下载URL
+    String url;
+    if (task.illusts.pageCount == 1) {
+      url = task.illusts.metaSinglePage!.originalImageUrl!;
+    } else {
+      url = task.illusts.metaPages[task.part].imageUrls!.original;
+    }
 
     // 检查目标文件是否已存在
     final targetPath = await _tryFindExistingImageFile(task);
 
     if (targetPath != null) {
       // 文件已存在，直接记录到数据库
-      await _recordDownload(illusts, part, url, targetPath);
+      await _recordDownload(task.illusts, task.part, url, targetPath);
       return;
     }
 
-    downloadingTasks[taskKey] = task;
+    downloadingTasks[task.taskKey] = task;
     _pendingQueue.add(task);
     // 添加到pending数据库中
     await _dbProvider.insertPendingDownload(task.toPendingDownload());
-    Log.d("添加下载任务: $taskKey");
+    Log.d("添加下载任务: ${task.taskKey}");
 
     // 尝试处理队列
     _processQueue();
   }
 
   void _processQueue() {
-    while (_pendingQueue.isNotEmpty && _runningUrls.length < _maxConcurrent) {
+    while (_pendingQueue.isNotEmpty && _runningTask.length < _maxConcurrent) {
       final task = _pendingQueue.removeFirst();
       if (!downloadingTasks.containsKey(task.taskKey)) {
         // 任务已被取消
         continue;
       }
-      _runningUrls.add(task.url);
+      _runningTask.add(task.taskKey);
       _startDownload(task);
     }
   }
@@ -399,21 +439,23 @@ abstract class _DownloadStoreBase with Store {
   }
 
   Future<void> _onDownloadSuccess(DownloadTask task, String targetPath) async {
+    Log.d(() => "下载成功: ${task.taskKey}, $targetPath");
     task.status = DownloadTaskStatus.completed;
     await _recordDownload(task.illusts, task.part, task.url, targetPath);
     downloadingTasks.remove(task.taskKey);
     _notifyProgress(task);
-    _runningUrls.remove(task.url);
-    _dbProvider.updatePendingDownloadStatus(task.taskKey, task.status.name);
+    _runningTask.remove(task.taskKey);
     _processQueue();
+    _dbProvider.deletePendingDownload(task.taskKey);
     await refreshCount();
   }
 
   void _onDownloadFailed(DownloadTask task, String error) {
+    Log.d(() => "下载失败: ${task.taskKey}, $error");
     task.status = DownloadTaskStatus.failed;
     task.error = error;
     _notifyProgress(task);
-    _runningUrls.remove(task.url);
+    _runningTask.remove(task.taskKey);
     _dbProvider.updatePendingDownloadStatus(task.taskKey, task.status.name);
     _processQueue();
   }
@@ -429,32 +471,6 @@ abstract class _DownloadStoreBase with Store {
     }
   }
 
-  // 由 Downloader 调用，报告完成
-  @action
-  Future<void> onDownloadComplete(
-    String taskKey,
-    String filePath,
-    int fileSize,
-  ) async {
-    final task = downloadingTasks[taskKey];
-    if (task == null) return;
-
-    task.status = DownloadTaskStatus.completed;
-    _notifyProgress(task);
-
-    // 记录到数据库
-    await _recordDownload(task.illusts, task.part, task.url, filePath);
-
-    // 清理
-    downloadingTasks.remove(taskKey);
-    _runningUrls.remove(task.url);
-
-    await refreshCount();
-
-    // 继续处理队列
-    _processQueue();
-  }
-
   // 由 Downloader 调用，报告失败
   @action
   void onDownloadFailed(String taskKey, String error) {
@@ -466,7 +482,7 @@ abstract class _DownloadStoreBase with Store {
     _notifyProgress(task);
 
     // 不从 downloadingTasks 中移除，允许重试
-    _runningUrls.remove(task.url);
+    _runningTask.remove(task.url);
     _processQueue();
   }
 
@@ -488,7 +504,7 @@ abstract class _DownloadStoreBase with Store {
   void cancelTask(String taskKey) {
     final task = downloadingTasks[taskKey];
     if (task != null) {
-      _runningUrls.remove(task.url);
+      _runningTask.remove(task.url);
       _pendingQueue.removeWhere((t) => t.taskKey == taskKey);
       downloadingTasks.remove(taskKey);
       _dbProvider.deletePendingDownload(taskKey);
@@ -507,14 +523,7 @@ abstract class _DownloadStoreBase with Store {
   }
 
   void _notifyProgress(DownloadTask task) {
-    _progressController.add(DownloadProgress(
-      illustId: task.illusts.id,
-      part: task.part,
-      received: task.received,
-      total: task.total,
-      status: task.status,
-      error: task.error,
-    ));
+    _progressController.add(task);
   }
 
   // 记录下载完成

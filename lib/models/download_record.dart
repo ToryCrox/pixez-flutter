@@ -529,6 +529,10 @@ class DownloadDatabaseProvider {
     return null;
   }
 
+  Future<bool> isImageDownloaded(int illustId, int part) async {
+    return await getImage(illustId, part) != null;
+  }
+
   Future<List<DownloadedImage>> getImagesByIllustId(int illustId) async {
     List<Map<String, dynamic>> maps = await db.query(
       DownloadedImageColumns.tableName,
@@ -653,11 +657,11 @@ class DownloadDatabaseProvider {
   }
 
   /// 获取指定状态的待下载任务
-  Future<List<PendingDownload>> getPendingDownloadsByStatus(int status) async {
+  Future<List<PendingDownload>> getPendingDownloadsByStatus(List<String> status) async {
     List<Map<String, dynamic>> maps = await db.query(
       PendingDownloadColumns.tableName,
-      where: '${PendingDownloadColumns.status} = ?',
-      whereArgs: [status],
+      where: '${PendingDownloadColumns.status} IN (${status.map((e) => '?').join(',')})',
+      whereArgs: [...status],
       orderBy: '${PendingDownloadColumns.createTime} ASC',
     );
     return maps.map((e) => PendingDownload.fromJson(e)).toList();
