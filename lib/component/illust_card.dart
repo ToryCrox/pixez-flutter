@@ -199,11 +199,6 @@ class _IllustCardState extends State<IllustCard> {
                           right: 5.0,
                           child: Row(
                             children: [
-                              // 下载状态指示器
-                              DownloadStatusIndicator(
-                                illustId: store.illusts!.id,
-                                size: 16,
-                              ),
                               if (userSetting.feedAIBadge &&
                                   store.illusts!.illustAIType == 2)
                                 _buildAIBadge(),
@@ -330,12 +325,24 @@ class _IllustCardState extends State<IllustCard> {
                 left: 8.0, right: 36.0, top: 4, bottom: 4),
             child:
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(
-                store.illusts!.title,
-                maxLines: 1,
-                overflow: TextOverflow.clip,
-                style: Theme.of(context).textTheme.bodyMedium,
-                strutStyle: StrutStyle(forceStrutHeight: true, leading: 0),
+              Row(
+                children: [
+                  DownloadStatusIndicator(
+                    illustId: store.illusts!.id,
+                    pageCount: store.illusts!.pageCount,
+                    size: 14,
+                  ),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      store.illusts!.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.clip,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                      strutStyle: StrutStyle(forceStrutHeight: true, leading: 0),
+                    ),
+                  ),
+                ],
               ),
               Text(
                 store.illusts!.user.name,

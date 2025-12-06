@@ -13,6 +13,7 @@
  * this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:cached_network_image/cached_network_image.dart';
@@ -22,6 +23,7 @@ import 'package:pixez/component/pixiv_image.dart';
 import 'package:pixez/custom/log.dart';
 import 'package:pixez/er/hoster.dart';
 import 'package:pixez/main.dart';
+import 'package:pixez/store/download_store.dart';
 
 /// 优先加载本地已下载图片的组件
 /// 如果本地没有，则回退到网络加载
@@ -278,37 +280,172 @@ class _LocalOrPhotoViewImageState extends State<LocalOrPhotoViewImage> {
 }
 
 /// 下载状态指示器组件
-class DownloadStatusIndicator extends StatelessWidget {
+/// 支持三种状态: 下载中(显示进度)、下载完成、未下载
+class DownloadStatusIndicator extends StatefulWidget {
   final int illustId;
+  final int pageCount;
   final double size;
-  final Color? color;
+  final Color? downloadedColor;
+  final Color? downloadingColor;
 
   const DownloadStatusIndicator({
     Key? key,
     required this.illustId,
+    this.pageCount = 1,
     this.size = 16,
-    this.color,
+    this.downloadedColor,
+    this.downloadingColor,
   }) : super(key: key);
 
   @override
+  State<DownloadStatusIndicator> createState() =>
+      _DownloadStatusIndicatorState();
+}
+
+enum _DownloadStatus {
+  none,
+  pending,
+  downloading,
+  downloaded,
+  failed,
+}
+
+class _DownloadStatusIndicatorState extends State<DownloadStatusIndicator> {
+  _DownloadStatus _status = _DownloadStatus.none;
+  StreamSubscription<DownloadTask>? _subscription;
+
+  @override
+  void initState() {
+    super.initState();
+    _subscription = downloadStore.progressStream.listen(_onProgressUpdate);
+    _checkStatus();
+  }
+
+  @override
+  void dispose() {
+    _subscription?.cancel();
+    super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant DownloadStatusIndicator oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.illustId != widget.illustId) {
+      _checkStatus();
+    }
+  }
+
+  void _onProgressUpdate(DownloadTask task) {
+    if (task.illusts.id != widget.illustId) return;
+    if (!mounted) return;
+
+    _checkStatus();
+  }
+
+
+  Future<_DownloadStatus> _getStatus() async {
+    // 检查是否有正在下载或等待下载的任务
+    final tasks = downloadStore.downloadingTasks.values
+        .where((t) => t.illusts.id == widget.illustId)
+        .toList();
+    /// 还要加pending
+    if (tasks.isNotEmpty) {
+      final hasDownloading = tasks.any((t) => t.status == DownloadTaskStatus.downloading);
+      if (hasDownloading) {
+        return _DownloadStatus.downloading;
+      }
+      final hasPending = tasks.any((t) => t.status == DownloadTaskStatus.pending);
+      if (hasPending) {
+        return _DownloadStatus.pending;
+      }
+      final hasFailed = tasks.any((t) => t.status == DownloadTaskStatus.failed);
+      if (hasFailed) {
+        return _DownloadStatus.failed;
+      }
+    }
+
+    final downloadedCount = await downloadStore.getDownloadedPageCount(widget.illustId);
+    if (downloadedCount > 0) {
+      // todo: 这里还要查询下载是否全部下载完了，否则要显示还有要下载的图片
+      return _DownloadStatus.downloaded;
+    }
+    return _DownloadStatus.none;
+  }
+
+  Future<void> _checkStatus() async {
+    if (!downloadStore.isInitialized) {
+      if (mounted) {
+        setState(() {
+          _status = _DownloadStatus.none;
+        });
+      }
+      return;
+    }
+    final newStatus = await _getStatus();
+    if (newStatus != _status) {
+      if (mounted) {
+        setState(() {
+          _status = newStatus;
+          Log.d(() => "Download status: $_status");
+        });
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return FutureBuilder<bool>(
-      future: _checkDownloaded(),
-      builder: (context, snapshot) {
-        if (snapshot.hasData && snapshot.data == true) {
-          return Icon(
-            Icons.download_done,
-            size: size,
-            color: color ?? Colors.green,
-          );
-        }
-        return SizedBox.shrink();
-      },
+    switch (_status) {
+      case _DownloadStatus.downloaded:
+        return _buildDownloadedIcon();
+      case _DownloadStatus.downloading:
+        return _buildDownloadingIndicator();
+      case _DownloadStatus.pending:
+        return _buildPendingIndicator();
+        case _DownloadStatus.failed:
+          return _buildFailedIcon();
+      case _DownloadStatus.none:
+        return const SizedBox.shrink();
+    }
+  }
+
+  Widget _buildDownloadedIcon() {
+    return Icon(
+      Icons.download_done,
+      size: widget.size,
+      color: widget.downloadedColor ?? Colors.green,
     );
   }
 
-  Future<bool> _checkDownloaded() async {
-    if (!downloadStore.isInitialized) return false;
-    return await downloadStore.isIllustDownloaded(illustId);
+  Widget _buildPendingIndicator() {
+    return Icon(
+      Icons.schedule,
+      size: widget.size,
+      color: Colors.grey,
+    );
+  }
+
+  Widget _buildDownloadingIndicator() {
+    return SizedBox(
+      width: widget.size,
+      height: widget.size,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          CircularProgressIndicator(
+            //value: _currentProgress > 0 ? _currentProgress : null,
+            strokeWidth: 2,
+            color: widget.downloadingColor ?? Theme.of(context).colorScheme.primary,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFailedIcon() {
+    return Icon(
+      Icons.error,
+      size: widget.size,
+      color: Colors.red,
+    );
   }
 }

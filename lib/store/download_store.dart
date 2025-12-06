@@ -398,6 +398,9 @@ abstract class _DownloadStoreBase with Store {
     await _dbProvider.insertPendingDownload(task.toPendingDownload());
     Log.d("添加下载任务: ${task.taskKey}");
 
+    // 通知 pending 状态
+    _notifyProgress(task);
+
     // 尝试处理队列
     _processQueue();
   }
@@ -457,10 +460,10 @@ abstract class _DownloadStoreBase with Store {
     Log.d(() => "下载成功: ${task.taskKey}, $targetPath");
     task.status = DownloadTaskStatus.completed;
     await _recordDownload(task.illusts, task.part, task.url, targetPath);
+    await _dbProvider.deletePendingDownload(task.taskKey);
     downloadingTasks.remove(task.taskKey);
     _notifyProgress(task);
     _runningTask.remove(task.taskKey);
-    await _dbProvider.deletePendingDownload(task.taskKey);
     _processQueue();
     await refreshCount();
     pixivCacheManager.removeFile(task.url);
