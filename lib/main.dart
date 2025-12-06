@@ -16,6 +16,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/gestures.dart';
 import 'package:bot_toast/bot_toast.dart';
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/material.dart';
@@ -191,6 +192,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           navigatorObservers: [BotToastNavigatorObserver(), routeObserver],
           locale: userSetting.locale,
           navigatorKey: globalNavigatorKey,
+          scrollBehavior: MouseDragScrollBehavior(),
           home: Builder(builder: (context) {
             return AnnotatedRegion<SystemUiOverlayStyle>(
                 value: SystemUiOverlayStyle(
@@ -278,4 +280,14 @@ Future<void> initWindows(List<String> args) async {
       WindowPlacement.loop();
     }
   });
+}
+
+class MouseDragScrollBehavior extends MaterialScrollBehavior {
+  @override
+  Set<PointerDeviceKind> get dragDevices => {
+        PointerDeviceKind.touch,
+        PointerDeviceKind.mouse,
+        PointerDeviceKind.stylus,
+        PointerDeviceKind.trackpad,
+      };
 }
