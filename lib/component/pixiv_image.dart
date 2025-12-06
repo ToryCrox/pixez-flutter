@@ -20,6 +20,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:dio/dio.dart';
 import 'package:dio_compatibility_layer/dio_compatibility_layer.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_cache_manager_dio/flutter_cache_manager_dio.dart';
 
 import 'package:pixez/er/hoster.dart';
@@ -37,7 +38,29 @@ const ImageSHost = "s.pximg.net";
 // 如果你恰好看到这个实现方法实例，且对你有些帮助或者启发：
 // 听一首Mili-Salt, Pepper, Birds, And the Thought Police吧 🎵
 
-DioCacheManager pixivCacheManager = DioCacheManager.instance;
+PixivCacheManager pixivCacheManager = PixivCacheManager.instance;
+
+/// 自定义缓存管理器，支持设置最大缓存数量
+class PixivCacheManager extends CacheManager with ImageCacheManager {
+  static const key = 'pixivCache';
+  static const int maxCacheObjects = 2000;
+
+  static late final PixivCacheManager _instance;
+
+  static PixivCacheManager get instance => _instance;
+
+  static void initialize(Dio dio) {
+    _instance = PixivCacheManager._(dio);
+  }
+
+  PixivCacheManager._(Dio dio)
+      : super(Config(
+          key,
+          maxNrOfCacheObjects: maxCacheObjects,
+          stalePeriod: Duration(days: 365),
+          fileService: DioHttpFileService(dio),
+        ));
+}
 
 class PixivImage extends StatefulWidget {
   final String url;
@@ -87,7 +110,7 @@ class PixivImage extends StatefulWidget {
                   },
                 )));
     dio.httpClientAdapter = ConversionLayerAdapter(client);
-    DioCacheManager.initialize(dio);
+    PixivCacheManager.initialize(dio);
   }
 }
 

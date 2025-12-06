@@ -33,6 +33,7 @@ class DownloadedPage extends StatefulWidget {
 class _DownloadedPageState extends State<DownloadedPage> {
   List<DownloadedIllust> _illusts = [];
   List<Map<String, dynamic>> _users = [];
+  Map<int, int> _downloadedCounts = {}; // illustId -> 已下载数量
   bool _loading = true;
   String? _searchKeyword;
   int? _filterUserId;
@@ -100,10 +101,20 @@ class _DownloadedPageState extends State<DownloadedPage> {
         );
       }
 
+      // 查询每个插画的已下载数量
+      final counts = <int, int>{};
+      for (final illust in illusts) {
+        if (illust.pageCount > 1) {
+          counts[illust.illustId] =
+              await downloadStore.getDownloadedPageCount(illust.illustId);
+        }
+      }
+
       if (mounted) {
         setState(() {
           _users = users;
           _illusts = illusts;
+          _downloadedCounts = counts;
           _loading = false;
           _hasMore = illusts.length >= _pageSize;
         });
@@ -147,6 +158,14 @@ class _DownloadedPageState extends State<DownloadedPage> {
           limit: _pageSize,
           offset: offset,
         );
+      }
+
+      // 查询每个插画的已下载数量
+      for (final illust in moreIllusts) {
+        if (illust.pageCount > 1) {
+          _downloadedCounts[illust.illustId] =
+              await downloadStore.getDownloadedPageCount(illust.illustId);
+        }
       }
 
       if (mounted) {
@@ -304,10 +323,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
                   if (illust.pageCount > 1)
                     Padding(
                       padding: EdgeInsets.only(top: 2),
-                      child: Text(
-                        '${illust.pageCount}P',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
+                      child: _buildPageCountIndicator(illust),
                     ),
                 ],
               ),
@@ -344,6 +360,27 @@ class _DownloadedPageState extends State<DownloadedPage> {
 
   Future<String?> _getFirstImagePath(DownloadedIllust illust) async {
     return await downloadStore.getLocalImagePath(illust.illustId, 0);
+  }
+
+  Widget _buildPageCountIndicator(DownloadedIllust illust) {
+    final downloadedCount = _downloadedCounts[illust.illustId] ?? illust.pageCount;
+    final totalCount = illust.pageCount;
+
+    if (downloadedCount < totalCount) {
+      // 未全部下载完成，显示已下载/总数
+      return Text(
+        '$downloadedCount/$totalCount',
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: Colors.orange,
+        ),
+      );
+    } else {
+      // 全部下载完成，只显示总数
+      return Text(
+        '${totalCount}P',
+        style: Theme.of(context).textTheme.bodySmall,
+      );
+    }
   }
 
   void _showFilterDialog() {

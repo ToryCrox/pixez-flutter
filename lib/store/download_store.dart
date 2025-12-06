@@ -463,6 +463,7 @@ abstract class _DownloadStoreBase with Store {
     await _dbProvider.deletePendingDownload(task.taskKey);
     _processQueue();
     await refreshCount();
+    pixivCacheManager.removeFile(task.url);
   }
 
   Future<void> _onDownloadFailed(DownloadTask task, String error) async {
