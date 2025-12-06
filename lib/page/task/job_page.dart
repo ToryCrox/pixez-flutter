@@ -20,12 +20,12 @@ import 'package:animations/animations.dart';
 import 'package:flutter/material.dart';
 import 'package:pixez/component/pixiv_image.dart';
 import 'package:pixez/component/sort_group.dart';
-import 'package:pixez/er/downloader.dart';
 import 'package:pixez/i18n.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/models/task_persist.dart';
 import 'package:pixez/page/downloaded/downloaded_page.dart';
 import 'package:pixez/page/picture/illust_lighting_page.dart';
+import 'package:pixez/store/download_store.dart';
 import 'package:pixez/store/save_store.dart';
 
 class JobPage extends StatefulWidget {
@@ -43,8 +43,8 @@ class _JobPageState extends State<JobPage> with SingleTickerProviderStateMixin {
   int STATUS_ALL = 10;
 
   // 新下载器任务列表
-  List<DownloaderTask> _downloaderTasks = [];
-  StreamSubscription<DownloaderProgress>? _downloaderSubscription;
+  List<DownloadTask> _downloaderTasks = [];
+  StreamSubscription<DownloadProgress>? _downloaderSubscription;
 
   // 是否使用新下载器（Windows/Linux）
   bool get _useNewDownloader => Platform.isWindows || Platform.isLinux;
@@ -66,7 +66,7 @@ class _JobPageState extends State<JobPage> with SingleTickerProviderStateMixin {
 
     // 监听新下载器进度
     if (_useNewDownloader) {
-      _downloaderSubscription = downloader.progressStream.listen((progress) {
+      _downloaderSubscription = downloadStore.progressStream.listen((progress) {
         if (mounted) {
           _updateDownloaderTasks();
         }
@@ -83,11 +83,7 @@ class _JobPageState extends State<JobPage> with SingleTickerProviderStateMixin {
     super.dispose();
   }
 
-  void _updateDownloaderTasks() {
-    setState(() {
-      _downloaderTasks = downloader.activeTasks.values.toList();
-    });
-  }
+  void _updateDownloaderTasks() {}
 
   initMethod() async {
     await taskPersistProvider.open();
@@ -395,13 +391,13 @@ class _JobPageState extends State<JobPage> with SingleTickerProviderStateMixin {
 
   Widget _buildNewDownloaderBody() {
     // 根据当前选中的标签过滤任务
-    List<DownloaderTask> filteredTasks = _downloaderTasks;
+    List<DownloadTask> filteredTasks = _downloaderTasks;
     if (currentIndex == 1) {
       // 只显示正在运行的任务
       filteredTasks = _downloaderTasks
           .where((t) =>
-              t.status == DownloaderTaskStatus.pending ||
-              t.status == DownloaderTaskStatus.downloading)
+              t.status == DownloadTaskStatus.pending ||
+              t.status == DownloadTaskStatus.downloading)
           .toList();
     }
 
@@ -412,7 +408,10 @@ class _JobPageState extends State<JobPage> with SingleTickerProviderStateMixin {
           children: [
             Text(
               "[ ]",
-              style: Theme.of(context).textTheme.bodyMedium!.copyWith(fontSize: 24),
+              style: Theme.of(context)
+                  .textTheme
+                  .bodyMedium!
+                  .copyWith(fontSize: 24),
             ),
             SizedBox(height: 16),
             if (currentIndex == 0)
@@ -440,12 +439,12 @@ class _JobPageState extends State<JobPage> with SingleTickerProviderStateMixin {
     );
   }
 
-  Widget _buildNewDownloaderItem(DownloaderTask task) {
+  Widget _buildNewDownloaderItem(DownloadTask task) {
     final illusts = task.illusts;
     final progress = task.total > 0 ? task.received / task.total : 0.0;
-    final isRunning = task.status == DownloaderTaskStatus.downloading ||
-        task.status == DownloaderTaskStatus.pending;
-    final isFailed = task.status == DownloaderTaskStatus.failed;
+    final isRunning = task.status == DownloadTaskStatus.downloading ||
+        task.status == DownloadTaskStatus.pending;
+    final isFailed = task.status == DownloadTaskStatus.failed;
 
     return Card(
       margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -514,7 +513,7 @@ class _JobPageState extends State<JobPage> with SingleTickerProviderStateMixin {
                             if (isFailed)
                               InkWell(
                                 onTap: () {
-                                  downloader.retryTask(illusts.id, task.part);
+                                  downloadStore.retryTask(task.taskKey);
                                 },
                                 child: Icon(Icons.refresh),
                               ),
@@ -522,7 +521,7 @@ class _JobPageState extends State<JobPage> with SingleTickerProviderStateMixin {
                               padding: const EdgeInsets.all(8.0),
                               child: InkWell(
                                 onTap: () {
-                                  downloader.cancelTask(illusts.id, task.part);
+                                  downloadStore.cancelTask(task.taskKey);
                                   _updateDownloaderTasks();
                                 },
                                 child: Icon(Icons.delete),
@@ -539,7 +538,10 @@ class _JobPageState extends State<JobPage> with SingleTickerProviderStateMixin {
                         padding: const EdgeInsets.symmetric(horizontal: 8.0),
                         child: Text(
                           illusts.user.name,
-                          style: Theme.of(context).textTheme.bodyLarge!.copyWith(
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodyLarge!
+                              .copyWith(
                                 color: Theme.of(context).colorScheme.primary,
                                 fontSize: 12,
                               ),
@@ -555,13 +557,13 @@ class _JobPageState extends State<JobPage> with SingleTickerProviderStateMixin {
                                 if (isFailed)
                                   IconButton(
                                     onPressed: () {
-                                      downloader.retryTask(illusts.id, task.part);
+                                      downloadStore.retryTask(task.taskKey);
                                     },
                                     icon: Icon(Icons.refresh),
                                   ),
                                 IconButton(
                                   onPressed: () {
-                                    downloader.cancelTask(illusts.id, task.part);
+                                    downloadStore.cancelTask(task.taskKey);
                                     _updateDownloaderTasks();
                                   },
                                   icon: Icon(Icons.delete),
@@ -593,21 +595,21 @@ class _JobPageState extends State<JobPage> with SingleTickerProviderStateMixin {
     );
   }
 
-  Widget _buildNewDownloaderStatus(DownloaderTaskStatus status) {
+  Widget _buildNewDownloaderStatus(DownloadTaskStatus status) {
     switch (status) {
-      case DownloaderTaskStatus.pending:
+      case DownloadTaskStatus.pending:
         return Text(
           'seed',
           style: Theme.of(context).textTheme.bodyMedium!.copyWith(fontSize: 12),
         );
-      case DownloaderTaskStatus.downloading:
+      case DownloadTaskStatus.downloading:
         return Text(
           I18n.of(context).running,
           style: Theme.of(context).textTheme.bodyMedium!.copyWith(fontSize: 12),
         );
-      case DownloaderTaskStatus.completed:
+      case DownloadTaskStatus.completed:
         return Icon(Icons.check_circle, color: Colors.green, size: 16);
-      case DownloaderTaskStatus.failed:
+      case DownloadTaskStatus.failed:
         return Icon(Icons.error, size: 16);
     }
   }

@@ -16,7 +16,7 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:path/path.dart';
+import 'package:path/path.dart' as path;
 import 'package:pixez/exts.dart';
 import 'package:pixez/models/illust.dart';
 import 'package:pixez/store/download_store.dart';
@@ -294,7 +294,7 @@ class DownloadDatabaseProvider {
 
   Future<void> open(String downloadPath) async {
     _basePath = downloadPath;
-    String dbPath = join(downloadPath, 'download.db');
+    String dbPath = path.join(downloadPath, 'download.db');
 
     // 确保目录存在
     final dir = Directory(downloadPath);
@@ -352,7 +352,7 @@ class DownloadDatabaseProvider {
             ${PendingDownloadColumns.url} TEXT NOT NULL,
             ${PendingDownloadColumns.illustJson} TEXT NOT NULL,
             ${PendingDownloadColumns.createTime} INTEGER NOT NULL,
-            ${PendingDownloadColumns.status} TEXT NOT NULL DEFAULT 'pending',
+            ${PendingDownloadColumns.status} TEXT NOT NULL DEFAULT 'pending'
           )
         ''');
 
@@ -374,7 +374,7 @@ class DownloadDatabaseProvider {
               ${PendingDownloadColumns.url} TEXT NOT NULL,
               ${PendingDownloadColumns.illustJson} TEXT NOT NULL,
               ${PendingDownloadColumns.createTime} INTEGER NOT NULL,
-              ${PendingDownloadColumns.status} TEXT NOT NULL DEFAULT 'pending',
+              ${PendingDownloadColumns.status} TEXT NOT NULL DEFAULT 'pending'
             )
           ''');
         }
@@ -591,7 +591,7 @@ class DownloadDatabaseProvider {
   static String buildRelativePath(Illusts illusts) {
     final userDir = buildUserDirName(illusts.user.name, illusts.user.id);
     final illustDir = buildIllustDirName(illusts.id, illusts.title);
-    return join(userDir, illustDir);
+    return path.join(userDir, illustDir);
   }
 
   /// 获取图片的完整文件路径
@@ -600,7 +600,7 @@ class DownloadDatabaseProvider {
     if (image == null) return null;
 
     final fullPath =
-        join(_basePath!, image.relativePath, image.getFullFileName());
+        path.join(_basePath!, image.relativePath, image.getFullFileName());
     return fullPath;
   }
 
@@ -609,7 +609,7 @@ class DownloadDatabaseProvider {
     final image = await getImage(illustId, part);
     if (image == null) return null;
 
-    final basePath = join(_basePath!, image.relativePath, image.fileName);
+    final basePath = path.join(_basePath!, image.relativePath, image.fileName);
 
     // 首先尝试数据库中记录的后缀
     String fullPath = '$basePath${image.extension}';
@@ -618,8 +618,7 @@ class DownloadDatabaseProvider {
     }
 
     // 尝试其他常见后缀
-    final extensions = ['.jpg', '.png', '.webp', '.gif', '.jpeg'];
-    for (final ext in extensions) {
+    for (final ext in kImageExtensions) {
       if (ext == image.extension) continue;
       fullPath = '$basePath$ext';
       if (await File(fullPath).exists()) {

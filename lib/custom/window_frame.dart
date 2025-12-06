@@ -7,6 +7,7 @@ import 'package:pixez/er/leader.dart';
 import 'package:pixez/er/prefer.dart';
 import 'package:pixez/i18n.dart';
 import 'package:pixez/main.dart';
+import 'package:pixez/page/downloaded/downloaded_page.dart';
 import 'package:pixez/page/hello/setting/setting_quality_page.dart';
 import 'package:pixez/page/history/history_page.dart';
 import 'package:pixez/page/task/job_page.dart';
@@ -295,11 +296,21 @@ class _SideBarBody extends StatelessWidget {
         ),
         buildItem(
           icon: Icons.download,
-          title: '任务进度',
+          title: '下载任务',
           onTap: () {
             windowFrameController.openSideBar();
             Navigator.of(globalNavigatorKey.currentContext!).push(
               MaterialPageRoute(builder: (context) => JobPage()),
+            );
+          },
+        ),
+        buildItem(
+          icon: Icons.download,
+          title: '下载记录',
+          onTap: () {
+            windowFrameController.openSideBar();
+            Navigator.of(globalNavigatorKey.currentContext!).push(
+              MaterialPageRoute(builder: (context) => DownloadedPage()),
             );
           },
         ),

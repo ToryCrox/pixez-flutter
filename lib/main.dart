@@ -28,7 +28,6 @@ import 'package:path_provider/path_provider.dart';
 import 'package:pixez/constants.dart';
 import 'package:pixez/custom/window_frame.dart';
 import 'package:pixez/document_plugin.dart';
-import 'package:pixez/er/downloader.dart';
 import 'package:pixez/er/fetcher.dart';
 import 'package:pixez/fluent/fluentui.dart';
 import 'package:pixez/i18n.dart';

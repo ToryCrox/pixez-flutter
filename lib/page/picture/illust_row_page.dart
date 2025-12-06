@@ -21,6 +21,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:pixez/component/ban_page.dart';
 import 'package:pixez/component/common_back_area.dart';
+import 'package:pixez/component/local_or_cached_image.dart';
 import 'package:pixez/component/null_hero.dart';
 import 'package:pixez/component/painter_avatar.dart';
 import 'package:pixez/component/pixiv_image.dart';
@@ -491,66 +492,51 @@ class _IllustRowPageState extends State<IllustRowPage>
   }
 
   Widget _buildIllustsItem(int index, Illusts illust, double height) {
+    final String imageUrl;
+    final String mediumImageUrl;
+    final double? width;
     if (illust.type == "manga") {
-      String url = illust.managaDetailImageUrl(index);
+      imageUrl = illust.managaDetailImageUrl(index);
+      mediumImageUrl = illust.metaPages[index].imageUrls!.medium;
+      width = MediaQuery.of(context).size.width;
+    } else {
+      imageUrl = illust.illustDetailImageUrl(index);
+      mediumImageUrl = illust.metaPages[index].imageUrls!.medium;
+      width = null;
+    }
+
+    Widget child = LocalOrCachedImage(
+      illustId: illust.id,
+      part: index,
+      networkUrl: imageUrl,
+      placeWidget: PixivImage(
+        mediumImageUrl,
+        width: width,
+        fade: false,
+      ),
+      width: width,
+      fade: false,
+    );
+
+    if (illust.type == "manga") {
       if (index == 0)
         return NullHero(
-          child: PixivImage(
-            url,
-            placeWidget: PixivImage(
-              illust.metaPages[index].imageUrls!.medium,
-              width: MediaQuery.of(context).size.width,
-              fade: false,
-            ),
-            width: MediaQuery.of(context).size.width,
-            fade: false,
-          ),
+          child: child,
           tag: widget.heroString,
         );
-      return PixivImage(
-        url,
-        fade: false,
-        width: MediaQuery.of(context).size.width,
-        placeWidget: Container(
-          height: height,
-          child: Center(
-            child: Text('$index',
-                style: Theme.of(context).textTheme.headlineMedium),
-          ),
-        ),
-      );
+      return child;
     }
     return index == 0
         ? (userSetting.pictureQuality >= 1
             ? NullHero(
-                child: PixivImage(
-                  illust.illustDetailImageUrl(index),
-                  placeWidget: PixivImage(
-                    illust.metaPages[index].imageUrls!.medium,
-                    fade: false,
-                  ),
-                  fade: false,
-                ),
+                child: child,
                 tag: widget.heroString,
               )
             : NullHero(
-                child: PixivImage(
-                  illust.metaPages[index].imageUrls!.medium,
-                  fade: false,
-                ),
+                child: child,
                 tag: widget.heroString,
               ))
-        : PixivImage(
-            illust.illustDetailImageUrl(index),
-            fade: false,
-            placeWidget: Container(
-              height: 150,
-              child: Center(
-                child: Text('$index',
-                    style: Theme.of(context).textTheme.headlineMedium),
-              ),
-            ),
-          );
+        : child;
   }
 
   Future _longPressTag(BuildContext context, Tags f) async {

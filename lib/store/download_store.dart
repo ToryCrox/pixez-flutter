@@ -20,8 +20,11 @@ import 'dart:io';
 
 import 'package:collection/collection.dart';
 import 'package:mobx/mobx.dart';
-import 'package:path/path.dart' hide context as path;
+import 'package:path/path.dart' as path hide context;
+import 'package:pixez/component/pixiv_image.dart';
 import 'package:pixez/custom/log.dart';
+import 'package:pixez/er/hoster.dart';
+import 'package:pixez/er/toaster.dart';
 import 'package:pixez/models/download_record.dart';
 import 'package:pixez/models/illust.dart';
 
@@ -103,6 +106,8 @@ class DownloadTask {
   }
 }
 
+const kImageExtensions = ['.webp', '.jpg', '.png', '.gif', '.jpeg'];
+
 class DownloadStore = _DownloadStoreBase with _$DownloadStore;
 
 abstract class _DownloadStoreBase with Store {
@@ -145,6 +150,7 @@ abstract class _DownloadStoreBase with Store {
   Future<void> init(String downloadPath, {int maxConcurrent = 3}) async {
     _downloadPath = downloadPath;
     _maxConcurrent = maxConcurrent;
+    Log.d('DownloadStore downloadPath: $downloadPath');
     await _dbProvider.open(downloadPath);
     await refreshCount();
   }
@@ -256,6 +262,7 @@ abstract class _DownloadStoreBase with Store {
       throw Exception('DownloadStore not initialized');
     }
 
+    Toaster.showText('开始下载插画 ${illusts.id}');
     if (part != null) {
       // 下载单页
       await _addDownloadTask(illusts, part);
@@ -280,11 +287,28 @@ abstract class _DownloadStoreBase with Store {
     return path.join(_downloadPath!, relativePath, '$fileName$extension');
   }
 
+  Future<String?> _tryFindExistingImageFile(DownloadTask task) async {
+    final relativePath =
+        DownloadDatabaseProvider.buildRelativePath(task.illusts);
+    final fileName =
+        DownloadDatabaseProvider.buildFileName(task.illusts.id, task.part);
+    for (final ext in kImageExtensions) {
+      final fullPath = path.join(_downloadPath!, relativePath, '$fileName$ext');
+      if (await File(fullPath).exists()) {
+        return fullPath;
+      }
+    }
+    return null;
+  }
+
   Future<void> _addDownloadTask(Illusts illusts, int part) async {
     final taskKey = '${illusts.id}_$part';
 
     // 检查是否已在下载队列中
     if (downloadingTasks.containsKey(taskKey)) {
+      final task = downloadingTasks[taskKey];
+      Log.d(
+          'DownloadStore task $taskKey already exists, ${task?.error}, ${task?.status}');
       return;
     }
 
@@ -305,9 +329,9 @@ abstract class _DownloadStoreBase with Store {
     );
 
     // 检查目标文件是否已存在
-    final targetPath = _getDownloadTaskFileName(task);
+    final targetPath = await _tryFindExistingImageFile(task);
 
-    if (await File(targetPath).exists()) {
+    if (targetPath != null) {
       // 文件已存在，直接记录到数据库
       await _recordDownload(illusts, part, url, targetPath);
       return;
@@ -340,25 +364,49 @@ abstract class _DownloadStoreBase with Store {
     _notifyProgress(task);
 
     try {
-      /// 1. pixivCacheManager中判断是否存在，如果存在，复制到targetPath
-      
+      final targetPath = _getDownloadTaskFileName(task);
+      final targetFile = File(targetPath);
+      final targetDir = targetFile.parent;
 
-      /// 2. 如果不存在，下载
-      
-      
+      // 确保目标目录存在
+      if (!await targetDir.exists()) {
+        await targetDir.create(recursive: true);
+      }
 
+      // 1. 尝试从缓存获取
+      final cached = await pixivCacheManager.getFileFromCache(task.url);
+      if (cached != null && await cached.file.exists()) {
+        // 从缓存复制到目标目录
+        await cached.file.copy(targetPath);
+        await _onDownloadSuccess(task, targetPath);
+        return;
+      }
+
+      // 2. 使用pixivCacheManager下载
+      final fileInfo = await pixivCacheManager.downloadFile(
+        task.url,
+        authHeaders: Hoster.header(url: task.url),
+      );
+
+      // 3. 复制到目标目录
+      await fileInfo.file.copy(targetPath);
+
+      // 5. 清理任务
+      await _onDownloadSuccess(task, targetPath);
     } catch (e) {
       _onDownloadFailed(task, e.toString());
     }
   }
 
-
-  void _onDownloadComplete(DownloadTask task) {
+  Future<void> _onDownloadSuccess(DownloadTask task, String targetPath) async {
     task.status = DownloadTaskStatus.completed;
+    await _recordDownload(task.illusts, task.part, task.url, targetPath);
+    downloadingTasks.remove(task.taskKey);
     _notifyProgress(task);
     _runningUrls.remove(task.url);
     _dbProvider.updatePendingDownloadStatus(task.taskKey, task.status.name);
     _processQueue();
+    await refreshCount();
   }
 
   void _onDownloadFailed(DownloadTask task, String error) {
@@ -443,6 +491,7 @@ abstract class _DownloadStoreBase with Store {
       _runningUrls.remove(task.url);
       _pendingQueue.removeWhere((t) => t.taskKey == taskKey);
       downloadingTasks.remove(taskKey);
+      _dbProvider.deletePendingDownload(taskKey);
     }
   }
 
@@ -523,7 +572,7 @@ abstract class _DownloadStoreBase with Store {
 
     // 删除文件
     for (final image in images) {
-      final filePath = join(
+      final filePath = path.join(
         _downloadPath!,
         image.relativePath,
         image.getFullFileName(),
@@ -533,12 +582,14 @@ abstract class _DownloadStoreBase with Store {
         if (await file.exists()) {
           await file.delete();
         }
-      } catch (_) {}
+      } catch (e, s) {
+        Log.e('删除文件失败: $filePath', stackTrace: s);
+      }
     }
 
     // 尝试删除空目录
+    final illustDir = path.join(_downloadPath!, illust.relativePath);
     try {
-      final illustDir = join(_downloadPath!, illust.relativePath);
       final dir = Directory(illustDir);
       if (await dir.exists()) {
         final contents = await dir.list().toList();
@@ -546,7 +597,9 @@ abstract class _DownloadStoreBase with Store {
           await dir.delete();
         }
       }
-    } catch (_) {}
+    } catch (e, s) {
+      Log.e('删除目录失败: ${illustDir}', stackTrace: s);
+    }
 
     // 从数据库删除
     await _dbProvider.deleteIllustByIllustId(illustId);
