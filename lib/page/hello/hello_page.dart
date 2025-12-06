@@ -27,6 +27,7 @@ import 'package:pixez/er/prefer.dart';
 import 'package:pixez/i18n.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/page/Init/guide_page.dart';
+import 'package:pixez/page/downloaded/downloaded_page.dart';
 import 'package:pixez/page/hello/new/new_page.dart';
 import 'package:pixez/page/hello/ranking/rank_page.dart';
 import 'package:pixez/page/hello/recom/recom_spotlight_page.dart';
@@ -179,23 +180,38 @@ class _HelloPageState extends State<HelloPage> {
               padding: EdgeInsets.only(
                   left: MediaQuery.of(context).padding.left,
                   bottom: MediaQuery.of(context).padding.bottom + 4.0),
-              child: Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: Theme.of(context).colorScheme.primary,
-                    width: 2,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // 已下载按钮
+                  IconButton(
+                    icon: Icon(Icons.download_done),
+                    tooltip: I18n.of(context).history,
+                    onPressed: () {
+                      Leader.push(context, DownloadedPage());
+                    },
                   ),
-                ),
-                child: SizedBox(
-                  width: 40,
-                  height: 40,
-                  child: accountStore.now != null
-                      ? PainterAvatar(
-                          url: accountStore.now!.userImage,
-                          id: int.tryParse(accountStore.now!.userId) ?? 0)
-                      : Container(),
-                ),
+                  SizedBox(height: 8),
+                  // 用户头像
+                  Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Theme.of(context).colorScheme.primary,
+                        width: 2,
+                      ),
+                    ),
+                    child: SizedBox(
+                      width: 40,
+                      height: 40,
+                      child: accountStore.now != null
+                          ? PainterAvatar(
+                              url: accountStore.now!.userImage,
+                              id: int.tryParse(accountStore.now!.userId) ?? 0)
+                          : Container(),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),

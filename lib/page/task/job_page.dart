@@ -14,14 +14,17 @@
  */
 
 import 'dart:async';
+import 'dart:io';
 
 import 'package:animations/animations.dart';
 import 'package:flutter/material.dart';
 import 'package:pixez/component/pixiv_image.dart';
 import 'package:pixez/component/sort_group.dart';
+import 'package:pixez/er/downloader.dart';
 import 'package:pixez/i18n.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/models/task_persist.dart';
+import 'package:pixez/page/downloaded/downloaded_page.dart';
 import 'package:pixez/page/picture/illust_lighting_page.dart';
 import 'package:pixez/store/save_store.dart';
 
@@ -39,6 +42,13 @@ class _JobPageState extends State<JobPage> with SingleTickerProviderStateMixin {
   bool _itemSimple = true;
   int STATUS_ALL = 10;
 
+  // 新下载器任务列表
+  List<DownloaderTask> _downloaderTasks = [];
+  StreamSubscription<DownloaderProgress>? _downloaderSubscription;
+
+  // 是否使用新下载器（Windows/Linux）
+  bool get _useNewDownloader => Platform.isWindows || Platform.isLinux;
+
   @override
   void initState() {
     rotationController = AnimationController(
@@ -53,6 +63,15 @@ class _JobPageState extends State<JobPage> with SingleTickerProviderStateMixin {
     });
     super.initState();
     initMethod();
+
+    // 监听新下载器进度
+    if (_useNewDownloader) {
+      _downloaderSubscription = downloader.progressStream.listen((progress) {
+        if (mounted) {
+          _updateDownloaderTasks();
+        }
+      });
+    }
   }
 
   @override
@@ -60,7 +79,14 @@ class _JobPageState extends State<JobPage> with SingleTickerProviderStateMixin {
     _scrollController.dispose();
     rotationController.dispose();
     _timer?.cancel();
+    _downloaderSubscription?.cancel();
     super.dispose();
+  }
+
+  void _updateDownloaderTasks() {
+    setState(() {
+      _downloaderTasks = downloader.activeTasks.values.toList();
+    });
   }
 
   initMethod() async {
@@ -68,7 +94,15 @@ class _JobPageState extends State<JobPage> with SingleTickerProviderStateMixin {
     _refresh();
     _timer = Timer.periodic(Duration(seconds: 1), (time) {
       _fetchLocal();
+      if (_useNewDownloader) {
+        _updateDownloaderTasks();
+      }
     });
+
+    // 初始化新下载器任务列表
+    if (_useNewDownloader) {
+      _updateDownloaderTasks();
+    }
   }
 
   _fetchLocal() async {
@@ -331,6 +365,11 @@ class _JobPageState extends State<JobPage> with SingleTickerProviderStateMixin {
   }
 
   Widget _body() {
+    // 在 Windows/Linux 上优先显示新下载器的任务
+    if (_useNewDownloader && (currentIndex == 0 || currentIndex == 1)) {
+      return _buildNewDownloaderBody();
+    }
+
     final trueList = asc ? _list.reversed.toList() : _list;
     return ListView.builder(
       controller: _scrollController,
@@ -352,6 +391,225 @@ class _JobPageState extends State<JobPage> with SingleTickerProviderStateMixin {
       },
       itemCount: (trueList.isEmpty) ? 1 : trueList.length,
     );
+  }
+
+  Widget _buildNewDownloaderBody() {
+    // 根据当前选中的标签过滤任务
+    List<DownloaderTask> filteredTasks = _downloaderTasks;
+    if (currentIndex == 1) {
+      // 只显示正在运行的任务
+      filteredTasks = _downloaderTasks
+          .where((t) =>
+              t.status == DownloaderTaskStatus.pending ||
+              t.status == DownloaderTaskStatus.downloading)
+          .toList();
+    }
+
+    if (filteredTasks.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              "[ ]",
+              style: Theme.of(context).textTheme.bodyMedium!.copyWith(fontSize: 24),
+            ),
+            SizedBox(height: 16),
+            if (currentIndex == 0)
+              TextButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => DownloadedPage()),
+                  );
+                },
+                icon: Icon(Icons.folder_open),
+                label: Text(I18n.of(context).history),
+              ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      controller: _scrollController,
+      itemCount: filteredTasks.length,
+      itemBuilder: (context, index) {
+        return _buildNewDownloaderItem(filteredTasks[index]);
+      },
+    );
+  }
+
+  Widget _buildNewDownloaderItem(DownloaderTask task) {
+    final illusts = task.illusts;
+    final progress = task.total > 0 ? task.received / task.total : 0.0;
+    final isRunning = task.status == DownloaderTaskStatus.downloading ||
+        task.status == DownloaderTaskStatus.pending;
+    final isFailed = task.status == DownloaderTaskStatus.failed;
+
+    return Card(
+      margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(12))),
+      child: InkWell(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => IllustLightingPage(id: illusts.id),
+            ),
+          );
+        },
+        child: Stack(
+          children: [
+            Row(
+              children: [
+                if (!_itemSimple)
+                  Container(
+                    height: 100,
+                    width: 100,
+                    child: Stack(
+                      children: [
+                        PixivImage(
+                          illusts.imageUrls.medium,
+                          fit: BoxFit.cover,
+                          height: 100,
+                          width: 100,
+                        ),
+                        if (isRunning)
+                          Container(
+                            height: 100,
+                            width: 100,
+                            child: Center(
+                              child: CircularProgressIndicator(
+                                value: progress > 0 ? progress : null,
+                                backgroundColor: Colors.grey[200],
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  )
+                else
+                  Container(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Padding(
+                              padding: const EdgeInsets.all(8.0),
+                              child: Text(
+                                '${illusts.title} (p${task.part})',
+                                maxLines: 1,
+                                overflow: TextOverflow.clip,
+                              ),
+                            ),
+                          ),
+                          if (_itemSimple) ...[
+                            if (isFailed)
+                              InkWell(
+                                onTap: () {
+                                  downloader.retryTask(illusts.id, task.part);
+                                },
+                                child: Icon(Icons.refresh),
+                              ),
+                            Padding(
+                              padding: const EdgeInsets.all(8.0),
+                              child: InkWell(
+                                onTap: () {
+                                  downloader.cancelTask(illusts.id, task.part);
+                                  _updateDownloaderTasks();
+                                },
+                                child: Icon(Icons.delete),
+                              ),
+                            ),
+                          ],
+                          Padding(
+                            padding: const EdgeInsets.only(right: 16.0),
+                            child: _buildNewDownloaderStatus(task.status),
+                          ),
+                        ],
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                        child: Text(
+                          illusts.user.name,
+                          style: Theme.of(context).textTheme.bodyLarge!.copyWith(
+                                color: Theme.of(context).colorScheme.primary,
+                                fontSize: 12,
+                              ),
+                        ),
+                      ),
+                      if (!_itemSimple)
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(" "),
+                            Row(
+                              children: [
+                                if (isFailed)
+                                  IconButton(
+                                    onPressed: () {
+                                      downloader.retryTask(illusts.id, task.part);
+                                    },
+                                    icon: Icon(Icons.refresh),
+                                  ),
+                                IconButton(
+                                  onPressed: () {
+                                    downloader.cancelTask(illusts.id, task.part);
+                                    _updateDownloaderTasks();
+                                  },
+                                  icon: Icon(Icons.delete),
+                                ),
+                              ],
+                            ),
+                          ],
+                        )
+                      else
+                        Container(height: 10),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            if (isRunning)
+              Positioned(
+                left: 0.0,
+                right: 0.0,
+                bottom: 0.0,
+                child: LinearProgressIndicator(
+                  value: progress > 0 ? progress : null,
+                  backgroundColor: Colors.grey[200],
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNewDownloaderStatus(DownloaderTaskStatus status) {
+    switch (status) {
+      case DownloaderTaskStatus.pending:
+        return Text(
+          'seed',
+          style: Theme.of(context).textTheme.bodyMedium!.copyWith(fontSize: 12),
+        );
+      case DownloaderTaskStatus.downloading:
+        return Text(
+          I18n.of(context).running,
+          style: Theme.of(context).textTheme.bodyMedium!.copyWith(fontSize: 12),
+        );
+      case DownloaderTaskStatus.completed:
+        return Icon(Icons.check_circle, color: Colors.green, size: 16);
+      case DownloaderTaskStatus.failed:
+        return Icon(Icons.error, size: 16);
+    }
   }
 
   Widget _buildItem(TaskPersist taskPersist, int index) {

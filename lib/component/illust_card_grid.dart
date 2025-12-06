@@ -22,6 +22,7 @@ import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:pixez/component/null_hero.dart';
 import 'package:pixez/component/pixiv_image.dart';
 import 'package:pixez/component/star_icon.dart';
+import 'package:pixez/component/local_or_cached_image.dart';
 import 'package:pixez/constants.dart';
 import 'package:pixez/er/lprinter.dart';
 import 'package:pixez/er/prefer.dart';
@@ -188,6 +189,11 @@ class _IllustCardGridState extends State<IllustCardGrid> {
                           right: 5.0,
                           child: Row(
                             children: [
+                              // 下载状态指示器
+                              DownloadStatusIndicator(
+                                illustId: store.illusts!.id,
+                                size: 16,
+                              ),
                               if (userSetting.feedAIBadge &&
                                   store.illusts!.illustAIType == 2)
                                 _buildAIBadge(),

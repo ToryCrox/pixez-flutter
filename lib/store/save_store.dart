@@ -24,6 +24,7 @@ import 'package:flutter/material.dart';
 import 'package:mobx/mobx.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pixez/component/pixiv_image.dart';
+import 'package:pixez/constants.dart';
 import 'package:pixez/document_plugin.dart';
 import 'package:pixez/er/toaster.dart';
 import 'package:pixez/exts.dart';
@@ -358,6 +359,11 @@ abstract class _SaveStoreBase with Store {
   @action
   Future<void> saveImage(Illusts illusts,
       {int? index, bool redo = false}) async {
+    if (Constants.useNewDownloader) {
+      await downloadStore.downloadIllust(illusts, part: index);
+      return;
+    }
+
     if (Platform.isIOS) {
       //IOS APP STORE REVIEW
       final status = await DocumentPlugin.permissionStatus() ?? false;

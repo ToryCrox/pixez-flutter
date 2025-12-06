@@ -35,7 +35,7 @@ const ImageSHost = "s.pximg.net";
 // 如果你恰好看到这个实现方法实例，且对你有些帮助或者启发：
 // 听一首Mili-Salt, Pepper, Birds, And the Thought Police吧 🎵
 
-DioCacheManager? pixivCacheManager = DioCacheManager.instance;
+DioCacheManager pixivCacheManager = DioCacheManager.instance;
 
 class PixivImage extends StatefulWidget {
   final String url;

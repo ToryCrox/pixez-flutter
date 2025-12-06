@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:bot_toast/bot_toast.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
@@ -8,11 +9,12 @@ import 'package:photo_view/photo_view.dart';
 import 'package:photo_view/photo_view_gallery.dart';
 import 'package:pixez/clipboard_plugin.dart';
 import 'package:pixez/component/pixiv_image.dart';
+import 'package:pixez/er/hoster.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/models/illust.dart';
 import 'package:pixez/page/picture/illust_store.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:path/path.dart';
+import 'package:path/path.dart' as p;
 
 class PhotoZoomPage extends StatefulWidget {
   final int index;
@@ -33,6 +35,7 @@ class PhotoZoomPage extends StatefulWidget {
 class _PhotoZoomPageState extends State<PhotoZoomPage> {
   late Illusts _illusts;
   int _index = 0;
+  Map<int, String?> _localPaths = {};
 
   @override
   void initState() {
@@ -49,6 +52,37 @@ class _PhotoZoomPageState extends State<PhotoZoomPage> {
 
     super.initState();
     initCache();
+    _loadLocalPaths();
+  }
+
+  Future<void> _loadLocalPaths() async {
+    if (!downloadStore.isInitialized) return;
+
+    for (int i = 0; i < _illusts.pageCount; i++) {
+      final path = await downloadStore.getLocalImagePath(_illusts.id, i);
+      if (mounted) {
+        setState(() {
+          _localPaths[i] = path;
+        });
+      }
+    }
+  }
+
+  ImageProvider _getImageProvider(int index, String url) {
+    // 优先使用本地文件
+    final localPath = _localPaths[index];
+    if (localPath != null) {
+      final file = File(localPath);
+      if (file.existsSync()) {
+        return FileImage(file);
+      }
+    }
+    // 回退到网络
+    return CachedNetworkImageProvider(
+      url,
+      headers: Hoster.header(url: url),
+      cacheManager: pixivCacheManager,
+    );
   }
 
   @override
@@ -84,7 +118,7 @@ class _PhotoZoomPageState extends State<PhotoZoomPage> {
               filterQuality: FilterQuality.high,
               initialScale: PhotoViewComputedScale.contained,
               heroAttributes: PhotoViewHeroAttributes(tag: url),
-              imageProvider: PixivProvider.url(url),
+              imageProvider: _getImageProvider(0, url),
               loadingBuilder: (context, event) => _buildLoading(event),
             ),
           ),
@@ -104,7 +138,7 @@ class _PhotoZoomPageState extends State<PhotoZoomPage> {
                   ? _illusts.metaPages[index].imageUrls!.original
                   : _illusts.metaPages[index].imageUrls!.large;
               return PhotoViewGalleryPageOptions(
-                imageProvider: PixivProvider.url(url),
+                imageProvider: _getImageProvider(index, url),
                 initialScale: PhotoViewComputedScale.contained,
                 heroAttributes: PhotoViewHeroAttributes(tag: url),
                 filterQuality: FilterQuality.high,
@@ -263,10 +297,10 @@ class _PhotoZoomPageState extends State<PhotoZoomPage> {
                           var file =
                               await pixivCacheManager!.getFileFromCache(nowUrl);
                           if (file != null) {
-                            String targetPath = join(
+                            String targetPath = p.join(
                                 (await getTemporaryDirectory()).path,
                                 "share_cache",
-                                basenameWithoutExtension(file.file.path) +
+                                p.basenameWithoutExtension(file.file.path) +
                                     (nowUrl.endsWith(".png")
                                         ? ".png"
                                         : ".jpg"));

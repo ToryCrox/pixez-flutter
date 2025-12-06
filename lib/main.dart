@@ -24,10 +24,12 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:pixez/constants.dart';
 import 'package:pixez/custom/window_frame.dart';
+import 'package:pixez/document_plugin.dart';
+import 'package:pixez/er/downloader.dart';
 import 'package:pixez/er/fetcher.dart';
-import 'package:pixez/er/leader.dart';
 import 'package:pixez/fluent/fluentui.dart';
 import 'package:pixez/i18n.dart';
 import 'package:pixez/page/novel/history/novel_history_store.dart';
@@ -38,6 +40,7 @@ import 'package:pixez/single_instance_plugin.dart';
 import 'package:pixez/src/generated/i18n/app_localizations.dart';
 import 'package:pixez/store/account_store.dart';
 import 'package:pixez/store/book_tag_store.dart';
+import 'package:pixez/store/download_store.dart';
 import 'package:pixez/store/fullscreen_store.dart';
 import 'package:pixez/store/mute_store.dart';
 import 'package:pixez/store/save_store.dart';
@@ -61,6 +64,7 @@ final BookTagStore bookTagStore = BookTagStore();
 final SplashStore splashStore = SplashStore();
 final Fetcher fetcher = new Fetcher();
 final FullScreenStore fullScreenStore = FullScreenStore();
+final DownloadStore downloadStore = DownloadStore();
 
 final globalNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -122,6 +126,27 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   late StreamSubscription<String> subscription;
 
+  Future<void> _initDownloadStore() async {
+    // 获取下载目录 - 使用 DocumentPlugin 获取 Windows 设置的目录
+    String? downloadPath;
+    if (Platform.isWindows || Platform.isLinux) {
+      // Windows/Linux 使用 DocumentPlugin 设置的目录
+      downloadPath = await DocumentPlugin.getPath();
+    }
+
+    // 如果没有设置目录，使用默认目录
+    if (downloadPath == null || downloadPath.isEmpty) {
+      final docDir = await getApplicationDocumentsDirectory();
+      downloadPath = '${docDir.path}/pixez/downloads';
+    }
+
+    // 初始化 downloadStore
+    await downloadStore.init(
+      downloadPath,
+      maxConcurrent: userSetting.maxRunningTask,
+    );
+  }
+
   @override
   void initState() {
     subscription = topStore.topStream.listen((event) {
@@ -134,6 +159,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     accountStore.fetch();
     bookTagStore.init();
     muteStore.init();
+    _initDownloadStore();
 
     super.initState();
     if (Platform.isIOS) WidgetsBinding.instance.addObserver(this);
