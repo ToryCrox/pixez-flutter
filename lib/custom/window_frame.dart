@@ -3,9 +3,13 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:pixez/er/leader.dart';
 import 'package:pixez/er/prefer.dart';
 import 'package:pixez/i18n.dart';
 import 'package:pixez/main.dart';
+import 'package:pixez/page/hello/setting/setting_quality_page.dart';
+import 'package:pixez/page/history/history_page.dart';
+import 'package:pixez/page/task/job_page.dart';
 import 'package:window_manager/window_manager.dart';
 
 const _kTitleBarHeight = 36.0;
@@ -266,43 +270,49 @@ class __SideBarState extends State<_SideBar>
 class _SideBarBody extends StatelessWidget {
   const _SideBarBody();
 
-  void toPage(Widget Function() builder) {}
-
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
         const SizedBox(height: 8),
         buildItem(
-            icon: Icons.person_outline,
-            title: '账号管理',
-            onTap: () {
-              windowFrameController.openSideBar();
-            }),
+          icon: Icons.home,
+          title: '回到首页',
+          onTap: () {
+            windowFrameController.openSideBar();
+            Leader.popUtilHome(globalNavigatorKey.currentContext!);
+          },
+        ),
         buildItem(
-            icon: Icons.history,
-            title: '历史记录',
-            onTap: () {
-              windowFrameController.openSideBar();
-            }),
+          icon: Icons.settings,
+          title: '偏好设置',
+          onTap: () {
+            windowFrameController.openSideBar();
+            Navigator.of(globalNavigatorKey.currentContext!).push(
+              MaterialPageRoute(builder: (context) => SettingQualityPage()),
+            );
+          },
+        ),
         buildItem(
-            icon: Icons.download_outlined,
-            title: '已下载',
-            onTap: () {
-              windowFrameController.openSideBar();
-            }),
+          icon: Icons.download,
+          title: '任务进度',
+          onTap: () {
+            windowFrameController.openSideBar();
+            Navigator.of(globalNavigatorKey.currentContext!).push(
+              MaterialPageRoute(builder: (context) => JobPage()),
+            );
+          },
+        ),
         buildItem(
-            icon: Icons.downloading,
-            title: '下载管理器',
-            onTap: () {
-              windowFrameController.openSideBar();
-            }),
-        buildItem(
-            icon: Icons.image_outlined,
-            title: '图片收藏',
-            onTap: () {
-              windowFrameController.openSideBar();
-            }),
+          icon: Icons.history,
+          title: '历史记录',
+          onTap: () {
+            windowFrameController.openSideBar();
+            Navigator.of(globalNavigatorKey.currentContext!).push(
+              MaterialPageRoute(builder: (context) => const HistoryPage()),
+            );
+          },
+        ),
       ],
     );
   }
