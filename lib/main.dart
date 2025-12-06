@@ -46,6 +46,7 @@ import 'package:pixez/store/save_store.dart';
 import 'package:pixez/store/tag_history_store.dart';
 import 'package:pixez/store/top_store.dart';
 import 'package:pixez/store/user_setting.dart';
+import 'package:pixez/page/task/pending_download_dialog.dart';
 import 'package:rhttp/rhttp.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:window_manager/window_manager.dart';
@@ -144,6 +145,56 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       downloadPath,
       maxConcurrent: userSetting.maxRunningTask,
     );
+
+    // 加载待下载任务并提示用户确认
+    if (Platform.isWindows || Platform.isLinux) {
+      _checkPendingDownloads();
+    }
+  }
+
+  Future<void> _checkPendingDownloads() async {
+    // 延迟一下,等待UI完全初始化
+    await Future.delayed(Duration(seconds: 2));
+
+    final pendingTasks = await downloadStore.getPendingTasks();
+    if (pendingTasks.isEmpty) return;
+
+    // 弹出确认对话框
+    final context = globalNavigatorKey.currentContext;
+    if (context == null || !context.mounted) return;
+
+    final selectedTaskKeys = await showDialog<List<String>>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => PendingDownloadDialog(tasks: pendingTasks),
+    );
+
+    if (selectedTaskKeys == null || selectedTaskKeys.isEmpty) {
+      // 用户取消了所有任务,清除数据库记录
+      await downloadStore.clearPendingTasks(
+        pendingTasks.map((t) => t.taskKey).toList(),
+      );
+      return;
+    }
+
+    // 用户确认了部分任务,添加到下载队列
+    final tasksToDownload = pendingTasks
+        .where((t) => selectedTaskKeys.contains(t.taskKey))
+        .toList();
+
+    // 清除未选中的任务
+    final tasksToRemove = pendingTasks
+        .where((t) => !selectedTaskKeys.contains(t.taskKey))
+        .map((t) => t.taskKey)
+        .toList();
+    if (tasksToRemove.isNotEmpty) {
+      await downloadStore.clearPendingTasks(tasksToRemove);
+    }
+
+    // 添加选中的任务到下载队列
+    if (tasksToDownload.isNotEmpty) {
+      await downloadStore.addDownloadTasks(tasksToDownload);
+    }
   }
 
   @override

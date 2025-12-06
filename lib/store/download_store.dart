@@ -18,6 +18,7 @@ import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:bot_toast/bot_toast.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -143,20 +144,35 @@ abstract class _DownloadStoreBase with Store {
     Log.d('DownloadStore downloadPath: $downloadPath');
     await _dbProvider.open(downloadPath);
     await refreshCount();
-    await loadPendingTasks();
   }
 
   @action
-  Future<List<DownloadTask>> loadPendingTasks() async {
+
+  /// 获取待确认的下载任务(不自动添加到下载队列)
+  Future<List<DownloadTask>> getPendingTasks() async {
     final pendingDownloads = await _dbProvider.getPendingDownloadsByStatus(
       DownloadTaskStatus.values
-          .whereNot((e) => e != DownloadTaskStatus.completed)
+          .whereNot((e) => e == DownloadTaskStatus.completed)
           .map((e) => e.name)
           .toList(),
     );
     return pendingDownloads.map((e) {
       return DownloadTask.fromPendingDownload(e);
     }).toList();
+  }
+
+  /// 加载待下载任务并自动添加到下载队列(已弃用,改用getPendingTasks)
+  @Deprecated('Use getPendingTasks and addDownloadTasks instead')
+  Future<List<DownloadTask>> loadPendingTasks() async {
+    final tasks = await getPendingTasks();
+    return tasks;
+  }
+
+  /// 清除指定的待下载任务
+  Future<void> clearPendingTasks(List<String> taskKeys) async {
+    for (final taskKey in taskKeys) {
+      await _dbProvider.deletePendingDownload(taskKey);
+    }
   }
 
   @action
@@ -266,7 +282,6 @@ abstract class _DownloadStoreBase with Store {
       throw Exception('DownloadStore not initialized');
     }
 
-    Toaster.showText('开始下载插画 ${illusts.id}');
     if (part != null) {
       // 下载单页
       _downloadTaskBuffer.add(_createDownloadTask(illusts, part));
@@ -350,9 +365,9 @@ abstract class _DownloadStoreBase with Store {
       needAddTasks.add(task);
     }
     if (needAddTasks.isEmpty) {
-      Toaster.showText('所有图片都已下载');
+      BotToast.showText(text: '所有图片都已下载');
     } else {
-      Toaster.showText('添加 ${needAddTasks.length} 个下载任务');
+      BotToast.showText(text: '添加 ${needAddTasks.length} 个下载任务');
       for (final task in needAddTasks) {
         _addDownloadTask(task);
       }

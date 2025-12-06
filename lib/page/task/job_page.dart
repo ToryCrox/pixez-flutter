@@ -44,6 +44,8 @@ class _JobPageState extends State<JobPage> with SingleTickerProviderStateMixin {
 
   // 新下载器任务列表
   List<DownloadTask> _downloaderTasks = [];
+  // 待确认的下载任务
+  List<DownloadTask> _pendingTasks = [];
   StreamSubscription<DownloadTask>? _downloaderSubscription;
 
   // 是否使用新下载器（Windows/Linux）
@@ -83,10 +85,12 @@ class _JobPageState extends State<JobPage> with SingleTickerProviderStateMixin {
     super.dispose();
   }
 
-  void _updateDownloaderTasks() {
+  void _updateDownloaderTasks() async {
     if (mounted) {
+      final pendingTasks = await downloadStore.getPendingTasks();
       setState(() {
         _downloaderTasks = downloadStore.downloadingTasks.values.toList();
+        _pendingTasks = pendingTasks;
       });
     }
   }
@@ -396,8 +400,11 @@ class _JobPageState extends State<JobPage> with SingleTickerProviderStateMixin {
   }
 
   Widget _buildNewDownloaderBody() {
+    // 合并正在下载和待确认的任务
+    List<DownloadTask> allTasks = [..._downloaderTasks, ..._pendingTasks];
+
     // 根据当前选中的标签过滤任务
-    List<DownloadTask> filteredTasks = _downloaderTasks;
+    List<DownloadTask> filteredTasks = allTasks;
     if (currentIndex == 1) {
       // 只显示正在运行的任务
       filteredTasks = _downloaderTasks
@@ -405,6 +412,9 @@ class _JobPageState extends State<JobPage> with SingleTickerProviderStateMixin {
               t.status == DownloadTaskStatus.pending ||
               t.status == DownloadTaskStatus.downloading)
           .toList();
+    } else if (currentIndex == 0) {
+      // 显示所有任务
+      filteredTasks = allTasks;
     }
 
     if (filteredTasks.isEmpty) {
@@ -440,12 +450,14 @@ class _JobPageState extends State<JobPage> with SingleTickerProviderStateMixin {
       controller: _scrollController,
       itemCount: filteredTasks.length,
       itemBuilder: (context, index) {
-        return _buildNewDownloaderItem(filteredTasks[index]);
+        final task = filteredTasks[index];
+        final isPending = _pendingTasks.contains(task);
+        return _buildNewDownloaderItem(task, isPending: isPending);
       },
     );
   }
 
-  Widget _buildNewDownloaderItem(DownloadTask task) {
+  Widget _buildNewDownloaderItem(DownloadTask task, {bool isPending = false}) {
     final illusts = task.illusts;
     final progress = task.total > 0 ? task.received / task.total : 0.0;
     final isRunning = task.status == DownloadTaskStatus.downloading ||
@@ -482,7 +494,7 @@ class _JobPageState extends State<JobPage> with SingleTickerProviderStateMixin {
                           height: 100,
                           width: 100,
                         ),
-                        if (isRunning)
+                        if (isRunning && !isPending)
                           Container(
                             height: 100,
                             width: 100,
@@ -508,15 +520,43 @@ class _JobPageState extends State<JobPage> with SingleTickerProviderStateMixin {
                           Expanded(
                             child: Padding(
                               padding: const EdgeInsets.all(8.0),
-                              child: Text(
-                                '${illusts.title} (p${task.part})',
-                                maxLines: 1,
-                                overflow: TextOverflow.clip,
+                              child: Row(
+                                children: [
+                                  if (isPending)
+                                    Padding(
+                                      padding:
+                                          const EdgeInsets.only(right: 8.0),
+                                      child: Icon(
+                                        Icons.pause_circle_outline,
+                                        size: 16,
+                                        color: Colors.orange,
+                                      ),
+                                    ),
+                                  Expanded(
+                                    child: Text(
+                                      '${illusts.title} (p${task.part})',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.clip,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
                           if (_itemSimple) ...[
-                            if (isFailed)
+                            if (isPending)
+                              InkWell(
+                                onTap: () async {
+                                  await downloadStore.addDownloadTasks([task]);
+                                  _updateDownloaderTasks();
+                                },
+                                child: Padding(
+                                  padding: const EdgeInsets.all(8.0),
+                                  child: Icon(Icons.play_arrow,
+                                      color: Colors.green),
+                                ),
+                              )
+                            else if (isFailed)
                               InkWell(
                                 onTap: () {
                                   downloadStore.retryTask(task.taskKey);
@@ -527,17 +567,23 @@ class _JobPageState extends State<JobPage> with SingleTickerProviderStateMixin {
                               padding: const EdgeInsets.all(8.0),
                               child: InkWell(
                                 onTap: () {
-                                  downloadStore.cancelTask(task.taskKey);
+                                  if (isPending) {
+                                    downloadStore
+                                        .clearPendingTasks([task.taskKey]);
+                                  } else {
+                                    downloadStore.cancelTask(task.taskKey);
+                                  }
                                   _updateDownloaderTasks();
                                 },
                                 child: Icon(Icons.delete),
                               ),
                             ),
                           ],
-                          Padding(
-                            padding: const EdgeInsets.only(right: 16.0),
-                            child: _buildNewDownloaderStatus(task.status),
-                          ),
+                          if (!isPending)
+                            Padding(
+                              padding: const EdgeInsets.only(right: 16.0),
+                              child: _buildNewDownloaderStatus(task.status),
+                            ),
                         ],
                       ),
                       Padding(
@@ -560,7 +606,17 @@ class _JobPageState extends State<JobPage> with SingleTickerProviderStateMixin {
                             Text(" "),
                             Row(
                               children: [
-                                if (isFailed)
+                                if (isPending)
+                                  IconButton(
+                                    onPressed: () async {
+                                      await downloadStore
+                                          .addDownloadTasks([task]);
+                                      _updateDownloaderTasks();
+                                    },
+                                    icon: Icon(Icons.play_arrow,
+                                        color: Colors.green),
+                                  )
+                                else if (isFailed)
                                   IconButton(
                                     onPressed: () {
                                       downloadStore.retryTask(task.taskKey);
@@ -569,7 +625,12 @@ class _JobPageState extends State<JobPage> with SingleTickerProviderStateMixin {
                                   ),
                                 IconButton(
                                   onPressed: () {
-                                    downloadStore.cancelTask(task.taskKey);
+                                    if (isPending) {
+                                      downloadStore
+                                          .clearPendingTasks([task.taskKey]);
+                                    } else {
+                                      downloadStore.cancelTask(task.taskKey);
+                                    }
                                     _updateDownloaderTasks();
                                   },
                                   icon: Icon(Icons.delete),
@@ -585,7 +646,7 @@ class _JobPageState extends State<JobPage> with SingleTickerProviderStateMixin {
                 ),
               ],
             ),
-            if (isRunning)
+            if (isRunning && !isPending)
               Positioned(
                 left: 0.0,
                 right: 0.0,
