@@ -21,7 +21,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:pixez/component/ban_page.dart';
 import 'package:pixez/component/common_back_area.dart';
-
+import 'package:pixez/component/local_or_cached_image.dart';
 import 'package:pixez/component/null_hero.dart';
 import 'package:pixez/component/painter_avatar.dart';
 import 'package:pixez/component/pixiv_image.dart';
@@ -125,6 +125,8 @@ class _IllustRowPageState extends State<IllustRowPage>
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  if (_illustStore.illusts != null)
+                    IllustDownloadButton(illusts: _illustStore.illusts!),
                   IconButton(
                       icon: Icon(Icons.more_vert),
                       onPressed: () {

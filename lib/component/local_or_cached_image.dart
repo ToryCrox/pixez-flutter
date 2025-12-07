@@ -23,6 +23,7 @@ import 'package:pixez/component/pixiv_image.dart';
 import 'package:pixez/custom/log.dart';
 import 'package:pixez/er/hoster.dart';
 import 'package:pixez/main.dart';
+import 'package:pixez/models/illust.dart';
 import 'package:pixez/store/download_store.dart';
 
 /// 优先加载本地已下载图片的组件
@@ -302,14 +303,6 @@ class DownloadStatusIndicator extends StatefulWidget {
       _DownloadStatusIndicatorState();
 }
 
-enum _DownloadStatus {
-  none,
-  pending,
-  downloading,
-  downloaded,
-  failed,
-}
-
 class _DownloadStatusIndicatorState extends State<DownloadStatusIndicator> {
   IllustDownloadStatus? _status;
   StreamSubscription<IllustDownloadStatus>? _subscription;
@@ -450,5 +443,231 @@ class _DownloadStatusIndicatorState extends State<DownloadStatusIndicator> {
       size: widget.size,
       color: Colors.grey,
     );
+  }
+}
+
+/// 插画下载按钮组件
+/// 实时监听下载状态，点击后显示下载/删除对话框（在页面中间）
+class IllustDownloadButton extends StatefulWidget {
+  final Illusts illusts;
+  final double iconSize;
+
+  const IllustDownloadButton({
+    Key? key,
+    required this.illusts,
+    this.iconSize = 24,
+  }) : super(key: key);
+
+  @override
+  State<IllustDownloadButton> createState() => _IllustDownloadButtonState();
+}
+
+class _IllustDownloadButtonState extends State<IllustDownloadButton> {
+  IllustDownloadStatus? _status;
+  StreamSubscription<IllustDownloadStatus>? _subscription;
+
+  @override
+  void initState() {
+    super.initState();
+    _subscription =
+        downloadStore.illustDownloadStatusStream.listen(_onProgressUpdate);
+    _checkStatus();
+  }
+
+  @override
+  void dispose() {
+    _subscription?.cancel();
+    super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant IllustDownloadButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.illusts.id != widget.illusts.id) {
+      _checkStatus();
+    }
+  }
+
+  void _onProgressUpdate(IllustDownloadStatus status) {
+    if (status.illusts.illustId != widget.illusts.id) return;
+    if (!mounted) return;
+
+    if (status.status == DownloadTaskStatus.deleted) {
+      setState(() {
+        _status = null;
+      });
+      return;
+    }
+
+    setState(() {
+      _status = status;
+    });
+  }
+
+  Future<void> _checkStatus() async {
+    if (!downloadStore.isInitialized) {
+      if (mounted) {
+        setState(() {
+          _status = null;
+        });
+      }
+      return;
+    }
+    _status = await downloadStore.getIllustDownloadStatus(widget.illusts.id);
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      icon: _buildIcon(),
+      onPressed: _showDownloadDialog,
+    );
+  }
+
+  Widget _buildIcon() {
+    final status = _status;
+    final taskStatus = status?.status;
+
+    if (taskStatus == null || status == null) {
+      return Icon(Icons.download_outlined, size: widget.iconSize);
+    }
+
+    switch (taskStatus) {
+      case DownloadTaskStatus.completed:
+        if (status.isAllDownloaded) {
+          return Icon(
+            Icons.download_done,
+            size: widget.iconSize,
+            color: Colors.green,
+          );
+        }
+        return Icon(
+          Icons.download,
+          size: widget.iconSize,
+          color: Colors.green,
+        );
+      case DownloadTaskStatus.downloading:
+        return SizedBox(
+          width: widget.iconSize,
+          height: widget.iconSize,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            color: Theme.of(context).colorScheme.primary,
+          ),
+        );
+      case DownloadTaskStatus.pending:
+        return Icon(
+          Icons.schedule,
+          size: widget.iconSize,
+          color: Colors.grey,
+        );
+      case DownloadTaskStatus.failed:
+        return Icon(
+          Icons.error,
+          size: widget.iconSize,
+          color: Colors.red,
+        );
+      case DownloadTaskStatus.paused:
+        return Icon(
+          Icons.pause,
+          size: widget.iconSize,
+          color: Colors.grey,
+        );
+      case DownloadTaskStatus.deleted:
+        return Icon(Icons.download_outlined, size: widget.iconSize);
+    }
+  }
+
+  Future<void> _showDownloadDialog() async {
+    final status = _status;
+    final isDownloaded =
+        status?.status == DownloadTaskStatus.completed && status?.isAllDownloaded == true;
+    final isDownloading = status?.status == DownloadTaskStatus.downloading ||
+        status?.status == DownloadTaskStatus.pending;
+
+    await showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: Text(widget.illusts.title, maxLines: 2, overflow: TextOverflow.ellipsis),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (!isDownloaded && !isDownloading)
+                ListTile(
+                  leading: Icon(Icons.download),
+                  title: Text('${widget.illusts.pageCount}P'),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _downloadAllPages();
+                  },
+                ),
+              if (isDownloading)
+                ListTile(
+                  leading: SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  title: Text('下载中...'),
+                ),
+              if (isDownloaded) ...[
+                ListTile(
+                  leading: Icon(Icons.check_circle, color: Colors.green),
+                  title: Text('已下载'),
+                ),
+                ListTile(
+                  leading: Icon(Icons.delete, color: Colors.red),
+                  title: Text('删除', style: TextStyle(color: Colors.red)),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _confirmDelete();
+                  },
+                ),
+              ],
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text('关闭'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _downloadAllPages() async {
+    saveStore.saveImage(widget.illusts);
+  }
+
+  Future<void> _confirmDelete() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: Text('确认删除'),
+          content: Text('确定要删除 "${widget.illusts.title}" 的下载吗？'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text('取消'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text('删除', style: TextStyle(color: Colors.red)),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirm == true) {
+      await downloadStore.deleteDownloadedIllust(widget.illusts.id);
+    }
   }
 }

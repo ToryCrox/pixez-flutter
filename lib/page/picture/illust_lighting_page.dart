@@ -24,7 +24,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:pixez/component/ban_page.dart';
 import 'package:pixez/component/common_back_area.dart';
-
+import 'package:pixez/component/local_or_cached_image.dart';
 import 'package:pixez/component/null_hero.dart';
 import 'package:pixez/component/painter_avatar.dart';
 import 'package:pixez/component/pixez_default_header.dart';
@@ -224,108 +224,7 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
   Widget _buildDownloadButton() {
     if (_illustStore.illusts == null) return SizedBox.shrink();
 
-    return FutureBuilder<bool>(
-      future: downloadStore.isIllustDownloaded(_illustStore.illusts!.id),
-      builder: (context, snapshot) {
-        final isDownloaded = snapshot.data ?? false;
-        return IconButton(
-          icon: Icon(
-            isDownloaded ? Icons.download_done : Icons.download_outlined,
-            color: isDownloaded ? Colors.green : null,
-          ),
-          onPressed: () => _showDownloadOptions(isDownloaded),
-        );
-      },
-    );
-  }
-
-  Future<void> _showDownloadOptions(bool isDownloaded) async {
-    final illusts = _illustStore.illusts;
-    if (illusts == null) return;
-
-    showModalBottomSheet(
-      context: context,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (ctx) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (!isDownloaded) ...[
-                ListTile(
-                  leading: Icon(Icons.download),
-                  title: Text(I18n.of(context).save),
-                  subtitle: Text('${illusts.pageCount}P'),
-                  onTap: () async {
-                    Navigator.pop(ctx);
-                    await _downloadAllPages();
-                  },
-                ),
-              ],
-              if (isDownloaded) ...[
-                ListTile(
-                  leading: Icon(Icons.check_circle, color: Colors.green),
-                  title: Text(I18n.of(context).already_saved),
-                ),
-                ListTile(
-                  leading: Icon(Icons.delete, color: Colors.red),
-                  title: Text(I18n.of(context).delete,
-                      style: TextStyle(color: Colors.red)),
-                  onTap: () async {
-                    Navigator.pop(ctx);
-                    await _deleteDownload();
-                  },
-                ),
-              ],
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Future<void> _downloadAllPages() async {
-    final illusts = _illustStore.illusts;
-    if (illusts == null) return;
-
-    BotToast.showText(text: '${I18n.of(context).save}...');
-
-    // 使用新的下载器
-    saveStore.saveImage(illusts);
-  }
-
-  Future<void> _deleteDownload() async {
-    final illusts = _illustStore.illusts;
-    if (illusts == null) return;
-
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          title: Text(I18n.of(context).delete),
-          content: Text('${illusts.title}'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: Text(I18n.of(context).cancel),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: Text(I18n.of(context).ok,
-                  style: TextStyle(color: Colors.red)),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (confirm == true) {
-      await downloadStore.deleteDownloadedIllust(illusts.id);
-      setState(() {}); // 刷新UI
-      BotToast.showText(text: I18n.of(context).delete);
-    }
+    return IllustDownloadButton(illusts: _illustStore.illusts!);
   }
 
   late FocusNode _focusNode;
