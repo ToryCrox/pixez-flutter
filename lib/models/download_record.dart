@@ -172,6 +172,8 @@ class LocalImageInfo {
     }
     return null;
   }
+
+
 }
 
 // 下载的图片记录
@@ -607,17 +609,26 @@ class DownloadDatabaseProvider {
     final t1 = DateTime.now();
     final images = await getImagesByIllustId(illustId);
     Log.d('getLocalImageInfosByIllustId: ${images.length} images, ${DateTime.now().difference(t1).inMilliseconds}ms');
-    final result = <int, LocalImageInfo>{};
     
-    for (final image in images) {
+    // 并行处理所有图片，大幅提升性能
+    final futures = images.map((image) async {
       final foundPath = await _findImagePathForImage(image);
       if (foundPath != null) {
-        result[image.part] = LocalImageInfo(
+        return MapEntry(image.part, LocalImageInfo(
           path: foundPath,
           width: image.width,
           height: image.height,
           fileSize: image.fileSize,
-        );
+        ));
+      }
+      return null;
+    });
+    
+    final results = await Future.wait(futures);
+    final result = <int, LocalImageInfo>{};
+    for (final entry in results) {
+      if (entry != null) {
+        result[entry.key] = entry.value;
       }
     }
     
@@ -628,20 +639,32 @@ class DownloadDatabaseProvider {
   Future<String?> _findImagePathForImage(DownloadedImage image) async {
     final basePath = path.join(_basePath!, image.relativePath, image.fileName);
 
-    // 首先尝试数据库中记录的后缀
+    // 首先尝试数据库中记录的后缀（最常见的情况）
     String fullPath = '$basePath${image.extension}';
     if (await File(fullPath).exists()) {
       return fullPath;
     }
 
-    // 尝试其他常见后缀
-    for (final ext in kImageExtensions) {
-      if (ext == image.extension) continue;
-      fullPath = '$basePath$ext';
-      if (await File(fullPath).exists()) {
-        // 更新数据库中的后缀名
-        await updateImageExtension(image.illustId, image.part, ext);
-        return fullPath;
+    // 并行检查其他常见后缀，提升性能
+    final otherExtensions = kImageExtensions.where((ext) => ext != image.extension).toList();
+    final checkFutures = otherExtensions.map((ext) async {
+      final testPath = '$basePath$ext';
+      if (await File(testPath).exists()) {
+        return testPath;
+      }
+      return null;
+    });
+    
+    final results = await Future.wait(checkFutures);
+    for (int i = 0; i < results.length; i++) {
+      if (results[i] != null) {
+        final foundPath = results[i]!;
+        // 更新数据库中的后缀名（异步执行，不阻塞返回）
+        updateImageExtension(image.illustId, image.part, otherExtensions[i]).catchError((e) {
+          Log.e('Failed to update image extension: $e');
+          return 0; // 返回默认值以满足 catchError 的要求
+        });
+        return foundPath;
       }
     }
 

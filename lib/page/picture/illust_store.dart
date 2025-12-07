@@ -51,10 +51,11 @@ abstract class _IllustStoreBase with Store {
   bool captionFetching = false;
   @observable
   IllustSeriesDetailResponse? illustSeriesDetailResponse;
-  
+
   /// 本地图片信息（包含路径和宽高）
   @observable
-  ObservableMap<int, LocalImageInfo?> localImageInfos = ObservableMap<int, LocalImageInfo?>();
+  ObservableMap<int, LocalImageInfo?> localImageInfos =
+      ObservableMap<int, LocalImageInfo?>();
 
   StreamSubscription<IllustDownloadStatus>? _downloadStatusSubscription;
 
@@ -89,7 +90,9 @@ abstract class _IllustStoreBase with Store {
       localImageInfos.clear();
     } else if (status.status == DownloadTaskStatus.completed) {
       // 下载完成时重新加载本地图片信息
-      _loadLocalImageInfos();
+      if (illusts != null) {
+        _loadLocalImageInfos(illusts!);
+      }
     }
   }
 
@@ -105,11 +108,11 @@ abstract class _IllustStoreBase with Store {
     );
 
     if (cachedData != null) {
+      // 立即加载本地图片信息
+      await _loadLocalImageInfos(cachedData);
       illusts = cachedData;
       isBookmark = illusts!.isBookmarked;
       state = illusts?.isBookmarked ?? isBookmark ? 2 : 0;
-      // 立即加载本地图片信息
-      await _loadLocalImageInfos();
     }
 
     // 2. 加载网络数据
@@ -123,13 +126,15 @@ abstract class _IllustStoreBase with Store {
       try {
         Response response = await client.getIllustDetail(id);
         final result = Illusts.fromJson(response.data['illust']);
+        // 4. 加载本地图片信息
+        await _loadLocalImageInfos(result);
         illusts = result;
         isBookmark = illusts!.isBookmarked;
         state = illusts?.isBookmarked ?? isBookmark ? 2 : 0;
         captionFetching = false;
 
         // 3. 更新缓存
-        await DiskCache.writeModel(cacheKey, illusts!.toJson());
+        DiskCache.writeModel(cacheKey, illusts!.toJson());
       } on DioException catch (e) {
         captionFetching = false;
         if (captionEmtpyCase) {
@@ -153,9 +158,6 @@ abstract class _IllustStoreBase with Store {
       }
     }
 
-    // 4. 加载本地图片信息
-    await _loadLocalImageInfos();
-
     if (illusts != null) {
       try {
         History.insertIllust(illusts!);
@@ -173,46 +175,42 @@ abstract class _IllustStoreBase with Store {
   }
 
   /// 批量加载所有页面的本地图片信息（路径和宽高）
-  Future<void> _loadLocalImageInfos() async {
-    if (illusts == null || !downloadStore.isInitialized) return;
-
-    final infos = <int, LocalImageInfo?>{};
-    final pageCount = illusts!.pageCount;
+  Future<void> _loadLocalImageInfos(Illusts illusts) async {
+    if (!downloadStore.isInitialized) return;
 
     final t1 = DateTime.now();
     // 批量从数据库获取所有图片信息（已自动检测后缀名）
-    final imageInfos = await downloadStore.getLocalImageInfos(illusts!.id);
-    Log.d('loadLocalImageInfos time1: ${DateTime.now().difference(t1).inMilliseconds}ms');
-    final t2 = DateTime.now();
-    
-    for (int i = 0; i < pageCount; i++) {
+    final imageInfos = await downloadStore.getLocalImageInfos(illusts.id);
+    localImageInfos.clear();
+    localImageInfos.addAll(imageInfos);
+    Log.d(
+        'loadLocalImageInfos time1: ${DateTime.now().difference(t1).inMilliseconds}ms');
+    _tryUpdateLocalImageInfo(imageInfos);
+  }
+
+  Future<void> _tryUpdateLocalImageInfo(
+      Map<int, LocalImageInfo> imageInfos) async {
+    final infos = <int, LocalImageInfo>{};
+    for (final i in imageInfos.keys) {
+      // 校验文件是否存在以及文件大小是否变化
       final info = imageInfos[i];
       if (info != null) {
-        // 校验文件是否存在以及文件大小是否变化
         final file = File(info.path);
         if (await file.exists()) {
           final currentFileSize = await file.length();
-          
-          // 如果文件大小变化或者没有宽高信息，需要重新解析
-          if (info.width == null || info.height == null || 
-              (info.fileSize != null && info.fileSize != currentFileSize)) {
+          if ((info.width == null || info.height == null) ||info.fileSize != currentFileSize) {
             final updatedInfo = await downloadStore.updateAndGetLocalImageInfo(
-              illusts!.id, i, info.path, currentFileSize);
-            infos[i] = updatedInfo;
-          } else {
-            infos[i] = info;
+                illusts!.id, i, info.path, currentFileSize);
+            if (updatedInfo != null && updatedInfo != info) {
+              infos[i] = updatedInfo;
+            }
           }
-        } else {
-          infos[i] = null;
         }
-      } else {
-        infos[i] = null;
       }
     }
-    Log.d('loadLocalImageInfos time2: ${DateTime.now().difference(t2).inMilliseconds}ms');
-
-    localImageInfos.clear();
-    localImageInfos.addAll(infos);
+    if (infos.isNotEmpty) {
+      localImageInfos.addAll(infos);
+    }
   }
 
   @action
