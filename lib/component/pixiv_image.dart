@@ -198,28 +198,19 @@ class _PixivImageState extends State<PixivImage> {
           displayWidth = containerWidth;
         }
 
-        // 使用自定义的本地文件 ImageProvider 配合 Image 组件实现淡入效果
-        return Image(
-          image: LocalFileImageProvider(localInfo.path),
+        // 使用自定义的 FadeInLocalImage 组件实现淡入效果
+        return FadeInLocalImage(
+          filePath: localInfo.path,
           fit: displayFit,
-          height: displayHeight,
           width: displayWidth,
-          frameBuilder: fade
-              ? (context, child, frame, wasSynchronouslyLoaded) {
-                  if (wasSynchronouslyLoaded) {
-                    return child;
-                  }
-                  return AnimatedOpacity(
-                    opacity: frame == null ? 0 : 1,
-                    duration: const Duration(milliseconds: 300),
-                    curve: Curves.easeOut,
-                    child: child,
-                  );
-                }
-              : null,
-          errorBuilder: (context, error, stackTrace) {
+          height: displayHeight,
+          fade: fade,
+          placeholder: placeWidget ?? Container(height: displayHeight),
+          onError: () {
             // 本地文件加载失败，回退到网络图片
-            return _buildNetworkImage();
+            if (mounted) {
+              setState(() {});
+            }
           },
         );
       },
@@ -308,4 +299,182 @@ class LocalFileImageProvider extends ImageProvider<LocalFileImageProvider> {
   @override
   String toString() =>
       '${objectRuntimeType(this, 'LocalFileImageProvider')}("$filePath", scale: $scale)';
+}
+
+/// 自定义图片组件，支持传入 ImageProvider（类似 CachedNetworkImage，不使用 Image 控件）
+class CustomImage extends StatefulWidget {
+  final ImageProvider imageProvider;
+  final BoxFit? fit;
+  final double? width;
+  final double? height;
+  final bool fade;
+  final Widget? placeholder;
+  final Widget? errorWidget;
+  final VoidCallback? onError;
+
+  const CustomImage({
+    Key? key,
+    required this.imageProvider,
+    this.fit,
+    this.width,
+    this.height,
+    this.fade = true,
+    this.placeholder,
+    this.errorWidget,
+    this.onError,
+  }) : super(key: key);
+
+  @override
+  State<CustomImage> createState() => _CustomImageState();
+}
+
+class _CustomImageState extends State<CustomImage>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+  ui.Image? _image;
+  bool _isLoading = true;
+  bool _hasError = false;
+  ImageStream? _imageStream;
+  ImageStreamListener? _imageStreamListener;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+    _animation = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeOut,
+    );
+    _loadImage();
+  }
+
+  void _loadImage() {
+    final ImageConfiguration config = ImageConfiguration(
+      size: widget.width != null || widget.height != null
+          ? Size(widget.width ?? double.infinity,
+              widget.height ?? double.infinity)
+          : null,
+    );
+
+    _imageStream = widget.imageProvider.resolve(config);
+    _imageStreamListener = ImageStreamListener(
+      (ImageInfo imageInfo, bool synchronousCall) {
+        if (mounted) {
+          setState(() {
+            _image = imageInfo.image;
+            _isLoading = false;
+          });
+          
+          // 开始淡入动画
+          if (widget.fade) {
+            _controller.forward();
+          }
+        }
+      },
+      onError: (exception, stackTrace) {
+        if (mounted) {
+          setState(() {
+            _hasError = true;
+            _isLoading = false;
+          });
+          widget.onError?.call();
+        }
+      },
+    );
+    
+    _imageStream!.addListener(_imageStreamListener!);
+  }
+
+  @override
+  void didUpdateWidget(CustomImage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.imageProvider != widget.imageProvider) {
+      // 图片提供者改变，重新加载
+      _imageStream?.removeListener(_imageStreamListener!);
+      _image?.dispose();
+      setState(() {
+        _image = null;
+        _isLoading = true;
+        _hasError = false;
+        _controller.reset();
+      });
+      _loadImage();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _image?.dispose();
+    _imageStream?.removeListener(_imageStreamListener!);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_hasError) {
+      return widget.errorWidget ?? widget.placeholder ?? Container();
+    }
+
+    if (_isLoading || _image == null) {
+      return widget.placeholder ?? Container();
+    }
+
+    // 使用 RawImage 直接渲染 ui.Image，不使用 Image 控件
+    Widget imageWidget = RawImage(
+      image: _image,
+      fit: widget.fit ?? BoxFit.fitWidth,
+      width: widget.width,
+      height: widget.height,
+    );
+
+    // 应用淡入效果
+    if (widget.fade) {
+      imageWidget = FadeTransition(
+        opacity: _animation,
+        child: imageWidget,
+      );
+    }
+
+    return imageWidget;
+  }
+}
+
+/// 自定义本地图片组件，支持淡入效果（使用 CustomImage 和 LocalFileImageProvider）
+class FadeInLocalImage extends StatelessWidget {
+  final String filePath;
+  final BoxFit? fit;
+  final double? width;
+  final double? height;
+  final bool fade;
+  final Widget? placeholder;
+  final VoidCallback? onError;
+
+  const FadeInLocalImage({
+    Key? key,
+    required this.filePath,
+    this.fit,
+    this.width,
+    this.height,
+    this.fade = true,
+    this.placeholder,
+    this.onError,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomImage(
+      imageProvider: LocalFileImageProvider(filePath),
+      fit: fit,
+      width: width,
+      height: height,
+      fade: fade,
+      placeholder: placeholder,
+      onError: onError,
+    );
+  }
 }
