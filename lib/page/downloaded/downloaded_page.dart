@@ -50,6 +50,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
   String? _filterUserName;
   DownloadFilter _downloadFilter = DownloadFilter.all;
   final ScrollController _scrollController = ScrollController();
+  Offset? _tapPosition;
   int _page = 0;
   static const int _pageSize = 30;
   bool _hasMore = true;
@@ -270,7 +271,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
       final status = _illustDownloadStatus[illust.illustId];
       if (status == DownloadTaskStatus.paused ||
           status == DownloadTaskStatus.failed) {
-        downloadStore.retryIllustDownload(illust.illustId);
+        downloadStore.resumeIllustDownload(illust.illustId);
       }
     }
   }
@@ -376,7 +377,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
                   children: [
                     Icon(Icons.pause_circle_outline),
                     SizedBox(width: 8),
-                    Text(I18n.of(context).paused),
+                    Text('${I18n.of(context).paused}${I18n.of(context).all}'),
                   ],
                 ),
               ),
@@ -386,7 +387,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
                   children: [
                     Icon(Icons.play_circle_outline),
                     SizedBox(width: 8),
-                    Text(I18n.of(context).retry),
+                    Text('${I18n.of(context).start}${I18n.of(context).all}'),
                   ],
                 ),
               ),
@@ -485,8 +486,11 @@ class _DownloadedPageState extends State<DownloadedPage> {
         onLongPress: () {
           _showIllustOptions(illust);
         },
+        onSecondaryTapDown: (details) {
+          _tapPosition = details.globalPosition;
+        },
         onSecondaryTap: () {
-          _showContextMenu(context, illust);
+          _showContextMenu(context, illust, _tapPosition);
         },
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -628,12 +632,16 @@ class _DownloadedPageState extends State<DownloadedPage> {
     }
   }
 
-  void _showContextMenu(BuildContext context, DownloadedIllust illust) {
+  void _showContextMenu(BuildContext context, DownloadedIllust illust, Offset? tapPosition) {
     final RenderBox overlay =
         Overlay.of(context).context.findRenderObject() as RenderBox;
-    final RenderBox button = context.findRenderObject() as RenderBox;
-    final Offset position =
-        button.localToGlobal(Offset.zero, ancestor: overlay);
+    final Offset position = tapPosition ?? Offset.zero;
+
+    final status = _illustDownloadStatus[illust.illustId];
+    final isDownloading = status == DownloadTaskStatus.downloading ||
+        status == DownloadTaskStatus.pending;
+    final isPaused = status == DownloadTaskStatus.paused;
+    final isFailed = status == DownloadTaskStatus.failed;
 
     showMenu(
       context: context,
@@ -675,6 +683,32 @@ class _DownloadedPageState extends State<DownloadedPage> {
             await OpenFile.open(dirPath);
           },
         ),
+        if (isDownloading)
+          PopupMenuItem(
+            child: Row(
+              children: [
+                Icon(Icons.pause),
+                SizedBox(width: 8),
+                Text(I18n.of(context).paused),
+              ],
+            ),
+            onTap: () {
+              downloadStore.pauseIllustDownload(illust.illustId);
+            },
+          ),
+        if (isPaused || isFailed)
+          PopupMenuItem(
+            child: Row(
+              children: [
+                Icon(Icons.play_arrow),
+                SizedBox(width: 8),
+                Text(I18n.of(context).retry),
+              ],
+            ),
+            onTap: () {
+              downloadStore.resumeIllustDownload(illust.illustId);
+            },
+          ),
         PopupMenuItem(
           child: Row(
             children: [
@@ -710,6 +744,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
               },
             );
             if (confirm == true) {
+              downloadStore.cancelIllustDownload(illust.illustId);
               await downloadStore.deleteDownloadedIllust(illust.illustId);
               _loadData();
             }
@@ -885,7 +920,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
                   title: Text(I18n.of(context).retry),
                   onTap: () {
                     Navigator.pop(ctx);
-                    downloadStore.retryIllustDownload(illust.illustId);
+                    downloadStore.resumeIllustDownload(illust.illustId);
                   },
                 ),
               ListTile(
@@ -920,6 +955,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
                     },
                   );
                   if (confirm == true) {
+                    downloadStore.cancelIllustDownload(illust.illustId);
                     await downloadStore.deleteDownloadedIllust(illust.illustId);
                     _loadData();
                   }

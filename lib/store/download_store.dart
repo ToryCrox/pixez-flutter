@@ -379,7 +379,7 @@ abstract class _DownloadStoreBase with Store {
     );
   }
 
-  /// 暂停插画的所有下载任务（移回待确认队列）
+  /// 暂停插画的所有下载任务
   @action
   Future<void> pauseIllustDownload(int illustId) async {
     final keysToRemove = downloadingTasks.keys
@@ -392,12 +392,31 @@ abstract class _DownloadStoreBase with Store {
               task.status == DownloadTaskStatus.pending)) {
         _runningTask.remove(task.taskKey);
         _pendingQueue.removeWhere((t) => t.taskKey == key);
-        task.status = DownloadTaskStatus.pending;
+        task.status = DownloadTaskStatus.paused;
         await _dbProvider.updatePendingDownloadStatus(key, task.status.name);
-        downloadingTasks.remove(key);
         _notifyProgress(task);
       }
     }
+  }
+
+  /// 恢复插画的所有暂停任务
+  @action
+  Future<void> resumeIllustDownload(int illustId) async {
+    final tasks = downloadingTasks.values
+        .where((t) =>
+            t.illusts.id == illustId &&
+            (t.status == DownloadTaskStatus.paused ||
+                t.status == DownloadTaskStatus.failed))
+        .toList();
+    for (final task in tasks) {
+      task.status = DownloadTaskStatus.pending;
+      task.error = null;
+      task.received = 0;
+      await _dbProvider.updatePendingDownloadStatus(task.taskKey, task.status.name);
+      _pendingQueue.add(task);
+      _notifyProgress(task);
+    }
+    _processQueue();
   }
 
   /// 重启插画的所有失败任务
