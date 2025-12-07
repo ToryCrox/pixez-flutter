@@ -184,7 +184,7 @@ class _SettingQualityPageState extends State<SettingQualityPage>
               title: Text(I18n.of(context).welcome_page),
               trailing: SettingSelectMenu(
                 index: userSetting.welcomePageNum,
-                items: Platform.isAndroid
+                items: Platform.isAndroid || Platform.isWindows
                     ? [
                         I18n.of(context).home,
                         I18n.of(context).rank,
