@@ -27,9 +27,14 @@ class PainterList extends StatefulWidget {
   final FutureGet futureGet;
   final bool isNovel;
   final Widget? header;
+  final String? cacheKey;
 
   const PainterList(
-      {Key? key, required this.futureGet, this.isNovel = false, this.header})
+      {Key? key,
+      required this.futureGet,
+      this.isNovel = false,
+      this.header,
+      this.cacheKey})
       : super(key: key);
 
   @override
@@ -46,8 +51,9 @@ class _PainterListState extends State<PainterList> {
     _scrollController = ScrollController();
     _easyRefreshController = EasyRefreshController(
         controlFinishLoad: true, controlFinishRefresh: true);
-    _painterListStore =
-        PainterListStore(_easyRefreshController, widget.futureGet);
+    _painterListStore = PainterListStore(
+        _easyRefreshController, widget.futureGet,
+        cacheKey: widget.cacheKey);
     super.initState();
     _painterListStore.fetch();
   }
@@ -57,6 +63,7 @@ class _PainterListState extends State<PainterList> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.futureGet != widget.futureGet) {
       _painterListStore.source = widget.futureGet;
+      _painterListStore.cacheKey = widget.cacheKey;
       _easyRefreshController.resetFooter();
       _painterListStore.fetch();
       if (_painterListStore.users.isNotEmpty && _scrollController.hasClients)

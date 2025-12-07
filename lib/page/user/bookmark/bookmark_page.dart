@@ -65,7 +65,8 @@ class _BookmarkPageState extends State<BookmarkPage> {
     restrict = widget.restrict;
     futureGet = ApiForceSource(
         futureGet: (e) =>
-            apiClient.getBookmarksIllust(widget.id, restrict, null));
+            apiClient.getBookmarksIllust(widget.id, restrict, null),
+        cacheKey: "bookmark_${widget.id}_$restrict");
     super.initState();
     subscription = topStore.topStream.listen((event) {
       if (event == "302") {
@@ -123,13 +124,15 @@ class _BookmarkPageState extends State<BookmarkPage> {
                 setState(() {
                   futureGet = ApiForceSource(
                       futureGet: (bool e) => apiClient.getBookmarksIllust(
-                          widget.id, restrict = 'public', null));
+                          widget.id, restrict = 'public', null),
+                      cacheKey: "bookmark_${widget.id}_public");
                 });
               if (index == 1)
                 setState(() {
                   futureGet = ApiForceSource(
                       futureGet: (bool e) => apiClient.getBookmarksIllust(
-                          widget.id, restrict = 'private', null));
+                          widget.id, restrict = 'private', null),
+                      cacheKey: "bookmark_${widget.id}_private");
                 });
             },
           ),
@@ -155,7 +158,10 @@ class _BookmarkPageState extends State<BookmarkPage> {
                   setState(() {
                     futureGet = ApiForceSource(
                         futureGet: (bool e) => apiClient.getBookmarksIllust(
-                            widget.id, restrict, tag));
+                            widget.id, restrict, tag),
+                        cacheKey: tag == null
+                            ? "bookmark_${widget.id}_$restrict"
+                            : null);
                   });
                 }
               },
@@ -414,12 +420,14 @@ class _BookMarkNestedPageState extends State<BookMarkNestedPage> {
               if (index == 0) {
                 _store.source = ApiForceSource(
                     futureGet: (bool e) => apiClient.getBookmarksIllust(
-                        widget.id, restrict = 'public', null));
+                        widget.id, restrict = 'public', null),
+                    cacheKey: "bookmark_${widget.id}_public");
                 _store.fetch();
               } else if (index == 1) {
                 _store.source = ApiForceSource(
                     futureGet: (bool e) => apiClient.getBookmarksIllust(
-                        widget.id, restrict = 'private', null));
+                        widget.id, restrict = 'private', null),
+                    cacheKey: "bookmark_${widget.id}_private");
                 _store.fetch();
               }
             },
@@ -435,7 +443,10 @@ class _BookMarkNestedPageState extends State<BookMarkNestedPage> {
                   String restrict = result['restrict'];
                   _store.source = ApiForceSource(
                       futureGet: (bool e) => apiClient.getBookmarksIllust(
-                          widget.id, restrict, tag));
+                          widget.id, restrict, tag),
+                      cacheKey: tag == null
+                          ? "bookmark_${widget.id}_$restrict"
+                          : null);
                   _store.fetch();
                 }
               },

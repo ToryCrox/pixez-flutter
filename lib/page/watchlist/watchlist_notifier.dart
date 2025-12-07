@@ -1,5 +1,6 @@
 import 'package:easy_refresh/easy_refresh.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
+import 'package:pixez/custom/disk_cache.dart';
 import 'package:pixez/models/watchlist_manga_model.dart';
 import 'package:pixez/network/api_client.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -17,6 +18,8 @@ class WatchlistState with _$WatchlistState {
   }) = _WatchlistState;
 }
 
+const _cacheKey = 'watchlist_manga';
+
 @riverpod
 class WatchlistStore extends _$WatchlistStore {
   EasyRefreshController controller = EasyRefreshController(
@@ -30,13 +33,42 @@ class WatchlistStore extends _$WatchlistStore {
 
   Future<void> fetch() async {
     state = state.copyWith(isLoading: true);
+
+    // 1. 尝试从缓存加载
+    if (state.mangaSeries.isEmpty) {
+      try {
+        final cachedData = await DiskCache.readModel(
+          _cacheKey,
+          (map) => WatchlistMangaModel.fromJson(map),
+        );
+        if (cachedData != null && cachedData.series.isNotEmpty) {
+          state = state.copyWith(
+            mangaSeries: cachedData.series,
+            model: cachedData,
+          );
+        }
+      } catch (e) {
+        // 缓存读取失败，继续网络请求
+      }
+    }
+
+    // 2. 加载网络数据
     try {
       final response = await apiClient.watchListManga();
       final data = WatchlistMangaModel.fromJson(response.data);
       final nextUrl = data.nextUrl;
       controller.finishRefresh(
           nextUrl != null ? IndicatorResult.success : IndicatorResult.noMore);
-      state = state.copyWith(mangaSeries: data.series, isLoading: false);
+      state = state.copyWith(
+        mangaSeries: data.series,
+        model: data,
+        isLoading: false,
+      );
+
+      // 3. 更新缓存
+      Future.microtask(() async {
+        await DiskCache.writeModel(_cacheKey, response.data);
+      });
     } catch (e) {
       controller.finishRefresh(IndicatorResult.fail);
       state = state.copyWith(errorMessage: e.toString(), isLoading: false);

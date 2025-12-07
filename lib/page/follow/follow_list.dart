@@ -41,6 +41,11 @@ class _FollowListState extends State<FollowList> {
   bool _isNovel = false;
   bool _isFollowMe = false;
 
+  String get _cacheKey {
+    final type = _isFollowMe ? 'follower' : 'following';
+    return 'follow_list_${widget.id}_${type}_$restrict';
+  }
+
   @override
   void dispose() {
     super.dispose();
@@ -84,6 +89,7 @@ class _FollowListState extends State<FollowList> {
         PainterList(
           futureGet: futureGet,
           isNovel: _isNovel,
+          cacheKey: _cacheKey,
           header: Container(
             height: _isFollowMe ? 0 : 45,
           ),

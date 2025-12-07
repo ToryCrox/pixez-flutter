@@ -18,6 +18,7 @@
 import 'package:dio/dio.dart';
 import 'package:easy_refresh/easy_refresh.dart';
 import 'package:mobx/mobx.dart';
+import 'package:pixez/custom/disk_cache.dart';
 import 'package:pixez/exts.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/models/glance_illust_persist.dart';
@@ -35,6 +36,7 @@ typedef Future<Response> FutureRefreshGet(bool force);
 
 abstract class LightSource {
   String? glanceKey;
+  String? cacheKey;
 }
 
 class ApiSource extends LightSource {
@@ -42,7 +44,9 @@ class ApiSource extends LightSource {
 
   String? g;
 
-  ApiSource({required this.futureGet}) : super();
+  ApiSource({required this.futureGet, String? cacheKey}) : super() {
+    this.cacheKey = cacheKey;
+  }
 
   Future<Response> fetch() {
     return futureGet();
@@ -52,9 +56,10 @@ class ApiSource extends LightSource {
 class ApiForceSource extends LightSource {
   FutureRefreshGet futureGet;
 
-  ApiForceSource({required this.futureGet, String? glanceKey = null})
+  ApiForceSource({required this.futureGet, String? glanceKey, String? cacheKey})
       : super() {
     this.glanceKey = glanceKey;
+    this.cacheKey = cacheKey;
   }
 
   Future<Response> fetch(bool force) {
@@ -121,6 +126,27 @@ abstract class _LightingStoreBase with Store {
     nextUrl = null;
     errorMessage = null;
     refreshing = true;
+
+    final cacheKey = source.cacheKey;
+
+    // 1. 尝试从缓存加载
+    if (cacheKey != null && cacheKey.isNotEmpty && iStores.isEmpty) {
+      try {
+        final cachedData = await DiskCache.readModel(
+          cacheKey,
+          (map) => Recommend.fromJson(map),
+        );
+        if (cachedData != null && cachedData.illusts.isNotEmpty) {
+          iStores.clear();
+          iStores.addAll(cachedData.illusts.map((e) => IllustStore(e.id, e)));
+          nextUrl = cachedData.nextUrl;
+        }
+      } catch (e) {
+        // 缓存读取失败，继续网络请求
+      }
+    }
+
+    // 2. 加载网络数据
     try {
       Response? result = null;
       if (source is ApiSource) {
@@ -145,6 +171,14 @@ abstract class _LightingStoreBase with Store {
                   glanceKey, DateTime.now().microsecondsSinceEpoch));
         });
       }
+
+      // 3. 更新缓存
+      if (cacheKey != null && cacheKey.isNotEmpty) {
+        Future.microtask(() async {
+          await DiskCache.writeModel(cacheKey, result!.data);
+        });
+      }
+
       easyRefreshController?.finishRefresh(IndicatorResult.success);
       return true;
     } catch (e) {
