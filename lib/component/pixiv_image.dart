@@ -15,10 +15,12 @@
  */
 
 import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:dio/dio.dart';
 import 'package:dio_compatibility_layer/dio_compatibility_layer.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_cache_manager_dio/flutter_cache_manager_dio.dart';
@@ -27,8 +29,6 @@ import 'package:pixez/models/download_record.dart';
 import 'package:pixez/er/hoster.dart';
 import 'package:pixez/main.dart';
 import 'package:rhttp/rhttp.dart' as r;
-
-import '../custom/log.dart';
 
 const ImageHost = "i.pximg.net";
 const ImageCatHost = "i.pixiv.re";
@@ -162,8 +162,6 @@ class _PixivImageState extends State<PixivImage> {
   }
 
   Widget _buildLocalImage(BuildContext context, LocalImageInfo localInfo) {
-    final localFile = File(localInfo.path);
-
     return LayoutBuilder(
       builder: (context, constraints) {
         // 使用 LayoutBuilder 获取实际容器宽度
@@ -174,7 +172,6 @@ class _PixivImageState extends State<PixivImage> {
         // 计算显示尺寸
         double? displayWidth;
         double? displayHeight;
-        double? presetHeight;
         BoxFit displayFit = fit ?? BoxFit.fitWidth;
 
         if (localInfo.width != null && localInfo.height != null) {
@@ -196,34 +193,30 @@ class _PixivImageState extends State<PixivImage> {
             displayHeight = heightByWidth;
             displayFit = BoxFit.fitWidth;
           }
-          presetHeight = displayHeight;
         } else {
           // 没有宽高信息时，使用默认行为
           displayWidth = containerWidth;
-          presetHeight = height;
         }
-        return Image.file(
-          localFile,
+
+        // 使用自定义的本地文件 ImageProvider 配合 Image 组件实现淡入效果
+        return Image(
+          image: LocalFileImageProvider(localInfo.path),
           fit: displayFit,
           height: displayHeight,
           width: displayWidth,
-          frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-            if (wasSynchronouslyLoaded) {
-              return child;
-            }
-            if (frame != null) {
-              return child;
-            }
-            // 使用预设高度作为占位符高度，避免图片加载时跳动
-            return SizedBox(
-              width: displayWidth,
-              height: displayWidth,
-              child: widget.placeWidget ??
-                  Container(
-                    height: presetHeight ?? height,
-                  ),
-            );
-          },
+          frameBuilder: fade
+              ? (context, child, frame, wasSynchronouslyLoaded) {
+                  if (wasSynchronouslyLoaded) {
+                    return child;
+                  }
+                  return AnimatedOpacity(
+                    opacity: frame == null ? 0 : 1,
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeOut,
+                    child: child,
+                  );
+                }
+              : null,
           errorBuilder: (context, error, stackTrace) {
             // 本地文件加载失败，回退到网络图片
             return _buildNetworkImage();
@@ -267,16 +260,52 @@ class PixivProvider {
   }
 }
 
-// class RubyProvider extends ImageProvider{
-//   @override
-//   ImageStreamCompleter load(Object key, Future<Codec> Function(Uint8List bytes, {bool allowUpscaling, int cacheHeight, int cacheWidth}) decode) {
-//     // TODO: implement load
-//     throw UnimplementedError();
-//   }
-//
-//   @override
-//   Future<Object> obtainKey(ImageConfiguration configuration) {
-//     // TODO: implement obtainKey
-//     throw UnimplementedError();
-//   }
-// }
+/// 自定义本地文件 ImageProvider，支持异步加载本地图片
+class LocalFileImageProvider extends ImageProvider<LocalFileImageProvider> {
+  final String filePath;
+  final double scale;
+
+  const LocalFileImageProvider(this.filePath, {this.scale = 1.0});
+
+  @override
+  Future<LocalFileImageProvider> obtainKey(ImageConfiguration configuration) {
+    return SynchronousFuture<LocalFileImageProvider>(this);
+  }
+
+  @override
+  ImageStreamCompleter loadImage(
+      LocalFileImageProvider key, ImageDecoderCallback decode) {
+    return MultiFrameImageStreamCompleter(
+      codec: _loadAsync(key, decode),
+      scale: key.scale,
+      debugLabel: key.filePath,
+      informationCollector: () => <DiagnosticsNode>[
+        DiagnosticsProperty<ImageProvider>('Image provider', this),
+        DiagnosticsProperty<LocalFileImageProvider>('Image key', key),
+      ],
+    );
+  }
+
+  Future<ui.Codec> _loadAsync(
+      LocalFileImageProvider key, ImageDecoderCallback decode) async {
+    final file = File(key.filePath);
+    final bytes = await file.readAsBytes();
+    final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
+    return decode(buffer);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (other.runtimeType != runtimeType) return false;
+    return other is LocalFileImageProvider &&
+        other.filePath == filePath &&
+        other.scale == scale;
+  }
+
+  @override
+  int get hashCode => Object.hash(filePath, scale);
+
+  @override
+  String toString() =>
+      '${objectRuntimeType(this, 'LocalFileImageProvider')}("$filePath", scale: $scale)';
+}
