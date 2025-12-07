@@ -20,7 +20,9 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:mobx/mobx.dart';
 import 'package:pixez/custom/disk_cache.dart';
+import 'package:pixez/custom/log.dart';
 import 'package:pixez/main.dart';
+import 'package:pixez/models/download_record.dart';
 import 'package:pixez/models/error_message.dart';
 import 'package:pixez/models/illust.dart';
 import 'package:pixez/models/illust_series_detail.dart';
@@ -49,8 +51,10 @@ abstract class _IllustStoreBase with Store {
   bool captionFetching = false;
   @observable
   IllustSeriesDetailResponse? illustSeriesDetailResponse;
+  
+  /// 本地图片信息（包含路径和宽高）
   @observable
-  ObservableMap<int, String?> localImagePaths = ObservableMap<int, String?>();
+  ObservableMap<int, LocalImageInfo?> localImageInfos = ObservableMap<int, LocalImageInfo?>();
 
   StreamSubscription<IllustDownloadStatus>? _downloadStatusSubscription;
 
@@ -58,9 +62,9 @@ abstract class _IllustStoreBase with Store {
     _downloadStatusSubscription?.cancel();
   }
 
-  /// 获取指定页面的本地图片路径（同步方法）
-  String? getLocalImagePath(int part) {
-    return localImagePaths[part];
+  /// 获取指定页面的本地图片信息（同步方法）
+  LocalImageInfo? getLocalImageInfo(int part) {
+    return localImageInfos[part];
   }
 
   _IllustStoreBase(this.id, this.illusts) {
@@ -81,11 +85,11 @@ abstract class _IllustStoreBase with Store {
   @action
   void _onDownloadStatusChanged(IllustDownloadStatus status) {
     if (status.status == DownloadTaskStatus.deleted) {
-      // 删除时清空所有本地路径
-      localImagePaths.clear();
+      // 删除时清空所有本地图片信息
+      localImageInfos.clear();
     } else if (status.status == DownloadTaskStatus.completed) {
-      // 下载完成时重新加载本地路径
-      _loadLocalImagePaths();
+      // 下载完成时重新加载本地图片信息
+      _loadLocalImageInfos();
     }
   }
 
@@ -104,8 +108,8 @@ abstract class _IllustStoreBase with Store {
       illusts = cachedData;
       isBookmark = illusts!.isBookmarked;
       state = illusts?.isBookmarked ?? isBookmark ? 2 : 0;
-      // 立即加载本地路径
-      await _loadLocalImagePaths();
+      // 立即加载本地图片信息
+      await _loadLocalImageInfos();
     }
 
     // 2. 加载网络数据
@@ -149,8 +153,8 @@ abstract class _IllustStoreBase with Store {
       }
     }
 
-    // 4. 加载本地图片路径
-    await _loadLocalImagePaths();
+    // 4. 加载本地图片信息
+    await _loadLocalImageInfos();
 
     if (illusts != null) {
       try {
@@ -168,19 +172,47 @@ abstract class _IllustStoreBase with Store {
     }
   }
 
-  /// 批量加载所有页面的本地图片路径
-  Future<void> _loadLocalImagePaths() async {
+  /// 批量加载所有页面的本地图片信息（路径和宽高）
+  Future<void> _loadLocalImageInfos() async {
     if (illusts == null || !downloadStore.isInitialized) return;
 
-    final paths = <int, String?>{};
+    final infos = <int, LocalImageInfo?>{};
     final pageCount = illusts!.pageCount;
 
+    final t1 = DateTime.now();
+    // 批量从数据库获取所有图片信息（已自动检测后缀名）
+    final imageInfos = await downloadStore.getLocalImageInfos(illusts!.id);
+    Log.d('loadLocalImageInfos time1: ${DateTime.now().difference(t1).inMilliseconds}ms');
+    final t2 = DateTime.now();
+    
     for (int i = 0; i < pageCount; i++) {
-      final path = await downloadStore.getLocalImagePath(illusts!.id, i);
-      paths[i] = path;
+      final info = imageInfos[i];
+      if (info != null) {
+        // 校验文件是否存在以及文件大小是否变化
+        final file = File(info.path);
+        if (await file.exists()) {
+          final currentFileSize = await file.length();
+          
+          // 如果文件大小变化或者没有宽高信息，需要重新解析
+          if (info.width == null || info.height == null || 
+              (info.fileSize != null && info.fileSize != currentFileSize)) {
+            final updatedInfo = await downloadStore.updateAndGetLocalImageInfo(
+              illusts!.id, i, info.path, currentFileSize);
+            infos[i] = updatedInfo;
+          } else {
+            infos[i] = info;
+          }
+        } else {
+          infos[i] = null;
+        }
+      } else {
+        infos[i] = null;
+      }
     }
+    Log.d('loadLocalImageInfos time2: ${DateTime.now().difference(t2).inMilliseconds}ms');
 
-    localImagePaths = ObservableMap.of(paths);
+    localImageInfos.clear();
+    localImageInfos.addAll(infos);
   }
 
   @action

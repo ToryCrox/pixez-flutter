@@ -22,12 +22,13 @@ import 'package:bot_toast/bot_toast.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:image_size_getter/file_input.dart';
+import 'package:image_size_getter/image_size_getter.dart' hide Size;
 import 'package:mobx/mobx.dart';
 import 'package:path/path.dart' as path hide context;
 import 'package:pixez/component/pixiv_image.dart';
 import 'package:pixez/custom/log.dart';
 import 'package:pixez/er/hoster.dart';
-import 'package:pixez/er/toaster.dart';
 import 'package:pixez/models/download_record.dart';
 import 'package:pixez/models/illust.dart';
 
@@ -126,8 +127,6 @@ class IllustDownloadStatus {
   bool get isAllDownloaded => totalCount > 0 && totalCount == completedCount;
 
 }
-
-const kImageExtensions = ['.webp', '.jpg', '.png', '.gif', '.jpeg'];
 
 class DownloadStore = _DownloadStoreBase with _$DownloadStore;
 
@@ -268,6 +267,95 @@ abstract class _DownloadStoreBase with Store {
 
   Future<String?> getLocalImagePath(int illustId, int part) async {
     return await _dbProvider.findImagePath(illustId, part);
+  }
+
+  /// 获取本地图片信息（包含宽高）
+  Future<DownloadedImage?> getLocalImage(int illustId, int part) async {
+    return await _dbProvider.getImage(illustId, part);
+  }
+
+  /// 批量获取插画的所有本地图片信息
+  Future<Map<int, LocalImageInfo>> getLocalImageInfos(int illustId) async {
+    return await _dbProvider.getLocalImageInfosByIllustId(illustId);
+  }
+
+  /// 更新图片信息并返回新的 LocalImageInfo
+  Future<LocalImageInfo?> updateAndGetLocalImageInfo(
+    int illustId, 
+    int part, 
+    String filePath,
+    int currentFileSize,
+  ) async {
+    final size = await _getImageSize(filePath);
+    if (size != null && size.width > 0 && size.height > 0) {
+      await _dbProvider.updateImageFileSizeAndDimensions(
+        illustId,
+        part,
+        currentFileSize,
+        size.width.toInt(),
+        size.height.toInt(),
+      );
+      return LocalImageInfo(
+        path: filePath,
+        width: size.width.toInt(),
+        height: size.height.toInt(),
+        fileSize: currentFileSize,
+      );
+    }
+    return LocalImageInfo(path: filePath, fileSize: currentFileSize);
+  }
+
+  /// 获取本地图片的宽高比，如果没有宽高信息则尝试解析并更新
+  Future<double?> getLocalImageAspectRatio(int illustId, int part) async {
+    final image = await _dbProvider.getImage(illustId, part);
+    if (image == null) return null;
+
+    // 如果已有宽高信息，直接返回
+    if (image.aspectRatio != null) {
+      return image.aspectRatio;
+    }
+
+    // 尝试解析图片宽高并更新数据库
+    final filePath = await _dbProvider.findImagePath(illustId, part);
+    if (filePath == null) return null;
+
+    final size = await _getImageSize(filePath);
+    if (size != null && size.width > 0 && size.height > 0) {
+      await _dbProvider.updateImageDimensions(
+        illustId,
+        part,
+        size.width.toInt(),
+        size.height.toInt(),
+      );
+      return size.width / size.height;
+    }
+
+    return null;
+  }
+
+  /// 批量更新缺少宽高信息的图片（用于历史数据迁移）
+  Future<void> updateMissingImageDimensions({int batchSize = 50}) async {
+    final images = await _dbProvider.getImagesWithoutDimensions(limit: batchSize);
+    if (images.isEmpty) return;
+
+    Log.d('开始更新 ${images.length} 张图片的宽高信息');
+    
+    for (final image in images) {
+      final filePath = await _dbProvider.findImagePath(image.illustId, image.part);
+      if (filePath == null) continue;
+
+      final size = await _getImageSize(filePath);
+      if (size != null && size.width > 0 && size.height > 0) {
+        await _dbProvider.updateImageDimensions(
+          image.illustId,
+          image.part,
+          size.width.toInt(),
+          size.height.toInt(),
+        );
+      }
+    }
+    
+    Log.d('图片宽高信息更新完成');
   }
 
   Future<List<DownloadedIllust>> getAllDownloaded({
@@ -661,7 +749,7 @@ abstract class _DownloadStoreBase with Store {
     _runningTask.remove(task.taskKey);
     _processQueue();
     await refreshCount();
-    pixivCacheManager.removeFile(task.url);
+    //pixivCacheManager.removeFile(task.url);
   }
 
   Future<void> _onDownloadFailed(DownloadTask task, String error) async {
@@ -798,6 +886,19 @@ abstract class _DownloadStoreBase with Store {
       }
     } catch (_) {}
 
+    // 解析图片宽高
+    int? imageWidth;
+    int? imageHeight;
+    try {
+      final size = await _getImageSize(filePath);
+      if (size != null) {
+        imageWidth = size.width.toInt();
+        imageHeight = size.height.toInt();
+      }
+    } catch (e) {
+      Log.e('解析图片宽高失败: $filePath, $e');
+    }
+
     // 创建图片记录
     final downloadedImage = DownloadedImage(
       illustId: illusts.id,
@@ -807,8 +908,35 @@ abstract class _DownloadStoreBase with Store {
       fileSize: fileSize,
       originalUrl: url,
       relativePath: relativePath,
+      width: imageWidth,
+      height: imageHeight,
     );
     await _dbProvider.insertImage(downloadedImage);
+  }
+
+  /// 使用 image_size_getter 解析图片宽高
+  Future<Size?> _getImageSize(String filePath) async {
+    try {
+      final file = File(filePath);
+      if (!await file.exists()) return null;
+      
+      final size = await compute(_parseImageSizeSync, filePath);
+      return size;
+    } catch (e) {
+      Log.e('获取图片尺寸失败: $e');
+      return null;
+    }
+  }
+
+  /// 在 isolate 中同步解析图片尺寸
+  static Size? _parseImageSizeSync(String filePath) {
+    try {
+      final file = File(filePath);
+      final size = ImageSizeGetter.getSizeResult(FileInput(file));
+      return Size(size.size.width.toDouble(), size.size.height.toDouble());
+    } catch (e) {
+      return null;
+    }
   }
 
   // ============ 删除接口 ============

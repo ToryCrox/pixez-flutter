@@ -478,13 +478,11 @@ class _IllustRowPageState extends State<IllustRowPage>
             tag: widget.heroString,
             child: PixivImage(
               url,
-              localPath: _illustStore.getLocalImagePath(0),
+              localImageInfo: _illustStore.getLocalImageInfo(0),
               fade: false,
-              width: MediaQuery.of(context).size.width,
               placeWidget: (url != data.imageUrls.medium)
                   ? PixivImage(
                       data.imageUrls.medium,
-                      width: MediaQuery.of(context).size.width,
                       placeWidget: placeWidget,
                       fade: false,
                     )
@@ -525,26 +523,22 @@ class _IllustRowPageState extends State<IllustRowPage>
   Widget _buildIllustsItem(int index, Illusts illust, double height) {
     final String imageUrl;
     final String mediumImageUrl;
-    final double? width;
     final bool useMediumPlaceHolder;
     if (illust.type == "manga") {
       imageUrl = illust.managaDetailImageUrl(index);
       mediumImageUrl = illust.metaPages[index].imageUrls!.medium;
-      width = MediaQuery.of(context).size.width;
       useMediumPlaceHolder = index == 0 && userSetting.mangaQuality >= 1;
     } else {
       imageUrl = illust.illustDetailImageUrl(index);
       mediumImageUrl = illust.metaPages[index].imageUrls!.medium;
-      width = null;
       useMediumPlaceHolder = index == 0 && userSetting.pictureQuality >= 1;
     }
 
     Widget child = PixivImage(
       imageUrl,
-      localPath: _illustStore.getLocalImagePath(index),
+      localImageInfo: _illustStore.getLocalImageInfo(index),
       placeWidget: useMediumPlaceHolder ? PixivImage(
         mediumImageUrl,
-        width: width,
         fade: false,
       ) : Container(
         height: height,
@@ -553,7 +547,6 @@ class _IllustRowPageState extends State<IllustRowPage>
               style: Theme.of(context).textTheme.headlineMedium),
         ),
       ),
-      width: width,
       fade: false,
     );
     if (index == 0) {

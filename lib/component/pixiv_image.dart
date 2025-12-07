@@ -22,6 +22,7 @@ import 'package:dio_compatibility_layer/dio_compatibility_layer.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_cache_manager_dio/flutter_cache_manager_dio.dart';
+import 'package:pixez/models/download_record.dart';
 
 import 'package:pixez/er/hoster.dart';
 import 'package:pixez/main.dart';
@@ -64,7 +65,7 @@ class PixivCacheManager extends CacheManager with ImageCacheManager {
 
 class PixivImage extends StatefulWidget {
   final String url;
-  final String? localPath; // 新增：本地文件路径
+  final LocalImageInfo? localImageInfo; // 本地图片信息（包含路径和宽高）
   final Widget? placeWidget;
   final bool fade;
   final BoxFit? fit;
@@ -75,7 +76,7 @@ class PixivImage extends StatefulWidget {
 
   PixivImage(
     this.url, {
-    this.localPath, // 新增参数
+    this.localImageInfo,
     this.placeWidget,
     this.fade = true,
     this.fit,
@@ -150,34 +151,86 @@ class _PixivImageState extends State<PixivImage> {
 
   @override
   Widget build(BuildContext context) {
-    // 如果提供了本地路径，优先使用本地文件
-    if (widget.localPath != null && widget.localPath!.isNotEmpty) {
-      final localFile = File(widget.localPath!);
-      //Log.d("Using local file: ${localFile.path}, width: $width, height: $height");
-      return Image.file(
-        localFile,
-        fit: fit ?? BoxFit.fitWidth,
-        height: height,
-        width: width,
-        frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-          if (wasSynchronouslyLoaded) {
-            return child;
-          }
-          if (frame != null) {
-            return child;
-          }
-          return widget.placeWidget ?? Container(height: height);
-        },
-        errorBuilder: (context, error, stackTrace) {
-          // 本地文件加载失败，回退到网络图片
-          return _buildNetworkImage();
-        },
-      );
-      ;
+    // 如果提供了本地图片信息，优先使用本地文件
+    final localInfo = widget.localImageInfo;
+    if (localInfo != null && localInfo.path.isNotEmpty) {
+      return _buildLocalImage(context, localInfo);
     }
 
-    // 没有本地路径，使用网络图片
+    // 没有本地图片信息，使用网络图片
     return _buildNetworkImage();
+  }
+
+  Widget _buildLocalImage(BuildContext context, LocalImageInfo localInfo) {
+    final localFile = File(localInfo.path);
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // 使用 LayoutBuilder 获取实际容器宽度
+        final containerWidth = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : (width ?? MediaQuery.of(context).size.width);
+
+        // 计算显示尺寸
+        double? displayWidth;
+        double? displayHeight;
+        double? presetHeight;
+        BoxFit displayFit = fit ?? BoxFit.fitWidth;
+
+        if (localInfo.width != null && localInfo.height != null) {
+          final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
+          final imageWidth = localInfo.width!.toDouble() / devicePixelRatio;
+          final imageHeight = localInfo.height!.toDouble() / devicePixelRatio;
+          final aspectRatio = imageWidth / imageHeight;
+
+          // 计算基于容器宽度的高度
+          final heightByWidth = containerWidth / aspectRatio;
+
+          // 如果图片比容器小，显示原始尺寸；否则撑满容器宽度
+          if (imageWidth <= containerWidth) {
+            displayWidth = imageWidth;
+            displayHeight = imageHeight;
+            displayFit = BoxFit.contain;
+          } else {
+            displayWidth = containerWidth;
+            displayHeight = heightByWidth;
+            displayFit = BoxFit.fitWidth;
+          }
+          presetHeight = displayHeight;
+        } else {
+          // 没有宽高信息时，使用默认行为
+          displayWidth = containerWidth;
+          presetHeight = height;
+        }
+        return Image.file(
+          localFile,
+          fit: displayFit,
+          height: displayHeight,
+          width: displayWidth,
+          frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+            if (wasSynchronouslyLoaded) {
+              return child;
+            }
+            if (frame != null) {
+              return child;
+            }
+            // 使用预设高度作为占位符高度，避免图片加载时跳动
+            return SizedBox(
+              width: displayWidth,
+              height: displayWidth,
+              child: widget.placeWidget ??
+                  Container(
+                    height: presetHeight ?? height,
+                  ),
+            );
+          },
+          errorBuilder: (context, error, stackTrace) {
+            // 本地文件加载失败，回退到网络图片
+            return _buildNetworkImage();
+          },
+        );
+      },
+    );
   }
 
   Widget _buildNetworkImage() {

@@ -19,8 +19,12 @@ import 'dart:io';
 import 'package:path/path.dart' as path;
 import 'package:pixez/exts.dart';
 import 'package:pixez/models/illust.dart';
-import 'package:pixez/store/download_store.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+
+import '../custom/log.dart';
+
+/// 支持的图片后缀名
+const kImageExtensions = ['.webp', '.jpg', '.png', '.gif', '.jpeg'];
 
 // 下载的插画记录
 class DownloadedIllust {
@@ -147,6 +151,29 @@ class DownloadedIllust {
   }
 }
 
+/// 本地图片信息，包含路径和宽高
+class LocalImageInfo {
+  final String path;
+  final int? width;
+  final int? height;
+  final int? fileSize;
+
+  LocalImageInfo({
+    required this.path,
+    this.width,
+    this.height,
+    this.fileSize,
+  });
+
+  /// 获取宽高比（width / height），如果宽高未知则返回 null
+  double? get aspectRatio {
+    if (width != null && height != null && height! > 0) {
+      return width! / height!;
+    }
+    return null;
+  }
+}
+
 // 下载的图片记录
 class DownloadedImage {
   int? id;
@@ -157,6 +184,8 @@ class DownloadedImage {
   int fileSize;
   String originalUrl;
   String relativePath;
+  int? width; // 图片宽度
+  int? height; // 图片高度
 
   DownloadedImage({
     this.id,
@@ -167,6 +196,8 @@ class DownloadedImage {
     required this.fileSize,
     required this.originalUrl,
     required this.relativePath,
+    this.width,
+    this.height,
   });
 
   factory DownloadedImage.fromJson(Map<String, dynamic> json) {
@@ -179,6 +210,8 @@ class DownloadedImage {
       fileSize: json[DownloadedImageColumns.fileSize],
       originalUrl: json[DownloadedImageColumns.originalUrl],
       relativePath: json[DownloadedImageColumns.relativePath],
+      width: json[DownloadedImageColumns.width],
+      height: json[DownloadedImageColumns.height],
     );
   }
 
@@ -192,10 +225,20 @@ class DownloadedImage {
     data[DownloadedImageColumns.fileSize] = fileSize;
     data[DownloadedImageColumns.originalUrl] = originalUrl;
     data[DownloadedImageColumns.relativePath] = relativePath;
+    data[DownloadedImageColumns.width] = width;
+    data[DownloadedImageColumns.height] = height;
     return data;
   }
 
   String getFullFileName() => '$fileName$extension';
+
+  /// 获取图片宽高比（width / height），如果宽高未知则返回 null
+  double? get aspectRatio {
+    if (width != null && height != null && height! > 0) {
+      return width! / height!;
+    }
+    return null;
+  }
 }
 
 // 表名和列名常量
@@ -232,6 +275,8 @@ class DownloadedImageColumns {
   static const String fileSize = 'file_size';
   static const String originalUrl = 'original_url';
   static const String relativePath = 'relative_path';
+  static const String width = 'width';
+  static const String height = 'height';
 }
 
 // 待下载任务记录
@@ -304,7 +349,7 @@ class DownloadDatabaseProvider {
 
     db = await openDatabase(
       dbPath,
-      version: 2,
+      version: 3,
       onCreate: (Database db, int version) async {
         await db.execute('''
           CREATE TABLE ${DownloadedIllustColumns.tableName} (
@@ -340,6 +385,8 @@ class DownloadDatabaseProvider {
             ${DownloadedImageColumns.fileSize} INTEGER NOT NULL,
             ${DownloadedImageColumns.originalUrl} TEXT NOT NULL,
             ${DownloadedImageColumns.relativePath} TEXT NOT NULL,
+            ${DownloadedImageColumns.width} INTEGER,
+            ${DownloadedImageColumns.height} INTEGER,
             UNIQUE(${DownloadedImageColumns.illustId}, ${DownloadedImageColumns.part})
           )
         ''');
@@ -376,6 +423,17 @@ class DownloadDatabaseProvider {
               ${PendingDownloadColumns.createTime} INTEGER NOT NULL,
               ${PendingDownloadColumns.status} TEXT NOT NULL DEFAULT 'pending'
             )
+          ''');
+        }
+        if (oldVersion < 3) {
+          // 为图片表添加宽高字段
+          await db.execute('''
+            ALTER TABLE ${DownloadedImageColumns.tableName} 
+            ADD COLUMN ${DownloadedImageColumns.width} INTEGER
+          ''');
+          await db.execute('''
+            ALTER TABLE ${DownloadedImageColumns.tableName} 
+            ADD COLUMN ${DownloadedImageColumns.height} INTEGER
           ''');
         }
       },
@@ -543,6 +601,74 @@ class DownloadDatabaseProvider {
     return maps.map((e) => DownloadedImage.fromJson(e)).toList();
   }
 
+  /// 批量获取插画的所有图片信息及其完整路径（自动检测后缀名）
+  /// 返回 Map<part, LocalImageInfo>
+  Future<Map<int, LocalImageInfo>> getLocalImageInfosByIllustId(int illustId) async {
+    final t1 = DateTime.now();
+    final images = await getImagesByIllustId(illustId);
+    Log.d('getLocalImageInfosByIllustId: ${images.length} images, ${DateTime.now().difference(t1).inMilliseconds}ms');
+    final result = <int, LocalImageInfo>{};
+    
+    for (final image in images) {
+      final foundPath = await _findImagePathForImage(image);
+      if (foundPath != null) {
+        result[image.part] = LocalImageInfo(
+          path: foundPath,
+          width: image.width,
+          height: image.height,
+          fileSize: image.fileSize,
+        );
+      }
+    }
+    
+    return result;
+  }
+
+  /// 根据图片记录查找实际存在的文件路径（自动检测后缀名）
+  Future<String?> _findImagePathForImage(DownloadedImage image) async {
+    final basePath = path.join(_basePath!, image.relativePath, image.fileName);
+
+    // 首先尝试数据库中记录的后缀
+    String fullPath = '$basePath${image.extension}';
+    if (await File(fullPath).exists()) {
+      return fullPath;
+    }
+
+    // 尝试其他常见后缀
+    for (final ext in kImageExtensions) {
+      if (ext == image.extension) continue;
+      fullPath = '$basePath$ext';
+      if (await File(fullPath).exists()) {
+        // 更新数据库中的后缀名
+        await updateImageExtension(image.illustId, image.part, ext);
+        return fullPath;
+      }
+    }
+
+    return null;
+  }
+
+  /// 更新图片的文件大小和宽高信息
+  Future<int> updateImageFileSizeAndDimensions(
+    int illustId,
+    int part,
+    int fileSize,
+    int width,
+    int height,
+  ) async {
+    return await db.update(
+      DownloadedImageColumns.tableName,
+      {
+        DownloadedImageColumns.fileSize: fileSize,
+        DownloadedImageColumns.width: width,
+        DownloadedImageColumns.height: height,
+      },
+      where:
+          '${DownloadedImageColumns.illustId} = ? AND ${DownloadedImageColumns.part} = ?',
+      whereArgs: [illustId, part],
+    );
+  }
+
   Future<int> updateImageExtension(
     int illustId,
     int part,
@@ -555,6 +681,36 @@ class DownloadDatabaseProvider {
           '${DownloadedImageColumns.illustId} = ? AND ${DownloadedImageColumns.part} = ?',
       whereArgs: [illustId, part],
     );
+  }
+
+  /// 更新图片的宽高信息
+  Future<int> updateImageDimensions(
+    int illustId,
+    int part,
+    int width,
+    int height,
+  ) async {
+    return await db.update(
+      DownloadedImageColumns.tableName,
+      {
+        DownloadedImageColumns.width: width,
+        DownloadedImageColumns.height: height,
+      },
+      where:
+          '${DownloadedImageColumns.illustId} = ? AND ${DownloadedImageColumns.part} = ?',
+      whereArgs: [illustId, part],
+    );
+  }
+
+  /// 获取需要更新宽高的图片列表（宽高为空的记录）
+  Future<List<DownloadedImage>> getImagesWithoutDimensions({int? limit}) async {
+    List<Map<String, dynamic>> maps = await db.query(
+      DownloadedImageColumns.tableName,
+      where:
+          '${DownloadedImageColumns.width} IS NULL OR ${DownloadedImageColumns.height} IS NULL',
+      limit: limit,
+    );
+    return maps.map((e) => DownloadedImage.fromJson(e)).toList();
   }
 
   Future<int> deleteImage(int illustId, int part) async {
@@ -612,27 +768,7 @@ class DownloadDatabaseProvider {
   Future<String?> findImagePath(int illustId, int part) async {
     final image = await getImage(illustId, part);
     if (image == null) return null;
-
-    final basePath = path.join(_basePath!, image.relativePath, image.fileName);
-
-    // 首先尝试数据库中记录的后缀
-    String fullPath = '$basePath${image.extension}';
-    if (await File(fullPath).exists()) {
-      return fullPath;
-    }
-
-    // 尝试其他常见后缀
-    for (final ext in kImageExtensions) {
-      if (ext == image.extension) continue;
-      fullPath = '$basePath$ext';
-      if (await File(fullPath).exists()) {
-        // 更新数据库中的后缀名
-        await updateImageExtension(illustId, part, ext);
-        return fullPath;
-      }
-    }
-
-    return null;
+    return await _findImagePathForImage(image);
   }
 
   // ============ PendingDownload 操作 ============
