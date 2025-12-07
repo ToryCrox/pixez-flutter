@@ -16,6 +16,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:open_file/open_file.dart';
 import 'package:path/path.dart' as p;
@@ -44,6 +45,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
   List<Map<String, dynamic>> _users = [];
   Map<int, int> _downloadedCounts = {};
   Map<int, DownloadTaskStatus> _illustDownloadStatus = {};
+  Map<int, String?> _thumbnailPaths = {};
   bool _loading = true;
   String? _searchKeyword;
   int? _filterUserId;
@@ -83,8 +85,18 @@ class _DownloadedPageState extends State<DownloadedPage> {
           _downloadedCounts.remove(status.illusts.illustId);
           return;
         }
+        if (_illusts.firstWhereOrNull((e) => e.illustId == status.illusts.illustId) == null) {
+          _illusts.insert(0, status.illusts);
+        }
         _illustDownloadStatus[status.illusts.illustId] = status.status;
         _downloadedCounts[status.illusts.illustId] = status.completedCount;
+        if (_thumbnailPaths[status.illusts.illustId] == null) {
+          downloadStore.getLocalImagePath(status.illusts.illustId, 0).then((e) {
+            setState(() {
+              _thumbnailPaths[status.illusts.illustId] = e;
+            });
+          });
+        }
       });
     }
   }
@@ -135,6 +147,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
 
       final counts = <int, int>{};
       final statusMap = <int, DownloadTaskStatus>{};
+      final thumbnails = <int, String?>{};
       for (final illust in illusts) {
         counts[illust.illustId] =
             await downloadStore.getDownloadedPageCount(illust.illustId);
@@ -143,6 +156,8 @@ class _DownloadedPageState extends State<DownloadedPage> {
         if (downloadStatus != null) {
           statusMap[illust.illustId] = downloadStatus.status;
         }
+        thumbnails[illust.illustId] =
+            await downloadStore.getLocalImagePath(illust.illustId, 0);
       }
 
       if (mounted) {
@@ -151,6 +166,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
           _illusts = illusts;
           _downloadedCounts = counts;
           _illustDownloadStatus = statusMap;
+          _thumbnailPaths = thumbnails;
           _loading = false;
           _hasMore = illusts.length >= _pageSize;
         });
@@ -204,6 +220,8 @@ class _DownloadedPageState extends State<DownloadedPage> {
         if (downloadStatus != null) {
           _illustDownloadStatus[illust.illustId] = downloadStatus.status;
         }
+        _thumbnailPaths[illust.illustId] =
+            await downloadStore.getLocalImagePath(illust.illustId, 0);
       }
 
       if (mounted) {
@@ -417,7 +435,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
             ),
         ],
       ),
-      body: _loading
+      body: _loading && _illusts.isEmpty
           ? Center(child: CircularProgressIndicator())
           : _filteredIllusts.isEmpty
               ? _buildEmptyView()
@@ -592,31 +610,24 @@ class _DownloadedPageState extends State<DownloadedPage> {
   }
 
   Widget _buildThumbnail(DownloadedIllust illust) {
-    return FutureBuilder<String?>(
-      future: _getFirstImagePath(illust),
-      builder: (context, snapshot) {
-        if (snapshot.hasData && snapshot.data != null) {
-          return Image.file(
-            File(snapshot.data!),
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) {
-              return Container(
-                color: Colors.grey[300],
-                child: Icon(Icons.broken_image, color: Colors.grey),
-              );
-            },
+    final thumbnailPath = _thumbnailPaths[illust.illustId];
+    if (thumbnailPath != null) {
+      return Image.file(
+        File(thumbnailPath),
+        fit: BoxFit.cover,
+        cacheWidth: (200 * MediaQuery.devicePixelRatioOf(context)).toInt(),
+        errorBuilder: (context, error, stackTrace) {
+          return Container(
+            color: Colors.grey[300],
+            child: Icon(Icons.broken_image, color: Colors.grey),
           );
-        }
-        return Container(
-          color: Colors.grey[300],
-          child: Center(child: CircularProgressIndicator()),
-        );
-      },
+        },
+      );
+    }
+    return Container(
+      color: Colors.grey[300],
+      child: Icon(Icons.image, color: Colors.grey),
     );
-  }
-
-  Future<String?> _getFirstImagePath(DownloadedIllust illust) async {
-    return await downloadStore.getLocalImagePath(illust.illustId, 0);
   }
 
   Widget _buildPageCountIndicator(DownloadedIllust illust) {
