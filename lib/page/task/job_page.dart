@@ -683,6 +683,8 @@ class _JobPageState extends State<JobPage> with SingleTickerProviderStateMixin {
         );
       case DownloadTaskStatus.failed:
         return Icon(Icons.error, size: 16);
+      case DownloadTaskStatus.deleted:
+        return const SizedBox();
     }
   }
 

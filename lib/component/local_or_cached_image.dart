@@ -340,6 +340,14 @@ class _DownloadStatusIndicatorState extends State<DownloadStatusIndicator> {
     if (status.illusts.illustId != widget.illustId) return;
     if (!mounted) return;
 
+    // 如果是删除状态，清空状态
+    if (status.status == DownloadTaskStatus.deleted) {
+      setState(() {
+        _status = null;
+      });
+      return;
+    }
+
     setState(() {
       _status = status;
     });
@@ -381,6 +389,8 @@ class _DownloadStatusIndicatorState extends State<DownloadStatusIndicator> {
         return _buildFailedIcon();
       case DownloadTaskStatus.paused:
         return _buildPausedIcon();
+      case DownloadTaskStatus.deleted:
+        return const SizedBox.shrink();
     }
   }
 

@@ -47,7 +47,10 @@ enum DownloadTaskStatus {
   failed,
 
   /// 暂停
-  paused;
+  paused,
+
+  /// 已删除
+  deleted;
 
   /// 下载失败和暂停都是
 }
@@ -805,6 +808,14 @@ abstract class _DownloadStoreBase with Store {
 
     // 从数据库删除
     await _dbProvider.deleteIllustByIllustId(illustId);
+
+    // 通知删除状态
+    _illustDownloadStatusController.add(IllustDownloadStatus(
+      status: DownloadTaskStatus.deleted,
+      illusts: illust,
+      totalCount: illust.pageCount,
+      completedCount: 0,
+    ));
 
     await refreshCount();
   }

@@ -76,6 +76,13 @@ class _DownloadedPageState extends State<DownloadedPage> {
   void _onDownloadStatusChanged(IllustDownloadStatus status) {
     if (mounted) {
       setState(() {
+        // 如果是删除状态，从列表中移除
+        if (status.status == DownloadTaskStatus.deleted) {
+          _illusts.removeWhere((e) => e.illustId == status.illusts.illustId);
+          _illustDownloadStatus.remove(status.illusts.illustId);
+          _downloadedCounts.remove(status.illusts.illustId);
+          return;
+        }
         _illustDownloadStatus[status.illusts.illustId] = status.status;
         _downloadedCounts[status.illusts.illustId] = status.completedCount;
       });
