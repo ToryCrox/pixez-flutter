@@ -5,7 +5,8 @@
       "Bash(dart run build_runner:*)",
       "Bash(flutter analyze:*)",
       "Bash(dart pub cache:*)",
-      "Bash(flutter pub cache:*)"
+      "Bash(flutter pub cache:*)",
+      "Bash(flutter pub get:*)"
     ],
     "deny": [],
     "ask": []
