@@ -14,6 +14,7 @@
  *
  */
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
@@ -25,6 +26,7 @@ import 'package:pixez/models/illust.dart';
 import 'package:pixez/models/illust_series_detail.dart';
 import 'package:pixez/network/api_client.dart';
 import 'package:pixez/page/history/history_store.dart';
+import 'package:pixez/store/download_store.dart';
 
 part 'illust_store.g.dart';
 
@@ -50,7 +52,11 @@ abstract class _IllustStoreBase with Store {
   @observable
   ObservableMap<int, String?> localImagePaths = ObservableMap<int, String?>();
 
-  void dispose() {}
+  StreamSubscription<IllustDownloadStatus>? _downloadStatusSubscription;
+
+  void dispose() {
+    _downloadStatusSubscription?.cancel();
+  }
 
   /// 获取指定页面的本地图片路径（同步方法）
   String? getLocalImagePath(int part) {
@@ -60,6 +66,27 @@ abstract class _IllustStoreBase with Store {
   _IllustStoreBase(this.id, this.illusts) {
     isBookmark = illusts?.isBookmarked ?? false;
     state = illusts?.isBookmarked ?? isBookmark ? 2 : 0;
+    _initDownloadStatusListener();
+  }
+
+  void _initDownloadStatusListener() {
+    _downloadStatusSubscription =
+        downloadStore.illustDownloadStatusStream.listen((status) {
+      if (status.illusts.illustId == id) {
+        _onDownloadStatusChanged(status);
+      }
+    });
+  }
+
+  @action
+  void _onDownloadStatusChanged(IllustDownloadStatus status) {
+    if (status.status == DownloadTaskStatus.deleted) {
+      // 删除时清空所有本地路径
+      localImagePaths.clear();
+    } else if (status.status == DownloadTaskStatus.completed) {
+      // 下载完成时重新加载本地路径
+      _loadLocalImagePaths();
+    }
   }
 
   @action
