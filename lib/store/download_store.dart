@@ -385,18 +385,16 @@ abstract class _DownloadStoreBase with Store {
   /// 暂停插画的所有下载任务
   @action
   Future<void> pauseIllustDownload(int illustId) async {
-    final keysToRemove = downloadingTasks.keys
-        .where((key) => key.startsWith('${illustId}_'))
+    final tasksToRemove = downloadingTasks.values
+        .where((t) => t.illusts.id == illustId)
         .toList();
-    for (final key in keysToRemove) {
-      final task = downloadingTasks[key];
-      if (task != null &&
-          (task.status == DownloadTaskStatus.downloading ||
+    for (final task in tasksToRemove) {
+      if ((task.status == DownloadTaskStatus.downloading ||
               task.status == DownloadTaskStatus.pending)) {
         _runningTask.remove(task.taskKey);
-        _pendingQueue.removeWhere((t) => t.taskKey == key);
+        _pendingQueue.removeWhere((t) => t.taskKey == task.taskKey);
         task.status = DownloadTaskStatus.paused;
-        await _dbProvider.updatePendingDownloadStatus(key, task.status.name);
+        await _dbProvider.updatePendingDownloadStatus(task.taskKey, task.status.name);
         _notifyProgress(task);
       }
     }
@@ -491,6 +489,7 @@ abstract class _DownloadStoreBase with Store {
     return null;
   }
 
+  /// 创建下载任务
   DownloadTask _createDownloadTask(Illusts illusts, int part) {
     // 获取下载URL
     String url;
@@ -561,6 +560,8 @@ abstract class _DownloadStoreBase with Store {
     if (targetPath != null) {
       // 文件已存在，直接记录到数据库
       await _recordDownload(task.illusts, task.part, url, targetPath);
+      task.status = DownloadTaskStatus.completed;
+      _notifyProgress(task);
       return;
     }
 
@@ -740,7 +741,7 @@ abstract class _DownloadStoreBase with Store {
   ) async {
     final relativePath = DownloadDatabaseProvider.buildRelativePath(illusts);
     final fileName = DownloadDatabaseProvider.buildFileName(illusts.id, part);
-    final extension = url.contains('.png') ? '.png' : '.jpg';
+    final extension = path.extension(filePath);
     await _insertIllustIfNotExists(illusts);
 
     // 获取文件大小

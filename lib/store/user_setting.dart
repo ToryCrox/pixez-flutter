@@ -349,6 +349,7 @@ abstract class _UserSetting with Store {
   setMaxRunningTask(int value) async {
     await prefs.setInt(MAX_RUNNING_TASK_KEY, value);
     maxRunningTask = value;
+    downloadStore.maxConcurrent = value;
   }
 
   @action
