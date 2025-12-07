@@ -344,7 +344,7 @@ Future<void> initWindows(List<String> args) async {
     titleBarStyle: TitleBarStyle.hidden,
     title: "PixEz",
   );
-  windowManager.waitUntilReadyToShow(windowOptions, () async {
+  await windowManager.waitUntilReadyToShow(windowOptions, () async {
     await windowManager.show();
     await windowManager.focus();
     if (Platform.isWindows) {

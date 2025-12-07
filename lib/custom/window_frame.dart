@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:pixez/er/leader.dart';
 import 'package:pixez/er/prefer.dart';
 import 'package:pixez/i18n.dart';
@@ -14,6 +15,15 @@ import 'package:pixez/page/task/job_page.dart';
 import 'package:window_manager/window_manager.dart';
 
 const _kTitleBarHeight = 36.0;
+
+// Intent classes for keyboard shortcuts
+class _GoBackIntent extends Intent {
+  const _GoBackIntent();
+}
+
+class _ToggleMaximizeIntent extends Intent {
+  const _ToggleMaximizeIntent();
+}
 
 final windowFrameController = WindowFrameController();
 
@@ -70,69 +80,101 @@ class _WindowFrameState extends State<WindowFrame> {
     if (!Platform.isWindows) return widget.child;
     if (windowFrameController.isHideWindowFrame) return widget.child;
 
-    return Stack(
-      children: [
-        Positioned.fill(
-          child: MediaQuery(
-            data: MediaQuery.of(context).copyWith(
-              padding: const EdgeInsets.only(top: _kTitleBarHeight),
-            ),
-            child: widget.child,
+    return Shortcuts(
+      shortcuts: <ShortcutActivator, Intent>{
+        const SingleActivator(LogicalKeyboardKey.escape): const _GoBackIntent(),
+        const SingleActivator(LogicalKeyboardKey.f11): const _ToggleMaximizeIntent(),
+      },
+      child: Actions(
+        actions: <Type, Action<Intent>>{
+          _GoBackIntent: CallbackAction<_GoBackIntent>(
+            onInvoke: (_) {
+              final navigator = Navigator.maybeOf(globalNavigatorKey.currentContext!);
+              if (navigator != null && navigator.canPop()) {
+                navigator.pop();
+              }
+              return null;
+            },
+          ),
+          _ToggleMaximizeIntent: CallbackAction<_ToggleMaximizeIntent>(
+            onInvoke: (_) async {
+              if (await windowManager.isMaximized()) {
+                windowManager.unmaximize();
+              } else {
+                windowManager.maximize();
+              }
+              return null;
+            },
+          ),
+        },
+        child: Focus(
+          autofocus: true,
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: MediaQuery(
+                  data: MediaQuery.of(context).copyWith(
+                    padding: const EdgeInsets.only(top: _kTitleBarHeight),
+                  ),
+                  child: widget.child,
+                ),
+              ),
+              const _SideBar(),
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: Material(
+                  color: Colors.transparent,
+                  child: Theme(
+                    data: Theme.of(context).copyWith(
+                      brightness:
+                          windowFrameController.useDarkTheme ? Brightness.dark : null,
+                    ),
+                    child: Builder(builder: (context) {
+                      return SizedBox(
+                        height: _kTitleBarHeight,
+                        child: Row(
+                          children: [
+                            if (!Platform.isMacOS)
+                              buildMenuButton(windowFrameController, context)
+                            else
+                              const DragToMoveArea(
+                                child: SizedBox(
+                                  height: double.infinity,
+                                  width: 16,
+                                ),
+                              ),
+                            Expanded(
+                              child: DragToMoveArea(
+                                child: Text(
+                                  'Pica Comic',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: (windowFrameController.useDarkTheme ||
+                                            Theme.of(context).brightness ==
+                                                Brightness.dark)
+                                        ? Colors.white
+                                        : Colors.black,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            if (!Platform.isMacOS)
+                              const WindowButtons()
+                            else
+                              buildMenuButton(windowFrameController, context),
+                          ],
+                        ),
+                      );
+                    }),
+                  ),
+                ),
+              )
+            ],
           ),
         ),
-        const _SideBar(),
-        Positioned(
-          top: 0,
-          left: 0,
-          right: 0,
-          child: Material(
-            color: Colors.transparent,
-            child: Theme(
-              data: Theme.of(context).copyWith(
-                brightness:
-                    windowFrameController.useDarkTheme ? Brightness.dark : null,
-              ),
-              child: Builder(builder: (context) {
-                return SizedBox(
-                  height: _kTitleBarHeight,
-                  child: Row(
-                    children: [
-                      if (!Platform.isMacOS)
-                        buildMenuButton(windowFrameController, context)
-                      else
-                        const DragToMoveArea(
-                          child: SizedBox(
-                            height: double.infinity,
-                            width: 16,
-                          ),
-                        ),
-                      Expanded(
-                        child: DragToMoveArea(
-                          child: Text(
-                            'Pica Comic',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: (windowFrameController.useDarkTheme ||
-                                      Theme.of(context).brightness ==
-                                          Brightness.dark)
-                                  ? Colors.white
-                                  : Colors.black,
-                            ),
-                          ),
-                        ),
-                      ),
-                      if (!Platform.isMacOS)
-                        const WindowButtons()
-                      else
-                        buildMenuButton(windowFrameController, context),
-                    ],
-                  ),
-                );
-              }),
-            ),
-          ),
-        )
-      ],
+      ),
     );
   }
 
