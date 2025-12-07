@@ -534,10 +534,11 @@ abstract class _DownloadStoreBase with Store {
       BotToast.showText(text: '所有图片都已下载');
     } else {
       BotToast.showText(text: '添加 ${needAddTasks.length} 个下载任务');
-      final ids = <String>{};
+      final ids = <int>{};
       for (final task in needAddTasks) {
         final illusts = task.illusts;
         if (!ids.contains(illusts.id)) {
+          ids.add(illusts.id);
           await _insertIllustIfNotExists(illusts);
         }
         _addDownloadTask(task);

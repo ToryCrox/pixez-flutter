@@ -126,7 +126,18 @@ class _IllustRowPageState extends State<IllustRowPage>
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (_illustStore.illusts != null)
-                    IllustDownloadButton(illusts: _illustStore.illusts!),
+                    IllustDownloadButton(
+                      illusts: _illustStore.illusts!,
+                      onStarAfterSave: () async {
+                        if (_illustStore.state == 0) {
+                          return _illustStore.star(
+                              restrict: userSetting.defaultPrivateLike
+                                  ? "private"
+                                  : "public");
+                        }
+                        return false;
+                      },
+                    ),
                   IconButton(
                       icon: Icon(Icons.more_vert),
                       onPressed: () {
@@ -175,7 +186,24 @@ class _IllustRowPageState extends State<IllustRowPage>
             child: FloatingActionButton(
               heroTag: widget.id,
               backgroundColor: Colors.white,
-              onPressed: () => _illustStore.star(),
+              onPressed: () async {
+                if (userSetting.saveAfterStar && (_illustStore.state == 0)) {
+                  saveStore.saveImage(_illustStore.illusts!);
+                }
+                _illustStore.star(
+                    restrict: userSetting.defaultPrivateLike
+                        ? "private"
+                        : "public");
+                if (userSetting.followAfterStar) {
+                  bool success = await _illustStore.followAfterStar();
+                  if (success) {
+                    userStore?.isFollow = true;
+                    BotToast.showText(
+                        text:
+                            "${_illustStore.illusts!.user.name} ${I18n.of(context).followed}");
+                  }
+                }
+              },
               child: Observer(builder: (_) {
                 return StarIcon(
                   state: _illustStore.state,

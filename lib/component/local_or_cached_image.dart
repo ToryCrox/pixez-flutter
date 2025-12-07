@@ -20,7 +20,6 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:pixez/component/pixiv_image.dart';
-import 'package:pixez/custom/log.dart';
 import 'package:pixez/er/hoster.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/models/illust.dart';
@@ -314,11 +313,13 @@ class _DownloadStatusIndicatorState extends State<DownloadStatusIndicator> {
 class IllustDownloadButton extends StatefulWidget {
   final Illusts illusts;
   final double iconSize;
+  final Future<bool> Function()? onStarAfterSave;
 
   const IllustDownloadButton({
     Key? key,
     required this.illusts,
     this.iconSize = 24,
+    this.onStarAfterSave,
   }) : super(key: key);
 
   @override
@@ -506,6 +507,9 @@ class _IllustDownloadButtonState extends State<IllustDownloadButton> {
 
   Future<void> _downloadAllPages() async {
     saveStore.saveImage(widget.illusts);
+    if (userSetting.starAfterSave && widget.onStarAfterSave != null) {
+      widget.onStarAfterSave!();
+    }
   }
 
   Future<void> _confirmDelete() async {

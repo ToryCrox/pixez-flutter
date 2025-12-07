@@ -224,7 +224,17 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
   Widget _buildDownloadButton() {
     if (_illustStore.illusts == null) return SizedBox.shrink();
 
-    return IllustDownloadButton(illusts: _illustStore.illusts!);
+    return IllustDownloadButton(
+      illusts: _illustStore.illusts!,
+      onStarAfterSave: () async {
+        if (_illustStore.state == 0) {
+          return _illustStore.star(
+              restrict:
+                  userSetting.defaultPrivateLike ? "private" : "public");
+        }
+        return false;
+      },
+    );
   }
 
   late FocusNode _focusNode;
