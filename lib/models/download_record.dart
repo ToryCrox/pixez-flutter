@@ -693,8 +693,8 @@ class DownloadDatabaseProvider {
   Future<int> deletePendingDownloadsByIllustId(int illustId) async {
     return await db.delete(
       PendingDownloadColumns.tableName,
-      where: '${PendingDownloadColumns.id} = ?',
-      whereArgs: [illustId],
+      where: '${PendingDownloadColumns.id} LIKE ?',
+      whereArgs: ['${illustId}_%'],
     );
   }
 

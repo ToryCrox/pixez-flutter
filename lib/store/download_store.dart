@@ -631,6 +631,24 @@ abstract class _DownloadStoreBase with Store {
 
   Future<void> _onDownloadSuccess(DownloadTask task, String targetPath) async {
     Log.d(() => "下载成功: ${task.taskKey}, $targetPath");
+
+    // 检查任务是否已被取消（例如用户删除了该插画）
+    if (!downloadingTasks.containsKey(task.taskKey)) {
+      Log.d(() => "任务已被取消，跳过记录: ${task.taskKey}");
+      _runningTask.remove(task.taskKey);
+      // 删除已下载的文件
+      try {
+        final file = File(targetPath);
+        if (await file.exists()) {
+          await file.delete();
+        }
+      } catch (e) {
+        Log.e('删除已取消任务的文件失败: $targetPath');
+      }
+      _processQueue();
+      return;
+    }
+
     task.status = DownloadTaskStatus.completed;
     await _recordDownload(task.illusts, task.part, task.url, targetPath);
     await _dbProvider.deletePendingDownload(task.taskKey);
@@ -699,10 +717,23 @@ abstract class _DownloadStoreBase with Store {
   void cancelTask(String taskKey) {
     final task = downloadingTasks[taskKey];
     if (task != null) {
-      _runningTask.remove(task.url);
+      _runningTask.remove(task.taskKey);
       _pendingQueue.removeWhere((t) => t.taskKey == taskKey);
       downloadingTasks.remove(taskKey);
       _dbProvider.deletePendingDownload(taskKey);
+    }
+  }
+
+  // 取消下载任务（内部使用，可选是否删除 pending 记录）
+  void _cancelTaskInternal(String taskKey, {bool deletePending = true}) {
+    final task = downloadingTasks[taskKey];
+    if (task != null) {
+      _runningTask.remove(task.taskKey);
+      _pendingQueue.removeWhere((t) => t.taskKey == taskKey);
+      downloadingTasks.remove(taskKey);
+      if (deletePending) {
+        _dbProvider.deletePendingDownload(taskKey);
+      }
     }
   }
 
@@ -714,6 +745,16 @@ abstract class _DownloadStoreBase with Store {
         .toList();
     for (final key in keysToRemove) {
       cancelTask(key);
+    }
+  }
+
+  // 取消插画的所有下载任务（内部使用，可选是否删除 pending 记录）
+  void _cancelIllustDownloadInternal(int illustId, {bool deletePending = true}) {
+    final keysToRemove = downloadingTasks.keys
+        .where((key) => key.startsWith('${illustId}_'))
+        .toList();
+    for (final key in keysToRemove) {
+      _cancelTaskInternal(key, deletePending: deletePending);
     }
   }
 
@@ -770,6 +811,12 @@ abstract class _DownloadStoreBase with Store {
 
   @action
   Future<void> deleteDownloadedIllust(int illustId) async {
+    // 1. 先取消所有正在进行的下载任务（不单独删除 pending，后面统一删除）
+    _cancelIllustDownloadInternal(illustId, deletePending: false);
+
+    // 2. 删除数据库中的 pending 下载记录（统一删除，包括内存中没有的遗留记录）
+    await _dbProvider.deletePendingDownloadsByIllustId(illustId);
+
     // 获取插画信息
     final illust = await _dbProvider.getIllustByIllustId(illustId);
     if (illust == null) return;
