@@ -153,7 +153,7 @@ class _PixivImageState extends State<PixivImage> {
     // 如果提供了本地路径，优先使用本地文件
     if (widget.localPath != null && widget.localPath!.isNotEmpty) {
       final localFile = File(widget.localPath!);
-      Log.d("Using local file: ${localFile.path}, width: $width, height: $height");
+      //Log.d("Using local file: ${localFile.path}, width: $width, height: $height");
       return Image.file(
         localFile,
         fit: fit ?? BoxFit.fitWidth,

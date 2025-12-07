@@ -311,13 +311,14 @@ enum _DownloadStatus {
 }
 
 class _DownloadStatusIndicatorState extends State<DownloadStatusIndicator> {
-  _DownloadStatus _status = _DownloadStatus.none;
-  StreamSubscription<DownloadTask>? _subscription;
+  IllustDownloadStatus? _status;
+  StreamSubscription<IllustDownloadStatus>? _subscription;
 
   @override
   void initState() {
     super.initState();
-    _subscription = downloadStore.progressStream.listen(_onProgressUpdate);
+    _subscription =
+        downloadStore.illustDownloadStatusStream.listen(_onProgressUpdate);
     _checkStatus();
   }
 
@@ -335,77 +336,60 @@ class _DownloadStatusIndicatorState extends State<DownloadStatusIndicator> {
     }
   }
 
-  void _onProgressUpdate(DownloadTask task) {
-    if (task.illusts.id != widget.illustId) return;
+  void _onProgressUpdate(IllustDownloadStatus status) {
+    if (status.illusts.illustId != widget.illustId) return;
     if (!mounted) return;
 
-    _checkStatus();
-  }
-
-
-  Future<_DownloadStatus> _getStatus() async {
-    // 检查是否有正在下载或等待下载的任务
-    final tasks = downloadStore.downloadingTasks.values
-        .where((t) => t.illusts.id == widget.illustId)
-        .toList();
-    /// 还要加pending
-    if (tasks.isNotEmpty) {
-      final hasDownloading = tasks.any((t) => t.status == DownloadTaskStatus.downloading);
-      if (hasDownloading) {
-        return _DownloadStatus.downloading;
-      }
-      final hasPending = tasks.any((t) => t.status == DownloadTaskStatus.pending);
-      if (hasPending) {
-        return _DownloadStatus.pending;
-      }
-      final hasFailed = tasks.any((t) => t.status == DownloadTaskStatus.failed);
-      if (hasFailed) {
-        return _DownloadStatus.failed;
-      }
-    }
-
-    final downloadedCount = await downloadStore.getDownloadedPageCount(widget.illustId);
-    if (downloadedCount > 0) {
-      // todo: 这里还要查询下载是否全部下载完了，否则要显示还有要下载的图片
-      return _DownloadStatus.downloaded;
-    }
-    return _DownloadStatus.none;
+    setState(() {
+      _status = status;
+    });
   }
 
   Future<void> _checkStatus() async {
     if (!downloadStore.isInitialized) {
       if (mounted) {
         setState(() {
-          _status = _DownloadStatus.none;
+          _status = null;
         });
       }
       return;
     }
-    final newStatus = await _getStatus();
-    if (newStatus != _status) {
-      if (mounted) {
-        setState(() {
-          _status = newStatus;
-          Log.d(() => "Download status: $_status");
-        });
-      }
+    _status = await downloadStore.getIllustDownloadStatus(widget.illustId);
+    if (mounted) {
+      setState(() {});
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    switch (_status) {
-      case _DownloadStatus.downloaded:
-        return _buildDownloadedIcon();
-      case _DownloadStatus.downloading:
-        return _buildDownloadingIndicator();
-      case _DownloadStatus.pending:
-        return _buildPendingIndicator();
-        case _DownloadStatus.failed:
-          return _buildFailedIcon();
-      case _DownloadStatus.none:
-        return const SizedBox.shrink();
+    final status = _status;
+    final taskStatus = status?.status;
+    if (taskStatus == null || status == null) {
+      return const SizedBox.shrink();
     }
+    switch (taskStatus) {
+      case DownloadTaskStatus.completed:
+        if (status.isAllDownloaded) {
+          return _buildDownloadedIcon();
+        }
+        return _buildDownloadUncompletedIcon();
+      case DownloadTaskStatus.downloading:
+        return _buildDownloadingIndicator();
+      case DownloadTaskStatus.pending:
+        return _buildPendingIndicator();
+      case DownloadTaskStatus.failed:
+        return _buildFailedIcon();
+      case DownloadTaskStatus.paused:
+        return _buildPausedIcon();
+    }
+  }
+
+  Widget _buildDownloadUncompletedIcon() {
+    return Icon(
+      Icons.download,
+      size: widget.size,
+      color: widget.downloadedColor ?? Colors.green,
+    );
   }
 
   Widget _buildDownloadedIcon() {
@@ -434,7 +418,8 @@ class _DownloadStatusIndicatorState extends State<DownloadStatusIndicator> {
           CircularProgressIndicator(
             //value: _currentProgress > 0 ? _currentProgress : null,
             strokeWidth: 2,
-            color: widget.downloadingColor ?? Theme.of(context).colorScheme.primary,
+            color: widget.downloadingColor ??
+                Theme.of(context).colorScheme.primary,
           ),
         ],
       ),
@@ -446,6 +431,14 @@ class _DownloadStatusIndicatorState extends State<DownloadStatusIndicator> {
       Icons.error,
       size: widget.size,
       color: Colors.red,
+    );
+  }
+
+  Widget _buildPausedIcon() {
+    return Icon(
+      Icons.pause,
+      size: widget.size,
+      color: Colors.grey,
     );
   }
 }

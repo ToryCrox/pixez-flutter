@@ -44,6 +44,7 @@ class _JobPageState extends State<JobPage> with SingleTickerProviderStateMixin {
 
   // 新下载器任务列表
   List<DownloadTask> _downloaderTasks = [];
+
   // 待确认的下载任务
   List<DownloadTask> _pendingTasks = [];
   StreamSubscription<DownloadTask>? _downloaderSubscription;
@@ -87,10 +88,8 @@ class _JobPageState extends State<JobPage> with SingleTickerProviderStateMixin {
 
   void _updateDownloaderTasks() async {
     if (mounted) {
-      final pendingTasks = await downloadStore.getPendingTasks();
       setState(() {
         _downloaderTasks = downloadStore.downloadingTasks.values.toList();
-        _pendingTasks = pendingTasks;
       });
     }
   }
@@ -402,7 +401,7 @@ class _JobPageState extends State<JobPage> with SingleTickerProviderStateMixin {
 
   Widget _buildNewDownloaderBody() {
     // 合并正在下载和待确认的任务
-    List<DownloadTask> allTasks = [..._downloaderTasks, ..._pendingTasks];
+    List<DownloadTask> allTasks = [..._downloaderTasks];
 
     // 根据当前选中的标签过滤任务
     List<DownloadTask> filteredTasks = allTasks;
@@ -677,6 +676,11 @@ class _JobPageState extends State<JobPage> with SingleTickerProviderStateMixin {
         );
       case DownloadTaskStatus.completed:
         return Icon(Icons.check_circle, color: Colors.green, size: 16);
+      case DownloadTaskStatus.paused:
+        return Text(
+          I18n.of(context).paused,
+          style: Theme.of(context).textTheme.bodyMedium!.copyWith(fontSize: 12),
+        );
       case DownloadTaskStatus.failed:
         return Icon(Icons.error, size: 16);
     }

@@ -156,7 +156,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     // 延迟一下,等待UI完全初始化
     await Future.delayed(Duration(seconds: 2));
 
-    final pendingTasks = await downloadStore.getPendingTasks();
+    final pendingTasks = await downloadStore.loadPendingTasks();
     if (pendingTasks.isEmpty) return;
 
     // 弹出确认对话框
@@ -171,9 +171,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
     if (selectedTaskKeys == null || selectedTaskKeys.isEmpty) {
       // // 用户取消了所有任务,清除数据库记录
-      // await downloadStore.clearPendingTasks(
-      //   pendingTasks.map((t) => t.taskKey).toList(),
-      // );
+      await downloadStore.addPausedTasks(pendingTasks);
       return;
     }
 
@@ -185,11 +183,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     // 清除未选中的任务
     final tasksToRemove = pendingTasks
         .where((t) => !selectedTaskKeys.contains(t.taskKey))
-        .map((t) => t.taskKey)
         .toList();
-    // if (tasksToRemove.isNotEmpty) {
-    //   await downloadStore.clearPendingTasks(tasksToRemove);
-    // }
+    if (tasksToRemove.isNotEmpty) {
+      await downloadStore.addPausedTasks(tasksToRemove);
+    }
 
     // 添加选中的任务到下载队列
     if (tasksToDownload.isNotEmpty) {
