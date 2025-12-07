@@ -444,6 +444,10 @@ abstract class _DownloadStoreBase with Store {
     if (!isInitialized) {
       throw Exception('DownloadStore not initialized');
     }
+    if (illusts.type == 'ugoira') {
+      BotToast.showText(text: '暂时不支持动图下载！');
+      return;
+    }
 
     if (part != null) {
       // 下载单页
