@@ -261,6 +261,7 @@ class _ImportDialogState extends State<ImportDialog> {
         // 移动文件并记录到数据库
         int completedCount = 0;
         for (final sourceFile in illustInfo.sourceFiles) {
+          final t1 = DateTime.now();
           try {
             final source = File(sourceFile);
             if (!await source.exists()) {
@@ -362,6 +363,7 @@ class _ImportDialogState extends State<ImportDialog> {
           } catch (e) {
             // 单个文件导入失败，继续下一个
           }
+          Log.d('import file ${sourceFile} completed in ${DateTime.now().difference(t1).inMilliseconds}ms');
         }
 
         // 更新作者统计
