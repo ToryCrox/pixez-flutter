@@ -29,6 +29,8 @@ import 'package:pixez/models/download_record.dart'
 import 'package:pixez/models/illust.dart';
 import 'package:pixez/network/api_client.dart';
 
+import '../../custom/log.dart';
+
 class ImportDialog extends StatefulWidget {
   @override
   State<ImportDialog> createState() => _ImportDialogState();
@@ -292,6 +294,7 @@ class _ImportDialogState extends State<ImportDialog> {
             try {
               await source.rename(targetPath);
             } catch (e) {
+              Log.w('move file ${source.path} => ${targetPath} failed: $e');
               // rename 失败（可能是跨磁盘），使用 copy + delete
               await source.copy(targetPath);
               await source.delete();
@@ -471,7 +474,7 @@ class _ImportDialogState extends State<ImportDialog> {
                     controller: _pathController,
                     decoration: InputDecoration(
                       labelText: '目录路径',
-                      hintText: 'E:\\Pictures\\pixiv\\[01]PIXIV画师合集\\[asastte][116490381]',
+                      hintText: '请输入目录路径',
                       border: OutlineInputBorder(),
                     ),
                   ),
@@ -553,7 +556,7 @@ class _ImportDialogState extends State<ImportDialog> {
                           margin: EdgeInsets.symmetric(vertical: 4),
                           child: ListTile(
                             leading: Icon(Icons.image),
-                            title: Text(illusts.title),
+                            title: Text('#$index, ${illusts.id} ${illusts.title}'),
                             subtitle: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
