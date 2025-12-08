@@ -18,7 +18,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:pixez/component/painter_avatar.dart';
 import 'package:pixez/exts.dart';
-import 'package:pixez/main.dart';
 import 'package:pixez/models/download_record.dart';
 import 'package:pixez/page/downloaded/downloaded_page.dart';
 import 'package:pixez/page/user/user_store.dart';
@@ -27,12 +26,14 @@ import 'package:pixez/page/user/users_page.dart';
 class DownloadedAuthorCard extends StatefulWidget {
   final DownloadedAuthor author;
   final List<DownloadedIllust> illusts;
+  final List<String?> imagePaths; // 预加载的图片路径列表
   final bool showLatestPublished;
 
   const DownloadedAuthorCard({
     Key? key,
     required this.author,
     required this.illusts,
+    required this.imagePaths,
     required this.showLatestPublished,
   }) : super(key: key);
 
@@ -57,11 +58,14 @@ class _DownloadedAuthorCardState extends State<DownloadedAuthorCard> {
       },
       child: Card(
         clipBehavior: Clip.antiAlias,
-        child: Column(
-          children: [
-            _buildPreviewSection(context),
-            _buildAuthorInfo(context),
-          ],
+        child: SizedBox(
+          height: 200, // 固定卡片高度：预览区域(120) + 作者信息区域(80)
+          child: Column(
+            children: [
+              _buildPreviewSection(context),
+              _buildAuthorInfo(context),
+            ],
+          ),
         ),
       ),
     );
@@ -69,55 +73,55 @@ class _DownloadedAuthorCardState extends State<DownloadedAuthorCard> {
 
   Widget _buildPreviewSection(BuildContext context) {
     final illusts = widget.illusts;
+    final imagePaths = widget.imagePaths;
 
-    return Row(
-      children: [
-        for (var i = 0; i < 3; i++)
-          Expanded(
-            child: i < illusts.length
-                ? AspectRatio(
-                    aspectRatio: 1.0,
-                    child: _buildLocalImage(illusts[i]),
-                  )
-                : Container(
-                    color: Theme.of(context).cardColor,
-                  ),
-          ),
-      ],
+    return SizedBox(
+      height: 120, // 固定预览区域高度
+      child: Row(
+        children: [
+          for (var i = 0; i < 3; i++)
+            Expanded(
+              child: i < illusts.length && i < imagePaths.length
+                  ? _buildLocalImage(context, imagePaths[i])
+                  : Container(
+                      color: Theme.of(context).cardColor,
+                    ),
+            ),
+        ],
+      ),
     );
   }
 
-  Widget _buildLocalImage(DownloadedIllust illust) {
-    return FutureBuilder<String?>(
-      future: downloadStore.getLocalImagePath(illust.illustId, 0),
-      builder: (context, snapshot) {
-        if (snapshot.hasData && snapshot.data != null) {
-          return Image.file(
-            File(snapshot.data!),
-            fit: BoxFit.cover,
-            cacheWidth: (200 * MediaQuery.of(context).devicePixelRatio).toInt(),
-            errorBuilder: (context, error, stackTrace) {
-              return Container(
-                color: Theme.of(context).cardColor,
-                child: Icon(Icons.broken_image, color: Colors.grey),
-              );
-            },
+  Widget _buildLocalImage(BuildContext context, String? imagePath) {
+    if (imagePath != null) {
+      return Image.file(
+        File(imagePath),
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: double.infinity,
+        cacheWidth: (100 * MediaQuery.of(context).devicePixelRatio).toInt(),
+        errorBuilder: (context, error, stackTrace) {
+          return Container(
+            color: Theme.of(context).cardColor,
+            child: Icon(Icons.broken_image, color: Colors.grey),
           );
-        }
-        return Container(
-          color: Theme.of(context).cardColor,
-        );
-      },
+        },
+      );
+    }
+    return Container(
+      color: Theme.of(context).cardColor,
     );
   }
 
   Widget _buildAuthorInfo(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(8.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        mainAxisAlignment: MainAxisAlignment.start,
-        children: [
+    return SizedBox(
+      height: 80, // 固定作者信息区域高度
+      child: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: [
           Hero(
             tag: 'author_${widget.author.userId}_${this.hashCode}',
             child: PainterAvatar(
@@ -173,6 +177,7 @@ class _DownloadedAuthorCardState extends State<DownloadedAuthorCard> {
             ),
           ),
         ],
+      ),
       ),
     );
   }

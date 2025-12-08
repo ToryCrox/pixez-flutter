@@ -52,8 +52,12 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
   // 显示模式：false=最新下载，true=最新发布
   bool _showLatestPublished = false;
   
-  // 预加载的插画数据：key为userId，value为[最新下载列表, 最新发布列表]
+  // 预加载的插画数据和图片路径：key为userId，value为[最新下载列表, 最新发布列表]
   Map<int, List<List<DownloadedIllust>>> _authorIllustsMap = {};
+  
+  // 预加载的图片路径：key为userId，value为[最新下载路径列表, 最新发布路径列表]
+  // 每个路径列表包含最多3个图片路径（可能为null）
+  Map<int, List<List<String?>>> _authorImagePathsMap = {};
 
   @override
   void initState() {
@@ -111,6 +115,7 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
           if (refresh) {
             _authors = authors;
             _authorIllustsMap.clear();
+            _authorImagePathsMap.clear();
           } else {
             _authors.addAll(authors);
           }
@@ -118,7 +123,7 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
           _loading = false;
         });
         
-        // 预加载所有作者的插画数据
+        // 预加载所有作者的插画数据和图片路径
         _preloadAuthorIllusts(authors);
       }
     } catch (e) {
@@ -144,7 +149,7 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
     _loadData(refresh: true);
   }
 
-  /// 预加载作者的插画数据（最新下载和最新发布）
+  /// 预加载作者的插画数据和图片路径（最新下载和最新发布）
   Future<void> _preloadAuthorIllusts(List<DownloadedAuthor> authors) async {
     // 异步加载，不阻塞UI
     Future.microtask(() async {
@@ -153,17 +158,41 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
         
         try {
           // 并行加载最新下载和最新发布的插画
-          final futures = await Future.wait([
+          final illustsFutures = await Future.wait([
             downloadStore.getAuthorLatestIllusts(author.userId, limit: 3),
             downloadStore.getAuthorLatestPublishedIllusts(author.userId, limit: 3),
           ]);
           
+          final latestDownloadIllusts = illustsFutures[0];
+          final latestPublishedIllusts = illustsFutures[1];
+          
+          // 并行加载所有图片路径
+          final imagePathFutures = [
+            Future.wait(
+              latestDownloadIllusts.map((illust) => 
+                downloadStore.getLocalImagePath(illust.illustId, 0)
+              ).toList(),
+            ),
+            Future.wait(
+              latestPublishedIllusts.map((illust) => 
+                downloadStore.getLocalImagePath(illust.illustId, 0)
+              ).toList(),
+            ),
+          ];
+          
+          final imagePaths = await Future.wait(imagePathFutures);
+          
           if (mounted) {
             setState(() {
-              // 存储为列表：[最新下载列表, 最新发布列表]
+              // 存储插画数据：[最新下载列表, 最新发布列表]
               _authorIllustsMap[author.userId] = [
-                futures[0], // 最新下载
-                futures[1], // 最新发布
+                latestDownloadIllusts,
+                latestPublishedIllusts,
+              ];
+              // 存储图片路径：[最新下载路径列表, 最新发布路径列表]
+              _authorImagePathsMap[author.userId] = [
+                imagePaths[0],
+                imagePaths[1],
               ];
             });
           }
@@ -299,14 +328,20 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
           if (index < _authors.length) {
             final author = _authors[index];
             final illustsData = _authorIllustsMap[author.userId];
-            // 根据显示模式选择插画：最新下载（索引0）或最新发布（索引1）
+            final imagePathsData = _authorImagePathsMap[author.userId];
+            
+            // 根据显示模式选择插画和图片路径：最新下载（索引0）或最新发布（索引1）
             final displayIllusts = illustsData != null
                 ? (_showLatestPublished ? illustsData[1] : illustsData[0])
                 : <DownloadedIllust>[];
+            final displayImagePaths = imagePathsData != null
+                ? (_showLatestPublished ? imagePathsData[1] : imagePathsData[0])
+                : <String?>[];
             
             return DownloadedAuthorCard(
               author: author,
               illusts: displayIllusts,
+              imagePaths: displayImagePaths,
               showLatestPublished: _showLatestPublished,
             );
           }
