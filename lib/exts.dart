@@ -12,6 +12,8 @@
  *  You should have received a copy of the GNU General Public License along with
  *  this program. If not, see <http://www.gnu.org/licenses/>.
  */
+import 'dart:io';
+
 import 'package:intl/intl.dart';
 import 'package:pixez/component/pixiv_image.dart';
 import 'package:pixez/main.dart';
@@ -91,7 +93,7 @@ extension TimeExts on String {
   // }
 
   String toLegal() {
-    return this
+    String result = this
         .replaceAll("/", "")
         .replaceAll("\\", "")
         .replaceAll(":", "")
@@ -99,7 +101,40 @@ extension TimeExts on String {
         .replaceAll("?", "")
         .replaceAll(">", "")
         .replaceAll("|", "")
-        .replaceAll("<", "");
+        .replaceAll("<", "")
+        .replaceAll("\"", "")
+        .replaceAll("\n", "")
+        .replaceAll("\r", "")
+        .replaceAll("\t", "");
+    
+    // Windows平台需要移除控制字符
+    if (Platform.isWindows) {
+      // 移除控制字符
+      result = result.replaceAll(RegExp(r'[\x00-\x1F\x7F]'), '');
+    }
+    
+    // 移除尾随空格和点（Windows不允许文件名以空格或点结尾）
+    result = result.trim();
+    while (result.endsWith('.') || result.endsWith(' ')) {
+      result = result.substring(0, result.length - 1).trim();
+    }
+    
+    // 移除Windows保留名称（CON, PRN, AUX, NUL, COM1-9, LPT1-9等）
+    final reservedNames = ['CON', 'PRN', 'AUX', 'NUL'];
+    for (int i = 1; i <= 9; i++) {
+      reservedNames.add('COM$i');
+      reservedNames.add('LPT$i');
+    }
+    if (reservedNames.contains(result.toUpperCase())) {
+      result = '_$result';
+    }
+    
+    // 如果结果为空，使用默认名称
+    if (result.isEmpty) {
+      result = 'unnamed';
+    }
+    
+    return result;
   }
 }
 

@@ -698,7 +698,13 @@ abstract class _DownloadStoreBase with Store {
 
       // 确保目标目录存在
       if (!await targetDir.exists()) {
-        await targetDir.create(recursive: true);
+        try {
+          await targetDir.create(recursive: true);
+        } catch (e) {
+          // 如果目录创建失败，可能是路径中包含非法字符
+          Log.e('创建目录失败: ${targetDir.path}, 错误: $e');
+          throw Exception('无法创建目录: ${targetDir.path}。可能包含Windows不支持的字符（如emoji）。请检查路径设置。');
+        }
       }
 
       // 1. 尝试从缓存获取
