@@ -27,6 +27,7 @@ import 'package:pixez/main.dart';
 import 'package:pixez/models/download_record.dart';
 import 'package:pixez/page/picture/illust_lighting_page.dart';
 import 'package:pixez/page/downloaded/downloaded_authors_page.dart';
+import 'package:pixez/page/downloaded/import_dialog.dart';
 import 'package:pixez/store/download_store.dart';
 
 enum DownloadFilter {
@@ -332,6 +333,13 @@ class _DownloadedPageState extends State<DownloadedPage> {
       appBar: AppBar(
         title: Text(_filterUserName ?? I18n.of(context).history),
         actions: [
+          IconButton(
+            icon: Icon(Icons.upload_file),
+            tooltip: '导入',
+            onPressed: () {
+              _showImportDialog();
+            },
+          ),
           IconButton(
             icon: Icon(Icons.people),
             tooltip: '作者列表',
@@ -835,6 +843,17 @@ class _DownloadedPageState extends State<DownloadedPage> {
     );
   }
 
+
+  void _showImportDialog() async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => ImportDialog(),
+    );
+    // 如果导入成功，刷新数据
+    if (result == true) {
+      _loadData();
+    }
+  }
 
   void _showIllustOptions(DownloadedIllust illust) {
     final status = _illustDownloadStatus[illust.illustId];
