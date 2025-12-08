@@ -14,6 +14,7 @@ import 'package:pixez/component/null_hero.dart';
 import 'package:pixez/component/pixez_default_header.dart';
 import 'package:pixez/component/pixiv_image.dart';
 import 'package:pixez/component/star_icon.dart';
+import 'package:pixez/constants.dart';
 import 'package:pixez/er/leader.dart';
 import 'package:pixez/er/prefer.dart';
 import 'package:pixez/i18n.dart';
@@ -74,6 +75,14 @@ class _IllustSeriesPageState extends ConsumerState<IllustSeriesPage> {
     return Scaffold(
       appBar: AppBar(
         actions: [
+          if (illusts.isNotEmpty)
+            IconButton(
+              onPressed: () {
+                _downloadAllIllusts(context, illusts);
+              },
+              icon: Icon(Icons.download),
+              tooltip: '一键下载',
+            ),
           Builder(builder: (context) {
             return IconButton(
               onPressed: () {
@@ -355,6 +364,64 @@ class _IllustSeriesPageState extends ConsumerState<IllustSeriesPage> {
         ],
       ),
     );
+  }
+
+  Future<void> _downloadAllIllusts(
+      BuildContext context, List<IllustStore> illusts) async {
+    if (illusts.isEmpty) {
+      BotToast.showText(text: '没有可下载的插画');
+      return;
+    }
+
+    // 显示确认对话框
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('一键下载'),
+          content: Text('确定要下载系列中的所有 ${illusts.length} 个插画吗？'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: Text(I18n.of(context).cancel),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: Text(I18n.of(context).ok),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true) {
+      return;
+    }
+
+    int successCount = 0;
+    int failCount = 0;
+
+    for (final illustStore in illusts) {
+      try {
+        if (illustStore.illusts != null) {
+          if (Constants.useNewDownloader) {
+            await downloadStore.downloadIllust(illustStore.illusts!);
+          } else {
+            await saveStore.saveImage(illustStore.illusts!);
+          }
+          successCount++;
+        }
+      } catch (e) {
+        failCount++;
+      }
+    }
+
+    if (successCount > 0) {
+      BotToast.showText(
+          text: '已添加 $successCount 个下载任务${failCount > 0 ? '，失败 $failCount 个' : ''}');
+    } else if (failCount > 0) {
+      BotToast.showText(text: '下载失败');
+    }
   }
 }
 
