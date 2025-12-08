@@ -18,6 +18,7 @@ import 'package:flutter/material.dart';
 import 'package:pixez/component/downloaded_author_card.dart';
 import 'package:pixez/component/pixez_default_header.dart';
 import 'package:pixez/component/sort_group.dart';
+import 'package:pixez/er/prefer.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/models/download_record.dart';
 import 'package:waterfall_flow/waterfall_flow.dart';
@@ -27,6 +28,10 @@ enum AuthorSortType {
   userName, // 用户名
   illustCount, // 插画数量
 }
+
+// SharedPreferences 键名
+const String _DOWNLOADED_AUTHORS_SORT_TYPE_KEY = 'downloaded_authors_sort_type';
+const String _DOWNLOADED_AUTHORS_SHOW_LATEST_PUBLISHED_KEY = 'downloaded_authors_show_latest_published';
 
 class DownloadedAuthorsPage extends StatefulWidget {
   const DownloadedAuthorsPage({Key? key}) : super(key: key);
@@ -62,7 +67,21 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
   @override
   void initState() {
     super.initState();
+    _loadPersistedState();
     _loadData();
+  }
+
+  /// 加载持久化的状态
+  void _loadPersistedState() {
+    final sortTypeIndex = Prefer.getInt(_DOWNLOADED_AUTHORS_SORT_TYPE_KEY);
+    if (sortTypeIndex != null && sortTypeIndex >= 0 && sortTypeIndex < AuthorSortType.values.length) {
+      _sortType = AuthorSortType.values[sortTypeIndex];
+    }
+    
+    final showLatestPublished = Prefer.getBool(_DOWNLOADED_AUTHORS_SHOW_LATEST_PUBLISHED_KEY);
+    if (showLatestPublished != null) {
+      _showLatestPublished = showLatestPublished;
+    }
   }
 
   @override
@@ -143,9 +162,12 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
   }
 
   void _onSortChanged(int index) {
+    final newSortType = AuthorSortType.values[index];
     setState(() {
-      _sortType = AuthorSortType.values[index];
+      _sortType = newSortType;
     });
+    // 持久化排序类型
+    Prefer.setInt(_DOWNLOADED_AUTHORS_SORT_TYPE_KEY, newSortType.index);
     _loadData(refresh: true);
   }
 
@@ -307,6 +329,8 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
             setState(() {
               _showLatestPublished = value;
             });
+            // 持久化显示模式
+            Prefer.setBool(_DOWNLOADED_AUTHORS_SHOW_LATEST_PUBLISHED_KEY, value);
           },
         ),
       ],
