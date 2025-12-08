@@ -376,6 +376,9 @@ class _ImportDialogState extends State<ImportDialog> {
           );
         });
 
+        // 通知插画下载状态更新，触发监听位置刷新
+        await downloadStore.notifyIllustDownloadStatus(illustId);
+
         // 检查并删除源目录（如果为空）
         if (illustInfo.sourceDirPath != null) {
           try {

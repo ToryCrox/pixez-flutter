@@ -228,6 +228,11 @@ abstract class _DownloadStoreBase with Store {
     }
   }
 
+  /// 通知插画下载状态更新（公开方法，供外部调用）
+  Future<void> notifyIllustDownloadStatus(int illustId) async {
+    await _handleIllustDownloadStatus(illustId);
+  }
+
   /// 获取待确认的下载任务(不自动添加到下载队列)
   @action
   Future<List<DownloadTask>> loadPendingTasks() async {
