@@ -203,12 +203,6 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
     });
   }
 
-  void _toggleDisplayMode() {
-    setState(() {
-      _showLatestPublished = !_showLatestPublished;
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -248,7 +242,7 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
                 controller: _scrollController,
                 slivers: [
                   SliverPersistentHeader(
-                    key: ValueKey('sort_header'),
+                    key: ValueKey('sort_header_${_sortType}_$_showLatestPublished'),
                     delegate: SliverChipDelegate(
                       Container(
                         alignment: Alignment.center,
@@ -296,13 +290,26 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
   }
 
   Widget _buildDisplayModeButton() {
-    return IconButton(
-      icon: Icon(
-        _showLatestPublished ? Icons.publish : Icons.download,
-        color: Theme.of(context).colorScheme.primary,
-      ),
-      tooltip: _showLatestPublished ? '最新发布' : '最新下载',
-      onPressed: _toggleDisplayMode,
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          _showLatestPublished ? '最新发布' : '最新下载',
+          style: TextStyle(
+            fontSize: 14,
+            color: Theme.of(context).colorScheme.onSurface,
+          ),
+        ),
+        SizedBox(width: 8),
+        Switch(
+          value: _showLatestPublished,
+          onChanged: (value) {
+            setState(() {
+              _showLatestPublished = value;
+            });
+          },
+        ),
+      ],
     );
   }
 
