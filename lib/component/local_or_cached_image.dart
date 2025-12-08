@@ -16,13 +16,18 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:bot_toast/bot_toast.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:open_file/open_file.dart';
+import 'package:path/path.dart' as path;
 import 'package:photo_view/photo_view.dart';
 import 'package:pixez/component/pixiv_image.dart';
+import 'package:pixez/custom/log.dart';
 import 'package:pixez/er/hoster.dart';
 import 'package:pixez/exts.dart';
 import 'package:pixez/main.dart';
+import 'package:pixez/models/download_record.dart';
 import 'package:pixez/models/illust.dart';
 import 'package:pixez/store/download_store.dart';
 
@@ -351,6 +356,7 @@ class IllustDownloadButton extends StatefulWidget {
   final Illusts illusts;
   final double iconSize;
   final Future<bool> Function()? onStarAfterSave;
+
   /// 是否以 FloatingActionButton 样式显示
   final bool asFloatingActionButton;
 
@@ -428,11 +434,10 @@ class _IllustDownloadButtonState extends State<IllustDownloadButton> {
     final status = _status;
     final taskStatus = status?.status;
     final fileSize = status?.fileSize ?? 0;
-    final showFileSize = fileSize > 0 && 
-        (taskStatus == DownloadTaskStatus.completed);
+    final showFileSize = taskStatus != null && taskStatus != DownloadTaskStatus.deleted;
 
     Widget iconWidget = _buildIcon();
-    
+
     // 如果以 FloatingActionButton 样式显示
     if (widget.asFloatingActionButton) {
       Widget child = iconWidget;
@@ -447,7 +452,7 @@ class _IllustDownloadButtonState extends State<IllustDownloadButton> {
               fileSize.formatFileSize(),
               style: TextStyle(
                 fontSize: 10,
-                color: Theme.of(context).colorScheme.onPrimary,
+                color: Colors.green.shade300,
               ),
             ),
           ],
@@ -458,7 +463,7 @@ class _IllustDownloadButtonState extends State<IllustDownloadButton> {
         child: child,
       );
     }
-    
+
     if (showFileSize) {
       return InkWell(
         onTap: _showDownloadDialog,
@@ -503,13 +508,17 @@ class _IllustDownloadButtonState extends State<IllustDownloadButton> {
           return Icon(
             Icons.download_done,
             size: widget.iconSize,
-            color: widget.asFloatingActionButton ? Colors.green.shade300 : Colors.green,
+            color: widget.asFloatingActionButton
+                ? Colors.green.shade300
+                : Colors.green,
           );
         }
         return Icon(
           Icons.download,
           size: widget.iconSize,
-          color: widget.asFloatingActionButton ? Colors.green.shade300 : Colors.green,
+          color: widget.asFloatingActionButton
+              ? Colors.green.shade300
+              : Colors.green,
         );
       case DownloadTaskStatus.downloading:
         return SizedBox(
@@ -517,7 +526,7 @@ class _IllustDownloadButtonState extends State<IllustDownloadButton> {
           height: widget.iconSize,
           child: CircularProgressIndicator(
             strokeWidth: 2,
-            color: widget.asFloatingActionButton 
+            color: widget.asFloatingActionButton
                 ? Theme.of(context).colorScheme.onPrimary
                 : Theme.of(context).colorScheme.primary,
           ),
@@ -532,7 +541,8 @@ class _IllustDownloadButtonState extends State<IllustDownloadButton> {
         return Icon(
           Icons.error,
           size: widget.iconSize,
-          color: widget.asFloatingActionButton ? Colors.red.shade300 : Colors.red,
+          color:
+              widget.asFloatingActionButton ? Colors.red.shade300 : Colors.red,
         );
       case DownloadTaskStatus.paused:
         return Icon(
@@ -547,28 +557,26 @@ class _IllustDownloadButtonState extends State<IllustDownloadButton> {
 
   Future<void> _showDownloadDialog() async {
     final status = _status;
-    final isDownloaded =
-        status?.status == DownloadTaskStatus.completed && status?.isAllDownloaded == true;
+    final isDownloaded = status?.status == DownloadTaskStatus.completed &&
+        status?.isAllDownloaded == true;
     final isDownloading = status?.status == DownloadTaskStatus.downloading ||
         status?.status == DownloadTaskStatus.pending;
+
+    // 如果未下载且未在下载中，直接下载而不显示弹框
+    if (!isDownloaded && !isDownloading) {
+      _downloadAllPages();
+      return;
+    }
 
     await showDialog(
       context: context,
       builder: (ctx) {
         return AlertDialog(
-          title: Text(widget.illusts.title, maxLines: 2, overflow: TextOverflow.ellipsis),
+          title: Text(widget.illusts.title,
+              maxLines: 2, overflow: TextOverflow.ellipsis),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (!isDownloaded && !isDownloading)
-                ListTile(
-                  leading: Icon(Icons.download),
-                  title: Text('${widget.illusts.pageCount}P'),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _downloadAllPages();
-                  },
-                ),
               if (isDownloading)
                 ListTile(
                   leading: SizedBox(
@@ -578,6 +586,14 @@ class _IllustDownloadButtonState extends State<IllustDownloadButton> {
                   ),
                   title: Text('下载中...'),
                 ),
+              ListTile(
+                leading: Icon(Icons.folder_open),
+                title: Text('打开文件夹'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _openDownloadDirectory();
+                },
+              ),
               if (isDownloaded) ...[
                 ListTile(
                   leading: Icon(Icons.check_circle, color: Colors.green),
@@ -609,6 +625,21 @@ class _IllustDownloadButtonState extends State<IllustDownloadButton> {
         );
       },
     );
+  }
+
+  Future<void> _openDownloadDirectory() async {
+    if (!downloadStore.isInitialized) {
+      return;
+    }
+    try {
+      final relativePath =
+          DownloadDatabaseProvider.buildRelativePath(widget.illusts);
+      final dirPath = path.join(downloadStore.downloadPath, relativePath);
+      await OpenFile.open(dirPath);
+    } catch (e) {
+      Log.e('Failed to open download directory: $e');
+      BotToast.showText(text: '打开文件夹失败: $e');
+    }
   }
 
   Future<void> _downloadAllPages() async {
