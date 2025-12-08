@@ -34,6 +34,7 @@ import 'package:pixez/page/picture/illust_store.dart';
 import 'package:pixez/page/picture/picture_list_page.dart';
 import 'package:pixez/page/picture/tag_for_illust_page.dart';
 import 'package:pixez/page/series/illust_series_page.dart';
+import 'package:open_file/open_file.dart';
 
 class IllustCardGrid extends StatefulWidget {
   final IllustStore store;
@@ -57,6 +58,7 @@ class _IllustCardGridState extends State<IllustCardGrid> {
   late List<IllustStore>? iStores;
   late String tag;
   late LightingStore _lightingStore;
+  Offset _tapPosition = Offset.zero;
 
   @override
   void initState() {
@@ -243,14 +245,22 @@ class _IllustCardGridState extends State<IllustCardGrid> {
   }
 
   Widget _buildAnimationWraper(BuildContext context, Widget child) {
-    return InkWell(
-      onLongPress: () {
-        _buildLongPressToSaveHint();
+    return GestureDetector(
+      onSecondaryTapDown: (details) {
+        _tapPosition = details.globalPosition;
       },
-      onTap: () {
-        _buildInkTap(context, tag);
+      onSecondaryTap: () {
+        _showContextMenu(context);
       },
-      child: child,
+      child: InkWell(
+        onLongPress: () {
+          _buildLongPressToSaveHint();
+        },
+        onTap: () {
+          _buildInkTap(context, tag);
+        },
+        child: child,
+      ),
     );
   }
 
@@ -277,6 +287,57 @@ class _IllustCardGridState extends State<IllustCardGrid> {
       }
     }
     _onLongPressSave();
+  }
+
+  Future<void> _showContextMenu(BuildContext context) async {
+    if (store.illusts == null) return;
+
+    final isDirectoryExists = await downloadStore.isIllustDirectoryExists(store.illusts!);
+    
+    if (!isDirectoryExists) return;
+
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final result = await showMenu(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        _tapPosition.dx,
+        _tapPosition.dy,
+        overlay.size.width - _tapPosition.dx,
+        overlay.size.height - _tapPosition.dy,
+      ),
+      items: [
+        PopupMenuItem(
+          value: 'open_directory',
+          child: Row(
+            children: [
+              Icon(Icons.folder_open, size: 20),
+              SizedBox(width: 8),
+              Text('打开下载目录'),
+            ],
+          ),
+        ),
+      ],
+    );
+
+    if (result == 'open_directory') {
+      await _openDownloadDirectory();
+    }
+  }
+
+  Future<void> _openDownloadDirectory() async {
+    if (store.illusts == null) return;
+    if (!downloadStore.isInitialized) {
+      BotToast.showText(text: '下载功能未初始化');
+      return;
+    }
+    try {
+      final dirPath = downloadStore.getIllustDownloadDirectory(store.illusts!);
+      if (dirPath != null) {
+        await OpenFile.open(dirPath);
+      }
+    } catch (e) {
+      BotToast.showText(text: '打开文件夹失败: $e');
+    }
   }
 
   Future<void> _buildInkTap(BuildContext context, String heroTag) async {

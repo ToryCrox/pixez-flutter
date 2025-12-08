@@ -632,9 +632,7 @@ class _IllustDownloadButtonState extends State<IllustDownloadButton> {
       return;
     }
     try {
-      final relativePath =
-          DownloadDatabaseProvider.buildRelativePath(widget.illusts);
-      final dirPath = path.join(downloadStore.downloadPath, relativePath);
+      final dirPath = downloadStore.getIllustDownloadDirectory(widget.illusts);
       await OpenFile.open(dirPath);
     } catch (e) {
       Log.e('Failed to open download directory: $e');

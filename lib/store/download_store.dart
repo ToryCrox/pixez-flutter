@@ -1033,6 +1033,25 @@ abstract class _DownloadStoreBase with Store {
     return totalSize;
   }
 
+  /// 获取插画的下载目录路径
+  String? getIllustDownloadDirectory(Illusts illusts) {
+    if (!isInitialized) {
+      return null;
+    }
+    final relativePath = DownloadDatabaseProvider.buildRelativePath(illusts);
+    return path.join(_downloadPath!, relativePath);
+  }
+
+  /// 检查插画的下载目录是否存在
+  Future<bool> isIllustDirectoryExists(Illusts illusts) async {
+    final dirPath = getIllustDownloadDirectory(illusts);
+    if (dirPath == null) {
+      return false;
+    }
+    final dir = Directory(dirPath);
+    return await dir.exists();
+  }
+
   /// 检查并修复数据库（移除不存在的文件记录）
   Future<void> verifyAndCleanup() async {
     final illusts = await _dbProvider.getAllIllusts();
