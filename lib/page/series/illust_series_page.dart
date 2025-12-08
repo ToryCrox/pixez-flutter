@@ -252,15 +252,25 @@ class _IllustSeriesPageState extends ConsumerState<IllustSeriesPage> {
                           if (illusts.isNotEmpty)
                             SliverPadding(
                               padding: EdgeInsets.only(left: 16, right: 16),
-                              sliver: SliverWaterfallFlow(
-                                gridDelegate: _buildGridDelegate(context),
-                                delegate: SliverChildBuilderDelegate(
-                                  (BuildContext context, int index) {
-                                    return _buildItem(illusts[index]);
-                                  },
-                                  childCount: illusts.length,
-                                ),
-                              ),
+                              sliver: userSetting.useWaterfallFlow
+                                  ? SliverWaterfallFlow(
+                                      gridDelegate: _buildGridDelegate(context),
+                                      delegate: SliverChildBuilderDelegate(
+                                        (BuildContext context, int index) {
+                                          return _buildItem(illusts[index], true);
+                                        },
+                                        childCount: illusts.length,
+                                      ),
+                                    )
+                                  : SliverGrid(
+                                      gridDelegate: _buildSliverGridDelegate(context),
+                                      delegate: SliverChildBuilderDelegate(
+                                        (BuildContext context, int index) {
+                                          return _buildItem(illusts[index], false);
+                                        },
+                                        childCount: illusts.length,
+                                      ),
+                                    ),
                             ),
                         ],
                       );
@@ -269,8 +279,8 @@ class _IllustSeriesPageState extends ConsumerState<IllustSeriesPage> {
     );
   }
 
-  Widget _buildItem(IllustStore illust) {
-    return IllustSeriesItem(illust: illust);
+  Widget _buildItem(IllustStore illust, bool isWaterfallFlow) {
+    return IllustSeriesItem(illust: illust, isWaterfallFlow: isWaterfallFlow);
   }
 
   SliverWaterfallFlowDelegate _buildGridDelegate(BuildContext context) {
@@ -302,6 +312,25 @@ class _IllustSeriesPageState extends ConsumerState<IllustSeriesPage> {
     return result;
   }
 
+  int _getCrossAxisCount(BuildContext context) {
+    if (userSetting.crossAdapt) {
+      return _buildSliderValue(context);
+    } else {
+      return (MediaQuery.of(context).orientation == Orientation.portrait)
+          ? userSetting.crossCount
+          : userSetting.hCrossCount;
+    }
+  }
+
+  SliverGridDelegate _buildSliverGridDelegate(BuildContext context) {
+    return SliverGridDelegateWithFixedCrossAxisCount(
+      crossAxisCount: _getCrossAxisCount(context),
+      childAspectRatio: userSetting.gridAspectRatio,
+      mainAxisSpacing: 12,
+      crossAxisSpacing: 12,
+    );
+  }
+
   Widget _buildErrorContent(BuildContext context, String errorMessage) {
     return Center(
       child: Column(
@@ -331,8 +360,9 @@ class _IllustSeriesPageState extends ConsumerState<IllustSeriesPage> {
 
 class IllustSeriesItem extends StatefulHookConsumerWidget {
   final IllustStore illust;
+  final bool isWaterfallFlow;
 
-  const IllustSeriesItem({super.key, required this.illust});
+  const IllustSeriesItem({super.key, required this.illust, this.isWaterfallFlow = true});
 
   @override
   ConsumerState<ConsumerStatefulWidget> createState() => _State();
@@ -342,6 +372,60 @@ class _State extends ConsumerState<IllustSeriesItem> {
   late IllustStore illustStore = widget.illust;
   late Illusts illust = illustStore.illusts!;
   Offset _tapPosition = Offset.zero;
+
+  Widget _buildImageStack() {
+    final imageWidget = widget.isWaterfallFlow
+        ? PixivImage(
+            illust.imageUrls.large,
+            fit: BoxFit.fitWidth,
+            width: double.infinity,
+          )
+        : PixivImage(
+            illust.imageUrls.squareMedium,
+            fit: BoxFit.cover,
+          );
+
+    final stackChildren = [
+      NullHero(
+        tag: "illust_series_${illust.id}",
+        child: imageWidget,
+      ),
+      if (illust.metaPages.isNotEmpty)
+        Positioned(
+          top: 0,
+          right: 0,
+          child: Padding(
+            padding: EdgeInsets.all(4.0),
+            child: Container(
+              decoration: BoxDecoration(
+                  color: Colors.black26,
+                  borderRadius: BorderRadius.all(Radius.circular(4.0))),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                    vertical: 2.0, horizontal: 2.0),
+                child: Text(
+                  illust.metaPages.length.toString(),
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
+            ),
+          ),
+        )
+    ];
+
+    final stack = widget.isWaterfallFlow
+        ? Stack(children: stackChildren)
+        : Stack(fit: StackFit.expand, children: stackChildren);
+
+    final clipRRect = ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: stack,
+    );
+
+    return widget.isWaterfallFlow
+        ? clipRRect
+        : Expanded(child: clipRRect);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -366,43 +450,7 @@ class _State extends ConsumerState<IllustSeriesItem> {
       borderRadius: BorderRadius.circular(12),
       child: Column(
         children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: Stack(
-              children: [
-                NullHero(
-                  tag: "illust_series_${illust.id}",
-                  child: PixivImage(
-                    illust.imageUrls.large,
-                    fit: BoxFit.fitWidth,
-                    width: double.infinity,
-                  ),
-                ),
-                if (illust.metaPages.isNotEmpty)
-                  Positioned(
-                    top: 0,
-                    right: 0,
-                    child: Padding(
-                      padding: EdgeInsets.all(4.0),
-                      child: Container(
-                        decoration: BoxDecoration(
-                            color: Colors.black26,
-                            borderRadius:
-                                BorderRadius.all(Radius.circular(4.0))),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                              vertical: 2.0, horizontal: 2.0),
-                          child: Text(
-                            illust.metaPages.length.toString(),
-                            style: TextStyle(color: Colors.white),
-                          ),
-                        ),
-                      ),
-                    ),
-                  )
-              ],
-            ),
-          ),
+          _buildImageStack(),
           SizedBox(
             height: 2,
           ),
