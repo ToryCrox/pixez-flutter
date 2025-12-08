@@ -71,6 +71,11 @@ class _DownloadedPageState extends State<DownloadedPage> {
   @override
   void initState() {
     super.initState();
+    // 如果传入了初始用户ID和用户名，则设置过滤条件
+    if (widget.initialUserId != null) {
+      _filterUserId = widget.initialUserId;
+      _filterUserName = widget.initialUserName;
+    }
     _loadData();
     _scrollController.addListener(_onScroll);
     _downloadStatusSubscription = downloadStore.illustDownloadStatusStream
@@ -95,6 +100,17 @@ class _DownloadedPageState extends State<DownloadedPage> {
           _fileSizes.remove(status.illusts.illustId);
           return;
         }
+        
+        // 如果当前有作者过滤，检查新插画是否属于当前作者
+        if (_filterUserId != null && status.illusts.userId != _filterUserId) {
+          // 不属于当前作者，不添加到列表，但更新状态信息（如果已存在）
+          if (_illusts.any((e) => e.illustId == status.illusts.illustId)) {
+            _illustDownloadStatus[status.illusts.illustId] = status.status;
+            _downloadedCounts[status.illusts.illustId] = status.completedCount;
+          }
+          return;
+        }
+        
         if (_illusts.firstWhereOrNull(
                 (e) => e.illustId == status.illusts.illustId) ==
             null) {
