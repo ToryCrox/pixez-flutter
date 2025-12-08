@@ -295,6 +295,17 @@ class PendingDownloadColumns {
   static const String status = 'status'; // 0=pending, 1=downloading, 2=failed
 }
 
+class DownloadedAuthorColumns {
+  static const String tableName = 'downloaded_authors';
+  static const String userId = 'user_id';
+  static const String userName = 'user_name';
+  static const String profileImageUrl = 'profile_image_url';
+  static const String illustCount = 'illust_count';
+  static const String totalFileSize = 'total_file_size';
+  static const String lastDownloadTime = 'last_download_time';
+  static const String lastUpdateTime = 'last_update_time';
+}
+
 class PendingDownload {
   final String id;
   final int part;
@@ -335,6 +346,53 @@ class PendingDownload {
   }
 }
 
+// 下载的作者记录
+class DownloadedAuthor {
+  int userId;
+  String userName;
+  String? profileImageUrl;
+  int illustCount;
+  int totalFileSize;
+  int lastDownloadTime;
+  int lastUpdateTime;
+
+  DownloadedAuthor({
+    required this.userId,
+    required this.userName,
+    this.profileImageUrl,
+    required this.illustCount,
+    required this.totalFileSize,
+    required this.lastDownloadTime,
+    required this.lastUpdateTime,
+  });
+
+  factory DownloadedAuthor.fromJson(Map<String, dynamic> json) {
+    return DownloadedAuthor(
+      userId: json[DownloadedAuthorColumns.userId],
+      userName: json[DownloadedAuthorColumns.userName],
+      profileImageUrl: json[DownloadedAuthorColumns.profileImageUrl],
+      illustCount: json[DownloadedAuthorColumns.illustCount] ?? 0,
+      totalFileSize: json[DownloadedAuthorColumns.totalFileSize] ?? 0,
+      lastDownloadTime: json[DownloadedAuthorColumns.lastDownloadTime] ?? 0,
+      lastUpdateTime: json[DownloadedAuthorColumns.lastUpdateTime] ?? 0,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> data = {};
+    data[DownloadedAuthorColumns.userId] = userId;
+    data[DownloadedAuthorColumns.userName] = userName;
+    if (profileImageUrl != null) {
+      data[DownloadedAuthorColumns.profileImageUrl] = profileImageUrl;
+    }
+    data[DownloadedAuthorColumns.illustCount] = illustCount;
+    data[DownloadedAuthorColumns.totalFileSize] = totalFileSize;
+    data[DownloadedAuthorColumns.lastDownloadTime] = lastDownloadTime;
+    data[DownloadedAuthorColumns.lastUpdateTime] = lastUpdateTime;
+    return data;
+  }
+}
+
 // 数据库Provider
 class DownloadDatabaseProvider {
   late Database db;
@@ -354,7 +412,7 @@ class DownloadDatabaseProvider {
 
     db = await openDatabase(
       dbPath,
-      version: 3,
+      version: 4,
       onCreate: (Database db, int version) async {
         await db.execute('''
           CREATE TABLE ${DownloadedIllustColumns.tableName} (
@@ -408,6 +466,19 @@ class DownloadDatabaseProvider {
           )
         ''');
 
+        // 创建作者表
+        await db.execute('''
+          CREATE TABLE ${DownloadedAuthorColumns.tableName} (
+            ${DownloadedAuthorColumns.userId} INTEGER PRIMARY KEY,
+            ${DownloadedAuthorColumns.userName} TEXT NOT NULL,
+            ${DownloadedAuthorColumns.profileImageUrl} TEXT,
+            ${DownloadedAuthorColumns.illustCount} INTEGER DEFAULT 0,
+            ${DownloadedAuthorColumns.totalFileSize} INTEGER DEFAULT 0,
+            ${DownloadedAuthorColumns.lastDownloadTime} INTEGER,
+            ${DownloadedAuthorColumns.lastUpdateTime} INTEGER
+          )
+        ''');
+
         // 创建索引
         await db.execute('''
           CREATE INDEX idx_illust_user ON ${DownloadedIllustColumns.tableName}(${DownloadedIllustColumns.userId})
@@ -440,6 +511,22 @@ class DownloadDatabaseProvider {
             ALTER TABLE ${DownloadedImageColumns.tableName} 
             ADD COLUMN ${DownloadedImageColumns.height} INTEGER
           ''');
+        }
+        if (oldVersion < 4) {
+          // 创建作者表
+          await db.execute('''
+            CREATE TABLE IF NOT EXISTS ${DownloadedAuthorColumns.tableName} (
+              ${DownloadedAuthorColumns.userId} INTEGER PRIMARY KEY,
+              ${DownloadedAuthorColumns.userName} TEXT NOT NULL,
+              ${DownloadedAuthorColumns.profileImageUrl} TEXT,
+              ${DownloadedAuthorColumns.illustCount} INTEGER DEFAULT 0,
+              ${DownloadedAuthorColumns.totalFileSize} INTEGER DEFAULT 0,
+              ${DownloadedAuthorColumns.lastDownloadTime} INTEGER,
+              ${DownloadedAuthorColumns.lastUpdateTime} INTEGER
+            )
+          ''');
+          // 从现有数据生成作者表
+          await _migrateAuthorsFromIllusts(db);
         }
       },
     );
@@ -795,6 +882,220 @@ class DownloadDatabaseProvider {
     final image = await getImage(illustId, part);
     if (image == null) return null;
     return await _findImagePathForImage(image);
+  }
+
+  // ============ 数据迁移 ============
+
+  /// 从现有插画数据生成作者表（用于数据库升级）
+  static Future<void> _migrateAuthorsFromIllusts(Database db) async {
+    try {
+      // 获取所有不同的用户及其统计信息
+      final users = await db.rawQuery('''
+        SELECT 
+          ${DownloadedIllustColumns.userId},
+          ${DownloadedIllustColumns.userName},
+          COUNT(*) as count,
+          MAX(${DownloadedIllustColumns.downloadTime}) as last_download_time
+        FROM ${DownloadedIllustColumns.tableName}
+        GROUP BY ${DownloadedIllustColumns.userId}
+      ''');
+
+      for (final user in users) {
+        final userId = user[DownloadedIllustColumns.userId] as int;
+        final userName = user[DownloadedIllustColumns.userName] as String;
+        final count = user['count'] as int;
+        final lastDownloadTime = user['last_download_time'] as int? ?? 0;
+
+        // 获取最新插画的 JSON 来解析用户头像
+        final latestIllust = await db.query(
+          DownloadedIllustColumns.tableName,
+          where: '${DownloadedIllustColumns.userId} = ?',
+          whereArgs: [userId],
+          orderBy: '${DownloadedIllustColumns.downloadTime} DESC',
+          limit: 1,
+        );
+
+        String? profileImageUrl;
+        if (latestIllust.isNotEmpty) {
+          try {
+            final illustJson = jsonDecode(
+                latestIllust.first[DownloadedIllustColumns.illustJson] as String);
+            profileImageUrl = illustJson['user']?['profile_image_urls']?['medium'];
+          } catch (_) {}
+        }
+
+        // 计算总文件大小
+        final images = await db.query(
+          DownloadedImageColumns.tableName,
+          where: '${DownloadedImageColumns.illustId} IN (SELECT ${DownloadedIllustColumns.illustId} FROM ${DownloadedIllustColumns.tableName} WHERE ${DownloadedIllustColumns.userId} = ?)',
+          whereArgs: [userId],
+        );
+        int totalFileSize = 0;
+        for (final image in images) {
+          totalFileSize += image[DownloadedImageColumns.fileSize] as int? ?? 0;
+        }
+
+        // 插入作者记录
+        await db.insert(
+          DownloadedAuthorColumns.tableName,
+          {
+            DownloadedAuthorColumns.userId: userId,
+            DownloadedAuthorColumns.userName: userName,
+            DownloadedAuthorColumns.profileImageUrl: profileImageUrl,
+            DownloadedAuthorColumns.illustCount: count,
+            DownloadedAuthorColumns.totalFileSize: totalFileSize,
+            DownloadedAuthorColumns.lastDownloadTime: lastDownloadTime,
+            DownloadedAuthorColumns.lastUpdateTime: DateTime.now().millisecondsSinceEpoch,
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+    } catch (e) {
+      Log.e('迁移作者数据失败: $e');
+    }
+  }
+
+  // ============ Author 操作 ============
+
+  /// 插入或更新作者信息
+  Future<void> upsertAuthor(
+    int userId,
+    String userName,
+    String? profileImageUrl,
+    int illustCount,
+    int totalFileSize,
+    int lastDownloadTime,
+  ) async {
+    await db.insert(
+      DownloadedAuthorColumns.tableName,
+      {
+        DownloadedAuthorColumns.userId: userId,
+        DownloadedAuthorColumns.userName: userName,
+        DownloadedAuthorColumns.profileImageUrl: profileImageUrl,
+        DownloadedAuthorColumns.illustCount: illustCount,
+        DownloadedAuthorColumns.totalFileSize: totalFileSize,
+        DownloadedAuthorColumns.lastDownloadTime: lastDownloadTime,
+        DownloadedAuthorColumns.lastUpdateTime: DateTime.now().millisecondsSinceEpoch,
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  /// 获取作者信息
+  Future<DownloadedAuthor?> getAuthorByUserId(int userId) async {
+    List<Map<String, dynamic>> maps = await db.query(
+      DownloadedAuthorColumns.tableName,
+      where: '${DownloadedAuthorColumns.userId} = ?',
+      whereArgs: [userId],
+    );
+    if (maps.isNotEmpty) {
+      return DownloadedAuthor.fromJson(maps.first);
+    }
+    return null;
+  }
+
+  /// 获取作者列表，支持排序
+  /// sortBy: 'last_download_time', 'user_name', 'illust_count'
+  Future<List<DownloadedAuthor>> getAuthorsWithStats({
+    String sortBy = 'last_download_time',
+    bool desc = true,
+    int? limit,
+    int? offset,
+  }) async {
+    String orderBy = sortBy;
+    if (desc) {
+      orderBy += ' DESC';
+    } else {
+      orderBy += ' ASC';
+    }
+
+    List<Map<String, dynamic>> maps = await db.query(
+      DownloadedAuthorColumns.tableName,
+      orderBy: orderBy,
+      limit: limit,
+      offset: offset,
+    );
+    return maps.map((e) => DownloadedAuthor.fromJson(e)).toList();
+  }
+
+  /// 更新作者统计信息（从插画表重新计算）
+  Future<void> updateAuthorStats(int userId) async {
+    // 获取插画数量
+    final illustCount = await db.rawQuery('''
+      SELECT COUNT(*) as count 
+      FROM ${DownloadedIllustColumns.tableName} 
+      WHERE ${DownloadedIllustColumns.userId} = ?
+    ''', [userId]);
+    final count = illustCount.first['count'] as int? ?? 0;
+
+    // 获取最新下载时间
+    final latestTime = await db.rawQuery('''
+      SELECT MAX(${DownloadedIllustColumns.downloadTime}) as last_time
+      FROM ${DownloadedIllustColumns.tableName}
+      WHERE ${DownloadedIllustColumns.userId} = ?
+    ''', [userId]);
+    final lastDownloadTime = latestTime.first['last_time'] as int? ?? 0;
+
+    // 获取最新插画的 JSON 来解析用户名和头像
+    final latestIllust = await db.query(
+      DownloadedIllustColumns.tableName,
+      where: '${DownloadedIllustColumns.userId} = ?',
+      whereArgs: [userId],
+      orderBy: '${DownloadedIllustColumns.downloadTime} DESC',
+      limit: 1,
+    );
+
+    String userName = '';
+    String? profileImageUrl;
+    if (latestIllust.isNotEmpty) {
+      try {
+        final illustJson = jsonDecode(
+            latestIllust.first[DownloadedIllustColumns.illustJson] as String);
+        userName = illustJson['user']?['name'] ?? 
+                   latestIllust.first[DownloadedIllustColumns.userName] as String;
+        profileImageUrl = illustJson['user']?['profile_image_urls']?['medium'];
+      } catch (_) {
+        userName = latestIllust.first[DownloadedIllustColumns.userName] as String;
+      }
+    }
+
+    // 计算总文件大小
+    final images = await db.rawQuery('''
+      SELECT SUM(${DownloadedImageColumns.fileSize}) as total
+      FROM ${DownloadedImageColumns.tableName}
+      WHERE ${DownloadedImageColumns.illustId} IN (
+        SELECT ${DownloadedIllustColumns.illustId} 
+        FROM ${DownloadedIllustColumns.tableName} 
+        WHERE ${DownloadedIllustColumns.userId} = ?
+      )
+    ''', [userId]);
+    final totalFileSize = images.first['total'] as int? ?? 0;
+
+    // 更新或插入作者记录
+    await upsertAuthor(
+      userId,
+      userName,
+      profileImageUrl,
+      count,
+      totalFileSize,
+      lastDownloadTime,
+    );
+  }
+
+  /// 如果作者没有插画则删除
+  Future<void> deleteAuthorIfEmpty(int userId) async {
+    final count = await db.rawQuery('''
+      SELECT COUNT(*) as count 
+      FROM ${DownloadedIllustColumns.tableName} 
+      WHERE ${DownloadedIllustColumns.userId} = ?
+    ''', [userId]);
+    if ((count.first['count'] as int? ?? 0) == 0) {
+      await db.delete(
+        DownloadedAuthorColumns.tableName,
+        where: '${DownloadedAuthorColumns.userId} = ?',
+        whereArgs: [userId],
+      );
+    }
   }
 
   // ============ PendingDownload 操作 ============

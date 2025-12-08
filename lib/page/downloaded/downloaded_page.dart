@@ -35,7 +35,14 @@ enum DownloadFilter {
 }
 
 class DownloadedPage extends StatefulWidget {
-  const DownloadedPage({Key? key}) : super(key: key);
+  final int? initialUserId;
+  final String? initialUserName;
+
+  const DownloadedPage({
+    Key? key,
+    this.initialUserId,
+    this.initialUserName,
+  }) : super(key: key);
 
   @override
   State<DownloadedPage> createState() => _DownloadedPageState();

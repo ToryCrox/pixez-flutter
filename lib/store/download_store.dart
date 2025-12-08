@@ -412,6 +412,38 @@ abstract class _DownloadStoreBase with Store {
     return await _dbProvider.getDistinctUsers();
   }
 
+  /// 获取下载的作者列表，支持排序
+  Future<List<DownloadedAuthor>> getDownloadedAuthors({
+    String sortBy = 'last_download_time',
+    bool desc = true,
+    int? limit,
+    int? offset,
+  }) async {
+    return await _dbProvider.getAuthorsWithStats(
+      sortBy: sortBy,
+      desc: desc,
+      limit: limit,
+      offset: offset,
+    );
+  }
+
+  /// 获取单个作者信息
+  Future<DownloadedAuthor?> getAuthorByUserId(int userId) async {
+    return await _dbProvider.getAuthorByUserId(userId);
+  }
+
+  /// 获取作者最新下载的插画
+  Future<List<DownloadedIllust>> getAuthorLatestIllusts(
+    int userId, {
+    int limit = 3,
+  }) async {
+    return await _dbProvider.getIllustsByUserId(
+      userId,
+      limit: limit,
+      offset: 0,
+    );
+  }
+
   Future<int> getDownloadedCount() async {
     return await _dbProvider.getIllustCount();
   }
@@ -934,6 +966,9 @@ abstract class _DownloadStoreBase with Store {
       height: imageHeight,
     );
     await _dbProvider.insertImage(downloadedImage);
+
+    // 更新作者表统计信息
+    await _dbProvider.updateAuthorStats(illusts.user.id);
   }
 
   /// 使用 image_size_getter 解析图片宽高
@@ -1010,7 +1045,12 @@ abstract class _DownloadStoreBase with Store {
     }
 
     // 从数据库删除
+    final userId = illust.userId;
     await _dbProvider.deleteIllustByIllustId(illustId);
+
+    // 更新作者表统计信息，如果作者没有插画则删除
+    await _dbProvider.updateAuthorStats(userId);
+    await _dbProvider.deleteAuthorIfEmpty(userId);
 
     // 通知删除状态
     _illustDownloadStatusController.add(IllustDownloadStatus(
