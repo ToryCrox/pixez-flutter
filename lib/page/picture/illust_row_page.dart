@@ -493,6 +493,7 @@ class _IllustRowPageState extends State<IllustRowPage>
     final String imageUrl;
     final String mediumImageUrl;
     final bool useMediumPlaceHolder;
+    final localImageInfo = _illustStore.getLocalImageInfo(index);
     if (illust.type == "manga") {
       imageUrl = illust.managaDetailImageUrl(index);
       mediumImageUrl = illust.metaPages[index].imageUrls!.medium;
@@ -506,7 +507,7 @@ class _IllustRowPageState extends State<IllustRowPage>
     Widget child = PixivImage(
       imageUrl,
       localImageInfo: _illustStore.getLocalImageInfo(index),
-      placeWidget: useMediumPlaceHolder ? PixivImage(
+      placeWidget: useMediumPlaceHolder && localImageInfo == null ? PixivImage(
         mediumImageUrl,
         fade: false,
       ) : Container(
