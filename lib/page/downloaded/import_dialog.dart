@@ -38,7 +38,7 @@ class ImportDialog extends StatefulWidget {
 
 class _ImportDialogState extends State<ImportDialog> {
 
-  static const int _kMaxImportCount = 20;
+  static const int _kMaxImportCount = 10;
 
   final TextEditingController _pathController = TextEditingController();
   List<ImportIllustInfo> _illusts = [];
@@ -46,6 +46,7 @@ class _ImportDialogState extends State<ImportDialog> {
   bool _isImporting = false;
   Map<int, ImportProgress> _importProgress = {};
   String? _errorMessage;
+  ImportMode _importMode = ImportMode.directory; // 导入模式：目录模式或平铺模式
 
   @override
   void dispose() {
@@ -79,6 +80,27 @@ class _ImportDialogState extends State<ImportDialog> {
     final match = regex.firstMatch(fileName);
     if (match != null) {
       return int.tryParse(match.group(1)!);
+    }
+    return null;
+  }
+
+  // 从文件名提取插画ID（用于平铺模式）
+  // 文件名格式: [Ninempty][114880474]_129477132_Sorakado Ao - 空門蒼_p15.webp
+  // 插画ID在第一个下划线之后，第二个下划线之前
+  int? _extractIllustIdFromFlatFileName(String fileName) {
+    // 匹配模式：_数字_任意字符_p数字.扩展名
+    // 这样可以准确匹配到插画ID（在标题之前，页码之前）
+    final regex = RegExp(r'_(\d+)_[^_]*_p\d+\.');
+    final match = regex.firstMatch(fileName);
+    if (match != null) {
+      return int.tryParse(match.group(1)!);
+    }
+    // 备用方案：如果文件名格式不完全匹配，尝试匹配所有 _数字_ 的模式，取最后一个（通常是插画ID）
+    final allMatches = RegExp(r'_(\d+)_').allMatches(fileName);
+    if (allMatches.isNotEmpty) {
+      // 取最后一个匹配（通常是插画ID，在标题之前）
+      final lastMatch = allMatches.last;
+      return int.tryParse(lastMatch.group(1)!);
     }
     return null;
   }
@@ -118,82 +140,14 @@ class _ImportDialogState extends State<ImportDialog> {
     });
 
     try {
-      // 扫描目录下的所有子目录
-      final subDirs = await dir.list().toList();
       final illustData = <int, Map<String, dynamic>>{}; // illustId -> {files: [], dirPath: ''}
 
-      for (final entity in subDirs) {
-        if (entity is Directory) {
-          final dirName = p.basename(entity.path);
-          final illustId = _extractIllustId(dirName);
-          
-          // 处理散图目录（[0]开头的目录）
-          if (illustId == null && dirName.startsWith('[0]')) {
-            // 扫描该目录下的所有图片文件，按作品ID分组
-            final groupedFiles = <int, List<String>>{}; // illustId -> files
-            try {
-              final fileList = await entity.list().toList();
-              for (final fileEntity in fileList) {
-                if (fileEntity is File) {
-                  final fileName = p.basename(fileEntity.path);
-                  final extension = p.extension(fileName).toLowerCase();
-                  if (kImageExtensions.contains(extension)) {
-                    // 从文件名提取作品ID
-                    final fileIllustId = _extractIllustIdFromFileName(fileName);
-                    final part = _extractPart(fileName);
-                    if (fileIllustId != null && part != null) {
-                      groupedFiles.putIfAbsent(fileIllustId, () => []).add(fileEntity.path);
-                    }
-                  }
-                }
-              }
-            } catch (e) {
-              // 忽略无法访问的目录
-            }
-            // 为每个作品ID创建数据项
-            for (final entry in groupedFiles.entries) {
-              if (entry.value.isNotEmpty) {
-                illustData[entry.key] = {
-                  'files': entry.value,
-                  'dirPath': entity.path,
-                };
-              }
-              if (groupedFiles.length > _kMaxImportCount) {
-                // 忽略数量超出限制的目录
-                break;
-              }
-            }
-          } else if (illustId != null) {
-            // 处理普通目录（单个作品目录）
-            // 扫描该目录下的所有图片文件
-            final files = <String>[];
-            try {
-              final fileList = await entity.list().toList();
-              for (final fileEntity in fileList) {
-                if (fileEntity is File) {
-                  final fileName = p.basename(fileEntity.path);
-                  final part = _extractPart(fileName);
-                  if (part != null &&
-                      kImageExtensions.contains(p.extension(fileName).toLowerCase())) {
-                    files.add(fileEntity.path);
-                  }
-                }
-              }
-            } catch (e) {
-              // 忽略无法访问的目录
-            }
-            if (files.isNotEmpty) {
-              illustData[illustId] = {
-                'files': files,
-                'dirPath': entity.path,
-              };
-            }
-            if (illustData.length > _kMaxImportCount) {
-              // 忽略数量超出限制的目录
-              break;
-            }
-          }
-        }
+      if (_importMode == ImportMode.flat) {
+        // 平铺模式：直接扫描目录下的所有图片文件
+        await _scanFlatDirectory(dir, illustData);
+      } else {
+        // 目录模式：扫描目录下的所有子目录
+        await _scanDirectoryMode(dir, illustData);
       }
 
       // 从网络获取插画信息，并检查是否已存在
@@ -248,6 +202,122 @@ class _ImportDialogState extends State<ImportDialog> {
         _errorMessage = '扫描目录失败: $e';
         _isLoading = false;
       });
+    }
+  }
+
+  // 扫描平铺模式的目录（直接扫描目录下的所有图片文件）
+  Future<void> _scanFlatDirectory(Directory dir, Map<int, Map<String, dynamic>> illustData) async {
+    final groupedFiles = <int, List<String>>{}; // illustId -> files
+    try {
+      final fileList = await dir.list().toList();
+      for (final fileEntity in fileList) {
+        if (fileEntity is File) {
+          final fileName = p.basename(fileEntity.path);
+          final extension = p.extension(fileName).toLowerCase();
+          if (kImageExtensions.contains(extension)) {
+            // 从文件名提取作品ID和页码
+            final fileIllustId = _extractIllustIdFromFlatFileName(fileName);
+            final part = _extractPart(fileName);
+            if (fileIllustId != null && part != null) {
+              groupedFiles.putIfAbsent(fileIllustId, () => []).add(fileEntity.path);
+            }
+          }
+        }
+      }
+    } catch (e) {
+      Log.e('扫描目录失败: $e');
+      // 忽略无法访问的文件
+    }
+    // 为每个作品ID创建数据项
+    for (final entry in groupedFiles.entries) {
+      if (entry.value.isNotEmpty) {
+        illustData[entry.key] = {
+          'files': entry.value,
+          'dirPath': dir.path,
+        };
+      }
+      if (illustData.length > _kMaxImportCount) {
+        // 忽略数量超出限制的目录
+        break;
+      }
+    }
+  }
+
+  // 扫描目录模式（扫描子目录）
+  Future<void> _scanDirectoryMode(Directory dir, Map<int, Map<String, dynamic>> illustData) async {
+    final subDirs = await dir.list().toList();
+    for (final entity in subDirs) {
+      if (entity is Directory) {
+        final dirName = p.basename(entity.path);
+        final illustId = _extractIllustId(dirName);
+        
+        // 处理散图目录（[0]开头的目录）
+        if (illustId == null && dirName.startsWith('[0]')) {
+          // 扫描该目录下的所有图片文件，按作品ID分组
+          final groupedFiles = <int, List<String>>{}; // illustId -> files
+          try {
+            final fileList = await entity.list().toList();
+            for (final fileEntity in fileList) {
+              if (fileEntity is File) {
+                final fileName = p.basename(fileEntity.path);
+                final extension = p.extension(fileName).toLowerCase();
+                if (kImageExtensions.contains(extension)) {
+                  // 从文件名提取作品ID
+                  final fileIllustId = _extractIllustIdFromFileName(fileName);
+                  final part = _extractPart(fileName);
+                  if (fileIllustId != null && part != null) {
+                    groupedFiles.putIfAbsent(fileIllustId, () => []).add(fileEntity.path);
+                  }
+                }
+              }
+            }
+          } catch (e) {
+            // 忽略无法访问的目录
+          }
+          // 为每个作品ID创建数据项
+          for (final entry in groupedFiles.entries) {
+            if (entry.value.isNotEmpty) {
+              illustData[entry.key] = {
+                'files': entry.value,
+                'dirPath': entity.path,
+              };
+            }
+            if (groupedFiles.length > _kMaxImportCount) {
+              // 忽略数量超出限制的目录
+              break;
+            }
+          }
+        } else if (illustId != null) {
+          // 处理普通目录（单个作品目录）
+          // 扫描该目录下的所有图片文件
+          final files = <String>[];
+          try {
+            final fileList = await entity.list().toList();
+            for (final fileEntity in fileList) {
+              if (fileEntity is File) {
+                final fileName = p.basename(fileEntity.path);
+                final part = _extractPart(fileName);
+                if (part != null &&
+                    kImageExtensions.contains(p.extension(fileName).toLowerCase())) {
+                  files.add(fileEntity.path);
+                }
+              }
+            }
+          } catch (e) {
+            // 忽略无法访问的目录
+          }
+          if (files.isNotEmpty) {
+            illustData[illustId] = {
+              'files': files,
+              'dirPath': entity.path,
+            };
+          }
+          if (illustData.length > _kMaxImportCount) {
+            // 忽略数量超出限制的目录
+            break;
+          }
+        }
+      }
     }
   }
 
@@ -535,6 +605,53 @@ class _ImportDialogState extends State<ImportDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // 导入模式选择
+            Row(
+              children: [
+                Text('导入模式: '),
+                SizedBox(width: 16),
+                Expanded(
+                  child: Row(
+                    children: [
+                      Radio<ImportMode>(
+                        value: ImportMode.directory,
+                        groupValue: _importMode,
+                        onChanged: _isLoading || _isImporting
+                            ? null
+                            : (value) {
+                                if (value != null) {
+                                  setState(() {
+                                    _importMode = value;
+                                    _illusts = [];
+                                    _errorMessage = null;
+                                  });
+                                }
+                              },
+                      ),
+                      Text('目录模式'),
+                      SizedBox(width: 16),
+                      Radio<ImportMode>(
+                        value: ImportMode.flat,
+                        groupValue: _importMode,
+                        onChanged: _isLoading || _isImporting
+                            ? null
+                            : (value) {
+                                if (value != null) {
+                                  setState(() {
+                                    _importMode = value;
+                                    _illusts = [];
+                                    _errorMessage = null;
+                                  });
+                                }
+                              },
+                      ),
+                      Text('平铺模式'),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 8),
             Row(
               children: [
                 Expanded(
@@ -542,7 +659,9 @@ class _ImportDialogState extends State<ImportDialog> {
                     controller: _pathController,
                     decoration: InputDecoration(
                       labelText: '目录路径',
-                      hintText: '请输入目录路径',
+                      hintText: _importMode == ImportMode.flat
+                          ? '请输入包含平铺图片的目录路径'
+                          : '请输入目录路径',
                       border: OutlineInputBorder(),
                     ),
                   ),
@@ -585,7 +704,7 @@ class _ImportDialogState extends State<ImportDialog> {
                           return Card(
                             margin: EdgeInsets.symmetric(vertical: 4),
                             child: ListTile(
-                              title: Text('插画ID: ${illust.illustId}'),
+                              title: SelectableText('插画ID: ${illust.illustId}'),
                               subtitle: Text('获取信息失败: ${illust.error}'),
                               leading: Icon(Icons.error, color: Colors.red),
                             ),
@@ -600,7 +719,7 @@ class _ImportDialogState extends State<ImportDialog> {
                             color: Colors.orange[50],
                             child: ListTile(
                               leading: Icon(Icons.info, color: Colors.orange),
-                              title: Text('插画ID: ${illust.illustId}'),
+                              title: SelectableText('插画ID: ${illust.illustId}'),
                               subtitle: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -624,7 +743,7 @@ class _ImportDialogState extends State<ImportDialog> {
                           margin: EdgeInsets.symmetric(vertical: 4),
                           child: ListTile(
                             leading: Icon(Icons.image),
-                            title: Text('#$index, ${illusts.id} ${illusts.title}'),
+                            title: SelectableText('#$index, ${illusts.id} ${illusts.title}'),
                             subtitle: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
@@ -715,5 +834,10 @@ class ImportProgress {
     required this.completed,
     required this.status,
   });
+}
+
+enum ImportMode {
+  directory, // 目录模式：扫描子目录
+  flat, // 平铺模式：直接扫描目录下的图片文件
 }
 
