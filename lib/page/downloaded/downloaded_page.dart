@@ -21,6 +21,7 @@ import 'package:flutter/material.dart';
 import 'package:open_file/open_file.dart';
 import 'package:path/path.dart' as p;
 import 'package:pixez/er/leader.dart';
+import 'package:pixez/exts.dart';
 import 'package:pixez/i18n.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/models/download_record.dart';
@@ -46,6 +47,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
   Map<int, int> _downloadedCounts = {};
   Map<int, DownloadTaskStatus> _illustDownloadStatus = {};
   Map<int, String?> _thumbnailPaths = {};
+  Map<int, int> _fileSizes = {}; // 存储文件大小（字节）
   bool _loading = true;
   String? _searchKeyword;
   int? _filterUserId;
@@ -64,8 +66,8 @@ class _DownloadedPageState extends State<DownloadedPage> {
     super.initState();
     _loadData();
     _scrollController.addListener(_onScroll);
-    _downloadStatusSubscription =
-        downloadStore.illustDownloadStatusStream.listen(_onDownloadStatusChanged);
+    _downloadStatusSubscription = downloadStore.illustDownloadStatusStream
+        .listen(_onDownloadStatusChanged);
   }
 
   @override
@@ -83,9 +85,12 @@ class _DownloadedPageState extends State<DownloadedPage> {
           _illusts.removeWhere((e) => e.illustId == status.illusts.illustId);
           _illustDownloadStatus.remove(status.illusts.illustId);
           _downloadedCounts.remove(status.illusts.illustId);
+          _fileSizes.remove(status.illusts.illustId);
           return;
         }
-        if (_illusts.firstWhereOrNull((e) => e.illustId == status.illusts.illustId) == null) {
+        if (_illusts.firstWhereOrNull(
+                (e) => e.illustId == status.illusts.illustId) ==
+            null) {
           _illusts.insert(0, status.illusts);
         }
         _illustDownloadStatus[status.illusts.illustId] = status.status;
@@ -97,6 +102,16 @@ class _DownloadedPageState extends State<DownloadedPage> {
             });
           });
         }
+        // 更新文件大小
+        downloadStore
+            .getIllustTotalFileSize(status.illusts.illustId)
+            .then((size) {
+          if (mounted) {
+            setState(() {
+              _fileSizes[status.illusts.illustId] = size;
+            });
+          }
+        });
       });
     }
   }
@@ -148,6 +163,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
       final counts = <int, int>{};
       final statusMap = <int, DownloadTaskStatus>{};
       final thumbnails = <int, String?>{};
+      final fileSizes = <int, int>{};
       for (final illust in illusts) {
         counts[illust.illustId] =
             await downloadStore.getDownloadedPageCount(illust.illustId);
@@ -158,6 +174,8 @@ class _DownloadedPageState extends State<DownloadedPage> {
         }
         thumbnails[illust.illustId] =
             await downloadStore.getLocalImagePath(illust.illustId, 0);
+        fileSizes[illust.illustId] =
+            await downloadStore.getIllustTotalFileSize(illust.illustId);
       }
 
       if (mounted) {
@@ -167,6 +185,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
           _downloadedCounts = counts;
           _illustDownloadStatus = statusMap;
           _thumbnailPaths = thumbnails;
+          _fileSizes = fileSizes;
           _loading = false;
           _hasMore = illusts.length >= _pageSize;
         });
@@ -222,6 +241,8 @@ class _DownloadedPageState extends State<DownloadedPage> {
         }
         _thumbnailPaths[illust.illustId] =
             await downloadStore.getLocalImagePath(illust.illustId, 0);
+        _fileSizes[illust.illustId] =
+            await downloadStore.getIllustTotalFileSize(illust.illustId);
       }
 
       if (mounted) {
@@ -466,8 +487,8 @@ class _DownloadedPageState extends State<DownloadedPage> {
       child: GridView.builder(
         controller: _scrollController,
         padding: EdgeInsets.all(8),
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: _getCrossAxisCount(),
+        gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+          maxCrossAxisExtent: 240,
           childAspectRatio: 0.7,
           crossAxisSpacing: 8,
           mainAxisSpacing: 8,
@@ -595,11 +616,29 @@ class _DownloadedPageState extends State<DownloadedPage> {
                           color: Theme.of(context).colorScheme.primary,
                         ),
                   ),
-                  if (illust.pageCount > 1)
-                    Padding(
-                      padding: EdgeInsets.only(top: 2),
-                      child: _buildPageCountIndicator(illust),
-                    ),
+                  Row(
+                    children: [
+                      if (illust.pageCount > 1)
+                        Padding(
+                          padding: EdgeInsets.only(top: 2),
+                          child: _buildPageCountIndicator(illust),
+                        ),
+                      Spacer(),
+                      if (_fileSizes[illust.illustId] != null &&
+                          _fileSizes[illust.illustId]! > 0)
+                        Padding(
+                          padding: EdgeInsets.only(top: 2),
+                          child: Text(
+                            _fileSizes[illust.illustId]!.formatFileSize(),
+                            style:
+                                Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: Colors.grey[600],
+                                      fontSize: 11,
+                                    ),
+                          ),
+                        ),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -650,7 +689,8 @@ class _DownloadedPageState extends State<DownloadedPage> {
     }
   }
 
-  void _showContextMenu(BuildContext context, DownloadedIllust illust, Offset? tapPosition) {
+  void _showContextMenu(
+      BuildContext context, DownloadedIllust illust, Offset? tapPosition) {
     final RenderBox overlay =
         Overlay.of(context).context.findRenderObject() as RenderBox;
     final Offset position = tapPosition ?? Offset.zero;
@@ -954,8 +994,8 @@ class _DownloadedPageState extends State<DownloadedPage> {
                     builder: (ctx2) {
                       return AlertDialog(
                         title: Text(I18n.of(context).delete),
-                        content:
-                            Text('${illust.title}\n${I18n.of(context).delete}?'),
+                        content: Text(
+                            '${illust.title}\n${I18n.of(context).delete}?'),
                         actions: [
                           TextButton(
                             onPressed: () => Navigator.pop(ctx2, false),

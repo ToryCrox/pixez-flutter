@@ -116,12 +116,14 @@ class IllustDownloadStatus {
   final DownloadedIllust illusts;
   final int totalCount;
   final int completedCount;
+  final int fileSize; // 文件大小（字节）
 
   IllustDownloadStatus({
     required this.status,
     required this.illusts,
     required this.totalCount,
     required this.completedCount,
+    this.fileSize = 0,
   });
 
   bool get isAllDownloaded => totalCount > 0 && totalCount == completedCount;
@@ -462,11 +464,13 @@ abstract class _DownloadStoreBase with Store {
         status = DownloadTaskStatus.completed;
       }
     }
+    final fileSize = await getIllustTotalFileSize(illustId);
     return IllustDownloadStatus(
       illusts: downloadedIllust,
       status: status,
       totalCount: totalCount,
       completedCount: completedCount,
+      fileSize: fileSize,
     );
   }
 
@@ -617,6 +621,7 @@ abstract class _DownloadStoreBase with Store {
           await _dbProvider.isImageDownloaded(task.illusts.id, task.part);
       if (isDownloaded) {
         Log.d('DownloadStore task $taskKey already downloaded');
+        _dbProvider.deletePendingDownload(task.taskKey);
         continue;
       }
       needAddTasks.add(task);
@@ -996,6 +1001,7 @@ abstract class _DownloadStoreBase with Store {
       illusts: illust,
       totalCount: illust.pageCount,
       completedCount: 0,
+      fileSize: 0,
     ));
 
     await refreshCount();
@@ -1015,6 +1021,16 @@ abstract class _DownloadStoreBase with Store {
   /// 获取插画已下载的页数
   Future<int> getDownloadedPageCount(int illustId) async {
     return await _dbProvider.getDownloadedImageCount(illustId);
+  }
+
+  /// 获取插画的总文件大小（字节）
+  Future<int> getIllustTotalFileSize(int illustId) async {
+    final images = await _dbProvider.getImagesByIllustId(illustId);
+    int totalSize = 0;
+    for (final image in images) {
+      totalSize += image.fileSize;
+    }
+    return totalSize;
   }
 
   /// 检查并修复数据库（移除不存在的文件记录）

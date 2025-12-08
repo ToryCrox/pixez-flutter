@@ -21,6 +21,7 @@ import 'package:flutter/material.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:pixez/component/pixiv_image.dart';
 import 'package:pixez/er/hoster.dart';
+import 'package:pixez/exts.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/models/illust.dart';
 import 'package:pixez/store/download_store.dart';
@@ -250,19 +251,55 @@ class _DownloadStatusIndicatorState extends State<DownloadStatusIndicator> {
   }
 
   Widget _buildDownloadUncompletedIcon() {
-    return Icon(
+    final fileSize = _status?.fileSize ?? 0;
+    final icon = Icon(
       Icons.download,
       size: widget.size,
       color: widget.downloadedColor ?? Colors.green,
     );
+    if (fileSize > 0) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          icon,
+          SizedBox(width: 4),
+          Text(
+            fileSize.formatFileSize(),
+            style: TextStyle(
+              fontSize: 11,
+              color: widget.downloadedColor ?? Colors.green,
+            ),
+          ),
+        ],
+      );
+    }
+    return icon;
   }
 
   Widget _buildDownloadedIcon() {
-    return Icon(
+    final fileSize = _status?.fileSize ?? 0;
+    final icon = Icon(
       Icons.download_done,
       size: widget.size,
       color: widget.downloadedColor ?? Colors.green,
     );
+    if (fileSize > 0) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          icon,
+          SizedBox(width: 4),
+          Text(
+            fileSize.formatFileSize(),
+            style: TextStyle(
+              fontSize: 11,
+              color: widget.downloadedColor ?? Colors.green,
+            ),
+          ),
+        ],
+      );
+    }
+    return icon;
   }
 
   Widget _buildPendingIndicator() {
@@ -385,8 +422,40 @@ class _IllustDownloadButtonState extends State<IllustDownloadButton> {
 
   @override
   Widget build(BuildContext context) {
+    final status = _status;
+    final taskStatus = status?.status;
+    final fileSize = status?.fileSize ?? 0;
+    final showFileSize = fileSize > 0 && 
+        (taskStatus == DownloadTaskStatus.completed);
+
+    Widget iconWidget = _buildIcon();
+    
+    if (showFileSize) {
+      return InkWell(
+        onTap: _showDownloadDialog,
+        borderRadius: BorderRadius.circular(4),
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              iconWidget,
+              SizedBox(width: 6),
+              Text(
+                fileSize.formatFileSize(),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return IconButton(
-      icon: _buildIcon(),
+      icon: iconWidget,
       onPressed: _showDownloadDialog,
     );
   }
@@ -482,6 +551,12 @@ class _IllustDownloadButtonState extends State<IllustDownloadButton> {
                 ListTile(
                   leading: Icon(Icons.check_circle, color: Colors.green),
                   title: Text('已下载'),
+                  subtitle: status?.fileSize != null && status!.fileSize > 0
+                      ? Text(
+                          status.fileSize.formatFileSize(),
+                          style: TextStyle(fontSize: 12, color: Colors.grey),
+                        )
+                      : null,
                 ),
                 ListTile(
                   leading: Icon(Icons.delete, color: Colors.red),
