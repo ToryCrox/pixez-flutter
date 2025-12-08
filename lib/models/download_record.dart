@@ -579,12 +579,14 @@ class DownloadDatabaseProvider {
     int userId, {
     int? limit,
     int? offset,
+    String? orderBy,
   }) async {
+    final orderByClause = orderBy ?? '${DownloadedIllustColumns.downloadTime} DESC';
     List<Map<String, dynamic>> maps = await db.query(
       DownloadedIllustColumns.tableName,
       where: '${DownloadedIllustColumns.userId} = ?',
       whereArgs: [userId],
-      orderBy: '${DownloadedIllustColumns.downloadTime} DESC',
+      orderBy: orderByClause,
       limit: limit,
       offset: offset,
     );

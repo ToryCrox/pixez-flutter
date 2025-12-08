@@ -444,6 +444,19 @@ abstract class _DownloadStoreBase with Store {
     );
   }
 
+  /// 获取作者最新发布的插画（按createDate排序）
+  Future<List<DownloadedIllust>> getAuthorLatestPublishedIllusts(
+    int userId, {
+    int limit = 3,
+  }) async {
+    return await _dbProvider.getIllustsByUserId(
+      userId,
+      limit: limit,
+      offset: 0,
+      orderBy: 'create_date DESC',
+    );
+  }
+
   Future<int> getDownloadedCount() async {
     return await _dbProvider.getIllustCount();
   }

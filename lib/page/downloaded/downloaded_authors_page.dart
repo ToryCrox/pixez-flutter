@@ -48,6 +48,12 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
   bool _hasMore = true;
   int _page = 0;
   static const int _pageSize = 20;
+  
+  // 显示模式：false=最新下载，true=最新发布
+  bool _showLatestPublished = false;
+  
+  // 预加载的插画数据：key为userId，value为[最新下载列表, 最新发布列表]
+  Map<int, List<List<DownloadedIllust>>> _authorIllustsMap = {};
 
   @override
   void initState() {
@@ -104,12 +110,16 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
         setState(() {
           if (refresh) {
             _authors = authors;
+            _authorIllustsMap.clear();
           } else {
             _authors.addAll(authors);
           }
           _hasMore = authors.length >= _pageSize;
           _loading = false;
         });
+        
+        // 预加载所有作者的插画数据
+        _preloadAuthorIllusts(authors);
       }
     } catch (e) {
       if (mounted) {
@@ -134,17 +144,94 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
     _loadData(refresh: true);
   }
 
+  /// 预加载作者的插画数据（最新下载和最新发布）
+  Future<void> _preloadAuthorIllusts(List<DownloadedAuthor> authors) async {
+    // 异步加载，不阻塞UI
+    Future.microtask(() async {
+      for (final author in authors) {
+        if (_authorIllustsMap.containsKey(author.userId)) continue;
+        
+        try {
+          // 并行加载最新下载和最新发布的插画
+          final futures = await Future.wait([
+            downloadStore.getAuthorLatestIllusts(author.userId, limit: 3),
+            downloadStore.getAuthorLatestPublishedIllusts(author.userId, limit: 3),
+          ]);
+          
+          if (mounted) {
+            setState(() {
+              // 存储为列表：[最新下载列表, 最新发布列表]
+              _authorIllustsMap[author.userId] = [
+                futures[0], // 最新下载
+                futures[1], // 最新发布
+              ];
+            });
+          }
+        } catch (e) {
+          // 忽略单个作者加载失败
+        }
+      }
+    });
+  }
+
+  void _toggleDisplayMode() {
+    setState(() {
+      _showLatestPublished = !_showLatestPublished;
+    });
+  }
+
   Widget _buildHeader() {
-    return Container(
-      height: 45,
-      child: SortGroup(
-        children: [
-          '最新下载',
-          '用户名',
-          '插画数量',
-        ],
-        onChange: _onSortChanged,
-      ),
+    return Column(
+      children: [
+        Container(
+          height: 45,
+          child: SortGroup(
+            children: [
+              '最新下载',
+              '用户名',
+              '插画数量',
+            ],
+            onChange: _onSortChanged,
+          ),
+        ),
+        Container(
+          height: 40,
+          padding: EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '显示模式',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              Row(
+                children: [
+                  Text(
+                    '最新下载',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: !_showLatestPublished 
+                          ? Theme.of(context).colorScheme.primary 
+                          : Colors.grey,
+                    ),
+                  ),
+                  Switch(
+                    value: _showLatestPublished,
+                    onChanged: (_) => _toggleDisplayMode(),
+                  ),
+                  Text(
+                    '最新发布',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: _showLatestPublished 
+                          ? Theme.of(context).colorScheme.primary 
+                          : Colors.grey,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -210,8 +297,17 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
       delegate: SliverChildBuilderDelegate(
         (context, index) {
           if (index < _authors.length) {
+            final author = _authors[index];
+            final illustsData = _authorIllustsMap[author.userId];
+            // 根据显示模式选择插画：最新下载（索引0）或最新发布（索引1）
+            final displayIllusts = illustsData != null
+                ? (_showLatestPublished ? illustsData[1] : illustsData[0])
+                : <DownloadedIllust>[];
+            
             return DownloadedAuthorCard(
-              author: _authors[index],
+              author: author,
+              illusts: displayIllusts,
+              showLatestPublished: _showLatestPublished,
             );
           }
           return null;

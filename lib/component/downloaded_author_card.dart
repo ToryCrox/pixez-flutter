@@ -17,87 +17,30 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:pixez/component/painter_avatar.dart';
-import 'package:pixez/component/pixiv_image.dart';
 import 'package:pixez/exts.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/models/download_record.dart';
-import 'package:pixez/models/illust.dart';
-import 'package:pixez/models/recommend.dart';
-import 'package:pixez/network/api_client.dart';
 import 'package:pixez/page/downloaded/downloaded_page.dart';
 import 'package:pixez/page/user/user_store.dart';
 import 'package:pixez/page/user/users_page.dart';
 
 class DownloadedAuthorCard extends StatefulWidget {
   final DownloadedAuthor author;
+  final List<DownloadedIllust> illusts;
+  final bool showLatestPublished;
 
-  const DownloadedAuthorCard({Key? key, required this.author})
-      : super(key: key);
+  const DownloadedAuthorCard({
+    Key? key,
+    required this.author,
+    required this.illusts,
+    required this.showLatestPublished,
+  }) : super(key: key);
 
   @override
   State<DownloadedAuthorCard> createState() => _DownloadedAuthorCardState();
 }
 
 class _DownloadedAuthorCardState extends State<DownloadedAuthorCard> {
-  bool _showLatestPublished = false;
-  List<DownloadedIllust> _downloadedIllusts = [];
-  List<Illusts> _publishedIllusts = [];
-  bool _loadingPublished = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadDownloadedIllusts();
-  }
-
-  Future<void> _loadDownloadedIllusts() async {
-    final illusts = await downloadStore.getAuthorLatestIllusts(
-      widget.author.userId,
-      limit: 3,
-    );
-    if (mounted) {
-      setState(() {
-        _downloadedIllusts = illusts;
-      });
-    }
-  }
-
-  Future<void> _loadPublishedIllusts() async {
-    if (_loadingPublished || _publishedIllusts.isNotEmpty) return;
-
-    setState(() {
-      _loadingPublished = true;
-    });
-
-    try {
-      final response = await apiClient.getUserIllusts(
-        widget.author.userId,
-        'illust',
-      );
-      final recommend = Recommend.fromJson(response.data);
-      if (mounted) {
-        setState(() {
-          _publishedIllusts = recommend.illusts.take(3).toList();
-          _loadingPublished = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _loadingPublished = false;
-        });
-      }
-    }
-  }
-
-  void _togglePreview() {
-    setState(() {
-      _showLatestPublished = !_showLatestPublished;
-    });
-    if (_showLatestPublished) {
-      _loadPublishedIllusts();
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -125,50 +68,21 @@ class _DownloadedAuthorCardState extends State<DownloadedAuthorCard> {
   }
 
   Widget _buildPreviewSection(BuildContext context) {
-    final showPublished = _showLatestPublished && _publishedIllusts.isNotEmpty;
-    final illusts = showPublished ? _publishedIllusts : _downloadedIllusts;
+    final illusts = widget.illusts;
 
-    return Stack(
+    return Row(
       children: [
-        Row(
-          children: [
-            for (var i = 0; i < 3; i++)
-              Expanded(
-                child: i < illusts.length
-                    ? AspectRatio(
-                        aspectRatio: 1.0,
-                        child: showPublished
-                            ? PixivImage(
-                                (illusts[i] as Illusts).imageUrls.squareMedium,
-                                fit: BoxFit.cover,
-                              )
-                            : _buildLocalImage(illusts[i] as DownloadedIllust),
-                      )
-                    : Container(
-                        color: Theme.of(context).cardColor,
-                      ),
-              ),
-          ],
-        ),
-        Positioned(
-          top: 8,
-          right: 8,
-          child: IconButton(
-            icon: Icon(
-              _showLatestPublished ? Icons.download : Icons.public,
-              size: 20,
-              color: Colors.white,
-            ),
-            onPressed: _togglePreview,
-            tooltip: _showLatestPublished
-                ? '显示最新下载'
-                : '显示最新发布',
-            style: IconButton.styleFrom(
-              backgroundColor: Colors.black54,
-              padding: EdgeInsets.all(8),
-            ),
+        for (var i = 0; i < 3; i++)
+          Expanded(
+            child: i < illusts.length
+                ? AspectRatio(
+                    aspectRatio: 1.0,
+                    child: _buildLocalImage(illusts[i]),
+                  )
+                : Container(
+                    color: Theme.of(context).cardColor,
+                  ),
           ),
-        ),
       ],
     );
   }

@@ -14,6 +14,8 @@ import 'package:pixez/page/history/history_page.dart';
 import 'package:pixez/page/task/job_page.dart';
 import 'package:window_manager/window_manager.dart';
 
+import '../page/downloaded/downloaded_authors_page.dart';
+
 const _kTitleBarHeight = 36.0;
 
 // Intent classes for keyboard shortcuts
@@ -353,6 +355,16 @@ class _SideBarBody extends StatelessWidget {
             windowFrameController.openSideBar();
             Navigator.of(globalNavigatorKey.currentContext!).push(
               MaterialPageRoute(builder: (context) => DownloadedPage()),
+            );
+          },
+        ),
+        buildItem(
+          icon: Icons.download,
+          title: '作者列表',
+          onTap: () {
+            windowFrameController.openSideBar();
+            Navigator.of(globalNavigatorKey.currentContext!).push(
+              MaterialPageRoute(builder: (context) => DownloadedAuthorsPage()),
             );
           },
         ),
