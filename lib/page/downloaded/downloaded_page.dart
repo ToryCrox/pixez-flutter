@@ -612,7 +612,10 @@ class _DownloadedPageState extends State<DownloadedPage> {
                       if (illust.pageCount > 1)
                         Padding(
                           padding: EdgeInsets.only(top: 2),
-                          child: _buildPageCountIndicator(illust),
+                          child: _buildPageCountIndicator(
+                            illust,
+                            _fileSizes[illust.illustId],
+                          ),
                         ),
                       Spacer(),
                       if (_fileSizes[illust.illustId] != null &&
@@ -660,22 +663,51 @@ class _DownloadedPageState extends State<DownloadedPage> {
     );
   }
 
-  Widget _buildPageCountIndicator(DownloadedIllust illust) {
+  Widget _buildPageCountIndicator(DownloadedIllust illust, int? totalFileSize) {
     final downloadedCount =
         _downloadedCounts[illust.illustId] ?? illust.pageCount;
     final totalCount = illust.pageCount;
 
+    String pageText;
     if (downloadedCount < totalCount) {
-      return Text(
-        '$downloadedCount/$totalCount',
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Colors.orange,
-            ),
+      pageText = '$downloadedCount/$totalCount';
+    } else {
+      pageText = '${totalCount}P';
+    }
+
+    // 计算平均每页文件大小
+    String? avgSizeText;
+    if (totalFileSize != null && totalFileSize > 0 && totalCount > 0) {
+      final avgSize = totalFileSize ~/ totalCount;
+      avgSizeText = avgSize.formatFileSize();
+    }
+
+    if (avgSizeText != null) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            pageText,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: downloadedCount < totalCount ? Colors.orange : null,
+                ),
+          ),
+          SizedBox(width: 4),
+          Text(
+            '· $avgSizeText/P',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Colors.grey[600],
+                  fontSize: 11,
+                ),
+          ),
+        ],
       );
     } else {
       return Text(
-        '${totalCount}P',
-        style: Theme.of(context).textTheme.bodySmall,
+        pageText,
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: downloadedCount < totalCount ? Colors.orange : null,
+            ),
       );
     }
   }
