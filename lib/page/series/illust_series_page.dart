@@ -1,16 +1,21 @@
+import 'dart:io';
 import 'dart:math';
 
+import 'package:bot_toast/bot_toast.dart';
 import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:open_file/open_file.dart';
+import 'package:pixez/component/local_or_cached_image.dart';
 import 'package:pixez/component/null_hero.dart';
 import 'package:pixez/component/pixez_default_header.dart';
 import 'package:pixez/component/pixiv_image.dart';
 import 'package:pixez/component/star_icon.dart';
 import 'package:pixez/er/leader.dart';
+import 'package:pixez/er/prefer.dart';
 import 'package:pixez/i18n.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/models/illust.dart';
@@ -334,10 +339,20 @@ class IllustSeriesItem extends StatefulHookConsumerWidget {
 class _State extends ConsumerState<IllustSeriesItem> {
   late IllustStore illustStore = widget.illust;
   late Illusts illust = illustStore.illusts!;
+  Offset _tapPosition = Offset.zero;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
+      onSecondaryTapDown: (details) {
+        _tapPosition = details.globalPosition;
+      },
+      onSecondaryTap: () {
+        _showContextMenu(context);
+      },
+      onLongPress: () {
+        _buildLongPressToSaveHint();
+      },
       onTap: () {
         Leader.push(
             context,
@@ -392,6 +407,12 @@ class _State extends ConsumerState<IllustSeriesItem> {
               alignment: Alignment.centerLeft,
               child: Row(
                 children: [
+                  DownloadStatusIndicator(
+                    illustId: illust.id,
+                    pageCount: illust.pageCount,
+                    size: 14,
+                  ),
+                  const SizedBox(width: 4),
                   Expanded(
                       child: Text(
                     illust.title,
@@ -415,5 +436,113 @@ class _State extends ConsumerState<IllustSeriesItem> {
         ],
       ),
     );
+  }
+
+  _buildLongPressToSaveHint() async {
+    if (Platform.isIOS) {
+      final firstLongPress = await Prefer.getBool("first_long_press") ?? true;
+      if (firstLongPress) {
+        await Prefer.setBool("first_long_press", false);
+        await showDialog(
+            context: context,
+            builder: (context) {
+              return AlertDialog(
+                title: Text('长按保存'),
+                content: Text('长按卡片将会保存插画到相册'),
+                actions: <Widget>[
+                  TextButton(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                      },
+                      child: Text(I18n.of(context).ok))
+                ],
+              );
+            });
+      }
+    }
+    _onLongPressSave();
+  }
+
+  _onLongPressSave() async {
+    if (userSetting.longPressSaveConfirm) {
+      final result = await showDialog(
+          context: context,
+          builder: (context) {
+            return AlertDialog(
+              title: Text(I18n.of(context).save),
+              content: Text(illust.title),
+              actions: <Widget>[
+                TextButton(
+                  child: Text(I18n.of(context).cancel),
+                  onPressed: () {
+                    Navigator.of(context).pop(false);
+                  },
+                ),
+                TextButton(
+                  child: Text(I18n.of(context).ok),
+                  onPressed: () {
+                    Navigator.of(context).pop(true);
+                  },
+                ),
+              ],
+            );
+          });
+      if (!result) {
+        return;
+      }
+    }
+    saveStore.saveImage(illust);
+    if (userSetting.starAfterSave && (illustStore.state == 0)) {
+      illustStore.star(
+          restrict: userSetting.defaultPrivateLike ? "private" : "public");
+    }
+  }
+
+  Future<void> _showContextMenu(BuildContext context) async {
+    final isDirectoryExists = await downloadStore.isIllustDirectoryExists(illust);
+    
+    if (!isDirectoryExists) return;
+
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final result = await showMenu(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        _tapPosition.dx,
+        _tapPosition.dy,
+        overlay.size.width - _tapPosition.dx,
+        overlay.size.height - _tapPosition.dy,
+      ),
+      items: [
+        PopupMenuItem(
+          value: 'open_directory',
+          child: Row(
+            children: [
+              Icon(Icons.folder_open, size: 20),
+              SizedBox(width: 8),
+              Text('打开下载目录'),
+            ],
+          ),
+        ),
+      ],
+    );
+
+    if (result == 'open_directory') {
+      await _openDownloadDirectory();
+    }
+  }
+
+  Future<void> _openDownloadDirectory() async {
+    if (!downloadStore.isInitialized) {
+      BotToast.showText(text: '下载功能未初始化');
+      return;
+    }
+    try {
+      final dirPath = downloadStore.getIllustDownloadDirectory(illust);
+      if (dirPath != null) {
+        await OpenFile.open(dirPath);
+      }
+    } catch (e) {
+      BotToast.showText(text: '打开文件夹失败: $e');
+    }
   }
 }

@@ -758,7 +758,7 @@ abstract class _DownloadStoreBase with Store {
   }
 
   Future<void> _onDownloadFailed(DownloadTask task, String error) async {
-    Log.d(() => "下载失败: ${task.taskKey}, $error");
+    Log.e(() => "下载失败: ${task.taskKey}, $error");
     task.status = DownloadTaskStatus.failed;
     task.error = error;
     _runningTask.remove(task.taskKey);
