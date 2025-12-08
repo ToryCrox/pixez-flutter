@@ -101,7 +101,7 @@ flutter build ios
 - `lib/page/painter/painter_list.dart`：画师列表组件
 
 **插画详情**
-- `lib/page/picture/illust_lighting_page.dart`：插画详情页面（主要使用）
+- `lib/page/picture/illust_lighting_page.dart`：插画详情页面（主要使用）,纵向滑动
 - `lib/page/picture/picture_list_page.dart`：插画列表页面（左右滑动浏览）
 - `lib/page/picture/illust_row_page.dart`：插画横向滑动页面
 - `lib/page/comment/comment_page.dart`：评论页面
