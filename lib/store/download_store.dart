@@ -457,6 +457,11 @@ abstract class _DownloadStoreBase with Store {
     );
   }
 
+  /// 获取作者的图片统计信息（总图片张数和总文件大小）
+  Future<Map<String, int>> getAuthorImageStats(int userId) async {
+    return await _dbProvider.getAuthorImageStats(userId);
+  }
+
   Future<int> getDownloadedCount() async {
     return await _dbProvider.getIllustCount();
   }

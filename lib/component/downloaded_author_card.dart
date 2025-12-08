@@ -46,6 +46,30 @@ class DownloadedAuthorCard extends StatefulWidget {
 }
 
 class _DownloadedAuthorCardState extends State<DownloadedAuthorCard> {
+  int? _totalImageCount;
+  int? _totalFileSize;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadImageStats();
+  }
+
+  Future<void> _loadImageStats() async {
+    if (!downloadStore.isInitialized) return;
+    
+    try {
+      final stats = await downloadStore.getAuthorImageStats(widget.author.userId);
+      if (mounted) {
+        setState(() {
+          _totalImageCount = stats['total_image_count'];
+          _totalFileSize = stats['total_file_size'];
+        });
+      }
+    } catch (e) {
+      // 忽略错误，保持当前状态
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -166,16 +190,48 @@ class _DownloadedAuthorCardState extends State<DownloadedAuthorCard> {
                               color: Colors.grey[600],
                             ),
                       ),
-                      SizedBox(width: 8),
-                      if (widget.author.totalFileSize > 0)
+                      if (_totalImageCount != null && _totalImageCount! > 0) ...[
+                        SizedBox(width: 8),
                         Text(
-                          widget.author.totalFileSize.formatFileSize(),
+                          '$_totalImageCount 张',
                           style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                 color: Colors.grey[600],
                               ),
                         ),
+                      ],
                     ],
                   ),
+                  if (_totalImageCount != null && _totalImageCount! > 0 && _totalFileSize != null && _totalFileSize! > 0) ...[
+                    SizedBox(height: 2),
+                    Row(
+                      children: [
+                        Text(
+                          '平均 ${(_totalFileSize! ~/ _totalImageCount!).formatFileSize()}/张',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: Colors.grey[500],
+                                fontSize: 11,
+                              ),
+                        ),
+                        SizedBox(width: 8),
+                        Text(
+                          '总计 ${_totalFileSize!.formatFileSize()}',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: Colors.grey[500],
+                                fontSize: 11,
+                              ),
+                        ),
+                      ],
+                    ),
+                  ] else if (widget.author.totalFileSize > 0) ...[
+                    SizedBox(height: 2),
+                    Text(
+                      '总计 ${widget.author.totalFileSize.formatFileSize()}',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Colors.grey[500],
+                            fontSize: 11,
+                          ),
+                    ),
+                  ],
                 ],
               ),
             ),

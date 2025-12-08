@@ -1100,6 +1100,30 @@ class DownloadDatabaseProvider {
     }
   }
 
+  /// 获取作者的图片统计信息（总图片张数和总文件大小）
+  /// 使用优化的SQL查询，一次性获取两个统计值
+  Future<Map<String, int>> getAuthorImageStats(int userId) async {
+    final result = await db.rawQuery('''
+      SELECT 
+        COUNT(${DownloadedImageColumns.id}) as total_image_count,
+        COALESCE(SUM(${DownloadedImageColumns.fileSize}), 0) as total_file_size
+      FROM ${DownloadedImageColumns.tableName}
+      WHERE ${DownloadedImageColumns.illustId} IN (
+        SELECT ${DownloadedIllustColumns.illustId} 
+        FROM ${DownloadedIllustColumns.tableName} 
+        WHERE ${DownloadedIllustColumns.userId} = ?
+      )
+    ''', [userId]);
+    
+    if (result.isNotEmpty) {
+      return {
+        'total_image_count': result.first['total_image_count'] as int? ?? 0,
+        'total_file_size': result.first['total_file_size'] as int? ?? 0,
+      };
+    }
+    return {'total_image_count': 0, 'total_file_size': 0};
+  }
+
   // ============ PendingDownload 操作 ============
 
   /// 插入待下载任务
