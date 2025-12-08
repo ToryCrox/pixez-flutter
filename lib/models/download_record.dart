@@ -685,6 +685,20 @@ class DownloadDatabaseProvider {
     return await getImage(illustId, part) != null;
   }
 
+  /// 通过原始URL查询图片记录
+  Future<DownloadedImage?> getImageByOriginalUrl(String originalUrl) async {
+    List<Map<String, dynamic>> maps = await db.query(
+      DownloadedImageColumns.tableName,
+      where: '${DownloadedImageColumns.originalUrl} = ?',
+      whereArgs: [originalUrl],
+      limit: 1,
+    );
+    if (maps.isNotEmpty) {
+      return DownloadedImage.fromJson(maps.first);
+    }
+    return null;
+  }
+
   Future<List<DownloadedImage>> getImagesByIllustId(int illustId) async {
     List<Map<String, dynamic>> maps = await db.query(
       DownloadedImageColumns.tableName,
@@ -884,6 +898,18 @@ class DownloadDatabaseProvider {
     final image = await getImage(illustId, part);
     if (image == null) return null;
     return await _findImagePathForImage(image);
+  }
+
+  Future<LocalImageInfo?> getLocalImageInfoByUrl(String url) async {
+    final image = await getImageByOriginalUrl(url);
+    if (image == null) return null;
+    final imagePath = await _findImagePathForImage(image);
+    if (imagePath == null) return null;
+    return LocalImageInfo(
+      path: imagePath,
+      width: image.width,
+      height: image.height,
+    );
   }
 
   // ============ 数据迁移 ============

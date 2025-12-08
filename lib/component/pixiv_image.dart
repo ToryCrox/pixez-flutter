@@ -14,7 +14,7 @@
  *
  */
 
-import 'dart:io';
+import 'dart:io' as io;
 import 'dart:ui' as ui;
 
 import 'package:cached_network_image/cached_network_image.dart';
@@ -22,6 +22,7 @@ import 'package:dio/dio.dart';
 import 'package:dio_compatibility_layer/dio_compatibility_layer.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:file/local.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_cache_manager_dio/flutter_cache_manager_dio.dart';
 import 'package:pixez/models/download_record.dart';
@@ -63,6 +64,76 @@ class PixivCacheManager extends CacheManager with ImageCacheManager {
           stalePeriod: Duration(days: 365),
           fileService: DioHttpFileService(dio),
         ));
+
+  Future<FileInfo?> _fileInfoFromIoFile(String filePath, String url) async {
+    final ioFile = io.File(filePath);
+    // 转换为 file 包的 File 类型
+    const fs = LocalFileSystem();
+    if (await ioFile.exists()) {
+      // 返回 FileInfo，使用 FileSource.cache 表示本地缓存文件
+      return FileInfo(
+        fs.file(filePath),
+        FileSource.Cache,
+        DateTime.now().add(const Duration(days: 365)),
+        url,
+      );
+    }
+    return null;
+  }
+
+  @override
+  Stream<FileResponse> getImageFile(
+    String url, {
+    String? key,
+    Map<String, String>? headers,
+    bool withProgress = false,
+    int? maxHeight,
+    int? maxWidth,
+  }) async* {
+    // 1. 判断是否是 file:// 开头的本地文件路径
+    if (url.startsWith('file://')) {
+      try {
+        final filePath = url.substring(7); // 移除 'file://' 前缀
+        final response = await _fileInfoFromIoFile(filePath, url);
+        Log.d(() => '加载本地文件成功: $url, ${response?.file.path}');
+        if (response != null) {
+          yield response;
+          return;
+        }
+      } catch (e) {
+        Log.e('读取本地文件失败: $url, $e');
+      }
+      // 文件不存在，直接报错
+      throw Exception('getImageFile file not found: $url');
+    }
+
+    // 2. 从下载目录中查询
+    if (downloadStore.isInitialized) {
+      try {
+        final imageInfo =
+            await downloadStore.getLocalImageInfoByUrl(url);
+        if (imageInfo != null) {
+          Log.d(() => '加载下载文件成功: $url, ${imageInfo.path}');
+          final response = await _fileInfoFromIoFile(imageInfo.path, url);
+          if (response != null) {
+            yield response;
+            return;
+          }
+        }
+      } catch (e) {
+        Log.e('从下载目录查询图片失败: $url, $e');
+      }
+    }
+
+    yield* super.getImageFile(
+      url,
+      key: key,
+      headers: headers,
+      withProgress: withProgress,
+      maxHeight: maxHeight,
+      maxWidth: maxWidth,
+    );
+  }
 }
 
 class PixivImage extends StatefulWidget {
@@ -108,7 +179,7 @@ class PixivImage extends StatefulWidget {
                     if (host == 's.pximg.net') {
                       return [Hoster.sPximgNet()];
                     }
-                    return await InternetAddress.lookup(host)
+                    return await io.InternetAddress.lookup(host)
                         .then((value) => value.map((e) => e.address).toList());
                   },
                 )));
@@ -142,9 +213,11 @@ class _PixivImageState extends State<PixivImage> {
   @override
   void didUpdateWidget(covariant PixivImage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.url != widget.url || oldWidget.height != widget.height
-        || oldWidget.localImageInfo != widget.localImageInfo ) {
-      Log.d("url: ${oldWidget.url} -> ${widget.url}, localImageInfo: ${oldWidget.localImageInfo} => ${widget.localImageInfo}");
+    if (oldWidget.url != widget.url ||
+        oldWidget.height != widget.height ||
+        oldWidget.localImageInfo != widget.localImageInfo) {
+      Log.d(
+          "url: ${oldWidget.url} -> ${widget.url}, localImageInfo: ${oldWidget.localImageInfo} => ${widget.localImageInfo}");
       setState(() {
         url = widget.url;
         width = widget.width;
@@ -204,50 +277,73 @@ class _PixivImageState extends State<PixivImage> {
           // 没有宽高信息时，使用默认行为
           displayWidth = containerWidth;
         }
+        return CachedNetworkImage(
+          placeholder: (context, url) =>
+              widget.placeWidget ?? Container(height: height),
+          errorWidget: (context, url, _) => Container(
+            height: height,
+            child: Center(
+              child: TextButton(
+                  onPressed: () {
+                    setState(() {});
+                  },
+                  child: Text(":(")),
+            ),
+          ),
+          fadeOutDuration:
+              widget.fade ? const Duration(milliseconds: 500) : null,
+          // memCacheWidth: width?.toInt(),
+          // memCacheHeight: height?.toInt(),
+          imageUrl: 'file://${localInfo.path}',
+          cacheManager: pixivCacheManager,
+          height: displayHeight,
+          width: displayWidth,
+          fit: displayFit,
+        );
 
         // 使用自定义的 FadeInLocalImage 组件实现淡入效果
-        return FadeInLocalImage(
-          filePath: localInfo.path,
-          fit: displayFit,
-          width: displayWidth,
-          height: displayHeight,
-          fade: fade,
-          placeholder: placeWidget ?? Container(height: displayHeight),
-          onError: () {
-            // 本地文件加载失败，回退到网络图片
-            if (mounted) {
-              setState(() {});
-            }
-          },
-        );
+        // return FadeInLocalImage(
+        //   filePath: localInfo.path,
+        //   fit: displayFit,
+        //   width: displayWidth,
+        //   height: displayHeight,
+        //   fade: fade,
+        //   placeholder: placeWidget ?? Container(height: displayHeight),
+        //   onError: () {
+        //     // 本地文件加载失败，回退到网络图片
+        //     if (mounted) {
+        //       setState(() {});
+        //     }
+        //   },
+        // );
       },
     );
   }
 
   Widget _buildNetworkImage() {
     return CachedNetworkImage(
-        placeholder: (context, url) =>
-            widget.placeWidget ?? Container(height: height),
-        errorWidget: (context, url, _) => Container(
-              height: height,
-              child: Center(
-                child: TextButton(
-                    onPressed: () {
-                      setState(() {});
-                    },
-                    child: Text(":(")),
-              ),
-            ),
-        fadeOutDuration:
-            widget.fade ? const Duration(milliseconds: 1000) : null,
-        // memCacheWidth: width?.toInt(),
-        // memCacheHeight: height?.toInt(),
-        imageUrl: url,
-        cacheManager: pixivCacheManager,
+      placeholder: (context, url) =>
+          widget.placeWidget ?? Container(height: height),
+      errorWidget: (context, url, _) => Container(
         height: height,
-        width: width,
-        fit: fit ?? BoxFit.fitWidth,
-        httpHeaders: Hoster.header(url: url));
+        child: Center(
+          child: TextButton(
+              onPressed: () {
+                setState(() {});
+              },
+              child: Text(":(")),
+        ),
+      ),
+      fadeOutDuration: widget.fade ? const Duration(milliseconds: 1000) : null,
+      // memCacheWidth: width?.toInt(),
+      // memCacheHeight: height?.toInt(),
+      imageUrl: url,
+      cacheManager: pixivCacheManager,
+      height: height,
+      width: width,
+      fit: fit ?? BoxFit.fitWidth,
+      httpHeaders: Hoster.header(url: url),
+    );
   }
 }
 
@@ -286,7 +382,7 @@ class LocalFileImageProvider extends ImageProvider<LocalFileImageProvider> {
 
   Future<ui.Codec> _loadAsync(
       LocalFileImageProvider key, ImageDecoderCallback decode) async {
-    final file = File(key.filePath);
+    final file = io.File(key.filePath);
     final bytes = await file.readAsBytes();
     final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
     return decode(buffer);
@@ -362,8 +458,8 @@ class _CustomImageState extends State<CustomImage>
   void _loadImage() {
     final ImageConfiguration config = ImageConfiguration(
       size: widget.width != null || widget.height != null
-          ? Size(widget.width ?? double.infinity,
-              widget.height ?? double.infinity)
+          ? Size(
+              widget.width ?? double.infinity, widget.height ?? double.infinity)
           : null,
     );
 
@@ -375,7 +471,7 @@ class _CustomImageState extends State<CustomImage>
             _image = imageInfo.image;
             _isLoading = false;
           });
-          
+
           // 开始淡入动画
           if (widget.fade) {
             _controller.forward();
@@ -392,7 +488,7 @@ class _CustomImageState extends State<CustomImage>
         }
       },
     );
-    
+
     _imageStream!.addListener(_imageStreamListener!);
   }
 

@@ -86,7 +86,8 @@ class DownloadTask {
   /// 是否可以重试
   bool get isCanRetry {
     return status == DownloadTaskStatus.failed ||
-        status == DownloadTaskStatus.paused || status == DownloadTaskStatus.deleted;
+        status == DownloadTaskStatus.paused ||
+        status == DownloadTaskStatus.deleted;
   }
 
   PendingDownload toPendingDownload() {
@@ -225,7 +226,8 @@ abstract class _DownloadStoreBase with Store {
     final illustDownloadStatus = await getIllustDownloadStatus(illustId);
     Log.d(() => 'handleIllustDownloadStatus $illustId: $illustDownloadStatus');
     if (illustDownloadStatus != null && illustDownloadStatus.isAllDownloaded) {
-      BotToast.showText(text: '下载完成${illustId}：${illustDownloadStatus.illusts.title}');
+      BotToast.showText(
+          text: '下载完成${illustId}：${illustDownloadStatus.illusts.title}');
     }
     if (illustDownloadStatus != null) {
       _illustDownloadStatusController.add(illustDownloadStatus);
@@ -301,8 +303,8 @@ abstract class _DownloadStoreBase with Store {
 
   /// 更新图片信息并返回新的 LocalImageInfo
   Future<LocalImageInfo?> updateAndGetLocalImageInfo(
-    int illustId, 
-    int part, 
+    int illustId,
+    int part,
     String filePath,
     int currentFileSize,
   ) async {
@@ -355,13 +357,15 @@ abstract class _DownloadStoreBase with Store {
 
   /// 批量更新缺少宽高信息的图片（用于历史数据迁移）
   Future<void> updateMissingImageDimensions({int batchSize = 50}) async {
-    final images = await _dbProvider.getImagesWithoutDimensions(limit: batchSize);
+    final images =
+        await _dbProvider.getImagesWithoutDimensions(limit: batchSize);
     if (images.isEmpty) return;
 
     Log.d('开始更新 ${images.length} 张图片的宽高信息');
-    
+
     for (final image in images) {
-      final filePath = await _dbProvider.findImagePath(image.illustId, image.part);
+      final filePath =
+          await _dbProvider.findImagePath(image.illustId, image.part);
       if (filePath == null) continue;
 
       final size = await _getImageSize(filePath);
@@ -374,7 +378,7 @@ abstract class _DownloadStoreBase with Store {
         );
       }
     }
-    
+
     Log.d('图片宽高信息更新完成');
   }
 
@@ -545,16 +549,16 @@ abstract class _DownloadStoreBase with Store {
   /// 暂停插画的所有下载任务
   @action
   Future<void> pauseIllustDownload(int illustId) async {
-    final tasksToRemove = downloadingTasks.values
-        .where((t) => t.illusts.id == illustId)
-        .toList();
+    final tasksToRemove =
+        downloadingTasks.values.where((t) => t.illusts.id == illustId).toList();
     for (final task in tasksToRemove) {
       if ((task.status == DownloadTaskStatus.downloading ||
-              task.status == DownloadTaskStatus.pending)) {
+          task.status == DownloadTaskStatus.pending)) {
         _runningTask.remove(task.taskKey);
         _pendingQueue.removeWhere((t) => t.taskKey == task.taskKey);
         task.status = DownloadTaskStatus.paused;
-        await _dbProvider.updatePendingDownloadStatus(task.taskKey, task.status.name);
+        await _dbProvider.updatePendingDownloadStatus(
+            task.taskKey, task.status.name);
         _notifyProgress(task);
       }
     }
@@ -573,7 +577,8 @@ abstract class _DownloadStoreBase with Store {
       task.status = DownloadTaskStatus.pending;
       task.error = null;
       task.received = 0;
-      await _dbProvider.updatePendingDownloadStatus(task.taskKey, task.status.name);
+      await _dbProvider.updatePendingDownloadStatus(
+          task.taskKey, task.status.name);
       _pendingQueue.add(task);
       _notifyProgress(task);
     }
@@ -773,7 +778,8 @@ abstract class _DownloadStoreBase with Store {
         } catch (e) {
           // 如果目录创建失败，可能是路径中包含非法字符
           Log.e('创建目录失败: ${targetDir.path}, 错误: $e');
-          throw Exception('无法创建目录: ${targetDir.path}。可能包含Windows不支持的字符（如emoji）。请检查路径设置。');
+          throw Exception(
+              '无法创建目录: ${targetDir.path}。可能包含Windows不支持的字符（如emoji）。请检查路径设置。');
         }
       }
 
@@ -922,7 +928,8 @@ abstract class _DownloadStoreBase with Store {
   }
 
   // 取消插画的所有下载任务（内部使用，可选是否删除 pending 记录）
-  void _cancelIllustDownloadInternal(int illustId, {bool deletePending = true}) {
+  void _cancelIllustDownloadInternal(int illustId,
+      {bool deletePending = true}) {
     final keysToRemove = downloadingTasks.keys
         .where((key) => key.startsWith('${illustId}_'))
         .toList();
@@ -1003,7 +1010,7 @@ abstract class _DownloadStoreBase with Store {
     try {
       final file = File(filePath);
       if (!await file.exists()) return null;
-      
+
       final size = await compute(_parseImageSizeSync, filePath);
       return size;
     } catch (e) {
@@ -1162,4 +1169,7 @@ abstract class _DownloadStoreBase with Store {
 
     await refreshCount();
   }
+
+  Future<LocalImageInfo?> getLocalImageInfoByUrl(String url) =>
+      _dbProvider.getLocalImageInfoByUrl(url);
 }
