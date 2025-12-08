@@ -91,7 +91,7 @@ abstract class _IllustStoreBase with Store {
     } else if (status.status == DownloadTaskStatus.completed) {
       // 下载完成时重新加载本地图片信息
       if (illusts != null) {
-        _loadLocalImageInfos(illusts!);
+        _loadLocalImageInfos();
       }
     }
   }
@@ -100,6 +100,7 @@ abstract class _IllustStoreBase with Store {
   fetch() async {
     errorMessage = null;
 
+    await _loadLocalImageInfos();
     // 1. 尝试从缓存加载
     final cacheKey = 'illust_detail_$id';
     final cachedData = await DiskCache.readModel(
@@ -109,7 +110,6 @@ abstract class _IllustStoreBase with Store {
 
     if (cachedData != null) {
       // 立即加载本地图片信息
-      await _loadLocalImageInfos(cachedData);
       illusts = cachedData;
       isBookmark = illusts!.isBookmarked;
       state = illusts?.isBookmarked ?? isBookmark ? 2 : 0;
@@ -126,8 +126,6 @@ abstract class _IllustStoreBase with Store {
       try {
         Response response = await client.getIllustDetail(id);
         final result = Illusts.fromJson(response.data['illust']);
-        // 4. 加载本地图片信息
-        await _loadLocalImageInfos(result);
         illusts = result;
         isBookmark = illusts!.isBookmarked;
         state = illusts?.isBookmarked ?? isBookmark ? 2 : 0;
@@ -175,16 +173,16 @@ abstract class _IllustStoreBase with Store {
   }
 
   /// 批量加载所有页面的本地图片信息（路径和宽高）
-  Future<void> _loadLocalImageInfos(Illusts illusts) async {
+  Future<void> _loadLocalImageInfos() async {
     if (!downloadStore.isInitialized) return;
 
     final t1 = DateTime.now();
     // 批量从数据库获取所有图片信息（已自动检测后缀名）
-    final imageInfos = await downloadStore.getLocalImageInfos(illusts.id);
+    final imageInfos = await downloadStore.getLocalImageInfos(id);
     localImageInfos.clear();
     localImageInfos.addAll(imageInfos);
     Log.d(
-        'loadLocalImageInfos time1: ${DateTime.now().difference(t1).inMilliseconds}ms');
+        'loadLocalImageInfos time1: ${DateTime.now().difference(t1).inMilliseconds}ms, illusts.id: $id, length: ${imageInfos.length}');
     _tryUpdateLocalImageInfo(imageInfos);
   }
 

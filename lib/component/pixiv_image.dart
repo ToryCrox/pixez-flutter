@@ -30,6 +30,8 @@ import 'package:pixez/er/hoster.dart';
 import 'package:pixez/main.dart';
 import 'package:rhttp/rhttp.dart' as r;
 
+import '../custom/log.dart';
+
 const ImageHost = "i.pximg.net";
 const ImageCatHost = "i.pixiv.re";
 const ImageSHost = "s.pximg.net";
@@ -140,11 +142,16 @@ class _PixivImageState extends State<PixivImage> {
   @override
   void didUpdateWidget(covariant PixivImage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.url != widget.url) {
+    if (oldWidget.url != widget.url || oldWidget.height != widget.height
+        || oldWidget.localImageInfo != widget.localImageInfo ) {
+      Log.d("url: ${oldWidget.url} -> ${widget.url}, localImageInfo: ${oldWidget.localImageInfo} => ${widget.localImageInfo}");
       setState(() {
         url = widget.url;
         width = widget.width;
         height = widget.height;
+        fit = widget.fit;
+        fade = widget.fade;
+        placeWidget = widget.placeWidget;
       });
     }
   }

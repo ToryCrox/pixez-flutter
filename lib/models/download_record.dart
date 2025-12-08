@@ -173,7 +173,10 @@ class LocalImageInfo {
     return null;
   }
 
-
+  @override
+  String toString() {
+    return 'LocalImageInfo{path: $path, width: $width, height: $height, fileSize: $fileSize}';
+  }
 }
 
 // 下载的图片记录

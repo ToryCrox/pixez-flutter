@@ -38,6 +38,7 @@ class IllustSeriesPage extends StatefulHookConsumerWidget {
 
 class _IllustSeriesPageState extends ConsumerState<IllustSeriesPage> {
   late int id = widget.id;
+
   @override
   void initState() {
     super.initState();
@@ -330,6 +331,7 @@ class _IllustSeriesPageState extends ConsumerState<IllustSeriesPage> {
 
 class IllustSeriesItem extends StatefulHookConsumerWidget {
   final IllustStore illust;
+
   const IllustSeriesItem({super.key, required this.illust});
 
   @override
@@ -343,7 +345,7 @@ class _State extends ConsumerState<IllustSeriesItem> {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return InkWell(
       onSecondaryTapDown: (details) {
         _tapPosition = details.globalPosition;
       },
@@ -361,6 +363,7 @@ class _State extends ConsumerState<IllustSeriesItem> {
                 store: IllustStore(illust.id, illust),
                 heroString: "illust_series_${illust.id}"));
       },
+      borderRadius: BorderRadius.circular(12),
       child: Column(
         children: [
           ClipRRect(
@@ -407,17 +410,28 @@ class _State extends ConsumerState<IllustSeriesItem> {
               alignment: Alignment.centerLeft,
               child: Row(
                 children: [
-                  DownloadStatusIndicator(
-                    illustId: illust.id,
-                    pageCount: illust.pageCount,
-                    size: 14,
-                  ),
                   const SizedBox(width: 4),
                   Expanded(
-                      child: Text(
-                    illust.title,
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  )),
+                    child: Text.rich(
+                      TextSpan(
+                        children: [
+                          WidgetSpan(
+                            child: DownloadStatusIndicator(
+                              illustId: illust.id,
+                              pageCount: illust.pageCount,
+                              size: 14,
+                            ),
+                          ),
+                          TextSpan(
+                            text: illust.title,
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                        ],
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
                   GestureDetector(
                     onTap: () async {
                       illustStore.star(
@@ -499,8 +513,9 @@ class _State extends ConsumerState<IllustSeriesItem> {
   }
 
   Future<void> _showContextMenu(BuildContext context) async {
-    final isDirectoryExists = await downloadStore.isIllustDirectoryExists(illust);
-    
+    final isDirectoryExists =
+        await downloadStore.isIllustDirectoryExists(illust);
+
     if (!isDirectoryExists) return;
 
     final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;

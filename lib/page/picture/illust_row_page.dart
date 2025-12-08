@@ -413,7 +413,11 @@ class _IllustRowPageState extends State<IllustRowPage>
                             illustStore: _illustStore,
                           ));
                     },
-                    child: _buildIllustsItem(index, data, height));
+                    child: Observer(
+                      builder: (context) {
+                        return _buildIllustsItem(index, data, height);
+                      }
+                    ));
               }, childCount: data.metaPages.length)),
     ];
   }

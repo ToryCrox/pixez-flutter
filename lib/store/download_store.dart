@@ -83,6 +83,12 @@ class DownloadTask {
   // 下载进度 (0.0 - 1.0)
   double get progress => total > 0 ? received / total : 0;
 
+  /// 是否可以重试
+  bool get isCanRetry {
+    return status == DownloadTaskStatus.failed ||
+        status == DownloadTaskStatus.paused || status == DownloadTaskStatus.deleted;
+  }
+
   PendingDownload toPendingDownload() {
     return PendingDownload(
       id: taskKey,
@@ -612,10 +618,12 @@ abstract class _DownloadStoreBase with Store {
     for (final task in tasks) {
       final taskKey = task.taskKey;
       if (downloadingTasks.containsKey(taskKey)) {
-        final task = downloadingTasks[taskKey];
-        Log.d(
-            'DownloadStore task $taskKey already exists, ${task?.error}, ${task?.status}');
-        continue;
+        final task = downloadingTasks[taskKey]!;
+        if (!task.isCanRetry) {
+          Log.d(
+              'DownloadStore task $taskKey already exists, ${task?.error}, ${task?.status}');
+          continue;
+        }
       }
       final isDownloaded =
           await _dbProvider.isImageDownloaded(task.illusts.id, task.part);

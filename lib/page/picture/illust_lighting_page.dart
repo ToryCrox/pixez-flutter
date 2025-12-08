@@ -233,8 +233,9 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
               onStarAfterSave: () async {
                 if (_illustStore.state == 0) {
                   return _illustStore.star(
-                      restrict:
-                          userSetting.defaultPrivateLike ? "private" : "public");
+                      restrict: userSetting.defaultPrivateLike
+                          ? "private"
+                          : "public");
                 }
                 return false;
               },
@@ -253,14 +254,12 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
           child: FloatingActionButton(
             heroTag: widget.id,
             onPressed: () async {
-              if (userSetting.saveAfterStar &&
-                  (_illustStore.state == 0)) {
+              if (userSetting.saveAfterStar && (_illustStore.state == 0)) {
                 saveStore.saveImage(_illustStore.illusts!);
               }
               _illustStore.star(
-                  restrict: userSetting.defaultPrivateLike
-                      ? "private"
-                      : "public");
+                  restrict:
+                      userSetting.defaultPrivateLike ? "private" : "public");
               if (userSetting.followAfterStar) {
                 bool success = await _illustStore.followAfterStar();
                 if (success) {
@@ -595,23 +594,28 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
               }, childCount: 1))
             : SliverList(
                 delegate: SliverChildBuilderDelegate(
-                    (BuildContext context, int index) {
-                return InkWell(
-                  onLongPress: () {
-                    _pressSave(data, index);
+                  (BuildContext context, int index) {
+                    return InkWell(
+                      onLongPress: () {
+                        _pressSave(data, index);
+                      },
+                      onTap: () {
+                        Leader.push(
+                            context,
+                            PhotoZoomPage(
+                              index: index,
+                              illusts: data,
+                              illustStore: _illustStore,
+                            ));
+                      },
+                      child: Observer(builder: (context) {
+                        return _buildIllustsItem(index, data, height);
+                      }),
+                    );
                   },
-                  onTap: () {
-                    Leader.push(
-                        context,
-                        PhotoZoomPage(
-                          index: index,
-                          illusts: data,
-                          illustStore: _illustStore,
-                        ));
-                  },
-                  child: _buildIllustsItem(index, data, height),
-                );
-              }, childCount: data.metaPages.length)),
+                  childCount: data.metaPages.length,
+                ),
+              ),
     ];
   }
 
@@ -645,6 +649,7 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
     final String imageUrl;
     final String mediumImageUrl;
     final bool useMediumPlaceHolder;
+    final localImageInfo = _illustStore.getLocalImageInfo(index);
     if (illust.type == "manga") {
       imageUrl = illust.managaDetailImageUrl(index);
       mediumImageUrl = illust.metaPages[index].imageUrls!.medium;
@@ -657,17 +662,19 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
 
     Widget child = PixivImage(
       imageUrl,
-      localImageInfo: _illustStore.getLocalImageInfo(index),
-      placeWidget: useMediumPlaceHolder ? PixivImage(
-        mediumImageUrl,
-        fade: false,
-      ) : Container(
-        height: height,
-        child: Center(
-          child: Text('$index',
-              style: Theme.of(context).textTheme.headlineMedium),
-        ),
-      ),
+      localImageInfo: localImageInfo,
+      placeWidget: useMediumPlaceHolder && localImageInfo == null
+          ? PixivImage(
+              mediumImageUrl,
+              fade: false,
+            )
+          : Container(
+              height: height,
+              child: Center(
+                child: Text('$index',
+                    style: Theme.of(context).textTheme.headlineMedium),
+              ),
+            ),
       fade: false,
     );
     if (index == 0) {
@@ -1262,4 +1269,3 @@ class TextSelectionFix {
     return controls;
   }
 }
-
