@@ -209,66 +209,38 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
     });
   }
 
-  Widget _buildHeader() {
-    return Column(
-      children: [
-        Container(
-          height: 45,
-          child: SortGroup(
-            children: [
-              '最新下载',
-              '用户名',
-              '插画数量',
-            ],
-            onChange: _onSortChanged,
-          ),
-        ),
-        Container(
-          height: 40,
-          padding: EdgeInsets.symmetric(horizontal: 16),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                '显示模式',
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-              Row(
-                children: [
-                  Text(
-                    '最新下载',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: !_showLatestPublished 
-                          ? Theme.of(context).colorScheme.primary 
-                          : Colors.grey,
-                    ),
-                  ),
-                  Switch(
-                    value: _showLatestPublished,
-                    onChanged: (_) => _toggleDisplayMode(),
-                  ),
-                  Text(
-                    '最新发布',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: _showLatestPublished 
-                          ? Theme.of(context).colorScheme.primary 
-                          : Colors.grey,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text('下载的作者'),
+        actions: [
+          PopupMenuButton<String>(
+            onSelected: (value) {
+              if (value == 'toggle_display_mode') {
+                _toggleDisplayMode();
+              }
+            },
+            itemBuilder: (BuildContext context) => [
+              PopupMenuItem<String>(
+                value: 'toggle_display_mode',
+                child: Row(
+                  children: [
+                    Text('显示模式'),
+                    Spacer(),
+                    Text(
+                      _showLatestPublished ? '最新发布' : '最新下载',
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.primary,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
       body: Stack(
         children: [
@@ -305,7 +277,7 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
                     controller: _scrollController,
                     slivers: [
                       SliverToBoxAdapter(
-                        child: _buildHeader(),
+                        child: SizedBox(height: 60), // 为悬浮的排序组留出空间
                       ),
                       _buildList(),
                     ],
@@ -315,6 +287,38 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
                     : Center(
                         child: Text('暂无数据'),
                       ),
+          ),
+          // 悬浮的排序组
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: Container(
+              height: 60,
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: Theme.of(context).scaffoldBackgroundColor,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 4,
+                    offset: Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Center(
+                child: SortGroup(
+                  key: ValueKey(_sortType),
+                  children: [
+                    '最新下载',
+                    '用户名',
+                    '插画数量',
+                  ],
+                  onChange: _onSortChanged,
+                  initIndex: _sortType.index,
+                ),
+              ),
+            ),
           ),
         ],
       ),
