@@ -21,6 +21,7 @@ import 'package:pixez/component/sort_group.dart';
 import 'package:pixez/er/prefer.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/models/download_record.dart';
+import 'package:pixez/page/downloaded/downloaded_page.dart';
 import 'package:waterfall_flow/waterfall_flow.dart';
 
 enum AuthorSortType {
@@ -230,6 +231,19 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text('下载的作者'),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.list),
+            tooltip: '下载记录',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => DownloadedPage(),
+                ),
+              );
+            },
+          ),
+        ],
       ),
       body: EasyRefresh(
         controller: _easyRefreshController,

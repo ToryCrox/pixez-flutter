@@ -26,6 +26,7 @@ import 'package:pixez/i18n.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/models/download_record.dart';
 import 'package:pixez/page/picture/illust_lighting_page.dart';
+import 'package:pixez/page/downloaded/downloaded_authors_page.dart';
 import 'package:pixez/store/download_store.dart';
 
 enum DownloadFilter {
@@ -50,7 +51,6 @@ class DownloadedPage extends StatefulWidget {
 
 class _DownloadedPageState extends State<DownloadedPage> {
   List<DownloadedIllust> _illusts = [];
-  List<Map<String, dynamic>> _users = [];
   Map<int, int> _downloadedCounts = {};
   Map<int, DownloadTaskStatus> _illustDownloadStatus = {};
   Map<int, String?> _thumbnailPaths = {};
@@ -161,7 +161,6 @@ class _DownloadedPageState extends State<DownloadedPage> {
     });
 
     try {
-      final users = await downloadStore.getDistinctUsers();
       List<DownloadedIllust> illusts;
 
       if (_filterUserId != null) {
@@ -203,7 +202,6 @@ class _DownloadedPageState extends State<DownloadedPage> {
 
       if (mounted) {
         setState(() {
-          _users = users;
           _illusts = illusts;
           _downloadedCounts = counts;
           _illustDownloadStatus = statusMap;
@@ -284,23 +282,6 @@ class _DownloadedPageState extends State<DownloadedPage> {
     }
   }
 
-  void _onSearch(String keyword) {
-    setState(() {
-      _searchKeyword = keyword.isEmpty ? null : keyword;
-      _filterUserId = null;
-      _filterUserName = null;
-    });
-    _loadData();
-  }
-
-  void _onFilterByUser(int? userId, String? userName) {
-    setState(() {
-      _filterUserId = userId;
-      _filterUserName = userName;
-      _searchKeyword = null;
-    });
-    _loadData();
-  }
 
   List<DownloadedIllust> get _filteredIllusts {
     if (_downloadFilter == DownloadFilter.all) {
@@ -351,6 +332,17 @@ class _DownloadedPageState extends State<DownloadedPage> {
       appBar: AppBar(
         title: Text(_filterUserName ?? I18n.of(context).history),
         actions: [
+          IconButton(
+            icon: Icon(Icons.people),
+            tooltip: '作者列表',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => DownloadedAuthorsPage(),
+                ),
+              );
+            },
+          ),
           PopupMenuButton<String>(
             icon: Icon(Icons.more_vert),
             onSelected: (value) {
@@ -462,21 +454,6 @@ class _DownloadedPageState extends State<DownloadedPage> {
               ),
             ],
           ),
-          IconButton(
-            icon: Icon(Icons.filter_list),
-            onPressed: _showFilterDialog,
-          ),
-          IconButton(
-            icon: Icon(Icons.search),
-            onPressed: _showSearchDialog,
-          ),
-          if (_filterUserId != null || _searchKeyword != null)
-            IconButton(
-              icon: Icon(Icons.clear),
-              onPressed: () {
-                _onFilterByUser(null, null);
-              },
-            ),
         ],
       ),
       body: _loading && _illusts.isEmpty
@@ -525,15 +502,6 @@ class _DownloadedPageState extends State<DownloadedPage> {
         },
       ),
     );
-  }
-
-  int _getCrossAxisCount() {
-    final width = MediaQuery.of(context).size.width;
-    if (width > 1200) return 6;
-    if (width > 900) return 5;
-    if (width > 600) return 4;
-    if (width > 400) return 3;
-    return 2;
   }
 
   Widget _buildIllustCard(DownloadedIllust illust) {
@@ -835,110 +803,6 @@ class _DownloadedPageState extends State<DownloadedPage> {
     );
   }
 
-  void _showFilterDialog() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (ctx) {
-        return DraggableScrollableSheet(
-          initialChildSize: 0.5,
-          minChildSize: 0.3,
-          maxChildSize: 0.8,
-          expand: false,
-          builder: (ctx2, scrollController) {
-            return Column(
-              children: [
-                Padding(
-                  padding: EdgeInsets.all(16),
-                  child: Text(
-                    I18n.of(context).filter,
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                ),
-                Divider(),
-                ListTile(
-                  leading: Icon(Icons.clear_all),
-                  title: Text(I18n.of(context).all),
-                  selected: _filterUserId == null,
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _onFilterByUser(null, null);
-                  },
-                ),
-                Divider(),
-                Expanded(
-                  child: ListView.builder(
-                    controller: scrollController,
-                    itemCount: _users.length,
-                    itemBuilder: (ctx3, index) {
-                      final user = _users[index];
-                      final userId = user['user_id'] as int;
-                      final userName = user['user_name'] as String;
-                      final count = user['count'] as int;
-                      return ListTile(
-                        leading: CircleAvatar(
-                          child: Text(userName.isNotEmpty
-                              ? userName[0].toUpperCase()
-                              : '?'),
-                        ),
-                        title: Text(userName),
-                        subtitle: Text('$count'),
-                        selected: _filterUserId == userId,
-                        onTap: () {
-                          Navigator.pop(ctx);
-                          _onFilterByUser(userId, userName);
-                        },
-                      );
-                    },
-                  ),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-
-  void _showSearchDialog() {
-    final controller = TextEditingController(text: _searchKeyword);
-    showDialog(
-      context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          title: Text(I18n.of(context).search),
-          content: TextField(
-            controller: controller,
-            autofocus: true,
-            decoration: InputDecoration(
-              hintText: I18n.of(context).search,
-              prefixIcon: Icon(Icons.search),
-            ),
-            onSubmitted: (value) {
-              Navigator.pop(ctx);
-              _onSearch(value);
-            },
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Text(I18n.of(context).cancel),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.pop(ctx);
-                _onSearch(controller.text);
-              },
-              child: Text(I18n.of(context).ok),
-            ),
-          ],
-        );
-      },
-    );
-  }
 
   void _showIllustOptions(DownloadedIllust illust) {
     final status = _illustDownloadStatus[illust.illustId];
