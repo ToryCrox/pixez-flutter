@@ -214,114 +214,95 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text('下载的作者'),
-        actions: [
-          PopupMenuButton<String>(
-            onSelected: (value) {
-              if (value == 'toggle_display_mode') {
-                _toggleDisplayMode();
+      ),
+      body: EasyRefresh(
+        controller: _easyRefreshController,
+        header: PixezDefault.header(context),
+        footer: _hasMore
+            ? ClassicFooter(
+                dragText: '上拉加载',
+                armedText: '释放加载',
+                readyText: '加载中...',
+                processingText: '加载中...',
+                processedText: '加载完成',
+                noMoreText: '没有更多了',
+                failedText: '加载失败',
+              )
+            : null,
+        onRefresh: () async {
+          await _loadData(refresh: true);
+          _easyRefreshController.finishRefresh();
+        },
+        onLoad: _hasMore
+            ? () async {
+                await _loadMore();
+                _easyRefreshController.finishLoad(
+                  _hasMore
+                      ? IndicatorResult.success
+                      : IndicatorResult.noMore,
+                );
               }
-            },
-            itemBuilder: (BuildContext context) => [
-              PopupMenuItem<String>(
-                value: 'toggle_display_mode',
-                child: Row(
-                  children: [
-                    Text('显示模式'),
-                    Spacer(),
-                    Text(
-                      _showLatestPublished ? '最新发布' : '最新下载',
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.primary,
-                        fontWeight: FontWeight.bold,
+            : null,
+        child: _authors.isNotEmpty
+            ? CustomScrollView(
+                controller: _scrollController,
+                slivers: [
+                  SliverPersistentHeader(
+                    key: ValueKey('sort_header'),
+                    delegate: SliverChipDelegate(
+                      Container(
+                        alignment: Alignment.center,
+                        child: Stack(
+                          children: [
+                            // 居中显示筛选菜单
+                            Center(
+                              child: SortGroup(
+                                key: ValueKey(_sortType),
+                                children: [
+                                  '最新下载',
+                                  '用户名',
+                                  '插画数量',
+                                ],
+                                onChange: _onSortChanged,
+                                initIndex: _sortType.index,
+                              ),
+                            ),
+                            // 右侧显示模式按钮
+                            Positioned(
+                              right: 8,
+                              top: 0,
+                              bottom: 0,
+                              child: Center(
+                                child: _buildDisplayModeButton(),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
+                      height: 52,
                     ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-      body: Stack(
-        children: [
-          EasyRefresh(
-            controller: _easyRefreshController,
-            header: PixezDefault.header(context),
-            footer: _hasMore
-                ? ClassicFooter(
-                    dragText: '上拉加载',
-                    armedText: '释放加载',
-                    readyText: '加载中...',
-                    processingText: '加载中...',
-                    processedText: '加载完成',
-                    noMoreText: '没有更多了',
-                    failedText: '加载失败',
-                  )
-                : null,
-            onRefresh: () async {
-              await _loadData(refresh: true);
-              _easyRefreshController.finishRefresh();
-            },
-            onLoad: _hasMore
-                ? () async {
-                    await _loadMore();
-                    _easyRefreshController.finishLoad(
-                      _hasMore
-                          ? IndicatorResult.success
-                          : IndicatorResult.noMore,
-                    );
-                  }
-                : null,
-            child: _authors.isNotEmpty
-                ? CustomScrollView(
-                    controller: _scrollController,
-                    slivers: [
-                      SliverToBoxAdapter(
-                        child: SizedBox(height: 60), // 为悬浮的排序组留出空间
-                      ),
-                      _buildList(),
-                    ],
-                  )
-                : _loading
-                    ? Center(child: CircularProgressIndicator())
-                    : Center(
-                        child: Text('暂无数据'),
-                      ),
-          ),
-          // 悬浮的排序组
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: Container(
-              height: 60,
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: Theme.of(context).scaffoldBackgroundColor,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 4,
-                    offset: Offset(0, 2),
+                    pinned: true,
                   ),
+                  _buildList(),
                 ],
-              ),
-              child: Center(
-                child: SortGroup(
-                  key: ValueKey(_sortType),
-                  children: [
-                    '最新下载',
-                    '用户名',
-                    '插画数量',
-                  ],
-                  onChange: _onSortChanged,
-                  initIndex: _sortType.index,
-                ),
-              ),
-            ),
-          ),
-        ],
+              )
+            : _loading
+                ? Center(child: CircularProgressIndicator())
+                : Center(
+                    child: Text('暂无数据'),
+                  ),
       ),
+    );
+  }
+
+  Widget _buildDisplayModeButton() {
+    return IconButton(
+      icon: Icon(
+        _showLatestPublished ? Icons.publish : Icons.download,
+        color: Theme.of(context).colorScheme.primary,
+      ),
+      tooltip: _showLatestPublished ? '最新发布' : '最新下载',
+      onPressed: _toggleDisplayMode,
     );
   }
 
@@ -357,6 +338,30 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
         maxCrossAxisExtent: 600,
       ),
     );
+  }
+}
+
+class SliverChipDelegate extends SliverPersistentHeaderDelegate {
+  final Widget child;
+  double height = 45;
+
+  SliverChipDelegate(this.child, {this.height = 45});
+
+  @override
+  double get minExtent => height;
+
+  @override
+  double get maxExtent => height;
+
+  @override
+  Widget build(
+      BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return child;
+  }
+
+  @override
+  bool shouldRebuild(SliverChipDelegate oldDelegate) {
+    return height != oldDelegate.height;
   }
 }
 
