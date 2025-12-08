@@ -16,6 +16,7 @@
 
 import 'dart:math';
 
+import 'package:bot_toast/bot_toast.dart';
 import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -155,14 +156,26 @@ class _WorksPageState extends State<WorksPage> {
                         ),
                         const HeaderLocator.sliver(),
                         SliverPersistentHeader(
-                            delegate: SliverChipDelegate(
-                                Container(
-                                  child: Center(
-                                    child: _buildSortChip(),
+                          key: ValueKey('works_header'),
+                          delegate: SliverChipDelegate(
+                            Container(
+                              alignment: Alignment.center,
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  _buildSortChip(),
+                                  const SizedBox(
+                                    width: 8,
                                   ),
-                                ),
-                                height: 52),
-                            pinned: true),
+                                  _buildBatchDownloadButton(),
+                                ],
+                              ),
+                            ),
+                            height: 52,
+                          ),
+                          pinned: true,
+                        ),
                         if (_store.refreshing && _store.iStores.isEmpty)
                           SliverToBoxAdapter(
                             child: Container(
@@ -282,6 +295,87 @@ class _WorksPageState extends State<WorksPage> {
       initIndex: _workType == 'illust' ? 0 : 1,
     );
   }
+
+  Widget _buildBatchDownloadButton() {
+    return IconButton(
+      icon: Icon(Icons.download, color: Theme.of(context).primaryColor),
+      tooltip: '批量下载',
+      onPressed: () {
+        final availableIllusts = _store.iStores
+            .where((store) => store.illusts != null && !store.illusts!.hateByUser(ai: false))
+            .toList();
+        _handleBatchDownload(availableIllusts);
+      },
+    );
+  }
+
+  Future<void> _handleBatchDownload(List illustStores) async {
+    if (!downloadStore.isInitialized) {
+      BotToast.showText(text: '下载功能未初始化');
+      return;
+    }
+
+    if (illustStores.isEmpty) {
+      BotToast.showText(text: '没有可下载的插画');
+      return;
+    }
+
+    // 显示确认对话框
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('批量下载'),
+        content: Text('确定要下载 ${illustStores.length} 个插画吗？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(I18n.of(context).cancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(I18n.of(context).ok),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) {
+      return;
+    }
+
+    int successCount = 0;
+    int skipCount = 0;
+    int errorCount = 0;
+
+    for (final store in illustStores) {
+      if (store.illusts == null) continue;
+      
+      final illusts = store.illusts!;
+      
+      // 跳过动图
+      if (illusts.type == 'ugoira') {
+        skipCount++;
+        continue;
+      }
+
+      try {
+        downloadStore.downloadIllust(illusts);
+        successCount++;
+      } catch (e) {
+        errorCount++;
+      }
+    }
+
+    // 显示结果
+    final message = '已添加 $successCount 个下载任务';
+    if (skipCount > 0) {
+      BotToast.showText(text: '$message，跳过 $skipCount 个（动图）');
+    } else if (errorCount > 0) {
+      BotToast.showText(text: '$message，失败 $errorCount 个');
+    } else {
+      BotToast.showText(text: message);
+    }
+  }
 }
 
 class SliverPinnedOverlapInjector extends SingleChildRenderObjectWidget {
@@ -387,6 +481,6 @@ class SliverChipDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   bool shouldRebuild(SliverChipDelegate oldDelegate) {
-    return false;
+    return height != oldDelegate.height;
   }
 }

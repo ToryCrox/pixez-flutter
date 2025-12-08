@@ -220,6 +220,9 @@ abstract class _DownloadStoreBase with Store {
   Future<void> _handleIllustDownloadStatus(int illustId) async {
     final illustDownloadStatus = await getIllustDownloadStatus(illustId);
     Log.d('handleIllustDownloadStatus $illustId: $illustDownloadStatus');
+    if (illustDownloadStatus != null && illustDownloadStatus.isAllDownloaded) {
+      BotToast.showText(text: '下载完成${illustId}：${illustDownloadStatus.illusts.title}');
+    }
     if (illustDownloadStatus != null) {
       _illustDownloadStatusController.add(illustDownloadStatus);
     }
