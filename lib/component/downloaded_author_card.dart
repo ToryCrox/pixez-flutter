@@ -15,9 +15,13 @@
 
 import 'dart:io';
 
+import 'package:bot_toast/bot_toast.dart';
 import 'package:flutter/material.dart';
+import 'package:open_file/open_file.dart';
+import 'package:path/path.dart' as path;
 import 'package:pixez/component/painter_avatar.dart';
 import 'package:pixez/exts.dart';
+import 'package:pixez/main.dart';
 import 'package:pixez/models/download_record.dart';
 import 'package:pixez/page/downloaded/downloaded_page.dart';
 import 'package:pixez/page/user/user_store.dart';
@@ -176,10 +180,41 @@ class _DownloadedAuthorCardState extends State<DownloadedAuthorCard> {
               ),
             ),
           ),
+          IconButton(
+            icon: Icon(Icons.folder_open),
+            iconSize: 20,
+            color: Theme.of(context).iconTheme.color,
+            tooltip: '打开下载目录',
+            onPressed: () => _openAuthorDownloadDirectory(context),
+          ),
         ],
       ),
       ),
     );
+  }
+
+  Future<void> _openAuthorDownloadDirectory(BuildContext context) async {
+    if (!downloadStore.isInitialized) {
+      BotToast.showText(text: '下载功能未初始化');
+      return;
+    }
+    try {
+      // 构建作者目录路径：downloadPath/[userName][userId]
+      final userDirName = DownloadDatabaseProvider.buildUserDirName(
+        widget.author.userName,
+        widget.author.userId,
+      );
+      final dirPath = path.join(downloadStore.downloadPath, userDirName);
+      
+      final directory = Directory(dirPath);
+      if (await directory.exists()) {
+        await OpenFile.open(dirPath);
+      } else {
+        BotToast.showText(text: '目录不存在: $dirPath');
+      }
+    } catch (e) {
+      BotToast.showText(text: '打开文件夹失败: $e');
+    }
   }
 }
 
