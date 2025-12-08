@@ -37,6 +37,9 @@ class ImportDialog extends StatefulWidget {
 }
 
 class _ImportDialogState extends State<ImportDialog> {
+
+  static const int _kMaxImportCount = 20;
+
   final TextEditingController _pathController = TextEditingController();
   List<ImportIllustInfo> _illusts = [];
   bool _isLoading = false;
@@ -56,6 +59,24 @@ class _ImportDialogState extends State<ImportDialog> {
     // 第一个中括号中的是插画作品id
     final regex = RegExp(r'^\[(\d+)\]');
     final match = regex.firstMatch(dirName);
+    if (match != null) {
+      final idStr = match.group(1)!;
+      final id = int.tryParse(idStr);
+      // 如果是[0]开头，返回null，表示这是散图目录
+      if (id == 0) {
+        return null;
+      }
+      return id;
+    }
+    return null;
+  }
+
+  // 从文件名提取插画ID（用于散图目录）
+  int? _extractIllustIdFromFileName(String fileName) {
+    // 文件名格式: 130683511_p0.webp
+    // 下划线前面的是作品ID
+    final regex = RegExp(r'^(\d+)_');
+    final match = regex.firstMatch(fileName);
     if (match != null) {
       return int.tryParse(match.group(1)!);
     }
@@ -105,7 +126,45 @@ class _ImportDialogState extends State<ImportDialog> {
         if (entity is Directory) {
           final dirName = p.basename(entity.path);
           final illustId = _extractIllustId(dirName);
-          if (illustId != null) {
+          
+          // 处理散图目录（[0]开头的目录）
+          if (illustId == null && dirName.startsWith('[0]')) {
+            // 扫描该目录下的所有图片文件，按作品ID分组
+            final groupedFiles = <int, List<String>>{}; // illustId -> files
+            try {
+              final fileList = await entity.list().toList();
+              for (final fileEntity in fileList) {
+                if (fileEntity is File) {
+                  final fileName = p.basename(fileEntity.path);
+                  final extension = p.extension(fileName).toLowerCase();
+                  if (kImageExtensions.contains(extension)) {
+                    // 从文件名提取作品ID
+                    final fileIllustId = _extractIllustIdFromFileName(fileName);
+                    final part = _extractPart(fileName);
+                    if (fileIllustId != null && part != null) {
+                      groupedFiles.putIfAbsent(fileIllustId, () => []).add(fileEntity.path);
+                    }
+                  }
+                }
+              }
+            } catch (e) {
+              // 忽略无法访问的目录
+            }
+            // 为每个作品ID创建数据项
+            for (final entry in groupedFiles.entries) {
+              if (entry.value.isNotEmpty) {
+                illustData[entry.key] = {
+                  'files': entry.value,
+                  'dirPath': entity.path,
+                };
+              }
+              if (groupedFiles.length > _kMaxImportCount) {
+                // 忽略数量超出限制的目录
+                break;
+              }
+            }
+          } else if (illustId != null) {
+            // 处理普通目录（单个作品目录）
             // 扫描该目录下的所有图片文件
             final files = <String>[];
             try {
@@ -128,6 +187,10 @@ class _ImportDialogState extends State<ImportDialog> {
                 'files': files,
                 'dirPath': entity.path,
               };
+            }
+            if (illustData.length > _kMaxImportCount) {
+              // 忽略数量超出限制的目录
+              break;
             }
           }
         }
