@@ -38,9 +38,8 @@ class ImportDialog extends StatefulWidget {
 
 class _ImportDialogState extends State<ImportDialog> {
 
-  static const int _kMaxImportCount = 10;
-
   final TextEditingController _pathController = TextEditingController();
+  final TextEditingController _maxCountController = TextEditingController(text: '10');
   List<ImportIllustInfo> _illusts = [];
   bool _isLoading = false;
   bool _isImporting = false;
@@ -51,7 +50,16 @@ class _ImportDialogState extends State<ImportDialog> {
   @override
   void dispose() {
     _pathController.dispose();
+    _maxCountController.dispose();
     super.dispose();
+  }
+
+  // 获取最大导入数量
+  int _getMaxImportCount() {
+    final countStr = _maxCountController.text.trim();
+    if (countStr.isEmpty) return 10; // 默认值
+    final count = int.tryParse(countStr);
+    return count ?? 10; // 解析失败时返回默认值
   }
 
   // 解析插画目录名，提取插画ID
@@ -244,7 +252,7 @@ class _ImportDialogState extends State<ImportDialog> {
           'dirPath': dir.path,
         };
       }
-      if (illustData.length > _kMaxImportCount) {
+      if (illustData.length > _getMaxImportCount()) {
         // 忽略数量超出限制的目录
         break;
       }
@@ -290,7 +298,7 @@ class _ImportDialogState extends State<ImportDialog> {
                 'dirPath': entity.path,
               };
             }
-            if (groupedFiles.length > _kMaxImportCount) {
+            if (groupedFiles.length > _getMaxImportCount()) {
               // 忽略数量超出限制的目录
               break;
             }
@@ -320,7 +328,7 @@ class _ImportDialogState extends State<ImportDialog> {
               'dirPath': entity.path,
             };
           }
-          if (illustData.length > _kMaxImportCount) {
+          if (illustData.length > _getMaxImportCount()) {
             // 忽略数量超出限制的目录
             break;
           }
@@ -681,6 +689,26 @@ class _ImportDialogState extends State<ImportDialog> {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : Text('获取'),
+                ),
+              ],
+            ),
+            SizedBox(height: 8),
+            Row(
+              children: [
+                Text('最大导入数量: '),
+                SizedBox(width: 8),
+                SizedBox(
+                  width: 100,
+                  child: TextField(
+                    controller: _maxCountController,
+                    enabled: !_isLoading && !_isImporting,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      hintText: '10',
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                    ),
+                  ),
                 ),
               ],
             ),
