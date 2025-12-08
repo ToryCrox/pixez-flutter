@@ -134,6 +134,10 @@ class IllustDownloadStatus {
 
   bool get isAllDownloaded => totalCount > 0 && totalCount == completedCount;
 
+  @override
+  String toString() {
+    return 'IllustDownloadStatus{status: $status, illusts: $illusts, totalCount: $totalCount, completedCount: $completedCount, fileSize: $fileSize}';
+  }
 }
 
 class DownloadStore = _DownloadStoreBase with _$DownloadStore;
@@ -219,7 +223,7 @@ abstract class _DownloadStoreBase with Store {
 
   Future<void> _handleIllustDownloadStatus(int illustId) async {
     final illustDownloadStatus = await getIllustDownloadStatus(illustId);
-    Log.d('handleIllustDownloadStatus $illustId: $illustDownloadStatus');
+    Log.d(() => 'handleIllustDownloadStatus $illustId: $illustDownloadStatus');
     if (illustDownloadStatus != null && illustDownloadStatus.isAllDownloaded) {
       BotToast.showText(text: '下载完成${illustId}：${illustDownloadStatus.illusts.title}');
     }
