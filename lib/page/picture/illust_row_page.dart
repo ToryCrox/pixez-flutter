@@ -125,19 +125,6 @@ class _IllustRowPageState extends State<IllustRowPage>
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (_illustStore.illusts != null)
-                    IllustDownloadButton(
-                      illusts: _illustStore.illusts!,
-                      onStarAfterSave: () async {
-                        if (_illustStore.state == 0) {
-                          return _illustStore.star(
-                              restrict: userSetting.defaultPrivateLike
-                                  ? "private"
-                                  : "public");
-                        }
-                        return false;
-                      },
-                    ),
                   IconButton(
                       icon: Icon(Icons.more_vert),
                       onPressed: () {
@@ -171,48 +158,12 @@ class _IllustRowPageState extends State<IllustRowPage>
       //   ],
       // ),
       extendBodyBehindAppBar: true,
-      floatingActionButton: GestureDetector(
-        onLongPress: () {
-          _showBookMarkTag();
-        },
-        onHorizontalDragEnd: (details) {
-          if (widget.onHorizontalDragEnd != null) {
-            widget.onHorizontalDragEnd!(details);
-          }
-        },
-        child: Observer(builder: (context) {
-          return Visibility(
-            visible: _illustStore.errorMessage == null,
-            child: FloatingActionButton(
-              heroTag: widget.id,
-              backgroundColor: Colors.white,
-              onPressed: () async {
-                if (userSetting.saveAfterStar && (_illustStore.state == 0)) {
-                  saveStore.saveImage(_illustStore.illusts!);
-                }
-                _illustStore.star(
-                    restrict: userSetting.defaultPrivateLike
-                        ? "private"
-                        : "public");
-                if (userSetting.followAfterStar) {
-                  bool success = await _illustStore.followAfterStar();
-                  if (success) {
-                    userStore?.isFollow = true;
-                    BotToast.showText(
-                        text:
-                            "${_illustStore.illusts!.user.name} ${I18n.of(context).followed}");
-                  }
-                }
-              },
-              child: Observer(builder: (_) {
-                return StarIcon(
-                  state: _illustStore.state,
-                );
-              }),
-            ),
-          );
-        }),
-      ),
+      floatingActionButton: Observer(builder: (context) {
+        return Visibility(
+          visible: _illustStore.errorMessage == null,
+          child: _buildFloatingActionButtons(),
+        );
+      }),
       body: Observer(builder: (_) {
         if (!tempView)
           for (var i in muteStore.banillusts) {
@@ -1069,6 +1020,70 @@ class _IllustRowPageState extends State<IllustRowPage>
       List<String>? tags = result['tags'];
       _illustStore.star(restrict: restrict, tags: tags, force: true);
     }
+  }
+
+  Widget _buildFloatingActionButtons() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Download 按钮（上方）
+        if (_illustStore.illusts != null)
+          Padding(
+            padding: EdgeInsets.only(bottom: 16),
+            child: IllustDownloadButton(
+              illusts: _illustStore.illusts!,
+              asFloatingActionButton: true,
+              onStarAfterSave: () async {
+                if (_illustStore.state == 0) {
+                  return _illustStore.star(
+                      restrict: userSetting.defaultPrivateLike
+                          ? "private"
+                          : "public");
+                }
+                return false;
+              },
+            ),
+          ),
+        // Star 按钮（下方）
+        GestureDetector(
+          onLongPress: () {
+            _showBookMarkTag();
+          },
+          onHorizontalDragEnd: (details) {
+            if (widget.onHorizontalDragEnd != null) {
+              widget.onHorizontalDragEnd!(details);
+            }
+          },
+          child: FloatingActionButton(
+            heroTag: widget.id,
+            backgroundColor: Colors.white,
+            onPressed: () async {
+              if (userSetting.saveAfterStar && (_illustStore.state == 0)) {
+                saveStore.saveImage(_illustStore.illusts!);
+              }
+              _illustStore.star(
+                  restrict: userSetting.defaultPrivateLike
+                      ? "private"
+                      : "public");
+              if (userSetting.followAfterStar) {
+                bool success = await _illustStore.followAfterStar();
+                if (success) {
+                  userStore?.isFollow = true;
+                  BotToast.showText(
+                      text:
+                          "${_illustStore.illusts!.user.name} ${I18n.of(context).followed}");
+                }
+              }
+            },
+            child: Observer(builder: (_) {
+              return StarIcon(
+                state: _illustStore.state,
+              );
+            }),
+          ),
+        ),
+      ],
+    );
   }
 
   @override

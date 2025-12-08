@@ -24,7 +24,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:pixez/component/ban_page.dart';
 import 'package:pixez/component/common_back_area.dart';
-import 'package:pixez/component/local_or_cached_image.dart';
 import 'package:pixez/component/null_hero.dart';
 import 'package:pixez/component/painter_avatar.dart';
 import 'package:pixez/component/pixez_default_header.dart';
@@ -52,6 +51,7 @@ import 'package:pixez/page/user/users_page.dart';
 import 'package:pixez/page/zoom/photo_zoom_page.dart';
 import 'package:pixez/supportor_plugin.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:pixez/component/local_or_cached_image.dart';
 
 class IllustLightingPage extends StatefulWidget {
   final int id;
@@ -195,8 +195,6 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // 下载状态按钮
-                  _buildDownloadButton(),
                   IconButton(
                       icon: Icon(Icons.expand_less),
                       onPressed: () {
@@ -221,19 +219,66 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
     );
   }
 
-  Widget _buildDownloadButton() {
-    if (_illustStore.illusts == null) return SizedBox.shrink();
-
-    return IllustDownloadButton(
-      illusts: _illustStore.illusts!,
-      onStarAfterSave: () async {
-        if (_illustStore.state == 0) {
-          return _illustStore.star(
-              restrict:
-                  userSetting.defaultPrivateLike ? "private" : "public");
-        }
-        return false;
-      },
+  Widget _buildFloatingActionButtons() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Download 按钮（上方）
+        if (_illustStore.illusts != null)
+          Padding(
+            padding: EdgeInsets.only(bottom: 16),
+            child: IllustDownloadButton(
+              illusts: _illustStore.illusts!,
+              asFloatingActionButton: true,
+              onStarAfterSave: () async {
+                if (_illustStore.state == 0) {
+                  return _illustStore.star(
+                      restrict:
+                          userSetting.defaultPrivateLike ? "private" : "public");
+                }
+                return false;
+              },
+            ),
+          ),
+        // Star 按钮（下方）
+        GestureDetector(
+          onLongPress: () {
+            _showBookMarkTag();
+          },
+          onHorizontalDragEnd: (DragEndDetails detail) {
+            if (widget.onHorizontalDragEnd != null) {
+              widget.onHorizontalDragEnd!(detail);
+            }
+          },
+          child: FloatingActionButton(
+            heroTag: widget.id,
+            onPressed: () async {
+              if (userSetting.saveAfterStar &&
+                  (_illustStore.state == 0)) {
+                saveStore.saveImage(_illustStore.illusts!);
+              }
+              _illustStore.star(
+                  restrict: userSetting.defaultPrivateLike
+                      ? "private"
+                      : "public");
+              if (userSetting.followAfterStar) {
+                bool success = await _illustStore.followAfterStar();
+                if (success) {
+                  userStore?.isFollow = true;
+                  BotToast.showText(
+                      text:
+                          "${_illustStore.illusts!.user.name} ${I18n.of(context).followed}");
+                }
+              }
+            },
+            child: Observer(builder: (_) {
+              return StarIcon(
+                state: _illustStore.state,
+              );
+            }),
+          ),
+        ),
+      ],
     );
   }
 
@@ -255,48 +300,12 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
         child: Scaffold(
           extendBody: true,
           extendBodyBehindAppBar: true,
-          floatingActionButton: GestureDetector(
-            onLongPress: () {
-              _showBookMarkTag();
-            },
-            onHorizontalDragEnd: (DragEndDetails detail) {
-              if (widget.onHorizontalDragEnd != null) {
-                widget.onHorizontalDragEnd!(detail);
-              }
-            },
-            child: Observer(builder: (context) {
-              return Visibility(
-                visible: _illustStore.errorMessage == null,
-                child: FloatingActionButton(
-                  heroTag: widget.id,
-                  onPressed: () async {
-                    if (userSetting.saveAfterStar &&
-                        (_illustStore.state == 0)) {
-                      saveStore.saveImage(_illustStore.illusts!);
-                    }
-                    _illustStore.star(
-                        restrict: userSetting.defaultPrivateLike
-                            ? "private"
-                            : "public");
-                    if (userSetting.followAfterStar) {
-                      bool success = await _illustStore.followAfterStar();
-                      if (success) {
-                        userStore?.isFollow = true;
-                        BotToast.showText(
-                            text:
-                                "${_illustStore.illusts!.user.name} ${I18n.of(context).followed}");
-                      }
-                    }
-                  },
-                  child: Observer(builder: (_) {
-                    return StarIcon(
-                      state: _illustStore.state,
-                    );
-                  }),
-                ),
-              );
-            }),
-          ),
+          floatingActionButton: Observer(builder: (context) {
+            return Visibility(
+              visible: _illustStore.errorMessage == null,
+              child: _buildFloatingActionButtons(),
+            );
+          }),
           body: Observer(builder: (_) {
             final banWidget = banLogic(context);
             if (banWidget != null) {
@@ -1239,3 +1248,4 @@ class TextSelectionFix {
     return controls;
   }
 }
+

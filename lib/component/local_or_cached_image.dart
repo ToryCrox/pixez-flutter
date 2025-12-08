@@ -351,12 +351,15 @@ class IllustDownloadButton extends StatefulWidget {
   final Illusts illusts;
   final double iconSize;
   final Future<bool> Function()? onStarAfterSave;
+  /// 是否以 FloatingActionButton 样式显示
+  final bool asFloatingActionButton;
 
   const IllustDownloadButton({
     Key? key,
     required this.illusts,
     this.iconSize = 24,
     this.onStarAfterSave,
+    this.asFloatingActionButton = false,
   }) : super(key: key);
 
   @override
@@ -430,6 +433,14 @@ class _IllustDownloadButtonState extends State<IllustDownloadButton> {
 
     Widget iconWidget = _buildIcon();
     
+    // 如果以 FloatingActionButton 样式显示
+    if (widget.asFloatingActionButton) {
+      return FloatingActionButton(
+        onPressed: _showDownloadDialog,
+        child: iconWidget,
+      );
+    }
+    
     if (showFileSize) {
       return InkWell(
         onTap: _showDownloadDialog,
@@ -474,13 +485,13 @@ class _IllustDownloadButtonState extends State<IllustDownloadButton> {
           return Icon(
             Icons.download_done,
             size: widget.iconSize,
-            color: Colors.green,
+            color: widget.asFloatingActionButton ? Colors.green.shade300 : Colors.green,
           );
         }
         return Icon(
           Icons.download,
           size: widget.iconSize,
-          color: Colors.green,
+          color: widget.asFloatingActionButton ? Colors.green.shade300 : Colors.green,
         );
       case DownloadTaskStatus.downloading:
         return SizedBox(
@@ -488,26 +499,28 @@ class _IllustDownloadButtonState extends State<IllustDownloadButton> {
           height: widget.iconSize,
           child: CircularProgressIndicator(
             strokeWidth: 2,
-            color: Theme.of(context).colorScheme.primary,
+            color: widget.asFloatingActionButton 
+                ? Theme.of(context).colorScheme.onPrimary
+                : Theme.of(context).colorScheme.primary,
           ),
         );
       case DownloadTaskStatus.pending:
         return Icon(
           Icons.schedule,
           size: widget.iconSize,
-          color: Colors.grey,
+          color: widget.asFloatingActionButton ? null : Colors.grey,
         );
       case DownloadTaskStatus.failed:
         return Icon(
           Icons.error,
           size: widget.iconSize,
-          color: Colors.red,
+          color: widget.asFloatingActionButton ? Colors.red.shade300 : Colors.red,
         );
       case DownloadTaskStatus.paused:
         return Icon(
           Icons.pause,
           size: widget.iconSize,
-          color: Colors.grey,
+          color: widget.asFloatingActionButton ? null : Colors.grey,
         );
       case DownloadTaskStatus.deleted:
         return Icon(Icons.download_outlined, size: widget.iconSize);
