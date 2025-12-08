@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -244,14 +246,14 @@ class _IllustSeriesPageState extends ConsumerState<IllustSeriesPage> {
                           if (illusts.isNotEmpty)
                             SliverPadding(
                               padding: EdgeInsets.only(left: 16, right: 16),
-                              sliver: SliverWaterfallFlow.count(
-                                crossAxisCount: 2,
-                                mainAxisSpacing: 12,
-                                crossAxisSpacing: 12,
-                                children: [
-                                  for (var illust in illusts)
-                                    _buildItem(illust),
-                                ],
+                              sliver: SliverWaterfallFlow(
+                                gridDelegate: _buildGridDelegate(context),
+                                delegate: SliverChildBuilderDelegate(
+                                  (BuildContext context, int index) {
+                                    return _buildItem(illusts[index]);
+                                  },
+                                  childCount: illusts.length,
+                                ),
                               ),
                             ),
                         ],
@@ -263,6 +265,35 @@ class _IllustSeriesPageState extends ConsumerState<IllustSeriesPage> {
 
   Widget _buildItem(IllustStore illust) {
     return IllustSeriesItem(illust: illust);
+  }
+
+  SliverWaterfallFlowDelegate _buildGridDelegate(BuildContext context) {
+    var count = 2;
+    if (userSetting.crossAdapt) {
+      count = _buildSliderValue(context);
+    } else {
+      count = (MediaQuery.of(context).orientation == Orientation.portrait)
+          ? userSetting.crossCount
+          : userSetting.hCrossCount;
+    }
+    return SliverWaterfallFlowDelegateWithFixedCrossAxisCount(
+      crossAxisCount: count,
+      mainAxisSpacing: 12,
+      crossAxisSpacing: 12,
+    );
+  }
+
+  int _buildSliderValue(BuildContext context) {
+    final currentValue =
+        (MediaQuery.of(context).orientation == Orientation.portrait
+                ? userSetting.crossAdapterWidth
+                : userSetting.hCrossAdapterWidth)
+            .toDouble();
+    var nowAdaptWidth = max(currentValue, 50.0);
+    nowAdaptWidth = min(nowAdaptWidth, 2160.0);
+    final screenWidth = MediaQuery.of(context).size.width;
+    final result = max(screenWidth / nowAdaptWidth, 1.0).toInt();
+    return result;
   }
 
   Widget _buildErrorContent(BuildContext context, String errorMessage) {
