@@ -435,9 +435,27 @@ class _IllustDownloadButtonState extends State<IllustDownloadButton> {
     
     // 如果以 FloatingActionButton 样式显示
     if (widget.asFloatingActionButton) {
+      Widget child = iconWidget;
+      if (showFileSize) {
+        child = Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            iconWidget,
+            SizedBox(height: 2),
+            Text(
+              fileSize.formatFileSize(),
+              style: TextStyle(
+                fontSize: 10,
+                color: Theme.of(context).colorScheme.onPrimary,
+              ),
+            ),
+          ],
+        );
+      }
       return FloatingActionButton(
         onPressed: _showDownloadDialog,
-        child: iconWidget,
+        child: child,
       );
     }
     
