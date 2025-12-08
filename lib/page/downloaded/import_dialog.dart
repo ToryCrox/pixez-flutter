@@ -161,35 +161,43 @@ class _ImportDialogState extends State<ImportDialog> {
         final existingIllust = await downloadStore.getDownloadedIllust(illustId);
         bool isExisting = existingIllust != null;
         
-        if (isExisting) {
-          // 如果已存在，直接标记，不需要从网络获取
+        // 尝试获取插画信息（优先从网络获取最新信息，失败则从数据库恢复）
+        Illusts? illusts;
+        String? error;
+        
+        try {
+          // 优先从网络获取最新信息
+          final response = await apiClient.getIllustDetail(illustId);
+          illusts = Illusts.fromJson(response.data['illust']);
+        } catch (e) {
+          // 网络获取失败，如果已存在则尝试从数据库恢复
+          if (isExisting) {
+            try {
+              illusts = existingIllust.toIllusts();
+            } catch (e2) {
+              error = '网络获取失败: $e, 数据库恢复失败: $e2';
+            }
+          } else {
+            error = e.toString();
+          }
+        }
+        
+        if (illusts != null) {
           illustInfos.add(ImportIllustInfo(
-            illustId: illustId,
+            illusts: illusts,
             sourceFiles: files,
-            isExisting: true,
+            isExisting: isExisting,
             sourceDirPath: sourceDirPath,
           ));
         } else {
-          // 如果不存在，从网络获取插画信息
-          try {
-            final response = await apiClient.getIllustDetail(illustId);
-            final illusts = Illusts.fromJson(response.data['illust']);
-            illustInfos.add(ImportIllustInfo(
-              illusts: illusts,
-              sourceFiles: files,
-              isExisting: false,
-              sourceDirPath: sourceDirPath,
-            ));
-          } catch (e) {
-            // 如果获取失败，仍然添加到列表，但标记为错误
-            illustInfos.add(ImportIllustInfo(
-              illustId: illustId,
-              sourceFiles: files,
-              error: e.toString(),
-              isExisting: false,
-              sourceDirPath: sourceDirPath,
-            ));
-          }
+          // 如果获取失败，仍然添加到列表，但标记为错误
+          illustInfos.add(ImportIllustInfo(
+            illustId: illustId,
+            sourceFiles: files,
+            error: error ?? '无法获取插画信息',
+            isExisting: isExisting,
+            sourceDirPath: sourceDirPath,
+          ));
         }
       }
 
@@ -330,17 +338,17 @@ class _ImportDialogState extends State<ImportDialog> {
       _isImporting = true;
       _importProgress = {};
       for (final illust in _illusts) {
-        if (illust.illusts != null && !illust.isExisting) {
+        if (illust.illusts != null) {
           _importProgress[illust.illusts!.id] = ImportProgress(
             total: illust.sourceFiles.length,
             completed: 0,
-            status: '准备中',
+            status: illust.isExisting ? '准备替换' : '准备中',
           );
-        } else if (illust.isExisting) {
+        } else if (illust.isExisting && illust.illustId != null) {
           _importProgress[illust.illustId!] = ImportProgress(
             total: illust.sourceFiles.length,
-            completed: illust.sourceFiles.length,
-            status: '已存在',
+            completed: 0,
+            status: '准备替换',
           );
         }
       }
@@ -348,11 +356,6 @@ class _ImportDialogState extends State<ImportDialog> {
 
     try {
       for (final illustInfo in _illusts) {
-        // 跳过已存在的插画
-        if (illustInfo.isExisting) {
-          continue;
-        }
-
         if (illustInfo.illusts == null || illustInfo.error != null) {
           continue; // 跳过无法获取信息的插画
         }
@@ -360,19 +363,10 @@ class _ImportDialogState extends State<ImportDialog> {
         final illusts = illustInfo.illusts!;
         final illustId = illusts.id;
 
-        // 再次检查是否已存在（防止在扫描和导入之间被导入）
+        // 检查是否已存在（用于更新状态显示）
         final existingIllust = await downloadStore.getDownloadedIllust(illustId);
         if (existingIllust != null) {
-          setState(() {
-            _importProgress[illustId] = ImportProgress(
-              total: illustInfo.sourceFiles.length,
-              completed: illustInfo.sourceFiles.length,
-              status: '已存在',
-            );
-          });
-          // 更新 illustInfo 状态
           illustInfo.isExisting = true;
-          continue;
         }
 
         // 更新进度
@@ -380,7 +374,7 @@ class _ImportDialogState extends State<ImportDialog> {
           _importProgress[illustId] = ImportProgress(
             total: illustInfo.sourceFiles.length,
             completed: 0,
-            status: '导入中',
+            status: illustInfo.isExisting ? '替换中' : '导入中',
           );
         });
 
@@ -411,17 +405,28 @@ class _ImportDialogState extends State<ImportDialog> {
 
             // 检查文件或记录是否已存在
             final isImageDownloaded = await downloadStore.dbProvider.isImageDownloaded(illustId, part);
-            if (isImageDownloaded || await File(targetPath).exists()) {
-              // 已存在，跳过
-              completedCount++;
-              setState(() {
-                _importProgress[illustId] = ImportProgress(
-                  total: illustInfo.sourceFiles.length,
-                  completed: completedCount,
-                  status: '导入中',
-                );
-              });
-              continue;
+            if (isImageDownloaded) {
+              // 已存在，需要删除旧文件（可能后缀不同）
+              try {
+                // 尝试找到旧文件路径（自动检测后缀）
+                final oldFilePath = await downloadStore.dbProvider.findImagePath(illustId, part);
+                if (oldFilePath != null) {
+                  final oldFile = File(oldFilePath);
+                  if (await oldFile.exists()) {
+                    await oldFile.delete();
+                  }
+                }
+              } catch (e) {
+                Log.w('删除旧文件失败: $e');
+                // 继续导入，即使删除旧文件失败
+              }
+            } else if (await File(targetPath).exists()) {
+              // 文件已存在但数据库中没有记录，删除旧文件
+              try {
+                await File(targetPath).delete();
+              } catch (e) {
+                Log.w('删除已存在文件失败: $e');
+              }
             }
 
             // 移动文件：先尝试 rename，失败则使用 copy + delete
@@ -490,7 +495,7 @@ class _ImportDialogState extends State<ImportDialog> {
               _importProgress[illustId] = ImportProgress(
                 total: illustInfo.sourceFiles.length,
                 completed: completedCount,
-                status: '导入中',
+                status: illustInfo.isExisting ? '替换中' : '导入中',
               );
             });
           } catch (e) {
@@ -712,29 +717,40 @@ class _ImportDialogState extends State<ImportDialog> {
                         }
 
                         // 已存在的插画
-                        if (illust.isExisting) {
-                          final progress = _importProgress[illust.illustId];
-                          return Card(
-                            margin: EdgeInsets.symmetric(vertical: 4),
-                            color: Colors.orange[50],
-                            child: ListTile(
-                              leading: Icon(Icons.info, color: Colors.orange),
-                              title: SelectableText('插画ID: ${illust.illustId}'),
-                              subtitle: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text('状态: 已存在（跳过导入）', style: TextStyle(color: Colors.orange[700])),
-                                  Text('文件数: ${illust.sourceFiles.length}'),
-                                  if (progress != null)
-                                    Text(
-                                      '${progress.completed}/${progress.total} - ${progress.status}',
-                                      style: TextStyle(fontSize: 12),
-                                    ),
-                                ],
-                              ),
-                            ),
-                          );
-                        }
+                        // if (illust.isExisting) {
+                        //   final progress = _importProgress[illust.illustId];
+                        //   return Card(
+                        //     margin: EdgeInsets.symmetric(vertical: 4),
+                        //     color: Colors.orange[50],
+                        //     child: ListTile(
+                        //       leading: Icon(Icons.info, color: Colors.orange),
+                        //       title: SelectableText('插画ID: ${illust.illustId}'),
+                        //       subtitle: Column(
+                        //         crossAxisAlignment: CrossAxisAlignment.start,
+                        //         children: [
+                        //           Text('状态: 已存在（将替换）', style: TextStyle(color: Colors.orange[700])),
+                        //           Text('文件数: ${illust.sourceFiles.length}'),
+                        //           if (progress != null)
+                        //             Column(
+                        //               crossAxisAlignment: CrossAxisAlignment.start,
+                        //               children: [
+                        //                 SizedBox(height: 4),
+                        //                 LinearProgressIndicator(
+                        //                   value: progress.total > 0
+                        //                       ? progress.completed / progress.total
+                        //                       : 0,
+                        //                 ),
+                        //                 Text(
+                        //                   '${progress.completed}/${progress.total} - ${progress.status}',
+                        //                   style: TextStyle(fontSize: 12),
+                        //                 ),
+                        //               ],
+                        //             ),
+                        //         ],
+                        //       ),
+                        //     ),
+                        //   );
+                        // }
 
                         final illusts = illust.illusts!;
                         final progress = _importProgress[illusts.id];
@@ -742,13 +758,15 @@ class _ImportDialogState extends State<ImportDialog> {
                         return Card(
                           margin: EdgeInsets.symmetric(vertical: 4),
                           child: ListTile(
-                            leading: Icon(Icons.image),
+                            leading: illust.isExisting ? Icon(Icons.info, color: Colors.orange) : Icon(Icons.image),
                             title: SelectableText('#$index, ${illusts.id} ${illusts.title}'),
                             subtitle: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text('作者: ${illusts.user.name}'),
                                 Text('文件数: ${illust.sourceFiles.length}'),
+                                if (illust.isExisting)
+                                  Text('状态: 已存在（将替换）', style: TextStyle(color: Colors.orange[700])),
                                 if (progress != null)
                                   Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
