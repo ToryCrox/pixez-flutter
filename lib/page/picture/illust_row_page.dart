@@ -333,6 +333,7 @@ class _IllustRowPageState extends State<IllustRowPage>
           var list = _aboutStore.illusts
               .map((element) => IllustStore(element.id, element))
               .toList();
+          final illust = _aboutStore.illusts[index];
           return InkWell(
             onTap: () {
               Leader.push(
@@ -351,9 +352,22 @@ class _IllustRowPageState extends State<IllustRowPage>
                         userSetting.defaultPrivateLike ? "private" : "public");
               }
             },
-            child: PixivImage(
-              _aboutStore.illusts[index].imageUrls.squareMedium,
-              enableMemoryCache: false,
+            child: Stack(
+              children: [
+                PixivImage(
+                  illust.imageUrls.squareMedium,
+                  enableMemoryCache: false,
+                ),
+                Positioned(
+                  top: 4,
+                  right: 4,
+                  child: DownloadStatusIndicator(
+                    illustId: illust.id,
+                    pageCount: illust.pageCount,
+                    size: 14,
+                  ),
+                ),
+              ],
             ),
           );
         }, childCount: _aboutStore.illusts.length),
