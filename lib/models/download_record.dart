@@ -574,11 +574,35 @@ class DownloadDatabaseProvider {
     int? limit,
     int? offset,
     bool desc = true,
+    String? orderBy,
   }) async {
+    // 如果按文件大小排序，需要使用 JOIN 查询
+    if (orderBy != null && orderBy.contains('total_file_size')) {
+      final orderDirection = orderBy.contains('DESC') ? 'DESC' : 'ASC';
+      var query = '''
+        SELECT di.*, COALESCE(SUM(img.${DownloadedImageColumns.fileSize}), 0) as total_file_size
+        FROM ${DownloadedIllustColumns.tableName} di
+        LEFT JOIN ${DownloadedImageColumns.tableName} img ON di.${DownloadedIllustColumns.illustId} = img.${DownloadedImageColumns.illustId}
+        GROUP BY di.${DownloadedIllustColumns.id}
+        ORDER BY total_file_size $orderDirection
+      ''';
+      final args = <dynamic>[];
+      if (limit != null) {
+        query += ' LIMIT ?';
+        args.add(limit);
+      }
+      if (offset != null) {
+        query += ' OFFSET ?';
+        args.add(offset);
+      }
+      final maps = await db.rawQuery(query, args);
+      return maps.map((e) => DownloadedIllust.fromJson(e)).toList();
+    }
+    
+    final orderByClause = orderBy ?? '${DownloadedIllustColumns.downloadTime} ${desc ? 'DESC' : 'ASC'}';
     List<Map<String, dynamic>> maps = await db.query(
       DownloadedIllustColumns.tableName,
-      orderBy:
-          '${DownloadedIllustColumns.downloadTime} ${desc ? 'DESC' : 'ASC'}',
+      orderBy: orderByClause,
       limit: limit,
       offset: offset,
     );
@@ -591,6 +615,30 @@ class DownloadDatabaseProvider {
     int? offset,
     String? orderBy,
   }) async {
+    // 如果按文件大小排序，需要使用 JOIN 查询
+    if (orderBy != null && orderBy.contains('total_file_size')) {
+      final orderDirection = orderBy.contains('DESC') ? 'DESC' : 'ASC';
+      var query = '''
+        SELECT di.*, COALESCE(SUM(img.${DownloadedImageColumns.fileSize}), 0) as total_file_size
+        FROM ${DownloadedIllustColumns.tableName} di
+        LEFT JOIN ${DownloadedImageColumns.tableName} img ON di.${DownloadedIllustColumns.illustId} = img.${DownloadedImageColumns.illustId}
+        WHERE di.${DownloadedIllustColumns.userId} = ?
+        GROUP BY di.${DownloadedIllustColumns.id}
+        ORDER BY total_file_size $orderDirection
+      ''';
+      final args = <dynamic>[userId];
+      if (limit != null) {
+        query += ' LIMIT ?';
+        args.add(limit);
+      }
+      if (offset != null) {
+        query += ' OFFSET ?';
+        args.add(offset);
+      }
+      final maps = await db.rawQuery(query, args);
+      return maps.map((e) => DownloadedIllust.fromJson(e)).toList();
+    }
+    
     final orderByClause = orderBy ?? '${DownloadedIllustColumns.downloadTime} DESC';
     List<Map<String, dynamic>> maps = await db.query(
       DownloadedIllustColumns.tableName,
@@ -607,12 +655,38 @@ class DownloadDatabaseProvider {
     String tag, {
     int? limit,
     int? offset,
+    String? orderBy,
   }) async {
+    // 如果按文件大小排序，需要使用 JOIN 查询
+    if (orderBy != null && orderBy.contains('total_file_size')) {
+      final orderDirection = orderBy.contains('DESC') ? 'DESC' : 'ASC';
+      var query = '''
+        SELECT di.*, COALESCE(SUM(img.${DownloadedImageColumns.fileSize}), 0) as total_file_size
+        FROM ${DownloadedIllustColumns.tableName} di
+        LEFT JOIN ${DownloadedImageColumns.tableName} img ON di.${DownloadedIllustColumns.illustId} = img.${DownloadedImageColumns.illustId}
+        WHERE di.${DownloadedIllustColumns.tags} LIKE ?
+        GROUP BY di.${DownloadedIllustColumns.id}
+        ORDER BY total_file_size $orderDirection
+      ''';
+      final args = <dynamic>['%$tag%'];
+      if (limit != null) {
+        query += ' LIMIT ?';
+        args.add(limit);
+      }
+      if (offset != null) {
+        query += ' OFFSET ?';
+        args.add(offset);
+      }
+      final maps = await db.rawQuery(query, args);
+      return maps.map((e) => DownloadedIllust.fromJson(e)).toList();
+    }
+    
+    final orderByClause = orderBy ?? '${DownloadedIllustColumns.downloadTime} DESC';
     List<Map<String, dynamic>> maps = await db.query(
       DownloadedIllustColumns.tableName,
       where: '${DownloadedIllustColumns.tags} LIKE ?',
       whereArgs: ['%$tag%'],
-      orderBy: '${DownloadedIllustColumns.downloadTime} DESC',
+      orderBy: orderByClause,
       limit: limit,
       offset: offset,
     );
@@ -623,13 +697,39 @@ class DownloadDatabaseProvider {
     String keyword, {
     int? limit,
     int? offset,
+    String? orderBy,
   }) async {
+    // 如果按文件大小排序，需要使用 JOIN 查询
+    if (orderBy != null && orderBy.contains('total_file_size')) {
+      final orderDirection = orderBy.contains('DESC') ? 'DESC' : 'ASC';
+      var query = '''
+        SELECT di.*, COALESCE(SUM(img.${DownloadedImageColumns.fileSize}), 0) as total_file_size
+        FROM ${DownloadedIllustColumns.tableName} di
+        LEFT JOIN ${DownloadedImageColumns.tableName} img ON di.${DownloadedIllustColumns.illustId} = img.${DownloadedImageColumns.illustId}
+        WHERE di.${DownloadedIllustColumns.title} LIKE ? OR di.${DownloadedIllustColumns.userName} LIKE ? OR di.${DownloadedIllustColumns.tags} LIKE ?
+        GROUP BY di.${DownloadedIllustColumns.id}
+        ORDER BY total_file_size $orderDirection
+      ''';
+      final args = <dynamic>['%$keyword%', '%$keyword%', '%$keyword%'];
+      if (limit != null) {
+        query += ' LIMIT ?';
+        args.add(limit);
+      }
+      if (offset != null) {
+        query += ' OFFSET ?';
+        args.add(offset);
+      }
+      final maps = await db.rawQuery(query, args);
+      return maps.map((e) => DownloadedIllust.fromJson(e)).toList();
+    }
+    
+    final orderByClause = orderBy ?? '${DownloadedIllustColumns.downloadTime} DESC';
     List<Map<String, dynamic>> maps = await db.query(
       DownloadedIllustColumns.tableName,
       where:
           '${DownloadedIllustColumns.title} LIKE ? OR ${DownloadedIllustColumns.userName} LIKE ? OR ${DownloadedIllustColumns.tags} LIKE ?',
       whereArgs: ['%$keyword%', '%$keyword%', '%$keyword%'],
-      orderBy: '${DownloadedIllustColumns.downloadTime} DESC',
+      orderBy: orderByClause,
       limit: limit,
       offset: offset,
     );

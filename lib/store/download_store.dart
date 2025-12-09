@@ -386,11 +386,13 @@ abstract class _DownloadStoreBase with Store {
     int? limit,
     int? offset,
     bool desc = true,
+    String? orderBy,
   }) async {
     return await _dbProvider.getAllIllusts(
       limit: limit,
       offset: offset,
       desc: desc,
+      orderBy: orderBy,
     );
   }
 
@@ -398,27 +400,30 @@ abstract class _DownloadStoreBase with Store {
     int userId, {
     int? limit,
     int? offset,
+    String? orderBy,
   }) async {
     return await _dbProvider.getIllustsByUserId(userId,
-        limit: limit, offset: offset);
+        limit: limit, offset: offset, orderBy: orderBy);
   }
 
   Future<List<DownloadedIllust>> searchDownloadedByTag(
     String tag, {
     int? limit,
     int? offset,
+    String? orderBy,
   }) async {
     return await _dbProvider.searchIllustsByTag(tag,
-        limit: limit, offset: offset);
+        limit: limit, offset: offset, orderBy: orderBy);
   }
 
   Future<List<DownloadedIllust>> searchDownloaded(
     String keyword, {
     int? limit,
     int? offset,
+    String? orderBy,
   }) async {
     return await _dbProvider.searchIllusts(keyword,
-        limit: limit, offset: offset);
+        limit: limit, offset: offset, orderBy: orderBy);
   }
 
   Future<List<Map<String, dynamic>>> getDistinctUsers() async {

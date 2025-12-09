@@ -29,12 +29,24 @@ import 'package:pixez/page/picture/illust_lighting_page.dart';
 import 'package:pixez/page/downloaded/downloaded_authors_page.dart';
 import 'package:pixez/page/downloaded/import_dialog.dart';
 import 'package:pixez/store/download_store.dart';
+import 'package:pixez/component/sort_group.dart';
+import 'package:pixez/er/prefer.dart';
 
 enum DownloadFilter {
   all,
   downloading,
   completed,
 }
+
+enum IllustSortType {
+  downloadTime, // 下载时间
+  createDate, // 作品时间
+  fileSize, // 文件大小
+}
+
+// SharedPreferences 键名
+const String _DOWNLOADED_ILLUSTS_SORT_TYPE_KEY = 'downloaded_illusts_sort_type';
+const String _DOWNLOADED_ILLUSTS_SORT_DESC_KEY = 'downloaded_illusts_sort_desc';
 
 class DownloadedPage extends StatefulWidget {
   final int? initialUserId;
@@ -64,10 +76,14 @@ class _DownloadedPageState extends State<DownloadedPage> {
   final ScrollController _scrollController = ScrollController();
   Offset? _tapPosition;
   int _page = 0;
-  static const int _pageSize = 30;
+  static const int _pageSize = 50;
   bool _hasMore = true;
   bool _loadingMore = false;
   StreamSubscription<IllustDownloadStatus>? _downloadStatusSubscription;
+  
+  // 排序相关
+  IllustSortType _sortType = IllustSortType.downloadTime;
+  bool _sortDesc = true; // true=倒序，false=正序
 
   @override
   void initState() {
@@ -77,10 +93,24 @@ class _DownloadedPageState extends State<DownloadedPage> {
       _filterUserId = widget.initialUserId;
       _filterUserName = widget.initialUserName;
     }
+    _loadPersistedState();
     _loadData();
     _scrollController.addListener(_onScroll);
     _downloadStatusSubscription = downloadStore.illustDownloadStatusStream
         .listen(_onDownloadStatusChanged);
+  }
+
+  /// 加载持久化的状态
+  void _loadPersistedState() {
+    final sortTypeIndex = Prefer.getInt(_DOWNLOADED_ILLUSTS_SORT_TYPE_KEY);
+    if (sortTypeIndex != null && sortTypeIndex >= 0 && sortTypeIndex < IllustSortType.values.length) {
+      _sortType = IllustSortType.values[sortTypeIndex];
+    }
+    
+    final sortDesc = Prefer.getBool(_DOWNLOADED_ILLUSTS_SORT_DESC_KEY);
+    if (sortDesc != null) {
+      _sortDesc = sortDesc;
+    }
   }
 
   @override
@@ -147,6 +177,18 @@ class _DownloadedPageState extends State<DownloadedPage> {
     }
   }
 
+  String? _getSortBy() {
+    switch (_sortType) {
+      case IllustSortType.downloadTime:
+        return '${DownloadedIllustColumns.downloadTime} ${_sortDesc ? 'DESC' : 'ASC'}';
+      case IllustSortType.createDate:
+        return '${DownloadedIllustColumns.createDate} ${_sortDesc ? 'DESC' : 'ASC'}';
+      case IllustSortType.fileSize:
+        // 文件大小排序在数据库中进行
+        return 'total_file_size ${_sortDesc ? 'DESC' : 'ASC'}';
+    }
+  }
+
   Future<void> _loadData() async {
     if (!downloadStore.isInitialized) {
       setState(() {
@@ -163,23 +205,27 @@ class _DownloadedPageState extends State<DownloadedPage> {
 
     try {
       List<DownloadedIllust> illusts;
+      final orderBy = _getSortBy();
 
       if (_filterUserId != null) {
         illusts = await downloadStore.getDownloadedByUser(
           _filterUserId!,
           limit: _pageSize,
           offset: 0,
+          orderBy: orderBy,
         );
       } else if (_searchKeyword != null && _searchKeyword!.isNotEmpty) {
         illusts = await downloadStore.searchDownloaded(
           _searchKeyword!,
           limit: _pageSize,
           offset: 0,
+          orderBy: orderBy,
         );
       } else {
         illusts = await downloadStore.getAllDownloaded(
           limit: _pageSize,
           offset: 0,
+          orderBy: orderBy,
         );
       }
 
@@ -233,23 +279,27 @@ class _DownloadedPageState extends State<DownloadedPage> {
 
     try {
       List<DownloadedIllust> moreIllusts;
+      final orderBy = _getSortBy();
 
       if (_filterUserId != null) {
         moreIllusts = await downloadStore.getDownloadedByUser(
           _filterUserId!,
           limit: _pageSize,
           offset: offset,
+          orderBy: orderBy,
         );
       } else if (_searchKeyword != null && _searchKeyword!.isNotEmpty) {
         moreIllusts = await downloadStore.searchDownloaded(
           _searchKeyword!,
           limit: _pageSize,
           offset: offset,
+          orderBy: orderBy,
         );
       } else {
         moreIllusts = await downloadStore.getAllDownloaded(
           limit: _pageSize,
           offset: offset,
+          orderBy: orderBy,
         );
       }
 
@@ -305,6 +355,25 @@ class _DownloadedPageState extends State<DownloadedPage> {
       }
       return true;
     }).toList();
+  }
+
+  void _onSortChanged(int index) {
+    final newSortType = IllustSortType.values[index];
+    setState(() {
+      _sortType = newSortType;
+    });
+    // 持久化排序类型
+    Prefer.setInt(_DOWNLOADED_ILLUSTS_SORT_TYPE_KEY, newSortType.index);
+    _loadData();
+  }
+
+  void _onSortOrderChanged(bool desc) {
+    setState(() {
+      _sortDesc = desc;
+    });
+    // 持久化排序顺序
+    Prefer.setBool(_DOWNLOADED_ILLUSTS_SORT_DESC_KEY, desc);
+    _loadData();
   }
 
   void _pauseAll() {
@@ -468,7 +537,51 @@ class _DownloadedPageState extends State<DownloadedPage> {
           ? Center(child: CircularProgressIndicator())
           : _filteredIllusts.isEmpty
               ? _buildEmptyView()
-              : _buildGridView(),
+              : RefreshIndicator(
+                  onRefresh: _loadData,
+                  child: CustomScrollView(
+                    controller: _scrollController,
+                    slivers: [
+                      SliverPersistentHeader(
+                        key: ValueKey('sort_header_${_sortType}_$_sortDesc'),
+                        delegate: SliverChipDelegate(
+                          Container(
+                            alignment: Alignment.center,
+                            child: Stack(
+                              children: [
+                                // 居中显示排序菜单
+                                Center(
+                                  child: SortGroup(
+                                    key: ValueKey(_sortType),
+                                    children: [
+                                      '下载时间',
+                                      '作品时间',
+                                      '文件大小',
+                                    ],
+                                    onChange: _onSortChanged,
+                                    initIndex: _sortType.index,
+                                  ),
+                                ),
+                                // 右侧显示正序/倒序按钮
+                                Positioned(
+                                  right: 8,
+                                  top: 0,
+                                  bottom: 0,
+                                  child: Center(
+                                    child: _buildSortOrderButton(),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          height: 52,
+                        ),
+                        pinned: true,
+                      ),
+                      _buildGridView(),
+                    ],
+                  ),
+                ),
     );
   }
 
@@ -488,26 +601,46 @@ class _DownloadedPageState extends State<DownloadedPage> {
     );
   }
 
+  Widget _buildSortOrderButton() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          _sortDesc ? '倒序' : '正序',
+          style: TextStyle(
+            fontSize: 14,
+            color: Theme.of(context).colorScheme.onSurface,
+          ),
+        ),
+        SizedBox(width: 8),
+        Switch(
+          value: _sortDesc,
+          onChanged: _onSortOrderChanged,
+        ),
+      ],
+    );
+  }
+
   Widget _buildGridView() {
     final filteredList = _filteredIllusts;
-    return RefreshIndicator(
-      onRefresh: _loadData,
-      child: GridView.builder(
-        controller: _scrollController,
-        padding: EdgeInsets.all(8),
+    return SliverPadding(
+      padding: EdgeInsets.all(8),
+      sliver: SliverGrid(
         gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
           maxCrossAxisExtent: 240,
           childAspectRatio: 0.7,
           crossAxisSpacing: 8,
           mainAxisSpacing: 8,
         ),
-        itemCount: filteredList.length + (_loadingMore ? 1 : 0),
-        itemBuilder: (context, index) {
-          if (index >= filteredList.length) {
-            return Center(child: CircularProgressIndicator());
-          }
-          return _buildIllustCard(filteredList[index]);
-        },
+        delegate: SliverChildBuilderDelegate(
+          (context, index) {
+            if (index >= filteredList.length) {
+              return Center(child: CircularProgressIndicator());
+            }
+            return _buildIllustCard(filteredList[index]);
+          },
+          childCount: filteredList.length + (_loadingMore ? 1 : 0),
+        ),
       ),
     );
   }
@@ -962,5 +1095,29 @@ class _DownloadedPageState extends State<DownloadedPage> {
         );
       },
     );
+  }
+}
+
+class SliverChipDelegate extends SliverPersistentHeaderDelegate {
+  final Widget child;
+  double height = 45;
+
+  SliverChipDelegate(this.child, {this.height = 45});
+
+  @override
+  double get minExtent => height;
+
+  @override
+  double get maxExtent => height;
+
+  @override
+  Widget build(
+      BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return child;
+  }
+
+  @override
+  bool shouldRebuild(SliverChipDelegate oldDelegate) {
+    return height != oldDelegate.height;
   }
 }
