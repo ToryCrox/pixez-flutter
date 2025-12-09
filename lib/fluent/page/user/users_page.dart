@@ -514,7 +514,7 @@ class _UsersPageState extends State<UsersPage>
     return ContextMenu(
       child: CachedNetworkImage(
         imageUrl: userStore.userDetail!.profile.background_image_url!,
-        fit: BoxFit.fitWidth,
+        fit: BoxFit.cover,
         cacheManager: pixivCacheManager,
         httpHeaders: Hoster.header(
           url: userStore.userDetail!.profile.background_image_url,
@@ -547,7 +547,9 @@ class _UsersPageState extends State<UsersPage>
   _buildDetail(BuildContext context) => LayoutBuilder(
         builder: (context, constraints) {
           final width = constraints.maxWidth;
-          const height = 300.0;
+          // 在宽屏下限制最大高度，避免头图显示过大
+          final isWideScreen = width > 800;
+          final height = isWideScreen ? 250.0 : 300.0;
           final nobg =
               userStore.userDetail?.profile.background_image_url == null;
 
@@ -565,7 +567,9 @@ class _UsersPageState extends State<UsersPage>
                     Container(
                       width: width,
                       height: height * (nobg ? .3 : .75),
-                      child: background,
+                      child: ClipRect(
+                        child: background,
+                      ),
                     ),
                     Align(
                       alignment: Alignment.bottomCenter,

@@ -255,12 +255,18 @@ class _UsersPageState extends State<UsersPage> with TickerProviderStateMixin {
           pinned: true,
           elevation: 0.0,
           forceElevated: innerBoxIsScrolled ?? false,
-          expandedHeight:
-              userStore.userDetail?.profile.background_image_url != null
-                  ? MediaQuery.of(context).size.width / 2 +
-                      205 -
-                      MediaQuery.of(context).padding.top
-                  : 300,
+          expandedHeight: () {
+            final screenWidth = MediaQuery.of(context).size.width;
+            final isWideScreen = screenWidth > 800;
+            if (userStore.userDetail?.profile.background_image_url != null) {
+              // 在宽屏下限制最大高度，避免头图显示过大
+              final maxHeaderHeight = isWideScreen ? 400.0 : screenWidth / 2;
+              return maxHeaderHeight.clamp(200.0, 400.0) +
+                  205 -
+                  MediaQuery.of(context).padding.top;
+            }
+            return 300.0;
+          }(),
           leading: CommonBackArea(),
           actions: <Widget>[
             Builder(builder: (context) {
@@ -427,11 +433,17 @@ class _UsersPageState extends State<UsersPage> with TickerProviderStateMixin {
   }
 
   Widget _buildBackground(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    // 在宽屏下限制最大高度，避免头图显示过大
+    final isWideScreen = screenWidth > 800;
+    final maxHeight = isWideScreen ? 400.0 : screenWidth / 2;
+    final backgroundHeight = userStore.userDetail?.profile.background_image_url != null
+        ? maxHeight.clamp(200.0, 400.0)
+        : MediaQuery.of(context).padding.top + 160;
+    
     return Container(
-        width: MediaQuery.of(context).size.width,
-        height: userStore.userDetail?.profile.background_image_url != null
-            ? MediaQuery.of(context).size.width / 2
-            : MediaQuery.of(context).padding.top + 160,
+        width: screenWidth,
+        height: backgroundHeight,
         child: userStore.userDetail != null
             ? userStore.userDetail!.profile.background_image_url != null
                 ? InkWell(
@@ -470,14 +482,18 @@ class _UsersPageState extends State<UsersPage> with TickerProviderStateMixin {
                             );
                           });
                     },
-                    child: CachedNetworkImage(
-                      imageUrl:
-                          userStore.userDetail!.profile.background_image_url!,
-                      fit: BoxFit.fitWidth,
-                      cacheManager: pixivCacheManager,
-                      httpHeaders: Hoster.header(
-                          url: userStore
-                              .userDetail!.profile.background_image_url),
+                    child: ClipRect(
+                      child: CachedNetworkImage(
+                        imageUrl:
+                            userStore.userDetail!.profile.background_image_url!,
+                        fit: BoxFit.cover,
+                        width: screenWidth,
+                        height: backgroundHeight,
+                        cacheManager: pixivCacheManager,
+                        httpHeaders: Hoster.header(
+                            url: userStore
+                                .userDetail!.profile.background_image_url),
+                      ),
                     ),
                   )
                 : Container(
