@@ -135,7 +135,7 @@ class _IllustCardGridState extends State<IllustCardGrid> {
   }
 
   Future _buildTap(BuildContext context) {
-    return Navigator.of(context, rootNavigator: true)
+    return Navigator.of(context)
         .push(MaterialPageRoute(builder: (_) {
       return PictureListPage(
         iStores: iStores!,
@@ -341,8 +341,7 @@ class _IllustCardGridState extends State<IllustCardGrid> {
   }
 
   Future<void> _buildInkTap(BuildContext context, String heroTag) async {
-    await Navigator.of(context, rootNavigator: true)
-        .push(MaterialPageRoute(builder: (_) {
+    await Navigator.of(context).push(MaterialPageRoute(builder: (_) {
       if (iStores != null) {
         return PictureListPage(
           heroString: heroTag,

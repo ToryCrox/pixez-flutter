@@ -18,6 +18,7 @@ import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:pixez/component/painter_avatar.dart';
 import 'package:pixez/constants.dart';
@@ -27,6 +28,7 @@ import 'package:pixez/er/prefer.dart';
 import 'package:pixez/i18n.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/page/Init/guide_page.dart';
+import 'package:pixez/page/downloaded/downloaded_authors_page.dart';
 import 'package:pixez/page/downloaded/downloaded_page.dart';
 import 'package:pixez/page/hello/new/new_page.dart';
 import 'package:pixez/page/hello/ranking/rank_page.dart';
@@ -34,6 +36,29 @@ import 'package:pixez/page/hello/recom/recom_spotlight_page.dart';
 import 'package:pixez/page/hello/setting/setting_page.dart';
 import 'package:pixez/page/preview/preview_page.dart';
 import 'package:pixez/page/search/search_page.dart';
+
+/// InheritedWidget 用于传递宽屏状态和右侧 Navigator
+class WideScreenNavigator extends InheritedWidget {
+  final bool isWideScreen;
+  final GlobalKey<NavigatorState>? contentNavigatorKey;
+
+  const WideScreenNavigator({
+    Key? key,
+    required this.isWideScreen,
+    this.contentNavigatorKey,
+    required Widget child,
+  }) : super(key: key, child: child);
+
+  static WideScreenNavigator? of(BuildContext context) {
+    return context.dependOnInheritedWidgetOfExactType<WideScreenNavigator>();
+  }
+
+  @override
+  bool updateShouldNotify(WideScreenNavigator oldWidget) {
+    return isWideScreen != oldWidget.isWideScreen ||
+        contentNavigatorKey != oldWidget.contentNavigatorKey;
+  }
+}
 
 class HelloPage extends StatefulWidget {
   @override
@@ -46,6 +71,9 @@ class _HelloPageState extends State<HelloPage> {
   late PageController _pageController;
   double? bottomNavigatorHeight = null;
   late List<Widget> _lists;
+  late List<Widget> _wideLists;
+  final GlobalKey<NavigatorState> _contentNavigatorKey =
+      GlobalKey<NavigatorState>();
 
   @override
   void dispose() {
@@ -77,6 +105,11 @@ class _HelloPageState extends State<HelloPage> {
       NewPage(),
       SearchPage(),
       SettingPage()
+    ];
+    _wideLists = <Widget>[
+      ..._lists,
+      DownloadedPage(),
+      DownloadedAuthorsPage(),
     ];
     Constants.type = 0;
     fetcher.context = context;
@@ -116,28 +149,32 @@ class _HelloPageState extends State<HelloPage> {
     }
     return LayoutBuilder(builder: (context, constraints) {
       final wide = constraints.maxWidth > constraints.maxHeight;
-      return Scaffold(
-        body: Row(
-          children: <Widget>[
-            if (wide) ..._buildRail(context),
-            Expanded(
-              child: _buildPageView(context),
-            ),
-          ],
+      return WideScreenNavigator(
+        isWideScreen: wide,
+        contentNavigatorKey: wide ? _contentNavigatorKey : null,
+        child: Scaffold(
+          body: Row(
+            children: <Widget>[
+              if (wide) ..._buildRail(context),
+              Expanded(
+                child: _buildPageView(context, wide),
+              ),
+            ],
+          ),
+          extendBody: true,
+          bottomNavigationBar: wide
+              ? null
+              : Observer(builder: (context) {
+                  return AnimatedContainer(
+                    duration: const Duration(milliseconds: 400),
+                    transform: Matrix4.translationValues(
+                        0,
+                        fullScreenStore.fullscreen ? bottomNavigatorHeight! : 0,
+                        0),
+                    child: _buildNavigationBar(context),
+                  );
+                }),
         ),
-        extendBody: true,
-        bottomNavigationBar: wide
-            ? null
-            : Observer(builder: (context) {
-                return AnimatedContainer(
-                  duration: const Duration(milliseconds: 400),
-                  transform: Matrix4.translationValues(
-                      0,
-                      fullScreenStore.fullscreen ? bottomNavigatorHeight! : 0,
-                      0),
-                  child: _buildNavigationBar(context),
-                );
-              }),
       );
     });
   }
@@ -150,9 +187,15 @@ class _HelloPageState extends State<HelloPage> {
             selectedIndex: index,
             labelType: NavigationRailLabelType.all,
             onDestinationSelected: (int index) {
+              // 如果右侧 Navigator 有子页面，先清除栈回到主页面
+              if (_contentNavigatorKey.currentState != null) {
+                _contentNavigatorKey.currentState!
+                    .popUntil((route) => route.isFirst);
+              }
               _pageController.jumpToPage(index);
+
               setState(() {
-                index = index;
+                this.index = index;
               });
             },
             destinations: <NavigationRailDestination>[
@@ -170,6 +213,12 @@ class _HelloPageState extends State<HelloPage> {
               NavigationRailDestination(
                   icon: Icon(Icons.more_horiz),
                   label: Text(I18n.of(context).more)),
+              NavigationRailDestination(
+                  icon: Icon(Icons.download), label: Text('下载')),
+              NavigationRailDestination(
+                icon: Icon(Icons.person),
+                label: Text('作者'),
+              )
             ],
           ),
           Positioned(
@@ -246,22 +295,23 @@ class _HelloPageState extends State<HelloPage> {
           ],
           selectedIndex: index,
           onDestinationSelected: (value) {
-            if (this.index == index) {
-              topStore.setTop("${index + 1}00");
+            if (this.index == value) {
+              topStore.setTop("${value + 1}00");
             }
             setState(() {
               this.index = value;
             });
-            if (_pageController.hasClients) _pageController.jumpToPage(index);
+            if (_pageController.hasClients) _pageController.jumpToPage(value);
           },
         ),
       ),
     );
   }
 
-  PageView _buildPageView(BuildContext context) {
-    return PageView.builder(
-        itemCount: 5,
+  Widget _buildPageView(BuildContext context, bool isWideScreen) {
+    final list = isWideScreen ? _wideLists : _lists;
+    final pageView = PageView.builder(
+        itemCount: list.length,
         controller: _pageController,
         onPageChanged: (index) {
           setState(() {
@@ -269,7 +319,46 @@ class _HelloPageState extends State<HelloPage> {
           });
         },
         itemBuilder: (context, index) {
-          return _lists[index];
+          return list[index];
         });
+
+    // 在宽屏状态下，将 PageView 包裹在 Navigator 中
+    if (isWideScreen) {
+      return Shortcuts(
+        shortcuts: <ShortcutActivator, Intent>{
+          const SingleActivator(LogicalKeyboardKey.escape):
+              const _GoBackIntent(),
+        },
+        child: Actions(
+          actions: <Type, Action<Intent>>{
+            _GoBackIntent: CallbackAction<_GoBackIntent>(
+              onInvoke: (intent) =>
+                  Navigator.of(_contentNavigatorKey.currentContext!).maybePop(),
+            ),
+          },
+          child: Navigator(
+            key: _contentNavigatorKey,
+            onGenerateRoute: (settings) {
+              // 默认路由显示 PageView
+              if (settings.name == '/') {
+                return MaterialPageRoute(
+                  builder: (context) => pageView,
+                  settings: settings,
+                );
+              }
+              // 其他路由由 push 方法创建
+              return null;
+            },
+            initialRoute: '/',
+          ),
+        ),
+      );
+    } else {
+      return pageView;
+    }
   }
+}
+
+class _GoBackIntent extends Intent {
+  const _GoBackIntent();
 }

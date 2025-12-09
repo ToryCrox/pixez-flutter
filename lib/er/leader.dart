@@ -308,7 +308,14 @@ class Leader {
       return FluentLeader.pushWithScaffold(context, widget,
           icon: icon, title: title);
     }
-    return Navigator.of(context).push(MaterialPageRoute(
+    // 检查是否在宽屏状态下，如果是，使用右侧的 Navigator
+    final wideScreenNavigator = WideScreenNavigator.of(context);
+    final navigator = wideScreenNavigator?.isWideScreen == true &&
+            wideScreenNavigator?.contentNavigatorKey?.currentState != null
+        ? wideScreenNavigator!.contentNavigatorKey!.currentState!
+        : Navigator.of(context);
+    
+    return navigator.push(MaterialPageRoute(
         builder: (context) => Scaffold(
               body: widget,
             )));

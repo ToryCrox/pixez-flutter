@@ -35,6 +35,7 @@ import 'package:pixez/page/picture/illust_store.dart';
 import 'package:pixez/page/picture/picture_list_page.dart';
 import 'package:pixez/page/picture/tag_for_illust_page.dart';
 import 'package:pixez/page/series/illust_series_page.dart';
+import 'package:pixez/page/hello/hello_page.dart';
 import 'package:open_file/open_file.dart';
 
 class IllustCard extends StatefulWidget {
@@ -136,7 +137,7 @@ class _IllustCardState extends State<IllustCard> {
   }
 
   Future _buildTap(BuildContext context) {
-    return Navigator.of(context, rootNavigator: true)
+    return Navigator.of(context)
         .push(MaterialPageRoute(builder: (_) {
       return PictureListPage(
         iStores: iStores!,
@@ -359,8 +360,7 @@ class _IllustCardState extends State<IllustCard> {
   }
 
   Future<void> _buildInkTap(BuildContext context, String heroTag) async {
-    await Navigator.of(context, rootNavigator: true)
-        .push(MaterialPageRoute(builder: (_) {
+    await Navigator.of(context).push(MaterialPageRoute(builder: (_) {
       if (iStores != null) {
         return PictureListPage(
           heroString: heroTag,
