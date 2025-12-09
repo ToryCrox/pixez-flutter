@@ -25,7 +25,11 @@ import 'package:path/path.dart' as p;
 import 'package:pixez/i18n.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/models/download_record.dart'
-    show DownloadedIllust, DownloadedImage, DownloadDatabaseProvider, kImageExtensions;
+    show
+        DownloadedIllust,
+        DownloadedImage,
+        DownloadDatabaseProvider,
+        kImageExtensions;
 import 'package:pixez/models/illust.dart';
 import 'package:pixez/network/api_client.dart';
 
@@ -37,9 +41,9 @@ class ImportDialog extends StatefulWidget {
 }
 
 class _ImportDialogState extends State<ImportDialog> {
-
   final TextEditingController _pathController = TextEditingController();
-  final TextEditingController _maxCountController = TextEditingController(text: '10');
+  final TextEditingController _maxCountController =
+      TextEditingController(text: '10');
   List<ImportIllustInfo> _illusts = [];
   bool _isLoading = false;
   bool _isImporting = false;
@@ -148,7 +152,8 @@ class _ImportDialogState extends State<ImportDialog> {
     });
 
     try {
-      final illustData = <int, Map<String, dynamic>>{}; // illustId -> {files: [], dirPath: ''}
+      final illustData =
+          <int, Map<String, dynamic>>{}; // illustId -> {files: [], dirPath: ''}
 
       if (_importMode == ImportMode.flat) {
         // 平铺模式：直接扫描目录下的所有图片文件
@@ -164,15 +169,16 @@ class _ImportDialogState extends State<ImportDialog> {
         final illustId = entry.key;
         final files = entry.value['files'] as List<String>;
         final sourceDirPath = entry.value['dirPath'] as String;
-        
+
         // 检查插画是否已存在
-        final existingIllust = await downloadStore.getDownloadedIllust(illustId);
+        final existingIllust =
+            await downloadStore.getDownloadedIllust(illustId);
         bool isExisting = existingIllust != null;
-        
+
         // 尝试获取插画信息（优先从网络获取最新信息，失败则从数据库恢复）
         Illusts? illusts;
         String? error;
-        
+
         try {
           // 优先从网络获取最新信息
           final response = await apiClient.getIllustDetail(illustId);
@@ -189,7 +195,7 @@ class _ImportDialogState extends State<ImportDialog> {
             error = e.toString();
           }
         }
-        
+
         if (illusts != null) {
           illustInfos.add(ImportIllustInfo(
             illusts: illusts,
@@ -222,7 +228,8 @@ class _ImportDialogState extends State<ImportDialog> {
   }
 
   // 扫描平铺模式的目录（直接扫描目录下的所有图片文件）
-  Future<void> _scanFlatDirectory(Directory dir, Map<int, Map<String, dynamic>> illustData) async {
+  Future<void> _scanFlatDirectory(
+      Directory dir, Map<int, Map<String, dynamic>> illustData) async {
     final groupedFiles = <int, List<String>>{}; // illustId -> files
     try {
       final fileList = await dir.list().toList();
@@ -235,7 +242,9 @@ class _ImportDialogState extends State<ImportDialog> {
             final fileIllustId = _extractIllustIdFromFlatFileName(fileName);
             final part = _extractPart(fileName);
             if (fileIllustId != null && part != null) {
-              groupedFiles.putIfAbsent(fileIllustId, () => []).add(fileEntity.path);
+              groupedFiles
+                  .putIfAbsent(fileIllustId, () => [])
+                  .add(fileEntity.path);
             }
           }
         }
@@ -260,13 +269,14 @@ class _ImportDialogState extends State<ImportDialog> {
   }
 
   // 扫描目录模式（扫描子目录）
-  Future<void> _scanDirectoryMode(Directory dir, Map<int, Map<String, dynamic>> illustData) async {
+  Future<void> _scanDirectoryMode(
+      Directory dir, Map<int, Map<String, dynamic>> illustData) async {
     final subDirs = await dir.list().toList();
     for (final entity in subDirs) {
       if (entity is Directory) {
         final dirName = p.basename(entity.path);
         final illustId = _extractIllustId(dirName);
-        
+
         // 处理散图目录（[0]开头的目录）
         if (illustId == null && dirName.startsWith('[0]')) {
           // 扫描该目录下的所有图片文件，按作品ID分组
@@ -282,7 +292,9 @@ class _ImportDialogState extends State<ImportDialog> {
                   final fileIllustId = _extractIllustIdFromFileName(fileName);
                   final part = _extractPart(fileName);
                   if (fileIllustId != null && part != null) {
-                    groupedFiles.putIfAbsent(fileIllustId, () => []).add(fileEntity.path);
+                    groupedFiles
+                        .putIfAbsent(fileIllustId, () => [])
+                        .add(fileEntity.path);
                   }
                 }
               }
@@ -314,7 +326,8 @@ class _ImportDialogState extends State<ImportDialog> {
                 final fileName = p.basename(fileEntity.path);
                 final part = _extractPart(fileName);
                 if (part != null &&
-                    kImageExtensions.contains(p.extension(fileName).toLowerCase())) {
+                    kImageExtensions
+                        .contains(p.extension(fileName).toLowerCase())) {
                   files.add(fileEntity.path);
                 }
               }
@@ -372,7 +385,8 @@ class _ImportDialogState extends State<ImportDialog> {
         final illustId = illusts.id;
 
         // 检查是否已存在（用于更新状态显示）
-        final existingIllust = await downloadStore.getDownloadedIllust(illustId);
+        final existingIllust =
+            await downloadStore.getDownloadedIllust(illustId);
         if (existingIllust != null) {
           illustInfo.isExisting = true;
         }
@@ -387,8 +401,10 @@ class _ImportDialogState extends State<ImportDialog> {
         });
 
         // 构建目标路径
-        final relativePath = DownloadDatabaseProvider.buildRelativePath(illusts);
-        final targetDir = Directory(p.join(downloadStore.downloadPath, relativePath));
+        final relativePath =
+            DownloadDatabaseProvider.buildRelativePath(illusts);
+        final targetDir =
+            Directory(p.join(downloadStore.downloadPath, relativePath));
         if (!await targetDir.exists()) {
           await targetDir.create(recursive: true);
         }
@@ -408,16 +424,20 @@ class _ImportDialogState extends State<ImportDialog> {
             if (part == null) continue;
 
             final extension = p.extension(fileName);
-            final targetFileName = DownloadDatabaseProvider.buildFileName(illusts.id, part);
-            final targetPath = p.join(targetDir.path, '$targetFileName$extension');
+            final targetFileName =
+                DownloadDatabaseProvider.buildFileName(illusts.id, part);
+            final targetPath =
+                p.join(targetDir.path, '$targetFileName$extension');
 
             // 检查文件或记录是否已存在
-            final isImageDownloaded = await downloadStore.dbProvider.isImageDownloaded(illustId, part);
+            final isImageDownloaded = await downloadStore.dbProvider
+                .isImageDownloaded(illustId, part);
             if (isImageDownloaded) {
               // 已存在，需要删除旧文件（可能后缀不同）
               try {
                 // 尝试找到旧文件路径（自动检测后缀）
-                final oldFilePath = await downloadStore.dbProvider.findImagePath(illustId, part);
+                final oldFilePath = await downloadStore.dbProvider
+                    .findImagePath(illustId, part);
                 if (oldFilePath != null) {
                   final oldFile = File(oldFilePath);
                   if (await oldFile.exists()) {
@@ -478,9 +498,11 @@ class _ImportDialogState extends State<ImportDialog> {
             }
 
             // 插入插画信息（如果不存在）
-            final existingIllust = await downloadStore.getDownloadedIllust(illusts.id);
+            final existingIllust =
+                await downloadStore.getDownloadedIllust(illusts.id);
             if (existingIllust == null) {
-              final downloadedIllust = DownloadedIllust.fromIllusts(illusts, relativePath);
+              final downloadedIllust =
+                  DownloadedIllust.fromIllusts(illusts, relativePath);
               await downloadStore.dbProvider.insertIllust(downloadedIllust);
             }
 
@@ -509,7 +531,8 @@ class _ImportDialogState extends State<ImportDialog> {
           } catch (e) {
             // 单个文件导入失败，继续下一个
           }
-          Log.d('import file ${sourceFile} completed in ${DateTime.now().difference(t1).inMilliseconds}ms');
+          Log.d(
+              'import file ${sourceFile} completed in ${DateTime.now().difference(t1).inMilliseconds}ms');
         }
 
         // 更新作者统计
@@ -706,7 +729,8 @@ class _ImportDialogState extends State<ImportDialog> {
                     decoration: InputDecoration(
                       hintText: '10',
                       border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                      contentPadding:
+                          EdgeInsets.symmetric(horizontal: 8, vertical: 12),
                     ),
                   ),
                 ),
@@ -782,27 +806,38 @@ class _ImportDialogState extends State<ImportDialog> {
 
                         final illusts = illust.illusts!;
                         final progress = _importProgress[illusts.id];
+                        final isPageComplete = illust.sourceFiles.length == illusts.pageCount;
 
                         return Card(
                           margin: EdgeInsets.symmetric(vertical: 4),
                           child: ListTile(
-                            leading: illust.isExisting ? Icon(Icons.info, color: Colors.orange) : Icon(Icons.image),
-                            title: SelectableText('#$index, ${illusts.id} ${illusts.title}'),
+                            leading: illust.isExisting
+                                ? Icon(Icons.info, color: Colors.orange)
+                                : Icon(Icons.image),
+                            title: SelectableText(
+                                '#$index, ${illusts.id} ${illusts.title}'),
                             subtitle: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text('作者: ${illusts.user.name}'),
-                                Text('文件数: ${illust.sourceFiles.length}'),
+                                Text(
+                                  '文件数: ${illust.sourceFiles.length}/${illusts.pageCount}',
+                                  style: !isPageComplete ? TextStyle(color: Colors.red) : null,
+                                ),
                                 if (illust.isExisting)
-                                  Text('状态: 已存在（将替换）', style: TextStyle(color: Colors.orange[700])),
+                                  Text('状态: 已存在（将替换）',
+                                      style:
+                                          TextStyle(color: Colors.orange[700])),
                                 if (progress != null)
                                   Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       SizedBox(height: 4),
                                       LinearProgressIndicator(
                                         value: progress.total > 0
-                                            ? progress.completed / progress.total
+                                            ? progress.completed /
+                                                progress.total
                                             : 0,
                                       ),
                                       Text(
@@ -823,7 +858,8 @@ class _ImportDialogState extends State<ImportDialog> {
       ),
       actions: [
         TextButton(
-          onPressed: _isImporting ? null : () => Navigator.of(context).pop(false),
+          onPressed:
+              _isImporting ? null : () => Navigator.of(context).pop(false),
           child: Text(I18n.of(context).cancel),
         ),
         if (_isImporting)
@@ -886,4 +922,3 @@ enum ImportMode {
   directory, // 目录模式：扫描子目录
   flat, // 平铺模式：直接扫描目录下的图片文件
 }
-
