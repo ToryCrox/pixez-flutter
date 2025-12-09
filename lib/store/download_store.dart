@@ -841,7 +841,7 @@ abstract class _DownloadStoreBase with Store {
     _runningTask.remove(task.taskKey);
     _processQueue();
     await refreshCount();
-    //pixivCacheManager.removeFile(task.url);
+    pixivCacheManager.removeFile(task.url);
   }
 
   Future<void> _onDownloadFailed(DownloadTask task, String error) async {
