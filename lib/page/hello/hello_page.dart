@@ -149,6 +149,8 @@ class _HelloPageState extends State<HelloPage> {
     }
     return LayoutBuilder(builder: (context, constraints) {
       final wide = constraints.maxWidth > constraints.maxHeight;
+      final list = wide ? _wideLists : _lists;
+      index = index.clamp(0, list.length - 1);
       return WideScreenNavigator(
         isWideScreen: wide,
         contentNavigatorKey: wide ? _contentNavigatorKey : null,
