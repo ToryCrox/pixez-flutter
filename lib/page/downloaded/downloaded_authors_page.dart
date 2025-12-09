@@ -22,7 +22,6 @@ import 'package:pixez/er/prefer.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/models/download_record.dart';
 import 'package:pixez/page/downloaded/downloaded_page.dart';
-import 'package:waterfall_flow/waterfall_flow.dart';
 
 enum AuthorSortType {
   lastDownloadTime, // 最新下载
@@ -33,6 +32,7 @@ enum AuthorSortType {
 // SharedPreferences 键名
 const String _DOWNLOADED_AUTHORS_SORT_TYPE_KEY = 'downloaded_authors_sort_type';
 const String _DOWNLOADED_AUTHORS_SHOW_LATEST_PUBLISHED_KEY = 'downloaded_authors_show_latest_published';
+const String _DOWNLOADED_AUTHORS_SORT_DESC_KEY = 'downloaded_authors_sort_desc';
 
 class DownloadedAuthorsPage extends StatefulWidget {
   const DownloadedAuthorsPage({Key? key}) : super(key: key);
@@ -50,6 +50,7 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
 
   List<DownloadedAuthor> _authors = [];
   AuthorSortType _sortType = AuthorSortType.lastDownloadTime;
+  bool _sortDesc = true; // true=倒序，false=正序
   bool _loading = false;
   bool _hasMore = true;
   int _page = 0;
@@ -82,6 +83,11 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
     final showLatestPublished = Prefer.getBool(_DOWNLOADED_AUTHORS_SHOW_LATEST_PUBLISHED_KEY);
     if (showLatestPublished != null) {
       _showLatestPublished = showLatestPublished;
+    }
+    
+    final sortDesc = Prefer.getBool(_DOWNLOADED_AUTHORS_SORT_DESC_KEY);
+    if (sortDesc != null) {
+      _sortDesc = sortDesc;
     }
   }
 
@@ -125,7 +131,7 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
     try {
       final authors = await downloadStore.getDownloadedAuthors(
         sortBy: _getSortBy(),
-        desc: _sortType != AuthorSortType.userName,
+        desc: _sortDesc,
         limit: _pageSize,
         offset: _page * _pageSize,
       );
@@ -169,6 +175,15 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
     });
     // 持久化排序类型
     Prefer.setInt(_DOWNLOADED_AUTHORS_SORT_TYPE_KEY, newSortType.index);
+    _loadData(refresh: true);
+  }
+
+  void _onSortOrderChanged(bool desc) {
+    setState(() {
+      _sortDesc = desc;
+    });
+    // 持久化排序顺序
+    Prefer.setBool(_DOWNLOADED_AUTHORS_SORT_DESC_KEY, desc);
     _loadData(refresh: true);
   }
 
@@ -278,7 +293,7 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
                 controller: _scrollController,
                 slivers: [
                   SliverPersistentHeader(
-                    key: ValueKey('sort_header_${_sortType}_$_showLatestPublished'),
+                    key: ValueKey('sort_header_${_sortType}_${_showLatestPublished}_${_sortDesc}'),
                     delegate: SliverChipDelegate(
                       Container(
                         alignment: Alignment.center,
@@ -297,13 +312,20 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
                                 initIndex: _sortType.index,
                               ),
                             ),
-                            // 右侧显示模式按钮
+                            // 右侧显示排序方向和显示模式按钮
                             Positioned(
                               right: 8,
                               top: 0,
                               bottom: 0,
                               child: Center(
-                                child: _buildDisplayModeButton(),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    _buildSortOrderButton(),
+                                    SizedBox(width: 16),
+                                    _buildDisplayModeButton(),
+                                  ],
+                                ),
                               ),
                             ),
                           ],
@@ -322,6 +344,26 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
                     child: Text('暂无数据'),
                   ),
       ),
+    );
+  }
+
+  Widget _buildSortOrderButton() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          _sortDesc ? '倒序' : '正序',
+          style: TextStyle(
+            fontSize: 14,
+            color: Theme.of(context).colorScheme.onSurface,
+          ),
+        ),
+        SizedBox(width: 8),
+        Switch(
+          value: _sortDesc,
+          onChanged: _onSortOrderChanged,
+        ),
+      ],
     );
   }
 
