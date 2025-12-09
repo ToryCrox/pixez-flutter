@@ -52,6 +52,7 @@ import 'package:pixez/page/zoom/photo_zoom_page.dart';
 import 'package:pixez/supportor_plugin.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:pixez/component/local_or_cached_image.dart';
+import 'package:pixez/custom/image_cache_manager.dart';
 
 class IllustLightingPage extends StatefulWidget {
   final int id;
@@ -72,6 +73,20 @@ class IllustLightingPage extends StatefulWidget {
 }
 
 class _IllustLightingPageState extends State<IllustLightingPage> {
+  @override
+  void initState() {
+    super.initState();
+    // 进入详情页时增加缓存大小
+    imageCacheManager.enterDetailPage();
+  }
+
+  @override
+  void dispose() {
+    // 退出详情页时减少缓存大小
+    imageCacheManager.exitDetailPage();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     switch (userSetting.padMode) {

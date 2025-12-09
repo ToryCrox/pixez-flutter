@@ -18,7 +18,7 @@ import 'package:pixez/models/illust.dart';
 
 part 'recommend.g.dart';
 
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 class Recommend {
   List<Illusts> illusts;
   @JsonKey(name: 'ranking_illusts')

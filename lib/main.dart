@@ -47,6 +47,7 @@ import 'package:pixez/store/tag_history_store.dart';
 import 'package:pixez/store/top_store.dart';
 import 'package:pixez/store/user_setting.dart';
 import 'package:pixez/page/task/pending_download_dialog.dart';
+import 'package:pixez/custom/image_cache_manager.dart';
 import 'package:rhttp/rhttp.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:window_manager/window_manager.dart';
@@ -217,6 +218,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     accountStore.fetch();
     bookTagStore.init();
     muteStore.init();
+    // 初始化图片缓存管理器，设置默认缓存大小为240MB
+    imageCacheManager.initialize();
     _initDownloadStore();
 
     super.initState();
