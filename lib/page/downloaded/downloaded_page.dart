@@ -401,7 +401,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(_filterUserName ?? I18n.of(context).history),
+        title: Text(_filterUserName ?? '已下载'),
         actions: [
           IconButton(
             icon: Icon(Icons.upload_file),

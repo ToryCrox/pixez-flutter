@@ -84,7 +84,7 @@ class _DownloadedAuthorCardState extends State<DownloadedAuthorCard> {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: () {
-        Navigator.of(context, rootNavigator: true).push(
+        Navigator.of(context).push(
           MaterialPageRoute(
             builder: (context) => DownloadedPage(
               initialUserId: widget.author.userId,

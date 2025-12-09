@@ -187,6 +187,7 @@ class _HelloPageState extends State<HelloPage> {
         children: [
           NavigationRail(
             selectedIndex: index,
+            minWidth: 48,
             labelType: NavigationRailLabelType.all,
             onDestinationSelected: (int index) {
               // 如果右侧 Navigator 有子页面，先清除栈回到主页面
