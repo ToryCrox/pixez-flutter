@@ -136,6 +136,7 @@ class UpdateIllustInfoDialog extends StatefulWidget {
 class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
   List<UpdateIllustInfo> _updateInfos = [];
   bool _isScanning = false; // 是否正在扫描
+  bool _isPaused = false; // 是否已暂停
   bool _isUpdating = false;
   int _scannedCount = 0;
   int _totalCount = 0;
@@ -159,6 +160,7 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
   Future<void> _scanIllusts() async {
     setState(() {
       _isScanning = true;
+      _isPaused = false;
       _scannedCount = 0;
       // 重置所有作品的扫描状态
       for (var info in _updateInfos) {
@@ -169,6 +171,12 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
     });
 
     for (int i = 0; i < widget.illusts.length; i++) {
+      if (!mounted) return;
+
+      // 检查是否暂停，如果暂停则等待
+      while (_isPaused && mounted) {
+        await Future.delayed(Duration(milliseconds: 100));
+      }
       if (!mounted) return;
 
       final illust = widget.illusts[i];
@@ -202,6 +210,12 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
       }
 
       for (int j = 0; j < images.length; j++) {
+        if (!mounted) return;
+        
+        // 检查是否暂停，如果暂停则等待
+        while (_isPaused && mounted) {
+          await Future.delayed(Duration(milliseconds: 100));
+        }
         if (!mounted) return;
         
         final image = images[j];
@@ -286,6 +300,18 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
     }
   }
 
+  void _pauseScan() {
+    setState(() {
+      _isPaused = true;
+    });
+  }
+
+  void _resumeScan() {
+    setState(() {
+      _isPaused = false;
+    });
+  }
+
   static Size? _parseImageSizeSync(String filePath) {
     try {
       final file = File(filePath);
@@ -309,7 +335,10 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
       for (final updateInfo in _updateInfos) {
         if (!mounted) return;
 
-        // 只更新有变化的
+        // 只更新已扫描完成且有变化的（暂停状态下可以更新已扫描完成的）
+        if (updateInfo.isScanning) {
+          continue; // 跳过正在扫描的作品
+        }
         if (!updateInfo.hasChanges && !updateInfo.hasBroken) {
           continue;
         }
@@ -394,8 +423,10 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
           ),
         );
 
-        // 重新扫描以更新显示
-        await _scanIllusts();
+        // 如果不在扫描状态，重新扫描以更新显示
+        if (!_isScanning) {
+          await _scanIllusts();
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -534,10 +565,34 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
                   if (_isScanning) ...[
                     Text('扫描中: $_scannedCount / $_totalCount'),
                     SizedBox(width: 16),
+                    if (_isPaused) ...[
+                      ElevatedButton.icon(
+                        onPressed: _isUpdating ? null : _resumeScan,
+                        icon: Icon(Icons.play_arrow),
+                        label: Text('继续'),
+                      ),
+                      SizedBox(width: 8),
+                    ] else ...[
+                      ElevatedButton.icon(
+                        onPressed: _isUpdating ? null : _pauseScan,
+                        icon: Icon(Icons.pause),
+                        label: Text('暂停'),
+                      ),
+                      SizedBox(width: 8),
+                    ],
                     SizedBox(
                       width: 16,
                       height: 16,
                       child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    SizedBox(width: 8),
+                    // 暂停状态下可以更新已扫描的内容
+                    ElevatedButton(
+                      onPressed: _isUpdating ||
+                              _updateInfos.every((e) => e.isScanning || (!e.hasChanges && !e.hasBroken))
+                          ? null
+                          : _performUpdate,
+                      child: Text('更新已扫描'),
                     ),
                   ] else ...[
                     ElevatedButton.icon(
@@ -646,7 +701,7 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '[${info.illust.id}] ${info.illust.title}',
+                    '[${info.illust.illustId}] ${info.illust.title}',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,

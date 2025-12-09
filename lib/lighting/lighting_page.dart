@@ -250,8 +250,10 @@ class _LightingListState extends State<LightingList> {
       onNotification: (ScrollNotification notification) {
         ScrollMetrics metrics = notification.metrics;
         if (backToTopVisible == metrics.atEdge && mounted) {
-          setState(() {
-            backToTopVisible = !backToTopVisible;
+          WidgetsBinding.instance.addPostFrameCallback((t) {
+            setState(() {
+              backToTopVisible = !backToTopVisible;
+            });
           });
         }
         return true;

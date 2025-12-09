@@ -693,6 +693,33 @@ class _DownloadedPageState extends State<DownloadedPage> {
                 fit: StackFit.expand,
                 children: [
                   _buildThumbnail(illust),
+                  // 打开文件夹按钮
+                  Positioned(
+                    top: 4,
+                    left: 4,
+                    child: Material(
+                      color: Colors.black54,
+                      borderRadius: BorderRadius.circular(20),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(20),
+                        onTap: () async {
+                          final dirPath = p.join(
+                            downloadStore.downloadPath,
+                            illust.relativePath,
+                          );
+                          await OpenFile.open(dirPath);
+                        },
+                        child: Container(
+                          padding: EdgeInsets.all(6),
+                          child: Icon(
+                            Icons.folder_open,
+                            color: Colors.white,
+                            size: 18,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                   if (isDownloading)
                     Positioned.fill(
                       child: Container(
