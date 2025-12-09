@@ -28,6 +28,7 @@ import 'package:pixez/models/download_record.dart';
 import 'package:pixez/page/picture/illust_lighting_page.dart';
 import 'package:pixez/page/downloaded/downloaded_authors_page.dart';
 import 'package:pixez/page/downloaded/import_dialog.dart';
+import 'package:pixez/page/downloaded/update_illust_info_dialog.dart';
 import 'package:pixez/store/download_store.dart';
 import 'package:pixez/component/sort_group.dart';
 import 'package:pixez/er/prefer.dart';
@@ -433,6 +434,9 @@ class _DownloadedPageState extends State<DownloadedPage> {
                 case 'filter_completed':
                   setState(() => _downloadFilter = DownloadFilter.completed);
                   break;
+                case 'update_info':
+                  _showUpdateIllustInfoDialog();
+                  break;
                 case 'pause_all':
                   _pauseAll();
                   break;
@@ -505,6 +509,17 @@ class _DownloadedPageState extends State<DownloadedPage> {
                             size: 16,
                             color: Theme.of(context).colorScheme.primary),
                       ),
+                  ],
+                ),
+              ),
+              PopupMenuDivider(),
+              PopupMenuItem(
+                value: 'update_info',
+                child: Row(
+                  children: [
+                    Icon(Icons.update),
+                    SizedBox(width: 8),
+                    Text('更新插画信息'),
                   ],
                 ),
               ),
@@ -934,6 +949,25 @@ class _DownloadedPageState extends State<DownloadedPage> {
         PopupMenuItem(
           child: Row(
             children: [
+              Icon(Icons.update),
+              SizedBox(width: 8),
+              Text('更新插画信息'),
+            ],
+          ),
+          onTap: () async {
+            Navigator.pop(context);
+            await showDialog(
+              context: context,
+              builder: (context) => UpdateIllustInfoDialog(
+                illusts: [illust],
+              ),
+            );
+            _loadData();
+          },
+        ),
+        PopupMenuItem(
+          child: Row(
+            children: [
               Icon(Icons.delete, color: Colors.red),
               SizedBox(width: 8),
               Text(
@@ -986,6 +1020,38 @@ class _DownloadedPageState extends State<DownloadedPage> {
     if (result == true) {
       _loadData();
     }
+  }
+
+  void _showUpdateIllustInfoDialog() async {
+    List<DownloadedIllust> illustsToUpdate;
+    
+    // 如果处于作者筛选条件下，获取所有作者的作品
+    if (_filterUserId != null) {
+      // 获取所有作者的作品（不限制数量）
+      illustsToUpdate = await downloadStore.getDownloadedByUser(
+        _filterUserId!,
+        limit: null,
+        offset: 0,
+      );
+    } else {
+      // 否则更新当前页面加载的作品
+      illustsToUpdate = List.from(_illusts);
+    }
+
+    if (illustsToUpdate.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('没有需要更新的作品')),
+      );
+      return;
+    }
+
+    await showDialog(
+      context: context,
+      builder: (context) => UpdateIllustInfoDialog(illusts: illustsToUpdate),
+    );
+
+    // 更新完成后刷新数据
+    _loadData();
   }
 
   void _showIllustOptions(DownloadedIllust illust) {
@@ -1052,6 +1118,20 @@ class _DownloadedPageState extends State<DownloadedPage> {
                     downloadStore.resumeIllustDownload(illust.illustId);
                   },
                 ),
+              ListTile(
+                leading: Icon(Icons.update),
+                title: Text('更新插画信息'),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  await showDialog(
+                    context: context,
+                    builder: (context) => UpdateIllustInfoDialog(
+                      illusts: [illust],
+                    ),
+                  );
+                  _loadData();
+                },
+              ),
               ListTile(
                 leading: Icon(Icons.delete, color: Colors.red),
                 title: Text(

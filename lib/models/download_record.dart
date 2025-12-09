@@ -852,7 +852,7 @@ class DownloadDatabaseProvider {
   }
 
   /// 根据图片记录查找实际存在的文件路径（自动检测后缀名）
-  Future<String?> _findImagePathForImage(DownloadedImage image) async {
+  Future<String?> _findImagePathForImage(DownloadedImage image, {bool update = true}) async {
     final basePath = path.join(_basePath!, image.relativePath, image.fileName);
 
     // 首先尝试数据库中记录的后缀（最常见的情况）
@@ -875,11 +875,14 @@ class DownloadDatabaseProvider {
     for (int i = 0; i < results.length; i++) {
       if (results[i] != null) {
         final foundPath = results[i]!;
-        // 更新数据库中的后缀名（异步执行，不阻塞返回）
-        updateImageExtension(image.illustId, image.part, otherExtensions[i]).catchError((e) {
-          Log.e('Failed to update image extension: $e');
-          return 0; // 返回默认值以满足 catchError 的要求
-        });
+        if (update){
+          // 更新数据库中的后缀名（异步执行，不阻塞返回）
+          updateImageExtension(image.illustId, image.part, otherExtensions[i]).catchError((e) {
+            Log.e('Failed to update image extension: $e');
+            return 0; // 返回默认值以满足 catchError 的要求
+          });
+        }
+        
         return foundPath;
       }
     }
@@ -1004,10 +1007,10 @@ class DownloadDatabaseProvider {
   }
 
   /// 尝试找到图片文件（自动检测后缀名）
-  Future<String?> findImagePath(int illustId, int part) async {
+  Future<String?> findImagePath(int illustId, int part, {bool update = true}) async {
     final image = await getImage(illustId, part);
     if (image == null) return null;
-    return await _findImagePathForImage(image);
+    return await _findImagePathForImage(image, update: update);
   }
 
   Future<LocalImageInfo?> getLocalImageInfoByUrl(String url) async {

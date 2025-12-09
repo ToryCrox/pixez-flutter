@@ -287,8 +287,8 @@ abstract class _DownloadStoreBase with Store {
     return await _dbProvider.getIllustByIllustId(illustId);
   }
 
-  Future<String?> getLocalImagePath(int illustId, int part) async {
-    return await _dbProvider.findImagePath(illustId, part);
+  Future<String?> getLocalImagePath(int illustId, int part, {bool update = true}) async {
+    return await _dbProvider.findImagePath(illustId, part, update: update);
   }
 
   /// 获取本地图片信息（包含宽高）
