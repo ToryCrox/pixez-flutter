@@ -70,17 +70,55 @@ class _IllustRowPageState extends State<IllustRowPage>
   late IllustStore _illustStore;
   late IllustAboutStore _aboutStore;
   late ScrollController _scrollController;
+  late ScrollController _photoScrollController;
   late EasyRefreshController _refreshController;
+  late FocusNode _focusNode;
   bool tempView = false;
+  int _currentPage = 0;
+  int _totalPages = 1;
+  double? _itemHeight; // 存储每页高度，避免在滚动监听器中访问 context
+  
   @override
   void initState() {
     _refreshController = EasyRefreshController(
         controlFinishLoad: true, controlFinishRefresh: true);
     _scrollController = ScrollController();
+    _photoScrollController = ScrollController();
+    _focusNode = FocusNode();
+    _photoScrollController.addListener(_onPhotoScroll);
     _illustStore = widget.store ?? IllustStore(widget.id, null);
     _illustStore.fetch(force: true);
     _aboutStore = IllustAboutStore(widget.id, _refreshController);
     super.initState();
+  }
+  
+  void _onPhotoScroll() {
+    if (!_photoScrollController.hasClients || _itemHeight == null) return;
+    
+    final illusts = _illustStore.illusts;
+    if (illusts == null || illusts.pageCount <= 1) {
+      if (_currentPage != 0 || _totalPages != 1) {
+        setState(() {
+          _currentPage = 0;
+          _totalPages = 1;
+        });
+      }
+      return;
+    }
+    
+    _totalPages = illusts.pageCount;
+    final scrollOffset = _photoScrollController.offset;
+    final viewportHeight = _photoScrollController.position.viewportDimension;
+    
+    // 计算当前页数（基于滚动位置和视口中心）
+    int newPage = ((scrollOffset + viewportHeight / 2) / _itemHeight!).floor();
+    newPage = newPage.clamp(0, _totalPages - 1);
+    
+    if (newPage != _currentPage) {
+      setState(() {
+        _currentPage = newPage;
+      });
+    }
   }
 
   @override
@@ -105,6 +143,9 @@ class _IllustRowPageState extends State<IllustRowPage>
   void dispose() {
     _illustStore.dispose();
     _scrollController.dispose();
+    _photoScrollController.removeListener(_onPhotoScroll);
+    _photoScrollController.dispose();
+    _focusNode.dispose();
     _refreshController.dispose();
     super.dispose();
   }
@@ -256,6 +297,18 @@ class _IllustRowPageState extends State<IllustRowPage>
         FocusManager.instance.primaryFocus?.unfocus();
       },
       child: Observer(builder: (context) {
+        // 更新总页数和计算每页高度
+        if (data.pageCount > 1) {
+          _totalPages = data.pageCount;
+          // 计算每页高度
+          final radio = (data.height.toDouble() / data.width);
+          _itemHeight = radio * expectWidth;
+        } else {
+          _totalPages = 1;
+          _currentPage = 0;
+          _itemHeight = null;
+        }
+        
         return Container(
           child: Stack(
             children: [
@@ -263,13 +316,21 @@ class _IllustRowPageState extends State<IllustRowPage>
                 children: [
                   Container(
                     width: expectWidth,
-                    child: CustomScrollView(slivers: [
-                      ..._buildPhotoList(data, centerType, height),
-                      SliverToBoxAdapter(
-                          child: Container(
-                        height: MediaQuery.of(context).padding.bottom,
-                      ))
-                    ]),
+                    child: Focus(
+                      focusNode: _focusNode,
+                      autofocus: true,
+                      onKeyEvent: _handleKeyEvent,
+                      child: CustomScrollView(
+                        controller: _photoScrollController,
+                        slivers: [
+                          ..._buildPhotoList(data, centerType, height),
+                          SliverToBoxAdapter(
+                              child: Container(
+                            height: MediaQuery.of(context).padding.bottom,
+                          ))
+                        ],
+                      ),
+                    ),
                   ),
                   Expanded(
                     child: Container(
@@ -319,11 +380,77 @@ class _IllustRowPageState extends State<IllustRowPage>
                   ),
                 ),
                 Spacer()
-              ])
+              ]),
+              // 页数指示器
+              if (data.pageCount > 1)
+                Positioned(
+                  bottom: 20,
+                  left: 10,
+                  child: Observer(
+                    builder: (_) => _buildPageIndicator(),
+                  ),
+                ),
             ],
           ),
         );
       }),
+    );
+  }
+  
+  KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is KeyDownEvent) {
+      if (event.logicalKey == LogicalKeyboardKey.arrowUp ||
+          event.logicalKey == LogicalKeyboardKey.arrowDown) {
+        if (!_photoScrollController.hasClients) return KeyEventResult.ignored;
+        
+        final position = _photoScrollController.position;
+        final viewportHeight = position.viewportDimension;
+        final scrollDistance = viewportHeight * 0.75; // 滚动视口高度的 3/4
+        final currentOffset = position.pixels;
+        double targetOffset;
+        
+        if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+          // 向上滚动
+          targetOffset = (currentOffset - scrollDistance).clamp(0.0, position.maxScrollExtent);
+        } else {
+          // 向下滚动
+          targetOffset = (currentOffset + scrollDistance).clamp(0.0, position.maxScrollExtent);
+        }
+        
+        if (targetOffset != currentOffset) {
+          _scrollToOffset(targetOffset);
+          return KeyEventResult.handled;
+        }
+      }
+    }
+    return KeyEventResult.ignored;
+  }
+  
+  void _scrollToOffset(double offset) {
+    if (!_photoScrollController.hasClients) return;
+    
+    _photoScrollController.animateTo(
+      offset,
+      duration: Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
+  }
+  
+  Widget _buildPageIndicator() {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.6),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        '${_currentPage + 1} / $_totalPages',
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
     );
   }
 

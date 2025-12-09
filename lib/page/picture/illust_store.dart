@@ -244,6 +244,9 @@ abstract class _IllustStoreBase with Store {
     }
     if (infos.isNotEmpty) {
       localImageInfos.addAll(infos);
+      if (illusts != null) {
+        downloadStore.dbProvider.updateAuthorStats(illusts!.user.id);
+      }
     }
   }
 
