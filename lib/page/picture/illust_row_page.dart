@@ -78,7 +78,7 @@ class _IllustRowPageState extends State<IllustRowPage>
         controlFinishLoad: true, controlFinishRefresh: true);
     _scrollController = ScrollController();
     _illustStore = widget.store ?? IllustStore(widget.id, null);
-    _illustStore.fetch();
+    _illustStore.fetch(force: true);
     _aboutStore = IllustAboutStore(widget.id, _refreshController);
     super.initState();
   }

@@ -97,26 +97,47 @@ abstract class _IllustStoreBase with Store {
   }
 
   @action
-  fetch() async {
+  Future<void> fetch({bool force = false}) async {
     errorMessage = null;
 
     await _loadLocalImageInfos();
-    // 1. 尝试从缓存加载
-    final cacheKey = 'illust_detail_$id';
-    final cachedData = await DiskCache.readModel(
-      cacheKey,
-      (map) => Illusts.fromJson(map),
-    );
-
-    if (cachedData != null) {
-      // 立即加载本地图片信息
-      illusts = cachedData;
-      isBookmark = illusts!.isBookmarked;
-      state = illusts?.isBookmarked ?? isBookmark ? 2 : 0;
+    
+    // 1. 优先从数据库查询已下载的 illust（如果已下载）
+    bool isDownloaded = false;
+    Illusts? originalIllusts; // 保存从数据库加载的原始 illusts，用于对比
+    if (downloadStore.isInitialized) {
+      final downloadedIllust = await downloadStore.getDownloadedIllust(id);
+      if (downloadedIllust != null) {
+        Log.d('已下载的 illust: ${downloadedIllust.illustId}');
+        try {
+          illusts = downloadedIllust.toIllusts();
+          originalIllusts = illusts; // 保存原始数据用于对比
+          isBookmark = illusts!.isBookmarked;
+          state = illusts?.isBookmarked ?? isBookmark ? 2 : 0;
+          isDownloaded = true;
+        } catch (e) {
+          Log.e('从数据库恢复 illust 失败: $e');
+        }
+      }
     }
 
-    // 2. 加载网络数据
-    if (illusts == null ||
+    // 2. 如果数据库中没有，尝试从缓存加载
+    final cacheKey = 'illust_detail_$id';
+    if (illusts == null) {
+      final cachedData = await DiskCache.readModel(
+        cacheKey,
+        (map) => Illusts.fromJson(map),
+      );
+
+      if (cachedData != null) {
+        illusts = cachedData;
+        isBookmark = illusts!.isBookmarked;
+        state = illusts?.isBookmarked ?? isBookmark ? 2 : 0;
+      }
+    }
+
+    // 3. 如果仍然没有数据或需要更新（caption 为空），从网络加载
+    if (illusts == null || force ||
         illusts?.caption == null ||
         illusts?.caption.isEmpty == true) {
       final captionEmtpyCase = illusts != null && illusts!.caption.isEmpty;
@@ -131,8 +152,23 @@ abstract class _IllustStoreBase with Store {
         state = illusts?.isBookmarked ?? isBookmark ? 2 : 0;
         captionFetching = false;
 
-        // 3. 更新缓存
+        // 4. 更新缓存
         DiskCache.writeModel(cacheKey, illusts!.toJson());
+
+        Log.d('从网络加载 illust:${id} 成功');
+        // 5. 如果该 illust 已下载，对比数据是否有变化，有变化才更新数据库
+        if (isDownloaded && downloadStore.isInitialized && originalIllusts != null) {
+          if (illusts!.hasDataChanged(originalIllusts)) {
+            Log.d('已下载的 illust:${id} 数据有变化，更新数据库');
+            Log.d(()=> {
+              'illusts': illusts!.toJson(),
+              'originalIllusts': originalIllusts!.toJson(),
+            });
+            await downloadStore.updateDownloadedIllust(illusts!);
+          } else {
+            Log.d('已下载的 illust:${id} 数据未变化，无需更新');
+          }
+        }
       } on DioException catch (e) {
         captionFetching = false;
         if (captionEmtpyCase) {

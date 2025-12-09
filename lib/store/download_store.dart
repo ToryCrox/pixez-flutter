@@ -953,6 +953,50 @@ abstract class _DownloadStoreBase with Store {
     }
   }
 
+  /// 更新已下载的插画信息
+  Future<bool> updateDownloadedIllust(Illusts illusts) async {
+    if (!isInitialized) return false;
+
+    try {
+      final existingIllust = await _dbProvider.getIllustByIllustId(illusts.id);
+      if (existingIllust == null) {
+        return false;
+      }
+      Log.d(() => "更新已下载的插画信息: ${illusts.id}");
+
+      // 创建新的 DownloadedIllust（保留原有的 relativePath 和 downloadTime）
+      final newIllustJson = jsonEncode(illusts.toJson());
+      final newTags = jsonEncode(illusts.tags.map((t) => t.toJson()).toList());
+      final updatedIllust = DownloadedIllust(
+        id: existingIllust.id,
+        illustId: illusts.id,
+        userId: illusts.user.id,
+        userName: illusts.user.name,
+        title: illusts.title,
+        type: illusts.type,
+        caption: illusts.caption,
+        createDate: illusts.createDate,
+        pageCount: illusts.pageCount,
+        width: illusts.width,
+        height: illusts.height,
+        sanityLevel: illusts.sanityLevel,
+        xRestrict: illusts.xRestrict,
+        totalView: illusts.totalView,
+        totalBookmarks: illusts.totalBookmarks,
+        tags: newTags,
+        relativePath: existingIllust.relativePath,
+        downloadTime: existingIllust.downloadTime,
+        illustJson: newIllustJson,
+      );
+
+      await _dbProvider.updateIllust(updatedIllust);
+      return true;
+    } catch (e) {
+      Log.e('更新已下载的插画信息失败: $e');
+      return false;
+    }
+  }
+
   // 记录下载完成
   Future<void> _recordDownload(
     Illusts illusts,

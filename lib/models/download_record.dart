@@ -555,6 +555,16 @@ class DownloadDatabaseProvider {
     return null;
   }
 
+  /// 更新插画信息（保留原有的 downloadTime 和 relativePath）
+  Future<int> updateIllust(DownloadedIllust illust) async {
+    return await db.update(
+      DownloadedIllustColumns.tableName,
+      illust.toJson(),
+      where: '${DownloadedIllustColumns.illustId} = ?',
+      whereArgs: [illust.illustId],
+    );
+  }
+
   Future<bool> isIllustDownloaded(int illustId) async {
     final result = await getIllustByIllustId(illustId);
     return result != null;
