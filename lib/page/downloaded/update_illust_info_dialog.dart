@@ -39,6 +39,8 @@ class UpdateIllustInfo {
   bool isScanning = false; // 是否正在扫描
   int totalImageCount = 0; // 总图片数
   int scannedImageCount = 0; // 已扫描图片数
+  int totalSizeInDb = 0; // 数据库中记录的总大小
+  int totalSizeScanned = 0; // 实际扫描的总大小
   UpdateResultType get resultType {
     if (hasBroken) return UpdateResultType.broken;
     if (hasChanges) return UpdateResultType.changed;
@@ -51,6 +53,8 @@ class UpdateIllustInfo {
     this.isScanning = false,
     this.totalImageCount = 0,
     this.scannedImageCount = 0,
+    this.totalSizeInDb = 0,
+    this.totalSizeScanned = 0,
   }) {
     _updateFlags();
   }
@@ -63,6 +67,28 @@ class UpdateIllustInfo {
   void updateImageUpdates(List<ImageUpdateInfo> updates) {
     imageUpdates = updates;
     _updateFlags();
+    // 计算总大小
+    _calculateTotalSize();
+  }
+
+  void _calculateTotalSize() {
+    // 只更新 totalSizeScanned，totalSizeInDb 在扫描开始时已经设置
+    totalSizeScanned = 0;
+    for (var update in imageUpdates) {
+      if (update.newFileSize != null) {
+        totalSizeScanned += update.newFileSize!;
+      } else if (!update.isBroken) {
+        // 如果文件存在但没有扫描到大小，使用数据库中的大小
+        totalSizeScanned += update.originalImage.fileSize;
+      }
+    }
+    // 如果 totalSizeInDb 还没有设置（比如在扫描过程中），从 imageUpdates 计算
+    if (totalSizeInDb == 0 && imageUpdates.isNotEmpty) {
+      totalSizeInDb = 0;
+      for (var update in imageUpdates) {
+        totalSizeInDb += update.originalImage.fileSize;
+      }
+    }
   }
 
   void updateScanProgress(int total, int scanned) {
@@ -149,10 +175,17 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
       final imageUpdates = <ImageUpdateInfo>[];
       final images = await downloadStore.dbProvider.getImagesByIllustId(illust.illustId);
       
-      // 更新总图片数
+      // 先计算数据库中的总大小
+      int dbTotalSize = 0;
+      for (var image in images) {
+        dbTotalSize += image.fileSize;
+      }
+      
+      // 更新总图片数和数据库总大小
       if (mounted) {
         setState(() {
           _updateInfos[i].updateScanProgress(images.length, 0);
+          _updateInfos[i].totalSizeInDb = dbTotalSize;
         });
       }
 
@@ -645,6 +678,37 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
                       ],
                     ],
                   ),
+                  if (!isNotScanned && (info.totalSizeInDb > 0 || info.totalSizeScanned > 0 || (isScanning && info.totalImageCount > 0))) ...[
+                    SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Text(
+                          '总大小: ',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.black45,
+                          ),
+                        ),
+                        if (info.totalSizeInDb != info.totalSizeScanned)
+                          Text(
+                            '${info.totalSizeInDb.formatFileSize()} → ${info.totalSizeScanned.formatFileSize()}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.orange[700],
+                              fontWeight: FontWeight.w500,
+                            ),
+                          )
+                        else
+                          Text(
+                            '${info.totalSizeInDb.formatFileSize()}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -719,6 +783,37 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
                                   fontSize: 12,
                                   color: Colors.blue[700],
                                 ),
+                              ),
+                            ],
+                            if (!isNotScanned && (info.totalSizeInDb > 0 || info.totalSizeScanned > 0)) ...[
+                              SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  Text(
+                                    '总大小: ',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.black45,
+                                    ),
+                                  ),
+                                  if (info.totalSizeInDb != info.totalSizeScanned)
+                                    Text(
+                                      '${info.totalSizeInDb.formatFileSize()} → ${info.totalSizeScanned.formatFileSize()}',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.orange[700],
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    )
+                                  else
+                                    Text(
+                                      '${info.totalSizeInDb.formatFileSize()}',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey[600],
+                                      ),
+                                    ),
+                                ],
                               ),
                             ],
                           ],

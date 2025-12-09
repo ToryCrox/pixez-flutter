@@ -955,7 +955,6 @@ class _DownloadedPageState extends State<DownloadedPage> {
             ],
           ),
           onTap: () async {
-            Navigator.pop(context);
             await showDialog(
               context: context,
               builder: (context) => UpdateIllustInfoDialog(
