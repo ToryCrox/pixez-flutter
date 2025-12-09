@@ -54,6 +54,15 @@ class _DownloadedAuthorCardState extends State<DownloadedAuthorCard> {
     super.initState();
     _loadImageStats();
   }
+  
+  @override
+  void didUpdateWidget(DownloadedAuthorCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.author.userId != widget.author.userId) {
+      _loadImageStats();
+    }
+  }
+
 
   Future<void> _loadImageStats() async {
     if (!downloadStore.isInitialized) return;
@@ -86,14 +95,11 @@ class _DownloadedAuthorCardState extends State<DownloadedAuthorCard> {
       },
       child: Card(
         clipBehavior: Clip.antiAlias,
-        child: SizedBox(
-          height: 200, // 固定卡片高度：预览区域(120) + 作者信息区域(80)
-          child: Column(
-            children: [
-              _buildPreviewSection(context),
-              _buildAuthorInfo(context),
-            ],
-          ),
+        child: Column(
+          children: [
+            _buildPreviewSection(context),
+            _buildAuthorInfo(context),
+          ],
         ),
       ),
     );

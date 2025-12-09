@@ -511,10 +511,11 @@ packages:
   flutter_cache_manager:
     dependency: "direct main"
     description:
-      name: flutter_cache_manager
-      sha256: "400b6592f16a4409a7f2bb929a9a7e38c72cceb8ffb99ee57bbf2cb2cecf8386"
-      url: "https://pub.flutter-io.cn"
-    source: hosted
+      path: flutter_cache_manager
+      ref: "515cc9e"
+      resolved-ref: "515cc9e584ef9c8f5b4992e5c27b8661bbc8cb45"
+      url: "https://github.com/Baseflow/flutter_cache_manager.git"
+    source: git
     version: "3.4.1"
   flutter_cache_manager_dio:
     dependency: "direct main"

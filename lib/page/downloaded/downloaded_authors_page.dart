@@ -352,7 +352,7 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
   }
 
   Widget _buildList() {
-    return SliverWaterfallFlow(
+    return SliverGrid(
       delegate: SliverChildBuilderDelegate(
         (context, index) {
           if (index < _authors.length) {
@@ -379,8 +379,9 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
         },
         childCount: _authors.length,
       ),
-      gridDelegate: SliverWaterfallFlowDelegateWithMaxCrossAxisExtent(
+      gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
         maxCrossAxisExtent: 600,
+        mainAxisExtent: 210
       ),
     );
   }
