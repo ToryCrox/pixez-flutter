@@ -150,7 +150,7 @@ class _WindowFrameState extends State<WindowFrame> {
                             Expanded(
                               child: DragToMoveArea(
                                 child: Text(
-                                  'Pica Comic',
+                                  'Pixez',
                                   style: TextStyle(
                                     fontSize: 13,
                                     color: (windowFrameController.useDarkTheme ||
@@ -295,7 +295,7 @@ class __SideBarState extends State<_SideBar>
                     bottomRight: Radius.circular(8),
                   ),
                   child: SizedBox(
-                    width: 300,
+                    width: 200,
                     height: double.infinity,
                     child: Padding(
                       padding: const EdgeInsets.only(top: _kTitleBarHeight),
@@ -365,16 +365,6 @@ class _SideBarBody extends StatelessWidget {
             windowFrameController.openSideBar();
             Navigator.of(globalNavigatorKey.currentContext!).push(
               MaterialPageRoute(builder: (context) => DownloadedAuthorsPage()),
-            );
-          },
-        ),
-        buildItem(
-          icon: Icons.history,
-          title: '历史记录',
-          onTap: () {
-            windowFrameController.openSideBar();
-            Navigator.of(globalNavigatorKey.currentContext!).push(
-              MaterialPageRoute(builder: (context) => const HistoryPage()),
             );
           },
         ),
