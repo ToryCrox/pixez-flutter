@@ -17,6 +17,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:collection/collection.dart';
+import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/material.dart';
 import 'package:open_file/open_file.dart';
 import 'package:path/path.dart' as p;
@@ -30,6 +31,8 @@ import 'package:pixez/page/downloaded/downloaded_authors_page.dart';
 import 'package:pixez/page/downloaded/import_dialog.dart';
 import 'package:pixez/page/downloaded/update_illust_info_dialog.dart';
 import 'package:pixez/store/download_store.dart';
+import 'package:pixez/component/pixez_easy_refresh.dart';
+import 'package:pixez/component/pixez_default_header.dart';
 import 'package:pixez/component/sort_group.dart';
 import 'package:pixez/er/prefer.dart';
 
@@ -74,7 +77,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
   int? _filterUserId;
   String? _filterUserName;
   DownloadFilter _downloadFilter = DownloadFilter.all;
-  final ScrollController _scrollController = ScrollController();
+  late EasyRefreshController _easyRefreshController;
   Offset? _tapPosition;
   int _page = 0;
   static const int _pageSize = 50;
@@ -89,6 +92,10 @@ class _DownloadedPageState extends State<DownloadedPage> {
   @override
   void initState() {
     super.initState();
+    _easyRefreshController = EasyRefreshController(
+      controlFinishLoad: true,
+      controlFinishRefresh: true,
+    );
     // 如果传入了初始用户ID和用户名，则设置过滤条件
     if (widget.initialUserId != null) {
       _filterUserId = widget.initialUserId;
@@ -96,7 +103,6 @@ class _DownloadedPageState extends State<DownloadedPage> {
     }
     _loadPersistedState();
     _loadData();
-    _scrollController.addListener(_onScroll);
     _downloadStatusSubscription = downloadStore.illustDownloadStatusStream
         .listen(_onDownloadStatusChanged);
   }
@@ -116,7 +122,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
 
   @override
   void dispose() {
-    _scrollController.dispose();
+    _easyRefreshController.dispose();
     _downloadStatusSubscription?.cancel();
     super.dispose();
   }
@@ -171,10 +177,76 @@ class _DownloadedPageState extends State<DownloadedPage> {
     }
   }
 
-  void _onScroll() {
-    if (_scrollController.position.pixels >=
-        _scrollController.position.maxScrollExtent - 200) {
-      _loadMore();
+  Future<void> _loadMore() async {
+    if (_loadingMore || !_hasMore) {
+      _easyRefreshController.finishLoad(IndicatorResult.noMore);
+      return;
+    }
+
+    setState(() {
+      _loadingMore = true;
+    });
+
+    _page++;
+    final offset = _page * _pageSize;
+
+    try {
+      List<DownloadedIllust> moreIllusts;
+      final orderBy = _getSortBy();
+
+      if (_filterUserId != null) {
+        moreIllusts = await downloadStore.getDownloadedByUser(
+          _filterUserId!,
+          limit: _pageSize,
+          offset: offset,
+          orderBy: orderBy,
+        );
+      } else if (_searchKeyword != null && _searchKeyword!.isNotEmpty) {
+        moreIllusts = await downloadStore.searchDownloaded(
+          _searchKeyword!,
+          limit: _pageSize,
+          offset: offset,
+          orderBy: orderBy,
+        );
+      } else {
+        moreIllusts = await downloadStore.getAllDownloaded(
+          limit: _pageSize,
+          offset: offset,
+          orderBy: orderBy,
+        );
+      }
+
+      for (final illust in moreIllusts) {
+        _downloadedCounts[illust.illustId] =
+            await downloadStore.getDownloadedPageCount(illust.illustId);
+        final downloadStatus =
+            await downloadStore.getIllustDownloadStatus(illust.illustId);
+        if (downloadStatus != null) {
+          _illustDownloadStatus[illust.illustId] = downloadStatus.status;
+        }
+        _thumbnailPaths[illust.illustId] =
+            await downloadStore.getLocalImagePath(illust.illustId, 0);
+        _fileSizes[illust.illustId] =
+            await downloadStore.getIllustTotalFileSize(illust.illustId);
+      }
+
+      if (mounted) {
+        setState(() {
+          _illusts.addAll(moreIllusts);
+          _loadingMore = false;
+          _hasMore = moreIllusts.length >= _pageSize;
+        });
+        _easyRefreshController.finishLoad(
+          _hasMore ? IndicatorResult.success : IndicatorResult.noMore,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _loadingMore = false;
+        });
+        _easyRefreshController.finishLoad(IndicatorResult.fail);
+      }
     }
   }
 
@@ -268,71 +340,6 @@ class _DownloadedPageState extends State<DownloadedPage> {
     }
   }
 
-  Future<void> _loadMore() async {
-    if (_loadingMore || !_hasMore) return;
-
-    setState(() {
-      _loadingMore = true;
-    });
-
-    _page++;
-    final offset = _page * _pageSize;
-
-    try {
-      List<DownloadedIllust> moreIllusts;
-      final orderBy = _getSortBy();
-
-      if (_filterUserId != null) {
-        moreIllusts = await downloadStore.getDownloadedByUser(
-          _filterUserId!,
-          limit: _pageSize,
-          offset: offset,
-          orderBy: orderBy,
-        );
-      } else if (_searchKeyword != null && _searchKeyword!.isNotEmpty) {
-        moreIllusts = await downloadStore.searchDownloaded(
-          _searchKeyword!,
-          limit: _pageSize,
-          offset: offset,
-          orderBy: orderBy,
-        );
-      } else {
-        moreIllusts = await downloadStore.getAllDownloaded(
-          limit: _pageSize,
-          offset: offset,
-          orderBy: orderBy,
-        );
-      }
-
-      for (final illust in moreIllusts) {
-        _downloadedCounts[illust.illustId] =
-            await downloadStore.getDownloadedPageCount(illust.illustId);
-        final downloadStatus =
-            await downloadStore.getIllustDownloadStatus(illust.illustId);
-        if (downloadStatus != null) {
-          _illustDownloadStatus[illust.illustId] = downloadStatus.status;
-        }
-        _thumbnailPaths[illust.illustId] =
-            await downloadStore.getLocalImagePath(illust.illustId, 0);
-        _fileSizes[illust.illustId] =
-            await downloadStore.getIllustTotalFileSize(illust.illustId);
-      }
-
-      if (mounted) {
-        setState(() {
-          _illusts.addAll(moreIllusts);
-          _loadingMore = false;
-          _hasMore = moreIllusts.length >= _pageSize;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _loadingMore = false;
-        });
-      }
-    }
-  }
 
 
   List<DownloadedIllust> get _filteredIllusts {
@@ -552,11 +559,20 @@ class _DownloadedPageState extends State<DownloadedPage> {
           ? Center(child: CircularProgressIndicator())
           : _filteredIllusts.isEmpty
               ? _buildEmptyView()
-              : RefreshIndicator(
-                  onRefresh: _loadData,
-                  child: CustomScrollView(
-                    controller: _scrollController,
-                    slivers: [
+              : PixezEasyRefresh.builder(
+                  controller: _easyRefreshController,
+                  onRefresh: () async {
+                    await _loadData();
+                    _easyRefreshController.finishRefresh();
+                  },
+                  onLoad: _loadMore,
+                  header: PixezDefault.header(context),
+                  footer: PixezDefault.footer(context),
+                  childBuilder: (context, physics, scrollController) {
+                    return CustomScrollView(
+                      physics: physics,
+                      controller: scrollController,
+                      slivers: [
                       SliverPersistentHeader(
                         key: ValueKey('sort_header_${_sortType}_$_sortDesc'),
                         delegate: SliverChipDelegate(
@@ -595,8 +611,9 @@ class _DownloadedPageState extends State<DownloadedPage> {
                       ),
                       _buildGridView(),
                     ],
-                  ),
-                ),
+                  );
+                },
+              ),
     );
   }
 

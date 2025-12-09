@@ -17,6 +17,7 @@ import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/material.dart';
 import 'package:pixez/component/downloaded_author_card.dart';
 import 'package:pixez/component/pixez_default_header.dart';
+import 'package:pixez/component/pixez_easy_refresh.dart';
 import 'package:pixez/component/sort_group.dart';
 import 'package:pixez/er/prefer.dart';
 import 'package:pixez/main.dart';
@@ -42,11 +43,7 @@ class DownloadedAuthorsPage extends StatefulWidget {
 }
 
 class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
-  final EasyRefreshController _easyRefreshController = EasyRefreshController(
-    controlFinishLoad: true,
-    controlFinishRefresh: true,
-  );
-  final ScrollController _scrollController = ScrollController();
+  late EasyRefreshController _easyRefreshController;
 
   List<DownloadedAuthor> _authors = [];
   AuthorSortType _sortType = AuthorSortType.lastDownloadTime;
@@ -69,6 +66,10 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
   @override
   void initState() {
     super.initState();
+    _easyRefreshController = EasyRefreshController(
+      controlFinishLoad: true,
+      controlFinishRefresh: true,
+    );
     _loadPersistedState();
     _loadData();
   }
@@ -93,7 +94,6 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
 
   @override
   void dispose() {
-    _scrollController.dispose();
     _easyRefreshController.dispose();
     super.dispose();
   }
@@ -260,38 +260,30 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
           ),
         ],
       ),
-      body: EasyRefresh(
-        controller: _easyRefreshController,
-        header: PixezDefault.header(context),
-        footer: _hasMore
-            ? ClassicFooter(
-                dragText: '上拉加载',
-                armedText: '释放加载',
-                readyText: '加载中...',
-                processingText: '加载中...',
-                processedText: '加载完成',
-                noMoreText: '没有更多了',
-                failedText: '加载失败',
-              )
-            : null,
-        onRefresh: () async {
-          await _loadData(refresh: true);
-          _easyRefreshController.finishRefresh();
-        },
-        onLoad: _hasMore
-            ? () async {
-                await _loadMore();
-                _easyRefreshController.finishLoad(
-                  _hasMore
-                      ? IndicatorResult.success
-                      : IndicatorResult.noMore,
-                );
-              }
-            : null,
-        child: _authors.isNotEmpty
-            ? CustomScrollView(
-                controller: _scrollController,
-                slivers: [
+      body: _authors.isNotEmpty
+          ? PixezEasyRefresh.builder(
+              controller: _easyRefreshController,
+              onRefresh: () async {
+                await _loadData(refresh: true);
+                _easyRefreshController.finishRefresh();
+              },
+              onLoad: _hasMore
+                  ? () async {
+                      await _loadMore();
+                      _easyRefreshController.finishLoad(
+                        _hasMore
+                            ? IndicatorResult.success
+                            : IndicatorResult.noMore,
+                      );
+                    }
+                  : null,
+              header: PixezDefault.header(context),
+              footer: PixezDefault.footer(context),
+              childBuilder: (context, physics, scrollController) {
+                return CustomScrollView(
+                  physics: physics,
+                  controller: scrollController,
+                  slivers: [
                   SliverPersistentHeader(
                     key: ValueKey('sort_header_${_sortType}_${_showLatestPublished}_${_sortDesc}'),
                     delegate: SliverChipDelegate(
@@ -337,13 +329,14 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
                   ),
                   _buildList(),
                 ],
-              )
-            : _loading
-                ? Center(child: CircularProgressIndicator())
-                : Center(
-                    child: Text('暂无数据'),
-                  ),
-      ),
+              );
+            },
+          )
+          : _loading
+              ? Center(child: CircularProgressIndicator())
+              : Center(
+                  child: Text('暂无数据'),
+                ),
     );
   }
 

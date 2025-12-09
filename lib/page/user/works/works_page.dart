@@ -24,6 +24,7 @@ import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:pixez/component/illust_card.dart';
 import 'package:pixez/component/illust_card_grid.dart';
 import 'package:pixez/component/pixez_default_header.dart';
+import 'package:pixez/component/pixez_easy_refresh.dart';
 import 'package:pixez/component/sort_group.dart';
 import 'package:pixez/exts.dart';
 import 'package:pixez/i18n.dart';
@@ -126,13 +127,13 @@ class _WorksPageState extends State<WorksPage> {
         bottom: false,
         child: Builder(
           builder: (BuildContext context) {
-            return EasyRefresh.builder(
+            return PixezEasyRefresh.builder(
                 controller: _easyRefreshController,
-                onLoad: () {
-                  _store.fetchNext();
+                onLoad: () async {
+                  await _store.fetchNext();
                 },
-                onRefresh: () {
-                  _store.fetch(force: true);
+                onRefresh: () async {
+                  await _store.fetch(force: true);
                 },
                 header: PixezDefault.header(
                   context,
@@ -143,10 +144,13 @@ class _WorksPageState extends State<WorksPage> {
                   context,
                   position: IndicatorPosition.locator,
                 ),
-                childBuilder: (context, phy) {
+                childBuilder: (context, phy, scrollController) {
                   return Observer(builder: (_) {
+                    // PixezEasyRefresh 会自动处理 NestedScrollView 的情况
+                    // 如果在 NestedScrollView 中，scrollController 会是 null
                     return CustomScrollView(
                       physics: phy,
+                      controller: scrollController,
                       key: PageStorageKey<String>(widget.portal),
                       slivers: [
                         SliverPinnedOverlapInjector(
