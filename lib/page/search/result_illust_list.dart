@@ -17,15 +17,20 @@
 import 'dart:async';
 
 import 'package:bot_toast/bot_toast.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:pixez/er/prefer.dart';
 import 'package:pixez/i18n.dart';
 import 'package:pixez/lighting/lighting_page.dart';
 import 'package:pixez/lighting/lighting_store.dart';
 import 'package:pixez/main.dart';
+import 'package:pixez/models/illust.dart';
+import 'package:pixez/models/recommend.dart';
 import 'package:pixez/network/api_client.dart';
 import 'package:pixez/page/search/result_illust_store.dart';
 import 'package:pixez/page/search/suggest/search_suggestion_page.dart';
+
+import '../../custom/log.dart';
 
 class ResultIllustList extends StatefulWidget {
   final String word;
@@ -234,25 +239,74 @@ class _ResultIllustListState extends State<ResultIllustList> {
   }
 
   _changeQueryParams() {
-    if (_starValue == 0)
-      futureGet = ApiForceSource(
-          futureGet: (bool e) => apiClient.getSearchIllust(widget.word,
-              search_target: searchTarget,
-              sort: selectSort,
-              start_date: _dateTimeRange?.start,
-              end_date: _dateTimeRange?.end,
-              bookmark_num: _bookmarkNumList,
-              search_ai_type: searchAIType));
-    else
-      futureGet = ApiForceSource(
-          futureGet: (bool e) => apiClient.getSearchIllust(
-              '${widget.word} ${_starValue}users入り',
-              search_target: searchTarget,
-              sort: selectSort,
-              start_date: _dateTimeRange?.start,
-              end_date: _dateTimeRange?.end,
-              bookmark_num: _bookmarkNumList,
-              search_ai_type: searchAIType));
+    final searchWord = _starValue == 0
+        ? widget.word
+        : '${widget.word} ${_starValue}users入り';
+    
+    futureGet = ApiForceSource(
+        futureGet: (bool e) async {
+          // 1. 查询已下载的作品
+          List<Illusts> downloadedIllusts = [];
+          if (downloadStore.isInitialized) {
+            try {
+              final downloaded = await downloadStore.searchDownloaded(
+                searchWord,
+                limit: 50, // 限制已下载作品数量
+              );
+              // 转换为 Illusts 对象
+              downloadedIllusts = downloaded
+                  .map((d) => d.toIllusts())
+                  .toList();
+            } catch (e) {
+              // 如果查询失败，继续执行网络搜索
+              Log.e('查询已下载作品失败: $e');
+            }
+          }
+
+          // 2. 查询网络搜索结果
+          final networkResponse = await apiClient.getSearchIllust(
+            searchWord,
+            search_target: searchTarget,
+            sort: selectSort,
+            start_date: _dateTimeRange?.start,
+            end_date: _dateTimeRange?.end,
+            bookmark_num: _bookmarkNumList,
+            search_ai_type: searchAIType,
+          );
+
+          // 3. 解析网络搜索结果
+          final networkRecommend = Recommend.fromJson(networkResponse.data);
+          final networkIllusts = networkRecommend.illusts;
+
+          // 4. 合并结果：已下载的作品放在最前面，并去重（避免重复显示）
+          final downloadedIds = downloadedIllusts.map((e) => e.id).toSet();
+          final uniqueNetworkIllusts = networkIllusts
+              .where((e) => !downloadedIds.contains(e.id))
+              .toList();
+
+          final mergedIllusts = [
+            ...downloadedIllusts,
+            ...uniqueNetworkIllusts,
+          ];
+
+          // 5. 创建合并后的 Recommend 对象
+          final mergedRecommend = Recommend(
+            illusts: mergedIllusts,
+            nextUrl: networkRecommend.nextUrl,
+            rankingIllusts: networkRecommend.rankingIllusts,
+            contestExists: networkRecommend.contestExists,
+            privacyPolicy: networkRecommend.privacyPolicy,
+          );
+
+          // 6. 返回 Response 对象
+          return Response(
+            data: mergedRecommend.toJson(),
+            statusCode: networkResponse.statusCode,
+            statusMessage: networkResponse.statusMessage,
+            headers: networkResponse.headers,
+            requestOptions: networkResponse.requestOptions,
+          );
+        });
   }
 
   void _buildShowBottomSheet(BuildContext context) {
