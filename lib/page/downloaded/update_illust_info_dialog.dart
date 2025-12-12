@@ -169,9 +169,9 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
       _isScanning = true;
       _isPaused = false;
       _scannedCount = 0;
-      // 重置所有作品的扫描状态
+      // 重置所有作品的扫描状态，但不设置为正在扫描
       for (var info in _updateInfos) {
-        info.isScanning = true;
+        info.isScanning = false; // 初始状态为 false，只有开始扫描时才设置为 true
         info.updateImageUpdates([]);
         info.updateScanProgress(0, 0);
       }
@@ -185,6 +185,13 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
         await Future.delayed(Duration(milliseconds: 100));
       }
       if (!mounted) return;
+
+      // 开始扫描当前作品，设置扫描状态为 true
+      if (mounted) {
+        setState(() {
+          _updateInfos[i].isScanning = true;
+        });
+      }
 
       final illust = widget.illusts[i];
       final imageUpdates = <ImageUpdateInfo>[];
@@ -302,11 +309,9 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
     if (mounted) {
       setState(() {
         _isScanning = false;
-        // 扫描完成后，将没有关联图片的illust也标记为完成
+        // 扫描完成后，确保所有作品的扫描状态都被重置
         for (var info in _updateInfos) {
-          if (info.isScanning && info.totalImageCount == 0) {
-            info.isScanning = false;
-          }
+          info.isScanning = false;
         }
       });
     }
@@ -651,9 +656,13 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
     final isChanged = info.hasChanges;
     final isBroken = info.hasBroken;
     final isIncomplete = info.isIncomplete;
-    final isScanning = info.isScanning;
-    final isWaiting = !isScanning && info.imageUpdates.isEmpty && _scannedCount > 0;
-    final isNotScanned = !isScanning && info.imageUpdates.isEmpty && _scannedCount == 0;
+    // 只有当整个扫描过程在进行中，且该作品也在扫描中，且未暂停时，才认为是正在扫描
+    final isScanning = _isScanning && info.isScanning && !_isPaused;
+    // 如果扫描已暂停，且当前作品正在扫描中，显示为已暂停
+    final isPaused = _isPaused && info.isScanning;
+    // 如果扫描已开始但当前作品还未扫描，显示为等待中
+    final isWaiting = _isScanning && !info.isScanning && info.imageUpdates.isEmpty && !isPaused;
+    final isNotScanned = !_isScanning && !isScanning && info.imageUpdates.isEmpty && _scannedCount == 0;
     
     Color backgroundColor;
     Color borderColor;
@@ -664,13 +673,19 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
     if (isScanning) {
       backgroundColor = Colors.blue[50]!;
       borderColor = Colors.blue[400]!;
-      leadingIcon = Icons.hourglass_empty;
+      leadingIcon = Icons.autorenew; // 使用旋转刷新图标，更明显表示正在扫描
       iconColor = Colors.blue[700]!;
       statusText = '正在扫描...';
+    } else if (isPaused) {
+      backgroundColor = Colors.orange[50]!;
+      borderColor = Colors.orange[300]!;
+      leadingIcon = Icons.pause_circle; // 使用暂停图标
+      iconColor = Colors.orange[700]!;
+      statusText = '已暂停';
     } else if (isWaiting) {
       backgroundColor = Colors.amber[50]!;
       borderColor = Colors.amber[300]!;
-      leadingIcon = Icons.schedule;
+      leadingIcon = Icons.queue; // 使用队列图标，更明显表示等待扫描
       iconColor = Colors.amber[700]!;
       statusText = '等待中';
     } else if (isNotScanned) {
@@ -712,7 +727,7 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: borderColor,
-          width: isChanged || isBroken || isIncomplete || isScanning || isWaiting ? 2 : 1,
+          width: isChanged || isBroken || isIncomplete || isScanning || isWaiting || isPaused ? 2 : 1,
         ),
       ),
       child: ExpansionTile(
@@ -860,7 +875,26 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
           ],
         ),
         subtitle: null,
-        leading: Icon(leadingIcon, color: iconColor, size: 28),
+        leading: isScanning
+            ? TweenAnimationBuilder<double>(
+                key: ValueKey('scanning_${info.illust.illustId}'), // 使用 key 确保动画正确重置
+                tween: Tween(begin: 0.0, end: 1.0),
+                duration: Duration(seconds: 1),
+                curve: Curves.linear,
+                builder: (context, value, child) {
+                  return Transform.rotate(
+                    angle: value * 2 * 3.14159, // 完整旋转一圈
+                    child: Icon(leadingIcon, color: iconColor, size: 28),
+                  );
+                },
+                onEnd: () {
+                  // 动画结束后重新开始，实现循环旋转
+                  if (mounted && _isScanning && info.isScanning) {
+                    setState(() {});
+                  }
+                },
+              )
+            : Icon(leadingIcon, color: iconColor, size: 28),
         children: info.imageUpdates.isEmpty
             ? [
                 Padding(
@@ -869,10 +903,12 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
                     children: [
                       Icon(
                         isScanning
-                            ? Icons.hourglass_empty
-                            : isWaiting
-                                ? Icons.schedule
-                                : Icons.info_outline,
+                            ? Icons.autorenew // 与主图标保持一致
+                            : isPaused
+                                ? Icons.pause_circle // 与主图标保持一致
+                                : isWaiting
+                                    ? Icons.queue // 与主图标保持一致
+                                    : Icons.info_outline,
                         color: iconColor,
                         size: 20,
                       ),
