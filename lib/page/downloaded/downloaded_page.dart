@@ -40,6 +40,7 @@ enum DownloadFilter {
   all,
   downloading,
   completed,
+  incomplete, // 未下载完整
 }
 
 enum IllustSortType {
@@ -194,7 +195,14 @@ class _DownloadedPageState extends State<DownloadedPage> {
       List<DownloadedIllust> moreIllusts;
       final orderBy = _getSortBy();
 
-      if (_filterUserId != null) {
+      if (_downloadFilter == DownloadFilter.incomplete) {
+        // 未下载完整过滤：查询数据库中所有未下载完整的作品
+        moreIllusts = await downloadStore.getIncompleteDownloaded(
+          limit: _pageSize,
+          offset: offset,
+          orderBy: orderBy,
+        );
+      } else if (_filterUserId != null) {
         moreIllusts = await downloadStore.getDownloadedByUser(
           _filterUserId!,
           limit: _pageSize,
@@ -280,7 +288,14 @@ class _DownloadedPageState extends State<DownloadedPage> {
       List<DownloadedIllust> illusts;
       final orderBy = _getSortBy();
 
-      if (_filterUserId != null) {
+      if (_downloadFilter == DownloadFilter.incomplete) {
+        // 未下载完整过滤：查询数据库中所有未下载完整的作品
+        illusts = await downloadStore.getIncompleteDownloaded(
+          limit: _pageSize,
+          offset: 0,
+          orderBy: orderBy,
+        );
+      } else if (_filterUserId != null) {
         illusts = await downloadStore.getDownloadedByUser(
           _filterUserId!,
           limit: _pageSize,
@@ -344,6 +359,11 @@ class _DownloadedPageState extends State<DownloadedPage> {
 
   List<DownloadedIllust> get _filteredIllusts {
     if (_downloadFilter == DownloadFilter.all) {
+      return _illusts;
+    }
+
+    // 未下载完整过滤：直接从数据库查询，不需要在应用层过滤
+    if (_downloadFilter == DownloadFilter.incomplete) {
       return _illusts;
     }
 
@@ -438,12 +458,19 @@ class _DownloadedPageState extends State<DownloadedPage> {
               switch (value) {
                 case 'filter_all':
                   setState(() => _downloadFilter = DownloadFilter.all);
+                  _loadData();
                   break;
                 case 'filter_downloading':
                   setState(() => _downloadFilter = DownloadFilter.downloading);
+                  _loadData();
                   break;
                 case 'filter_completed':
                   setState(() => _downloadFilter = DownloadFilter.completed);
+                  _loadData();
+                  break;
+                case 'filter_incomplete':
+                  setState(() => _downloadFilter = DownloadFilter.incomplete);
+                  _loadData();
                   break;
                 case 'update_info':
                   _showUpdateIllustInfoDialog();
@@ -514,6 +541,28 @@ class _DownloadedPageState extends State<DownloadedPage> {
                     SizedBox(width: 8),
                     Text(I18n.of(context).complete),
                     if (_downloadFilter == DownloadFilter.completed)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 8.0),
+                        child: Icon(Icons.check,
+                            size: 16,
+                            color: Theme.of(context).colorScheme.primary),
+                      ),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'filter_incomplete',
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.warning_amber,
+                      color: _downloadFilter == DownloadFilter.incomplete
+                          ? Theme.of(context).colorScheme.primary
+                          : null,
+                    ),
+                    SizedBox(width: 8),
+                    Text('未下载完整'),
+                    if (_downloadFilter == DownloadFilter.incomplete)
                       Padding(
                         padding: const EdgeInsets.only(left: 8.0),
                         child: Icon(Icons.check,

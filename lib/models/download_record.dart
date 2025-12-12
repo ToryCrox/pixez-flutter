@@ -736,6 +736,62 @@ class DownloadDatabaseProvider {
     return maps.map((e) => DownloadedIllust.fromJson(e)).toList();
   }
 
+  /// 获取所有未下载完整的作品（下载的图片数量小于 pageCount）
+  /// 使用 SQL JOIN 和 HAVING 子句优化查询，避免在应用层逐个检查
+  /// 这个查询会扫描所有作品，但使用数据库索引可以大幅提升性能
+  Future<List<DownloadedIllust>> getIncompleteIllusts({
+    int? limit,
+    int? offset,
+    String? orderBy,
+  }) async {
+    // 构建基础查询：使用 LEFT JOIN 和 GROUP BY，然后用 HAVING 过滤
+    // 注意：SQLite 中 GROUP BY 后可以使用分组列，所以 di.page_count 在 HAVING 中是可用的
+    var query = '''
+      SELECT di.*, COUNT(img.${DownloadedImageColumns.illustId}) as downloaded_count
+      FROM ${DownloadedIllustColumns.tableName} di
+      LEFT JOIN ${DownloadedImageColumns.tableName} img ON di.${DownloadedIllustColumns.illustId} = img.${DownloadedImageColumns.illustId}
+      GROUP BY di.${DownloadedIllustColumns.id}
+      HAVING COUNT(img.${DownloadedImageColumns.illustId}) < di.${DownloadedIllustColumns.pageCount}
+    ''';
+    
+    final args = <dynamic>[];
+    
+    // 处理排序
+    if (orderBy != null) {
+      if (orderBy.contains('total_file_size')) {
+        // 如果按文件大小排序，需要重新构建查询
+        final orderDirection = orderBy.contains('DESC') ? 'DESC' : 'ASC';
+        query = '''
+          SELECT di.*, 
+                 COALESCE(SUM(img.${DownloadedImageColumns.fileSize}), 0) as total_file_size,
+                 COUNT(img.${DownloadedImageColumns.illustId}) as downloaded_count
+          FROM ${DownloadedIllustColumns.tableName} di
+          LEFT JOIN ${DownloadedImageColumns.tableName} img ON di.${DownloadedIllustColumns.illustId} = img.${DownloadedImageColumns.illustId}
+          GROUP BY di.${DownloadedIllustColumns.id}
+          HAVING COUNT(img.${DownloadedImageColumns.illustId}) < di.${DownloadedIllustColumns.pageCount}
+          ORDER BY total_file_size $orderDirection
+        ''';
+      } else {
+        query += ' ORDER BY $orderBy';
+      }
+    } else {
+      query += ' ORDER BY di.${DownloadedIllustColumns.downloadTime} DESC';
+    }
+    
+    // 添加 LIMIT 和 OFFSET
+    if (limit != null) {
+      query += ' LIMIT ?';
+      args.add(limit);
+    }
+    if (offset != null) {
+      query += ' OFFSET ?';
+      args.add(offset);
+    }
+    
+    final maps = await db.rawQuery(query, args);
+    return maps.map((e) => DownloadedIllust.fromJson(e)).toList();
+  }
+
   Future<int> deleteIllustByIllustId(int illustId) async {
     // 先删除关联的图片记录
     await db.delete(
