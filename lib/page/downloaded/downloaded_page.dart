@@ -359,7 +359,11 @@ class _DownloadedPageState extends State<DownloadedPage> {
             status == DownloadTaskStatus.paused ||
             status == DownloadTaskStatus.failed;
       } else if (_downloadFilter == DownloadFilter.completed) {
-        return isCompleted && status != DownloadTaskStatus.downloading;
+        return isCompleted && 
+            status != DownloadTaskStatus.downloading &&
+            status != DownloadTaskStatus.pending &&
+            status != DownloadTaskStatus.paused &&
+            status != DownloadTaskStatus.failed;
       }
       return true;
     }).toList();
@@ -537,7 +541,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
                   children: [
                     Icon(Icons.pause_circle_outline),
                     SizedBox(width: 8),
-                    Text('${I18n.of(context).paused}${I18n.of(context).all}'),
+                    Text('暂停${I18n.of(context).all}'),
                   ],
                 ),
               ),
@@ -679,8 +683,8 @@ class _DownloadedPageState extends State<DownloadedPage> {
 
   Widget _buildIllustCard(DownloadedIllust illust) {
     final status = _illustDownloadStatus[illust.illustId];
-    final isDownloading = status == DownloadTaskStatus.downloading ||
-        status == DownloadTaskStatus.pending;
+    final isDownloading = status == DownloadTaskStatus.downloading;
+    final isPending = status == DownloadTaskStatus.pending;
     final isPaused = status == DownloadTaskStatus.paused;
     final isFailed = status == DownloadTaskStatus.failed;
 
@@ -737,6 +741,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
                       ),
                     ),
                   ),
+                  // 正在下载 - 显示进度条
                   if (isDownloading)
                     Positioned.fill(
                       child: Container(
@@ -750,6 +755,34 @@ class _DownloadedPageState extends State<DownloadedPage> {
                         ),
                       ),
                     ),
+                  // 等待下载 - 显示等待图标
+                  if (isPending)
+                    Positioned.fill(
+                      child: Container(
+                        color: Colors.black26,
+                        child: Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.hourglass_empty,
+                                color: Colors.white,
+                                size: 32,
+                              ),
+                              SizedBox(height: 4),
+                              Text(
+                                '等待下载',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  // 暂停状态 - 右上角标签
                   if (isPaused)
                     Positioned(
                       top: 4,
@@ -767,6 +800,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
                         ),
                       ),
                     ),
+                  // 下载失败 - 右上角标签
                   if (isFailed)
                     Positioned(
                       top: 4,
@@ -970,7 +1004,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
               children: [
                 Icon(Icons.pause),
                 SizedBox(width: 8),
-                Text(I18n.of(context).paused),
+                Text('暂停'),
               ],
             ),
             onTap: () {
@@ -1146,7 +1180,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
               if (isDownloading)
                 ListTile(
                   leading: Icon(Icons.pause),
-                  title: Text(I18n.of(context).paused),
+                  title: Text('暂停'),
                   onTap: () {
                     Navigator.pop(ctx);
                     downloadStore.pauseIllustDownload(illust.illustId);
