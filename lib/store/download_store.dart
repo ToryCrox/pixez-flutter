@@ -745,11 +745,9 @@ abstract class _DownloadStoreBase with Store {
       tasksToAdd.add(task);
     }
     
-    // 批量删除已下载任务的 pending 记录
+    // 批量删除已下载任务的 pending 记录（使用批量删除优化性能）
     if (taskKeysToDelete.isNotEmpty) {
-      for (final key in taskKeysToDelete) {
-        _dbProvider.deletePendingDownload(key);
-      }
+      await _dbProvider.batchDeletePendingDownloads(taskKeysToDelete);
     }
     
     if (tasksToAdd.isEmpty) {
@@ -757,20 +755,21 @@ abstract class _DownloadStoreBase with Store {
       return;
     }
 
-    // 3. 批量插入 illust 记录（去重）
+    // 3. 批量插入 illust 记录（去重并批量插入）
     final illustIds = <int>{};
-    final illustsToInsert = <Illusts>[];
+    final illustsToInsert = <DownloadedIllust>[];
     for (final task in tasksToAdd) {
       if (!illustIds.contains(task.illusts.id)) {
         illustIds.add(task.illusts.id);
-        illustsToInsert.add(task.illusts);
+        illustsToInsert.add(DownloadedIllust.fromIllusts(
+          task.illusts,
+          DownloadDatabaseProvider.buildRelativePath(task.illusts),
+        ));
       }
     }
     
-    // 批量检查并插入 illust
-    for (final illusts in illustsToInsert) {
-      await _insertIllustIfNotExists(illusts);
-    }
+    // 批量检查并插入 illust（使用批量操作优化性能）
+    await _dbProvider.batchInsertIllustsIfNotExists(illustsToInsert);
     
     // 4. 批量添加到内存和数据库
     final pendingDownloads = <PendingDownload>[];
@@ -782,37 +781,45 @@ abstract class _DownloadStoreBase with Store {
     for (int i = 0; i < tasksToAdd.length; i += batchSize) {
       final batch = tasksToAdd.skip(i).take(batchSize).toList();
       await Future.wait(batch.map((task) async {
-        final targetPath = await _tryFindExistingImageFile(task);
-        if (targetPath != null) {
-          // 文件已存在，直接记录
-          final url = task.illusts.pageCount == 1
-              ? task.illusts.metaSinglePage!.originalImageUrl!
-              : task.illusts.metaPages[task.part].imageUrls!.original;
-          await _recordDownload(task.illusts, task.part, url, targetPath);
-          task.status = DownloadTaskStatus.completed;
-          tasksToNotify.add(task);
-        } else {
-          // 需要下载，添加到队列
+        try {
+          final targetPath = await _tryFindExistingImageFile(task);
+          if (targetPath != null) {
+            // 文件已存在，直接记录
+            final url = task.illusts.pageCount == 1
+                ? task.illusts.metaSinglePage!.originalImageUrl!
+                : task.illusts.metaPages[task.part].imageUrls!.original;
+            await _recordDownload(task.illusts, task.part, url, targetPath);
+            task.status = DownloadTaskStatus.completed;
+            tasksToNotify.add(task);
+          } else {
+            // 需要下载，添加到队列
+            tasksToQueue.add(task);
+          }
+        } catch (e) {
+          // 单个任务失败不影响其他任务，记录错误并添加到下载队列
+          Log.e('检查文件存在性失败: ${task.taskKey}, $e');
           tasksToQueue.add(task);
         }
       }));
     }
     
-    // 批量添加到内存和队列（使用 @action 包装，减少 MobX 更新次数）
+    // 5. 先批量插入 pending 记录到数据库（保证数据一致性）
+    if (tasksToQueue.isNotEmpty) {
+      for (final task in tasksToQueue) {
+        pendingDownloads.add(task.toPendingDownload());
+      }
+      await _dbProvider.batchInsertPendingDownloads(pendingDownloads);
+    }
+    
+    // 6. 数据库插入成功后再更新内存（保证数据一致性）
     runInAction(() {
       for (final task in tasksToQueue) {
         downloadingTasks[task.taskKey] = task;
         _pendingQueue.add(task);
-        pendingDownloads.add(task.toPendingDownload());
       }
     });
     
-    // 批量插入 pending 记录
-    if (pendingDownloads.isNotEmpty) {
-      await _dbProvider.batchInsertPendingDownloads(pendingDownloads);
-    }
-    
-    // 批量通知（减少 MobX 更新频率）
+    // 7. 批量通知（减少 MobX 更新频率）
     if (tasksToNotify.isNotEmpty || tasksToQueue.isNotEmpty) {
       // 延迟通知，避免频繁更新 UI
       Future.microtask(() {

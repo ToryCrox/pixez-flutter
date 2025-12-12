@@ -1405,4 +1405,67 @@ class DownloadDatabaseProvider {
     }
     await batch.commit(noResult: true);
   }
+
+  /// 批量删除待下载任务（使用事务优化性能）
+  Future<void> batchDeletePendingDownloads(List<String> taskKeys) async {
+    if (taskKeys.isEmpty) return;
+    
+    // 分批删除，每批最多 1000 条，避免 SQL 语句过长
+    const batchSize = 1000;
+    
+    for (int i = 0; i < taskKeys.length; i += batchSize) {
+      final batch = taskKeys.skip(i).take(batchSize).toList();
+      final dbBatch = db.batch();
+      
+      for (final key in batch) {
+        dbBatch.delete(
+          PendingDownloadColumns.tableName,
+          where: '${PendingDownloadColumns.id} = ?',
+          whereArgs: [key],
+        );
+      }
+      
+      await dbBatch.commit(noResult: true);
+    }
+  }
+
+  /// 批量检查并插入插画记录（使用事务优化性能）
+  /// 返回已存在的 illustId 集合
+  Future<Set<int>> batchInsertIllustsIfNotExists(List<DownloadedIllust> illusts) async {
+    if (illusts.isEmpty) return {};
+    
+    // 先批量查询已存在的 illustId
+    final illustIds = illusts.map((e) => e.illustId).toList();
+    final existingIds = <int>{};
+    
+    // 分批查询，每批最多 1000 条
+    const batchSize = 1000;
+    for (int i = 0; i < illustIds.length; i += batchSize) {
+      final batch = illustIds.skip(i).take(batchSize).toList();
+      final placeholders = batch.map((_) => '?').join(',');
+      final maps = await db.rawQuery(
+        'SELECT ${DownloadedIllustColumns.illustId} FROM ${DownloadedIllustColumns.tableName} WHERE ${DownloadedIllustColumns.illustId} IN ($placeholders)',
+        batch,
+      );
+      existingIds.addAll(maps.map((e) => e[DownloadedIllustColumns.illustId] as int));
+    }
+    
+    // 过滤出需要插入的 illusts
+    final illustsToInsert = illusts.where((e) => !existingIds.contains(e.illustId)).toList();
+    
+    if (illustsToInsert.isEmpty) return existingIds;
+    
+    // 批量插入
+    final dbBatch = db.batch();
+    for (final illust in illustsToInsert) {
+      dbBatch.insert(
+        DownloadedIllustColumns.tableName,
+        illust.toJson(),
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    }
+    await dbBatch.commit(noResult: true);
+    
+    return existingIds;
+  }
 }
