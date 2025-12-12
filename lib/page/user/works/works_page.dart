@@ -31,6 +31,7 @@ import 'package:pixez/i18n.dart';
 import 'package:pixez/lighting/lighting_store.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/network/api_client.dart';
+import 'package:pixez/store/download_store.dart';
 import 'package:waterfall_flow/waterfall_flow.dart';
 
 class WorksPage extends StatefulWidget {
@@ -347,38 +348,62 @@ class _WorksPageState extends State<WorksPage> {
       return;
     }
 
-    int successCount = 0;
-    int skipCount = 0;
-    int errorCount = 0;
+    // 显示进度提示
+    BotToast.showLoading();
+    
+    // 在后台异步处理，避免阻塞 UI
+    await Future(() async {
+      int successCount = 0;
+      int skipCount = 0;
+      int errorCount = 0;
+      
+      // 收集所有需要下载的任务
+      final allTasks = <DownloadTask>[];
+      
+      for (final store in illustStores) {
+        if (store.illusts == null) continue;
+        
+        final illusts = store.illusts!;
+        
+        // 跳过动图
+        if (illusts.type == 'ugoira') {
+          skipCount++;
+          continue;
+        }
 
-    for (final store in illustStores) {
-      if (store.illusts == null) continue;
-      
-      final illusts = store.illusts!;
-      
-      // 跳过动图
-      if (illusts.type == 'ugoira') {
-        skipCount++;
-        continue;
+        try {
+          // 创建下载任务（不立即添加到队列）
+          if (illusts.pageCount == 1) {
+            allTasks.add(downloadStore.createDownloadTask(illusts, 0));
+          } else {
+            for (int i = 0; i < illusts.metaPages.length; i++) {
+              allTasks.add(downloadStore.createDownloadTask(illusts, i));
+            }
+          }
+          successCount++;
+        } catch (e) {
+          errorCount++;
+        }
       }
 
-      try {
-        downloadStore.downloadIllust(illusts);
-        successCount++;
-      } catch (e) {
-        errorCount++;
+      // 批量添加到下载队列（使用批量模式）
+      if (allTasks.isNotEmpty) {
+        await downloadStore.addDownloadTasks(allTasks, batchMode: true);
       }
-    }
 
-    // 显示结果
-    final message = '已添加 $successCount 个下载任务';
-    if (skipCount > 0) {
-      BotToast.showText(text: '$message，跳过 $skipCount 个（动图）');
-    } else if (errorCount > 0) {
-      BotToast.showText(text: '$message，失败 $errorCount 个');
-    } else {
-      BotToast.showText(text: message);
-    }
+      // 关闭加载提示
+      BotToast.closeAllLoading();
+      
+      // 显示结果
+      final message = '已添加 $successCount 个插画的下载任务（共 ${allTasks.length} 张图片）';
+      if (skipCount > 0) {
+        BotToast.showText(text: '$message，跳过 $skipCount 个（动图）');
+      } else if (errorCount > 0) {
+        BotToast.showText(text: '$message，失败 $errorCount 个');
+      } else {
+        BotToast.showText(text: message);
+      }
+    });
   }
 }
 

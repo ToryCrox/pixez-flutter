@@ -795,6 +795,48 @@ class DownloadDatabaseProvider {
     return await getImage(illustId, part) != null;
   }
 
+  /// 批量检查图片是否已下载
+  /// 返回一个 Set，包含已下载的 (illustId, part) 组合的 Map
+  Future<Set<Map<String, int>>> batchCheckImageDownloaded(List<Map<String, int>> illustParts) async {
+    if (illustParts.isEmpty) return {};
+    
+    final result = <Map<String, int>>{};
+    
+    // 分批查询，每批最多 1000 条，避免 SQL 语句过长
+    const batchSize = 1000;
+    
+    for (int i = 0; i < illustParts.length; i += batchSize) {
+      final batch = illustParts.skip(i).take(batchSize).toList();
+      
+      // 构建查询条件：WHERE (illustId = ? AND part = ?) OR (illustId = ? AND part = ?) ...
+      final whereClauses = <String>[];
+      final whereArgs = <dynamic>[];
+      
+      for (final item in batch) {
+        whereClauses.add('(${DownloadedImageColumns.illustId} = ? AND ${DownloadedImageColumns.part} = ?)');
+        whereArgs.add(item['illustId']);
+        whereArgs.add(item['part']);
+      }
+      
+      final whereClause = whereClauses.join(' OR ');
+      final maps = await db.query(
+        DownloadedImageColumns.tableName,
+        columns: [DownloadedImageColumns.illustId, DownloadedImageColumns.part],
+        where: whereClause,
+        whereArgs: whereArgs,
+      );
+      
+      result.addAll(
+        maps.map((e) => {
+          'illustId': e[DownloadedImageColumns.illustId] as int,
+          'part': e[DownloadedImageColumns.part] as int,
+        }),
+      );
+    }
+    
+    return result;
+  }
+
   /// 通过原始URL查询图片记录
   Future<DownloadedImage?> getImageByOriginalUrl(String originalUrl) async {
     List<Map<String, dynamic>> maps = await db.query(
@@ -1347,5 +1389,20 @@ class DownloadDatabaseProvider {
       'SELECT COUNT(*) as count FROM ${PendingDownloadColumns.tableName}',
     );
     return result.first['count'] as int? ?? 0;
+  }
+
+  /// 批量插入待下载任务（使用事务优化性能）
+  Future<void> batchInsertPendingDownloads(List<PendingDownload> pendings) async {
+    if (pendings.isEmpty) return;
+    
+    final batch = db.batch();
+    for (final pending in pendings) {
+      batch.insert(
+        PendingDownloadColumns.tableName,
+        pending.toJson(),
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    }
+    await batch.commit(noResult: true);
   }
 }

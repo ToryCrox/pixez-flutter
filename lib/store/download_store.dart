@@ -621,14 +621,14 @@ abstract class _DownloadStoreBase with Store {
 
     if (part != null) {
       // 下载单页
-      _downloadTaskBuffer.add(_createDownloadTask(illusts, part));
+      _downloadTaskBuffer.add(createDownloadTask(illusts, part));
     } else {
       // 下载所有页
       if (illusts.pageCount == 1) {
-        _downloadTaskBuffer.add(_createDownloadTask(illusts, 0));
+        _downloadTaskBuffer.add(createDownloadTask(illusts, 0));
       } else {
         for (int i = 0; i < illusts.metaPages.length; i++) {
-          _downloadTaskBuffer.add(_createDownloadTask(illusts, i));
+          _downloadTaskBuffer.add(createDownloadTask(illusts, i));
         }
       }
     }
@@ -664,7 +664,7 @@ abstract class _DownloadStoreBase with Store {
   }
 
   /// 创建下载任务
-  DownloadTask _createDownloadTask(Illusts illusts, int part) {
+  DownloadTask createDownloadTask(Illusts illusts, int part) {
     // 获取下载URL
     String url;
     if (illusts.pageCount == 1) {
@@ -684,19 +684,165 @@ abstract class _DownloadStoreBase with Store {
     return task;
   }
 
-  /// 加入下载
-  Future<void> addDownloadTasks(List<DownloadTask> tasks) async {
+  /// 加入下载（优化版本，支持批量处理）
+  Future<void> addDownloadTasks(List<DownloadTask> tasks, {bool batchMode = false}) async {
+    if (tasks.isEmpty) return;
+    
+    // 过滤掉已存在的任务
     final needAddTasks = <DownloadTask>[];
+    final existingTaskKeys = <String>{};
+    
     for (final task in tasks) {
       final taskKey = task.taskKey;
       if (downloadingTasks.containsKey(taskKey)) {
-        final task = downloadingTasks[taskKey]!;
-        if (!task.isCanRetry) {
-          Log.d(
-              'DownloadStore task $taskKey already exists, ${task?.error}, ${task?.status}');
+        final existingTask = downloadingTasks[taskKey]!;
+        if (!existingTask.isCanRetry) {
+          Log.d('DownloadStore task $taskKey already exists, ${existingTask.error}, ${existingTask.status}');
           continue;
         }
       }
+      needAddTasks.add(task);
+      existingTaskKeys.add(taskKey);
+    }
+    
+    if (needAddTasks.isEmpty) {
+      BotToast.showText(text: '所有图片都已下载');
+      return;
+    }
+
+    // 批量模式：使用批量检查已下载状态
+    if (batchMode && needAddTasks.length > 50) {
+      await _addDownloadTasksBatch(needAddTasks);
+    } else {
+      // 普通模式：逐个检查
+      await _addDownloadTasksNormal(needAddTasks);
+    }
+  }
+
+  /// 批量添加下载任务（优化版本）
+  Future<void> _addDownloadTasksBatch(List<DownloadTask> tasks) async {
+    // 1. 批量检查已下载状态
+    final illustParts = tasks.map((t) => {
+      'illustId': t.illusts.id,
+      'part': t.part,
+    }).toList();
+    final downloadedResults = await _dbProvider.batchCheckImageDownloaded(illustParts);
+    
+    // 组装成字符串键集合，方便后续查找
+    final downloadedTaskKeys = downloadedResults.map((e) => '${e['illustId']}_${e['part']}').toSet();
+    
+    // 2. 过滤掉已下载的任务
+    final tasksToAdd = <DownloadTask>[];
+    final taskKeysToDelete = <String>[];
+    
+    for (final task in tasks) {
+      final key = '${task.illusts.id}_${task.part}';
+      if (downloadedTaskKeys.contains(key)) {
+        Log.d('DownloadStore task ${task.taskKey} already downloaded');
+        taskKeysToDelete.add(task.taskKey);
+        continue;
+      }
+      tasksToAdd.add(task);
+    }
+    
+    // 批量删除已下载任务的 pending 记录
+    if (taskKeysToDelete.isNotEmpty) {
+      for (final key in taskKeysToDelete) {
+        _dbProvider.deletePendingDownload(key);
+      }
+    }
+    
+    if (tasksToAdd.isEmpty) {
+      BotToast.showText(text: '所有图片都已下载');
+      return;
+    }
+
+    // 3. 批量插入 illust 记录（去重）
+    final illustIds = <int>{};
+    final illustsToInsert = <Illusts>[];
+    for (final task in tasksToAdd) {
+      if (!illustIds.contains(task.illusts.id)) {
+        illustIds.add(task.illusts.id);
+        illustsToInsert.add(task.illusts);
+      }
+    }
+    
+    // 批量检查并插入 illust
+    for (final illusts in illustsToInsert) {
+      await _insertIllustIfNotExists(illusts);
+    }
+    
+    // 4. 批量添加到内存和数据库
+    final pendingDownloads = <PendingDownload>[];
+    final tasksToNotify = <DownloadTask>[];
+    final tasksToQueue = <DownloadTask>[];
+    
+    // 分批检查文件是否存在（避免一次性创建太多并发任务）
+    const batchSize = 100;
+    for (int i = 0; i < tasksToAdd.length; i += batchSize) {
+      final batch = tasksToAdd.skip(i).take(batchSize).toList();
+      await Future.wait(batch.map((task) async {
+        final targetPath = await _tryFindExistingImageFile(task);
+        if (targetPath != null) {
+          // 文件已存在，直接记录
+          final url = task.illusts.pageCount == 1
+              ? task.illusts.metaSinglePage!.originalImageUrl!
+              : task.illusts.metaPages[task.part].imageUrls!.original;
+          await _recordDownload(task.illusts, task.part, url, targetPath);
+          task.status = DownloadTaskStatus.completed;
+          tasksToNotify.add(task);
+        } else {
+          // 需要下载，添加到队列
+          tasksToQueue.add(task);
+        }
+      }));
+    }
+    
+    // 批量添加到内存和队列（使用 @action 包装，减少 MobX 更新次数）
+    runInAction(() {
+      for (final task in tasksToQueue) {
+        downloadingTasks[task.taskKey] = task;
+        _pendingQueue.add(task);
+        pendingDownloads.add(task.toPendingDownload());
+      }
+    });
+    
+    // 批量插入 pending 记录
+    if (pendingDownloads.isNotEmpty) {
+      await _dbProvider.batchInsertPendingDownloads(pendingDownloads);
+    }
+    
+    // 批量通知（减少 MobX 更新频率）
+    if (tasksToNotify.isNotEmpty || tasksToQueue.isNotEmpty) {
+      // 延迟通知，避免频繁更新 UI
+      Future.microtask(() {
+        for (final task in tasksToNotify) {
+          _notifyProgress(task);
+        }
+        // 只通知新添加的待下载任务（分批通知，避免一次性通知太多）
+        const notifyBatchSize = 50;
+        for (int i = 0; i < tasksToQueue.length; i += notifyBatchSize) {
+          Future.delayed(Duration(milliseconds: i ~/ notifyBatchSize * 10), () {
+            final batch = tasksToQueue.skip(i).take(notifyBatchSize).toList();
+            for (final task in batch) {
+              _notifyProgress(task);
+            }
+          });
+        }
+      });
+    }
+    
+    // 处理队列
+    _processQueue();
+    
+    BotToast.showText(text: '添加 ${tasksToAdd.length} 个下载任务');
+  }
+
+  /// 普通模式添加下载任务（保持原有逻辑）
+  Future<void> _addDownloadTasksNormal(List<DownloadTask> tasks) async {
+    final ids = <int>{};
+    for (final task in tasks) {
+      final taskKey = task.taskKey;
       final isDownloaded =
           await _dbProvider.isImageDownloaded(task.illusts.id, task.part);
       if (isDownloaded) {
@@ -704,21 +850,17 @@ abstract class _DownloadStoreBase with Store {
         _dbProvider.deletePendingDownload(task.taskKey);
         continue;
       }
-      needAddTasks.add(task);
-    }
-    if (needAddTasks.isEmpty) {
-      BotToast.showText(text: '所有图片都已下载');
-    } else {
-      BotToast.showText(text: '添加 ${needAddTasks.length} 个下载任务');
-      final ids = <int>{};
-      for (final task in needAddTasks) {
-        final illusts = task.illusts;
-        if (!ids.contains(illusts.id)) {
-          ids.add(illusts.id);
-          await _insertIllustIfNotExists(illusts);
-        }
-        _addDownloadTask(task);
+      
+      final illusts = task.illusts;
+      if (!ids.contains(illusts.id)) {
+        ids.add(illusts.id);
+        await _insertIllustIfNotExists(illusts);
       }
+      _addDownloadTask(task);
+    }
+    
+    if (tasks.isNotEmpty) {
+      BotToast.showText(text: '添加 ${tasks.length} 个下载任务');
     }
   }
 
