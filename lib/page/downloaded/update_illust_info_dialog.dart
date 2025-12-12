@@ -19,6 +19,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_size_getter/file_input.dart';
 import 'package:image_size_getter/image_size_getter.dart' hide Size;
+import 'package:open_file/open_file.dart';
 import 'package:path/path.dart' as p;
 import 'package:pixez/exts.dart';
 import 'package:pixez/i18n.dart';
@@ -28,6 +29,7 @@ import 'package:pixez/models/download_record.dart';
 enum UpdateResultType {
   changed, // 有变化
   broken, // 损坏
+  incomplete, // 未下载完整
   unchanged, // 无变化
 }
 
@@ -36,6 +38,7 @@ class UpdateIllustInfo {
   List<ImageUpdateInfo> imageUpdates;
   bool hasChanges = false;
   bool hasBroken = false;
+  bool isIncomplete = false; // 是否未下载完整（下载的图片数量和illust里面记录的不同）
   bool isScanning = false; // 是否正在扫描
   int totalImageCount = 0; // 总图片数
   int scannedImageCount = 0; // 已扫描图片数
@@ -43,6 +46,7 @@ class UpdateIllustInfo {
   int totalSizeScanned = 0; // 实际扫描的总大小
   UpdateResultType get resultType {
     if (hasBroken) return UpdateResultType.broken;
+    if (isIncomplete) return UpdateResultType.incomplete;
     if (hasChanges) return UpdateResultType.changed;
     return UpdateResultType.unchanged;
   }
@@ -62,6 +66,9 @@ class UpdateIllustInfo {
   void _updateFlags() {
     hasChanges = imageUpdates.any((e) => e.hasChange);
     hasBroken = imageUpdates.any((e) => e.isBroken);
+    // 检测是否未下载完整：比较 pageCount 和实际下载的图片数量
+    final downloadedCount = imageUpdates.where((e) => !e.isBroken).length;
+    isIncomplete = downloadedCount < illust.pageCount;
   }
 
   void updateImageUpdates(List<ImageUpdateInfo> updates) {
@@ -203,6 +210,8 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
           setState(() {
             _updateInfos[i].isScanning = true;
             _updateInfos[i].updateScanProgress(0, 0);
+            // 如果 pageCount > 0 但没有下载的图片，标记为未下载完整
+            _updateInfos[i].isIncomplete = illust.pageCount > 0;
             _scannedCount++;
           });
         }
@@ -283,6 +292,9 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
           _scannedCount++;
           _updateInfos[i].isScanning = false;
           _updateInfos[i].updateImageUpdates(imageUpdates);
+          // 检测是否未下载完整
+          final downloadedCount = imageUpdates.where((e) => !e.isBroken).length;
+          _updateInfos[i].isIncomplete = downloadedCount < illust.pageCount;
         });
       }
     }
@@ -501,12 +513,15 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
                     SizedBox(width: 8),
                     _buildFilterChip('损坏', UpdateResultType.broken),
                     SizedBox(width: 8),
+                    _buildFilterChip('未完整', UpdateResultType.incomplete),
+                    SizedBox(width: 8),
                     _buildFilterChip('无变化', UpdateResultType.unchanged),
                     Spacer(),
                     Text(
                       '总计: ${_updateInfos.length} | '
                       '有变化: ${_updateInfos.where((e) => e.hasChanges).length} | '
                       '损坏: ${_updateInfos.where((e) => e.hasBroken).length} | '
+                      '未完整: ${_updateInfos.where((e) => e.isIncomplete).length} | '
                       '无变化: ${_updateInfos.where((e) => !e.hasChanges && !e.hasBroken).length}',
                       style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                     ),
@@ -635,6 +650,7 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
   Widget _buildIllustItem(UpdateIllustInfo info) {
     final isChanged = info.hasChanges;
     final isBroken = info.hasBroken;
+    final isIncomplete = info.isIncomplete;
     final isScanning = info.isScanning;
     final isWaiting = !isScanning && info.imageUpdates.isEmpty && _scannedCount > 0;
     final isNotScanned = !isScanning && info.imageUpdates.isEmpty && _scannedCount == 0;
@@ -669,6 +685,12 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
       leadingIcon = Icons.error;
       iconColor = Colors.red[700]!;
       statusText = '已损坏';
+    } else if (isIncomplete) {
+      backgroundColor = Colors.purple[50]!;
+      borderColor = Colors.purple[400]!;
+      leadingIcon = Icons.incomplete_circle;
+      iconColor = Colors.purple[700]!;
+      statusText = '未下载完整';
     } else if (isChanged) {
       backgroundColor = Colors.orange[50]!;
       borderColor = Colors.orange[400]!;
@@ -690,7 +712,7 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: borderColor,
-          width: isChanged || isBroken || isScanning || isWaiting ? 2 : 1,
+          width: isChanged || isBroken || isIncomplete || isScanning || isWaiting ? 2 : 1,
         ),
       ),
       child: ExpansionTile(
@@ -727,6 +749,17 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
                           style: TextStyle(
                             fontSize: 12,
                             color: Colors.blue[700],
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                      if (!isScanning && !isNotScanned && isIncomplete) ...[
+                        SizedBox(width: 8),
+                        Text(
+                          '(${info.imageUpdates.where((e) => !e.isBroken).length}/${info.illust.pageCount})',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.purple[700],
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -794,6 +827,32 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
                       fontSize: 12,
                       color: iconColor,
                       fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ),
+            // 打开文件夹按钮
+            if (!isNotScanned)
+              Padding(
+                padding: EdgeInsets.only(left: 8),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(20),
+                    onTap: () async {
+                      final dirPath = p.join(
+                        downloadStore.downloadPath,
+                        info.illust.relativePath,
+                      );
+                      await OpenFile.open(dirPath);
+                    },
+                    child: Container(
+                      padding: EdgeInsets.all(6),
+                      child: Icon(
+                        Icons.folder_open,
+                        color: iconColor,
+                        size: 20,
+                      ),
                     ),
                   ),
                 ),
@@ -869,6 +928,17 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
                                       ),
                                     ),
                                 ],
+                              ),
+                            ],
+                            if (isIncomplete) ...[
+                              SizedBox(height: 4),
+                              Text(
+                                '下载进度: ${info.imageUpdates.where((e) => !e.isBroken).length} / ${info.illust.pageCount}',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.purple[700],
+                                  fontWeight: FontWeight.w500,
+                                ),
                               ),
                             ],
                           ],
