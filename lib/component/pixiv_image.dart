@@ -47,7 +47,7 @@ PixivCacheManager pixivCacheManager = PixivCacheManager.instance;
 /// 自定义缓存管理器，支持设置最大缓存数量
 class PixivCacheManager extends CacheManager with ImageCacheManager {
   static const key = 'pixivCache';
-  static const int maxCacheObjects = 2000;
+  static const int maxCacheObjects = 5000;
 
   static late final PixivCacheManager _instance;
 

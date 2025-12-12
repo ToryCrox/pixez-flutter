@@ -15,6 +15,7 @@
  */
 
 import 'package:flutter/painting.dart';
+import 'package:pixez/custom/log.dart';
 
 /// 图片缓存管理器
 /// 用于在进入插画详情页时临时增加图片内存缓存大小
@@ -27,7 +28,7 @@ class ImageCacheManager {
   static const int defaultCacheSize = 240 * 1024 * 1024; // 240MB
 
   /// 详情页缓存大小：1GB
-  static const int detailPageCacheSize = 1024 * 1024 * 1024; // 1GB
+  static const int detailPageCacheSize = 500 * 1024 * 1024; // 500MB
 
   /// 当前打开的详情页数量
   int _detailPageCount = 0;
@@ -47,7 +48,9 @@ class ImageCacheManager {
   /// 进入详情页时调用，增加缓存大小
   void enterDetailPage() {
     _detailPageCount++;
+    Log.d(() => '进入详情页，当前详情页数量: $_detailPageCount');
     if (_detailPageCount == 1) {
+      Log.d(() => '进入详情页，增加缓存大小到500MB');
       // 第一次进入详情页，将缓存大小增加到1GB
       final imageCache = PaintingBinding.instance.imageCache;
       imageCache.maximumSizeBytes = detailPageCacheSize;
@@ -58,9 +61,12 @@ class ImageCacheManager {
   void exitDetailPage() {
     if (_detailPageCount > 0) {
       _detailPageCount--;
+      Log.d(() => '退出详情页，当前详情页数量: $_detailPageCount');
       if (_detailPageCount == 0) {
         // 所有详情页都已退出，还原缓存大小为240MB
         final imageCache = PaintingBinding.instance.imageCache;
+        Log.d(() => '退出详情页，还原缓存大小为240MB');
+        imageCache.clear();
         imageCache.maximumSizeBytes = defaultCacheSize;
       }
     }

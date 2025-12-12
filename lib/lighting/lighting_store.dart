@@ -208,10 +208,13 @@ abstract class _LightingStoreBase with Store {
         Recommend recommend = Recommend.fromJson(result.data);
         nextUrl = recommend.nextUrl;
         var map = recommend.illusts.map((e) => IllustStore(e.id, e));
-        if (portal == "new") {
-          var iterable = iStores.map((element) => element.id);
-          map = map.where((element) => !iterable.contains(element.id));
-        }
+        
+        // 获取当前已加载的所有作品ID，用于去重
+        var existingIds = iStores.map((element) => element.id).toSet();
+        
+        // 过滤掉已存在的作品，确保不会重复显示
+        map = map.where((element) => !existingIds.contains(element.id));
+        
         iStores.addAll(map);
         easyRefreshController?.finishLoad(IndicatorResult.success);
       } else {
