@@ -325,12 +325,45 @@ class _WorksPageState extends State<WorksPage> {
       return;
     }
 
+    // 提前计算要下载的图片数量
+    int totalIllustCount = 0;
+    int totalImageCount = 0;
+    int skipCount = 0;
+    
+    for (final store in illustStores) {
+      if (store.illusts == null) continue;
+      
+      final illusts = store.illusts!;
+      
+      // 跳过动图
+      if (illusts.type == 'ugoira') {
+        skipCount++;
+        continue;
+      }
+      
+      totalIllustCount++;
+      // 计算图片数量
+      if (illusts.pageCount == 1) {
+        totalImageCount++;
+      } else {
+        totalImageCount += illusts.metaPages.length as int;
+      }
+    }
+
+    if (totalIllustCount == 0) {
+      BotToast.showText(text: '没有可下载的插画${skipCount > 0 ? '（跳过 $skipCount 个动图）' : ''}');
+      return;
+    }
+
     // 显示确认对话框
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: Text('批量下载'),
-        content: Text('确定要下载 ${illustStores.length} 个插画吗？'),
+        content: Text(
+          '确定要下载 $totalIllustCount 个插画（共 $totalImageCount 张图片）吗？'
+          '${skipCount > 0 ? '\n\n将跳过 $skipCount 个动图' : ''}',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),

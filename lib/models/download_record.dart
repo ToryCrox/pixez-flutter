@@ -858,36 +858,48 @@ class DownloadDatabaseProvider {
     
     final result = <Map<String, int>>{};
     
-    // 分批查询，每批最多 1000 条，避免 SQL 语句过长
-    const batchSize = 1000;
+    // 按 illust_id 分组，减少 OR 条件的数量
+    final groupedByIllustId = <int, Set<int>>{};
+    for (final item in illustParts) {
+      final illustId = item['illustId']!;
+      final part = item['part']!;
+      groupedByIllustId.putIfAbsent(illustId, () => <int>{}).add(part);
+    }
     
-    for (int i = 0; i < illustParts.length; i += batchSize) {
-      final batch = illustParts.skip(i).take(batchSize).toList();
+    // 分批处理 illust_id，每批最多 50 个 illust_id
+    // 这样可以避免单个查询的 OR 条件过多
+    const batchSize = 50;
+    final illustIds = groupedByIllustId.keys.toList();
+    
+    for (int i = 0; i < illustIds.length; i += batchSize) {
+      final batchIllustIds = illustIds.skip(i).take(batchSize).toList();
       
-      // 构建查询条件：WHERE (illustId = ? AND part = ?) OR (illustId = ? AND part = ?) ...
-      final whereClauses = <String>[];
-      final whereArgs = <dynamic>[];
-      
-      for (final item in batch) {
-        whereClauses.add('(${DownloadedImageColumns.illustId} = ? AND ${DownloadedImageColumns.part} = ?)');
-        whereArgs.add(item['illustId']);
-        whereArgs.add(item['part']);
+      // 构建查询：WHERE illust_id IN (?, ?, ...) AND (part IN (?, ?, ...) OR ...)
+      // 但这样仍然可能复杂，改用更简单的方式：对每个 illust_id 单独查询其 parts
+      for (final illustId in batchIllustIds) {
+        final parts = groupedByIllustId[illustId]!.toList();
+        
+        // 对每个 illust_id 的 parts 也进行分批，每批最多 100 个 part
+        const partBatchSize = 100;
+        for (int j = 0; j < parts.length; j += partBatchSize) {
+          final batchParts = parts.skip(j).take(partBatchSize).toList();
+          
+          final placeholders = List.filled(batchParts.length, '?').join(',');
+          final maps = await db.query(
+            DownloadedImageColumns.tableName,
+            columns: [DownloadedImageColumns.illustId, DownloadedImageColumns.part],
+            where: '${DownloadedImageColumns.illustId} = ? AND ${DownloadedImageColumns.part} IN ($placeholders)',
+            whereArgs: [illustId, ...batchParts],
+          );
+          
+          result.addAll(
+            maps.map((e) => {
+              'illustId': e[DownloadedImageColumns.illustId] as int,
+              'part': e[DownloadedImageColumns.part] as int,
+            }),
+          );
+        }
       }
-      
-      final whereClause = whereClauses.join(' OR ');
-      final maps = await db.query(
-        DownloadedImageColumns.tableName,
-        columns: [DownloadedImageColumns.illustId, DownloadedImageColumns.part],
-        where: whereClause,
-        whereArgs: whereArgs,
-      );
-      
-      result.addAll(
-        maps.map((e) => {
-          'illustId': e[DownloadedImageColumns.illustId] as int,
-          'part': e[DownloadedImageColumns.part] as int,
-        }),
-      );
     }
     
     return result;

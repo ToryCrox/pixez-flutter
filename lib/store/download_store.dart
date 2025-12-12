@@ -752,7 +752,6 @@ abstract class _DownloadStoreBase with Store {
     for (final task in tasks) {
       final key = '${task.illusts.id}_${task.part}';
       if (downloadedTaskKeys.contains(key)) {
-        Log.d('DownloadStore task ${task.taskKey} already downloaded');
         taskKeysToDelete.add(task.taskKey);
         continue;
       }
@@ -761,10 +760,12 @@ abstract class _DownloadStoreBase with Store {
     
     // 批量删除已下载任务的 pending 记录（使用批量删除优化性能）
     if (taskKeysToDelete.isNotEmpty) {
+      Log.d(() => 'DownloadStore delete ${taskKeysToDelete.length} pending downloads');
       await _dbProvider.batchDeletePendingDownloads(taskKeysToDelete);
     }
     
     if (tasksToAdd.isEmpty) {
+      Log.d(() => 'DownloadStore all tasks already downloaded');
       BotToast.showText(text: '所有图片都已下载');
       return;
     }

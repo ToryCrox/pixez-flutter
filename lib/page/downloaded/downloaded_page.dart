@@ -428,6 +428,16 @@ class _DownloadedPageState extends State<DownloadedPage> {
     }
   }
 
+  void _cancelAll() {
+    for (final illust in _illusts) {
+      final status = _illustDownloadStatus[illust.illustId];
+      if (status == DownloadTaskStatus.downloading ||
+          status == DownloadTaskStatus.pending) {
+        downloadStore.cancelIllustDownload(illust.illustId);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -480,6 +490,9 @@ class _DownloadedPageState extends State<DownloadedPage> {
                   break;
                 case 'resume_all':
                   _resumeAll();
+                  break;
+                case 'cancel_all':
+                  _cancelAll();
                   break;
               }
             },
@@ -601,6 +614,19 @@ class _DownloadedPageState extends State<DownloadedPage> {
                     Icon(Icons.play_circle_outline),
                     SizedBox(width: 8),
                     Text('${I18n.of(context).start}${I18n.of(context).all}'),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'cancel_all',
+                child: Row(
+                  children: [
+                    Icon(Icons.cancel, color: Colors.red),
+                    SizedBox(width: 8),
+                    Text(
+                      '取消${I18n.of(context).all}',
+                      style: TextStyle(color: Colors.red),
+                    ),
                   ],
                 ),
               ),
