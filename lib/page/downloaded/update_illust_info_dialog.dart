@@ -25,6 +25,7 @@ import 'package:pixez/exts.dart';
 import 'package:pixez/i18n.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/models/download_record.dart';
+import 'package:pixez/page/picture/illust_lighting_page.dart';
 
 enum UpdateResultType {
   changed, // 有变化
@@ -884,6 +885,33 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
                   ),
                 ),
               ),
+            // 打开插画详情页按钮
+            Padding(
+              padding: EdgeInsets.only(left: 8),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(20),
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => IllustLightingPage(
+                          id: info.illust.illustId,
+                        ),
+                      ),
+                    );
+                  },
+                  child: Container(
+                    padding: EdgeInsets.all(6),
+                    child: Icon(
+                      Icons.image,
+                      color: iconColor,
+                      size: 20,
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
         subtitle: null,
