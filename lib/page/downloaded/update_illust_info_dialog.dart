@@ -329,6 +329,15 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
     });
   }
 
+  void _handleClose() {
+    // 如果正在扫描，先暂停扫描
+    if (_isScanning && !_isPaused) {
+      _pauseScan();
+    }
+    // 关闭对话框（扫描循环会因为 mounted 检查而自然退出）
+    Navigator.pop(context);
+  }
+
   static Size? _parseImageSizeSync(String filePath) {
     try {
       final file = File(filePath);
@@ -486,16 +495,19 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
                   ),
                   Spacer(),
                   if (_isScanning || _isUpdating)
-                    SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+                    Padding(
+                      padding: EdgeInsets.only(right: 8),
+                      child: SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
                     ),
-                  if (!_isScanning && !_isUpdating)
-                    IconButton(
-                      icon: Icon(Icons.close),
-                      onPressed: () => Navigator.pop(context),
-                    ),
+                  IconButton(
+                    icon: Icon(Icons.close),
+                    onPressed: _isUpdating ? null : _handleClose,
+                    tooltip: '关闭',
+                  ),
                 ],
               ),
             ),
