@@ -848,13 +848,14 @@ abstract class _DownloadStoreBase with Store {
   /// 普通模式添加下载任务（保持原有逻辑）
   Future<void> _addDownloadTasksNormal(List<DownloadTask> tasks) async {
     final ids = <int>{};
+    int addedCount = 0;
     for (final task in tasks) {
       final taskKey = task.taskKey;
       final isDownloaded =
           await _dbProvider.isImageDownloaded(task.illusts.id, task.part);
       if (isDownloaded) {
         Log.d('DownloadStore task $taskKey already downloaded');
-        _dbProvider.deletePendingDownload(task.taskKey);
+        await _dbProvider.deletePendingDownload(task.taskKey);
         continue;
       }
       
@@ -863,11 +864,14 @@ abstract class _DownloadStoreBase with Store {
         ids.add(illusts.id);
         await _insertIllustIfNotExists(illusts);
       }
-      _addDownloadTask(task);
+      await _addDownloadTask(task);
+      addedCount++;
     }
     
-    if (tasks.isNotEmpty) {
-      BotToast.showText(text: '添加 ${tasks.length} 个下载任务');
+    if (addedCount > 0) {
+      BotToast.showText(text: '添加 $addedCount 个下载任务');
+    } else if (tasks.isNotEmpty) {
+      BotToast.showText(text: '所有图片都已下载');
     }
   }
 
