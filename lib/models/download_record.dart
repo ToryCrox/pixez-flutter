@@ -228,6 +228,19 @@ class LocalImageInfo {
   String toString() {
     return 'LocalImageInfo{path: $path, width: $width, height: $height, fileSize: $fileSize}';
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is LocalImageInfo &&
+          runtimeType == other.runtimeType &&
+          path == other.path &&
+          width == other.width &&
+          height == other.height &&
+          fileSize == other.fileSize;
+
+  @override
+  int get hashCode => Object.hash(path, width, height, fileSize);
 }
 
 // 下载的图片记录

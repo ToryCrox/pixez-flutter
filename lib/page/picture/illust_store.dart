@@ -224,6 +224,7 @@ abstract class _IllustStoreBase with Store {
 
   Future<void> _tryUpdateLocalImageInfo(
       Map<int, LocalImageInfo> imageInfos) async {
+    int updateCount = 0;
     final infos = <int, LocalImageInfo>{};
     for (final i in imageInfos.keys) {
       // 校验文件是否存在以及文件大小是否变化
@@ -236,18 +237,24 @@ abstract class _IllustStoreBase with Store {
             final updatedInfo = await downloadStore.updateAndGetLocalImageInfo(
                 id, i, info.path, currentFileSize);
             if (updatedInfo != null && updatedInfo != info) {
+              updateCount++;
               Log.d(() => 'updateLocalImageInfo: $updatedInfo');
               infos[i] = updatedInfo;
             }
           }
         }
       }
+      if (infos.length >= 10) {
+        localImageInfos.addAll(infos);
+        infos.clear();
+      }
     }
     if (infos.isNotEmpty) {
-      Log.d('updateLocalImageInfo: $infos');
       localImageInfos.addAll(infos);
+    }
+    if (updateCount > 0) {
       if (illusts != null) {
-        downloadStore.dbProvider.updateAuthorStats(illusts!.user.id);
+        downloadStore.dbProvider.updateAuthorStats(id);
       }
     }
   }
