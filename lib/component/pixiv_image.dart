@@ -93,7 +93,13 @@ class PixivCacheManager extends CacheManager with ImageCacheManager {
     // 1. 判断是否是 file:// 开头的本地文件路径
     if (url.startsWith('file://')) {
       try {
-        final filePath = url.substring(7); // 移除 'file://' 前缀
+        final uri = Uri.tryParse(url);
+        //final filePath = url.substring(7); // 移除 'file://' 前缀
+        final filePath = uri?.toFilePath();
+        if (filePath == null) {
+          Log.e('filePath is null: $url');
+          throw Exception('filePath is null: $url');
+        }
         final response = await _fileInfoFromIoFile(filePath, url);
         Log.d(() => '加载本地文件成功: $url, ${response?.file.path}');
         if (response != null) {
@@ -295,7 +301,8 @@ class _PixivImageState extends State<PixivImage> {
           fadeInDuration: Duration(milliseconds: 300) ,
           // memCacheWidth: width?.toInt(),
           // memCacheHeight: height?.toInt(),
-          imageUrl: 'file://${localInfo.path}',
+          //imageUrl: 'file://${localInfo.path}',
+          imageUrl: Uri.file(localInfo.path).toString(),
           cacheManager: pixivCacheManager,
           height: displayHeight,
           width: displayWidth,

@@ -16,6 +16,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:collection/collection.dart';
 import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/material.dart';
@@ -35,6 +36,8 @@ import 'package:pixez/component/pixez_easy_refresh.dart';
 import 'package:pixez/component/pixez_default_header.dart';
 import 'package:pixez/component/sort_group.dart';
 import 'package:pixez/er/prefer.dart';
+
+import '../../component/pixiv_image.dart';
 
 enum DownloadFilter {
   all,
@@ -1088,11 +1091,12 @@ class _DownloadedPageState extends State<DownloadedPage> {
     
     Widget imageWidget;
     if (thumbnailPath != null) {
-      imageWidget = Image.file(
-        File(thumbnailPath),
+      imageWidget = CachedNetworkImage(
+        imageUrl: Uri.file(thumbnailPath).toString(),
         fit: BoxFit.cover,
-        cacheWidth: (200 * MediaQuery.devicePixelRatioOf(context)).toInt(),
-        errorBuilder: (context, error, stackTrace) {
+        cacheManager: pixivCacheManager,
+        memCacheWidth: (200 * MediaQuery.devicePixelRatioOf(context)).toInt(),
+        errorWidget: (context, error, stackTrace) {
           return Container(
             color: Colors.grey[300],
             child: Icon(Icons.broken_image, color: Colors.grey),

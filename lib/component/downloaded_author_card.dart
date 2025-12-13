@@ -16,10 +16,12 @@
 import 'dart:io';
 
 import 'package:bot_toast/bot_toast.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:open_file/open_file.dart';
 import 'package:path/path.dart' as path;
 import 'package:pixez/component/painter_avatar.dart';
+import 'package:pixez/component/pixiv_image.dart';
 import 'package:pixez/exts.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/models/download_record.dart';
@@ -128,13 +130,14 @@ class _DownloadedAuthorCardState extends State<DownloadedAuthorCard> {
 
   Widget _buildLocalImage(BuildContext context, String? imagePath) {
     if (imagePath != null) {
-      return Image.file(
-        File(imagePath),
+      return CachedNetworkImage(
+        imageUrl: Uri.file(imagePath).toString(),
+        cacheManager: pixivCacheManager,
         fit: BoxFit.cover,
         width: double.infinity,
         height: double.infinity,
-        cacheWidth: (100 * MediaQuery.of(context).devicePixelRatio).toInt(),
-        errorBuilder: (context, error, stackTrace) {
+        memCacheWidth: (100 * MediaQuery.of(context).devicePixelRatio).toInt(),
+        errorWidget: (context, error, stackTrace) {
           return Container(
             color: Theme.of(context).cardColor,
             child: Icon(Icons.broken_image, color: Colors.grey),
