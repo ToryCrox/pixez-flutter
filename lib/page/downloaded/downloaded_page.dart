@@ -14,7 +14,6 @@
  */
 
 import 'dart:async';
-import 'dart:io';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:collection/collection.dart';
@@ -30,6 +29,7 @@ import 'package:pixez/models/download_record.dart';
 import 'package:pixez/page/picture/illust_lighting_page.dart';
 import 'package:pixez/page/downloaded/downloaded_authors_page.dart';
 import 'package:pixez/page/downloaded/import_dialog.dart';
+import 'package:pixez/page/downloaded/optimize_json_dialog.dart';
 import 'package:pixez/page/downloaded/update_illust_info_dialog.dart';
 import 'package:pixez/store/download_store.dart';
 import 'package:pixez/component/pixez_easy_refresh.dart';
@@ -593,6 +593,9 @@ class _DownloadedPageState extends State<DownloadedPage> {
                 case 'cancel_all':
                   _cancelAll();
                   break;
+                case 'optimize_json':
+                  OptimizeJsonDialog.show(context, downloadStore);
+                  break;
               }
             },
             itemBuilder: (context) => [
@@ -692,6 +695,16 @@ class _DownloadedPageState extends State<DownloadedPage> {
                     Icon(Icons.update),
                     SizedBox(width: 8),
                     Text('更新插画信息'),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'optimize_json',
+                child: Row(
+                  children: [
+                    Icon(Icons.storage, color: Colors.orange),
+                    SizedBox(width: 8),
+                    Text('优化数据库存储'),
                   ],
                 ),
               ),
@@ -1355,6 +1368,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
     _loadData();
     _loadStats();
   }
+
 
   void _showIllustOptions(DownloadedIllust illust) {
     final status = _illustDownloadStatus[illust.illustId];

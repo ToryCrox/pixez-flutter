@@ -17,6 +17,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as path;
+import 'package:pixez/custom/type_util.dart';
 import 'package:pixez/exts.dart';
 import 'package:pixez/models/illust.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -46,7 +47,10 @@ class DownloadedIllust {
   String tags; // JSON格式存储
   String relativePath; // 相对目录路径
   int downloadTime; // 下载时间戳
-  String illustJson; // 完整Illusts JSON
+  String _illustJson; // 完整Illusts JSON（私有）
+
+  // Getter 用于数据库序列化
+  String get illustJson => _illustJson;
 
   DownloadedIllust({
     this.id,
@@ -67,10 +71,37 @@ class DownloadedIllust {
     required this.tags,
     required this.relativePath,
     required this.downloadTime,
-    required this.illustJson,
-  });
+    required String illustJson,
+  }) : _illustJson = illustJson;
 
   factory DownloadedIllust.fromIllusts(Illusts illusts, String relativePath) {
+    // 使用 copyWith 将需要移除的字段设置为空/默认值
+    final optimizedIllusts = illusts.copyWith(
+      id: 0,
+      title: '',
+      type: '',
+      caption: '',
+      createDate: '',
+      pageCount: 0,
+      width: 0,
+      height: 0,
+      sanityLevel: 0,
+      xRestrict: 0,
+      totalView: 0,
+      totalBookmarks: 0,
+      tags: [],
+      user: illusts.user.copyWith(
+        id: 0,
+        name: '',
+      ),
+    );
+    
+    // 转换成 Map
+    final optimizedJson = optimizedIllusts.toJson();
+    
+    // 使用 shrinkMap 移除空值，进一步优化 JSON 大小
+    final shrunkJson = TypeUtil.shrinkMap(optimizedJson, copy: false);
+    
     return DownloadedIllust(
       illustId: illusts.id,
       userId: illusts.user.id,
@@ -89,7 +120,7 @@ class DownloadedIllust {
       tags: jsonEncode(illusts.tags.map((t) => t.toJson()).toList()),
       relativePath: relativePath,
       downloadTime: DateTime.now().millisecondsSinceEpoch,
-      illustJson: jsonEncode(illusts.toJson()),
+      illustJson: jsonEncode(shrunkJson),
     );
   }
 
@@ -142,12 +173,36 @@ class DownloadedIllust {
   }
 
   Illusts toIllusts() {
-    return Illusts.fromJson(jsonDecode(illustJson));
+    // 使用 TypeUtil.parseMap 安全地将字符串转换为 Map
+    final json = TypeUtil.parseMap(_illustJson);
+    
+    // 先从 illustJson 转换成 Illusts（即使 json 为空也能创建默认对象）
+    final baseIllusts = Illusts.fromJson(json);
+    
+    // 使用 copyWith 从表字段赋值，避免硬编码 map 字段
+    return baseIllusts.copyWith(
+      id: illustId,
+      title: title,
+      type: type,
+      caption: caption,
+      createDate: createDate,
+      pageCount: pageCount,
+      width: width,
+      height: height,
+      sanityLevel: sanityLevel,
+      xRestrict: xRestrict,
+      totalView: totalView,
+      totalBookmarks: totalBookmarks,
+      tags: getTagsList(),
+      user: baseIllusts.user.copyWith(
+        id: userId,
+        name: userName,
+      ),
+    );
   }
 
   List<Tags> getTagsList() {
-    final List<dynamic> tagList = jsonDecode(tags);
-    return tagList.map((t) => Tags.fromJson(t)).toList();
+    return TypeUtil.parseList(tags, (e) => Tags.fromMap(TypeUtil.parseMap(e)));
   }
 }
 

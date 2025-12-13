@@ -21,6 +21,19 @@ class TypeUtil {
     return _equality.equals(a, b);
   }
 
+  /// 是否为空
+  /// Map 为空，Iterable 为空，Set 为空，num 为0，bool 为false，其他为true
+  static bool isEmpty(dynamic value) {
+    if (value == null) return true;
+    if (value is String) return value.isEmpty;
+    if (value is Iterable) return value.isEmpty;
+    if (value is Map) return value.isEmpty;
+    if (value is Set) return value.isEmpty;
+    if (value is num) return value == 0;
+    if (value is bool) return value == false;
+    return false;
+  }
+
   /// 转换成int
   /// 如果value是bool，则true转换成1， false为0
   static int parseInt(dynamic value, [int defaultValue = 0]) {
@@ -167,6 +180,31 @@ class TypeUtil {
       }
     }
     return defaultValue;
+  }
+
+
+  /// 压缩map，移除空值
+  static Map<K, V> shrinkMap<K, V>(Map<K, V> map, {bool copy = false}) {
+    if (map.isEmpty) return map;
+    final newMap = copy ? Map.of(map) : map;
+    newMap.removeWhere((key, value) {
+      if (value is Map) {
+        // 如果是map， 递归压缩
+        shrinkMap(value);
+        return value.isEmpty;
+      } else if (value is Iterable) {
+        // 如果是list， 递归压缩里面的map，但是不要删除map，这样会导致list数量减少
+        value.forEach((element) {
+          if (element is Map) {
+            shrinkMap(element);
+          }
+        });
+        return value.isEmpty;
+      } else {
+        return isEmpty(value);
+      }
+    });
+    return newMap;
   }
 
 }

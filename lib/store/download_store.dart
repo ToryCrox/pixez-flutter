@@ -93,7 +93,7 @@ class DownloadTask {
   PendingDownload toPendingDownload() {
     return PendingDownload(
       id: taskKey,
-      illustJson: jsonEncode(illusts),
+      illustJson: jsonEncode(illusts.toJson()),
       part: part,
       url: url,
       status: status.name,
@@ -1152,36 +1152,103 @@ abstract class _DownloadStoreBase with Store {
       }
       Log.d(() => "更新已下载的插画信息: ${illusts.id}");
 
-      // 创建新的 DownloadedIllust（保留原有的 relativePath 和 downloadTime）
-      final newIllustJson = jsonEncode(illusts.toJson());
-      final newTags = jsonEncode(illusts.tags.map((t) => t.toJson()).toList());
-      final updatedIllust = DownloadedIllust(
-        id: existingIllust.id,
-        illustId: illusts.id,
-        userId: illusts.user.id,
-        userName: illusts.user.name,
-        title: illusts.title,
-        type: illusts.type,
-        caption: illusts.caption,
-        createDate: illusts.createDate,
-        pageCount: illusts.pageCount,
-        width: illusts.width,
-        height: illusts.height,
-        sanityLevel: illusts.sanityLevel,
-        xRestrict: illusts.xRestrict,
-        totalView: illusts.totalView,
-        totalBookmarks: illusts.totalBookmarks,
-        tags: newTags,
-        relativePath: existingIllust.relativePath,
-        downloadTime: existingIllust.downloadTime,
-        illustJson: newIllustJson,
-      );
+      // 使用 fromIllusts 方法创建优化后的 DownloadedIllust（保留原有的 relativePath 和 downloadTime）
+      final updatedIllust = DownloadedIllust.fromIllusts(illusts, existingIllust.relativePath);
+      updatedIllust.id = existingIllust.id;
+      updatedIllust.downloadTime = existingIllust.downloadTime;
 
       await _dbProvider.updateIllust(updatedIllust);
       return true;
     } catch (e) {
       Log.e('更新已下载的插画信息失败: $e');
       return false;
+    }
+  }
+
+  /// 优化现有数据库中的 illustJson 字段（移除重复存储的字段）
+  /// 返回优化后的记录数和节省的字节数
+  Future<Map<String, int>> optimizeIllustJson({
+    Function(int current, int total, int savedBytes)? onProgress,
+    bool Function()? shouldCancel,
+  }) async {
+    if (!isInitialized) {
+      throw Exception('DownloadStore not initialized');
+    }
+
+    Log.d('开始优化 illustJson 字段...');
+    
+    int optimizedCount = 0;
+    int savedBytes = 0;
+    
+    try {
+      // 获取所有插画记录
+      final allIllusts = await _dbProvider.getAllIllusts();
+      final total = allIllusts.length;
+      
+      Log.d('找到 $total 条记录需要优化');
+      
+      // 分批处理，每批 50 条
+      const batchSize = 50;
+      for (int i = 0; i < allIllusts.length; i += batchSize) {
+        // 检查是否应该取消
+        if (shouldCancel != null && shouldCancel()) {
+          Log.d('优化已取消: 已优化 $optimizedCount 条记录，节省了 ${(savedBytes / 1024 / 1024).toStringAsFixed(2)} MB');
+          throw Exception('优化已取消');
+        }
+        
+        final batch = allIllusts.skip(i).take(batchSize).toList();
+        
+        for (final existingIllust in batch) {
+          // 在处理每条记录前也检查取消标志
+          if (shouldCancel != null && shouldCancel()) {
+            Log.d('优化已取消: 已优化 $optimizedCount 条记录，节省了 ${(savedBytes / 1024 / 1024).toStringAsFixed(2)} MB');
+            throw Exception('优化已取消');
+          }
+          
+          try {
+            // 尝试从 illustJson 反序列化为 Illusts
+            final illusts = existingIllust.toIllusts();
+            
+            // 使用 fromIllusts 重新创建优化后的记录
+            final optimizedIllust = DownloadedIllust.fromIllusts(
+              illusts,
+              existingIllust.relativePath,
+            );
+            optimizedIllust.id = existingIllust.id;
+            optimizedIllust.downloadTime = existingIllust.downloadTime;
+            
+            // 计算节省的字节数
+            final oldSize = existingIllust.illustJson.length;
+            final newSize = optimizedIllust.illustJson.length;
+            final saved = oldSize - newSize;
+            
+            if (saved > 0) {
+              // 更新数据库
+              await _dbProvider.updateIllust(optimizedIllust);
+              optimizedCount++;
+              savedBytes += saved;
+            }
+          } catch (e) {
+            // 如果反序列化失败，可能是数据损坏，跳过
+            Log.e('优化记录失败 (illustId: ${existingIllust.illustId}): $e');
+          }
+        }
+        
+        // 报告进度（包含已节省的字节数）
+        if (onProgress != null) {
+          onProgress(i + batch.length, total, savedBytes);
+        }
+      }
+      
+      Log.d('优化完成: 优化了 $optimizedCount 条记录，节省了 ${(savedBytes / 1024 / 1024).toStringAsFixed(2)} MB');
+      
+      return {
+        'optimized_count': optimizedCount,
+        'saved_bytes': savedBytes,
+      };
+    } catch (e) {
+      Log.e('优化 illustJson 失败: $e');
+      rethrow;
     }
   }
 
