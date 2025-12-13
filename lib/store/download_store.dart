@@ -1153,9 +1153,11 @@ abstract class _DownloadStoreBase with Store {
       Log.d(() => "更新已下载的插画信息: ${illusts.id}");
 
       // 使用 fromIllusts 方法创建优化后的 DownloadedIllust（保留原有的 relativePath 和 downloadTime）
-      final updatedIllust = DownloadedIllust.fromIllusts(illusts, existingIllust.relativePath);
-      updatedIllust.id = existingIllust.id;
-      updatedIllust.downloadTime = existingIllust.downloadTime;
+      final updatedIllust = DownloadedIllust.fromIllusts(
+        illusts,
+        existingIllust.relativePath,
+        downloadTime: existingIllust.downloadTime,
+      );
 
       await _dbProvider.updateIllust(updatedIllust);
       return true;
@@ -1214,9 +1216,8 @@ abstract class _DownloadStoreBase with Store {
             final optimizedIllust = DownloadedIllust.fromIllusts(
               illusts,
               existingIllust.relativePath,
+              downloadTime: existingIllust.downloadTime,
             );
-            optimizedIllust.id = existingIllust.id;
-            optimizedIllust.downloadTime = existingIllust.downloadTime;
             
             // 计算节省的字节数
             final oldSize = existingIllust.illustJson.length;

@@ -29,31 +29,29 @@ const kImageExtensions = ['.webp', '.jpg', '.png', '.gif', '.jpeg'];
 
 // 下载的插画记录
 class DownloadedIllust {
-  int? id;
-  int illustId;
-  int userId;
-  String userName;
-  String title;
-  String type;
-  String caption;
-  String createDate;
-  int pageCount;
-  int width;
-  int height;
-  int sanityLevel;
-  int xRestrict;
-  int totalView;
-  int totalBookmarks;
-  String tags; // JSON格式存储
-  String relativePath; // 相对目录路径
-  int downloadTime; // 下载时间戳
-  String _illustJson; // 完整Illusts JSON（私有）
+  final int illustId;
+  final int userId;
+  final String userName;
+  final String title;
+  final String type;
+  final String caption;
+  final String createDate;
+  final int pageCount;
+  final int width;
+  final int height;
+  final int sanityLevel;
+  final int xRestrict;
+  final int totalView;
+  final int totalBookmarks;
+  final String tags; // JSON格式存储
+  final String relativePath; // 相对目录路径
+  final int downloadTime; // 下载时间戳
+  final String _illustJson; // 完整Illusts JSON（私有）
 
   // Getter 用于数据库序列化
   String get illustJson => _illustJson;
 
   DownloadedIllust({
-    this.id,
     required this.illustId,
     required this.userId,
     required this.userName,
@@ -74,7 +72,7 @@ class DownloadedIllust {
     required String illustJson,
   }) : _illustJson = illustJson;
 
-  factory DownloadedIllust.fromIllusts(Illusts illusts, String relativePath) {
+  factory DownloadedIllust.fromIllusts(Illusts illusts, String relativePath, {int? downloadTime}) {
     // 使用 copyWith 将需要移除的字段设置为空/默认值
     final optimizedIllusts = illusts.copyWith(
       id: 0,
@@ -119,14 +117,13 @@ class DownloadedIllust {
       totalBookmarks: illusts.totalBookmarks,
       tags: jsonEncode(illusts.tags.map((t) => t.toJson()).toList()),
       relativePath: relativePath,
-      downloadTime: DateTime.now().millisecondsSinceEpoch,
+      downloadTime: downloadTime ?? DateTime.now().millisecondsSinceEpoch,
       illustJson: jsonEncode(shrunkJson),
     );
   }
 
   factory DownloadedIllust.fromJson(Map<String, dynamic> json) {
     return DownloadedIllust(
-      id: json[DownloadedIllustColumns.id],
       illustId: json[DownloadedIllustColumns.illustId],
       userId: json[DownloadedIllustColumns.userId],
       userName: json[DownloadedIllustColumns.userName],
@@ -150,7 +147,6 @@ class DownloadedIllust {
 
   Map<String, dynamic> toJson() {
     final Map<String, dynamic> data = {};
-    if (id != null) data[DownloadedIllustColumns.id] = id;
     data[DownloadedIllustColumns.illustId] = illustId;
     data[DownloadedIllustColumns.userId] = userId;
     data[DownloadedIllustColumns.userName] = userName;
@@ -236,19 +232,17 @@ class LocalImageInfo {
 
 // 下载的图片记录
 class DownloadedImage {
-  int? id;
-  int illustId;
-  int part;
-  String fileName;
-  String extension;
-  int fileSize;
-  String originalUrl;
-  String relativePath;
-  int? width; // 图片宽度
-  int? height; // 图片高度
+  final int illustId;
+  final int part;
+  final String fileName;
+  final String extension;
+  final int fileSize;
+  final String originalUrl;
+  final String relativePath;
+  final int? width; // 图片宽度
+  final int? height; // 图片高度
 
   DownloadedImage({
-    this.id,
     required this.illustId,
     required this.part,
     required this.fileName,
@@ -262,7 +256,6 @@ class DownloadedImage {
 
   factory DownloadedImage.fromJson(Map<String, dynamic> json) {
     return DownloadedImage(
-      id: json[DownloadedImageColumns.id],
       illustId: json[DownloadedImageColumns.illustId],
       part: json[DownloadedImageColumns.part],
       fileName: json[DownloadedImageColumns.fileName],
@@ -277,7 +270,6 @@ class DownloadedImage {
 
   Map<String, dynamic> toJson() {
     final Map<String, dynamic> data = {};
-    if (id != null) data[DownloadedImageColumns.id] = id;
     data[DownloadedImageColumns.illustId] = illustId;
     data[DownloadedImageColumns.part] = part;
     data[DownloadedImageColumns.fileName] = fileName;
@@ -598,7 +590,7 @@ class DownloadDatabaseProvider {
   // ============ Illusts 操作 ============
 
   Future<DownloadedIllust> insertIllust(DownloadedIllust illust) async {
-    illust.id = await db.insert(
+    await db.insert(
       DownloadedIllustColumns.tableName,
       illust.toJson(),
       conflictAlgorithm: ConflictAlgorithm.replace,
@@ -889,7 +881,7 @@ class DownloadDatabaseProvider {
   // ============ Images 操作 ============
 
   Future<DownloadedImage> insertImage(DownloadedImage image) async {
-    image.id = await db.insert(
+    await db.insert(
       DownloadedImageColumns.tableName,
       image.toJson(),
       conflictAlgorithm: ConflictAlgorithm.replace,
