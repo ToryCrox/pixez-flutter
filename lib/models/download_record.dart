@@ -1678,4 +1678,15 @@ class DownloadDatabaseProvider {
     
     return existingIds;
   }
+
+  /// 执行 VACUUM 命令，回收数据库空间
+  Future<void> vacuum() async {
+    try {
+      await db.execute('VACUUM');
+      Log.d('数据库 VACUUM 执行完成');
+    } catch (e) {
+      Log.e('执行 VACUUM 失败: $e');
+      rethrow;
+    }
+  }
 }

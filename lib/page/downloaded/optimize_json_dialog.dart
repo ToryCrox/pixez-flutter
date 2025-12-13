@@ -44,6 +44,7 @@ class _OptimizeDialogState extends State<_OptimizeDialog> {
   int _optimizedCount = 0;
   String? _errorMessage;
   bool _isCancelled = false;
+  bool _isVacuuming = false;
 
   void _startOptimize() async {
     setState(() {
@@ -63,13 +64,23 @@ class _OptimizeDialogState extends State<_OptimizeDialog> {
           }
         },
         shouldCancel: () => _isCancelled,
+        onVacuumStart: () {
+          if (mounted && !_isCancelled) {
+            setState(() {
+              _isVacuuming = true;
+            });
+          }
+        },
       );
 
       if (mounted) {
+        _optimizedCount = result['optimized_count'] ?? 0;
+        _savedBytes = result['saved_bytes'] ?? 0;
+        
+        // 显示完成状态
         setState(() {
           _state = OptimizeDialogState.completed;
-          _optimizedCount = result['optimized_count'] ?? 0;
-          _savedBytes = result['saved_bytes'] ?? 0;
+          _isVacuuming = false;
         });
       }
     } catch (e) {
@@ -147,7 +158,16 @@ class _OptimizeDialogState extends State<_OptimizeDialog> {
         content = Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (_total > 0) ...[
+            if (_isVacuuming) ...[
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text('正在回收数据库空间...'),
+              SizedBox(height: 8),
+              Text(
+                '执行 VACUUM 操作，这可能需要一些时间',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+            ] else if (_total > 0) ...[
               LinearProgressIndicator(value: progressValue),
               SizedBox(height: 16),
               Text('正在优化数据库...'),

@@ -1170,6 +1170,7 @@ abstract class _DownloadStoreBase with Store {
   Future<Map<String, int>> optimizeIllustJson({
     Function(int current, int total, int savedBytes)? onProgress,
     bool Function()? shouldCancel,
+    Function()? onVacuumStart,
   }) async {
     if (!isInitialized) {
       throw Exception('DownloadStore not initialized');
@@ -1241,6 +1242,21 @@ abstract class _DownloadStoreBase with Store {
       }
       
       Log.d('优化完成: 优化了 $optimizedCount 条记录，节省了 ${(savedBytes / 1024 / 1024).toStringAsFixed(2)} MB');
+      
+      // 执行 VACUUM 回收数据库空间
+      //if (optimizedCount > 0) {
+        Log.d('开始执行 VACUUM 回收数据库空间...');
+        if (onVacuumStart != null) {
+          onVacuumStart();
+        }
+        try {
+          await _dbProvider.vacuum();
+          Log.d('VACUUM 执行完成，数据库空间已回收');
+        } catch (e) {
+          Log.e('执行 VACUUM 失败: $e');
+          // VACUUM 失败不影响优化结果，只记录错误
+        }
+      //}
       
       return {
         'optimized_count': optimizedCount,
