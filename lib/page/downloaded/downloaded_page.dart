@@ -823,7 +823,10 @@ class _DownloadedPageState extends State<DownloadedPage> {
         onTap: () {
           Leader.push(
             context,
-            IllustLightingPage(id: illust.illustId),
+            IllustLightingPage(
+              id: illust.illustId,
+              heroString: 'downloaded_illust_${illust.illustId}',
+            ),
           );
         },
         onLongPress: () {
@@ -1007,8 +1010,11 @@ class _DownloadedPageState extends State<DownloadedPage> {
 
   Widget _buildThumbnail(DownloadedIllust illust) {
     final thumbnailPath = _thumbnailPaths[illust.illustId];
+    final heroTag = 'downloaded_illust_${illust.illustId}';
+    
+    Widget imageWidget;
     if (thumbnailPath != null) {
-      return Image.file(
+      imageWidget = Image.file(
         File(thumbnailPath),
         fit: BoxFit.cover,
         cacheWidth: (200 * MediaQuery.devicePixelRatioOf(context)).toInt(),
@@ -1019,10 +1025,16 @@ class _DownloadedPageState extends State<DownloadedPage> {
           );
         },
       );
+    } else {
+      imageWidget = Container(
+        color: Colors.grey[300],
+        child: Icon(Icons.image, color: Colors.grey),
+      );
     }
-    return Container(
-      color: Colors.grey[300],
-      child: Icon(Icons.image, color: Colors.grey),
+    
+    return Hero(
+      tag: heroTag,
+      child: imageWidget,
     );
   }
 
@@ -1107,7 +1119,10 @@ class _DownloadedPageState extends State<DownloadedPage> {
           onTap: () {
             Leader.push(
               context,
-              IllustLightingPage(id: illust.illustId),
+              IllustLightingPage(
+                id: illust.illustId,
+                heroString: 'downloaded_illust_${illust.illustId}',
+              ),
             );
           },
         ),
@@ -1290,7 +1305,10 @@ class _DownloadedPageState extends State<DownloadedPage> {
                   Navigator.pop(ctx);
                   Leader.push(
                     context,
-                    IllustLightingPage(id: illust.illustId),
+                    IllustLightingPage(
+                      id: illust.illustId,
+                      heroString: 'downloaded_illust_${illust.illustId}',
+                    ),
                   );
                 },
               ),
