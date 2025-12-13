@@ -21,6 +21,7 @@ import 'package:image_size_getter/file_input.dart';
 import 'package:image_size_getter/image_size_getter.dart' hide Size;
 import 'package:open_file/open_file.dart';
 import 'package:path/path.dart' as p;
+import 'package:pixez/custom/log.dart';
 import 'package:pixez/exts.dart';
 import 'package:pixez/i18n.dart';
 import 'package:pixez/main.dart';
@@ -112,6 +113,7 @@ class ImageUpdateInfo {
   final int? newWidth;
   final int? newHeight;
   final bool isBroken;
+  final String? scannedFilePath; // 扫描阶段获取的文件路径
   bool hasChange = false;
 
   ImageUpdateInfo({
@@ -121,6 +123,7 @@ class ImageUpdateInfo {
     this.newWidth,
     this.newHeight,
     required this.isBroken,
+    this.scannedFilePath,
   }) {
     hasChange = (newFileSize != null && newFileSize != originalImage.fileSize) ||
         (newExtension != null && newExtension != originalImage.extension) ||
@@ -243,6 +246,7 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
           imageUpdates.add(ImageUpdateInfo(
             originalImage: image,
             isBroken: true,
+            scannedFilePath: null, // 文件不存在，路径为 null
           ));
         } else {
           foundExtension = p.extension(actualPath);
@@ -281,6 +285,7 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
             newWidth: newWidth,
             newHeight: newHeight,
             isBroken: isBroken,
+            scannedFilePath: actualPath, // 保存扫描阶段获取的文件路径
           ));
         }
 
@@ -358,6 +363,8 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
     try {
       int updatedCount = 0;
       int brokenCount = 0;
+      int deletedCount = 0; // 已删除的损坏文件数量
+      List<String> errors = []; // 收集错误信息
 
       for (final updateInfo in _updateInfos) {
         if (!mounted) return;
@@ -370,9 +377,43 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
           continue;
         }
 
+        bool hasDeletedBroken = false; // 当前作品是否有删除损坏文件
+
         for (final imageUpdate in updateInfo.imageUpdates) {
           if (imageUpdate.isBroken) {
             brokenCount++;
+            // 删除损坏的图片文件和数据库记录
+            final image = imageUpdate.originalImage;
+            
+            // 使用扫描阶段获取的文件路径删除文件
+            try {
+              final scannedPath = imageUpdate.scannedFilePath;
+              if (scannedPath != null) {
+                // 使用扫描阶段保存的文件路径
+                final file = File(scannedPath);
+                if (await file.exists()) {
+                  await file.delete();
+                }
+              }
+            } catch (e, stackTrace) {
+              // 记录删除文件时的错误
+              final errorMsg = '删除文件失败 [${image.illustId}_p${image.part}]: $e';
+              Log.e(errorMsg, stackTrace: stackTrace);
+              errors.add(errorMsg);
+            }
+            
+            // 删除数据库记录
+            try {
+              await downloadStore.dbProvider.deleteImage(image.illustId, image.part);
+              deletedCount++;
+              hasDeletedBroken = true;
+            } catch (e, stackTrace) {
+              // 记录删除数据库记录时的错误
+              final errorMsg = '删除数据库记录失败 [${image.illustId}_p${image.part}]: $e';
+              Log.e(errorMsg, stackTrace: stackTrace);
+              errors.add(errorMsg);
+            }
+            
             continue;
           }
 
@@ -422,8 +463,8 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
           }
         }
 
-        // 更新作者表统计信息
-        if (updateInfo.hasChanges) {
+        // 更新作者表统计信息（如果有变化或删除了损坏文件）
+        if (updateInfo.hasChanges || hasDeletedBroken) {
           await downloadStore.dbProvider.updateAuthorStats(updateInfo.illust.userId);
         }
       }
@@ -438,8 +479,39 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
           context: context,
           builder: (ctx) => AlertDialog(
             title: Text('更新完成'),
-            content: Text(
-              '已更新 $updatedCount 条记录\n损坏文件: $brokenCount 个',
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '已更新 $updatedCount 条记录\n'
+                    '损坏文件: $brokenCount 个\n'
+                    '已删除: $deletedCount 个',
+                  ),
+                  if (errors.isNotEmpty) ...[
+                    SizedBox(height: 16),
+                    Text(
+                      '错误信息:',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.red,
+                      ),
+                    ),
+                    SizedBox(height: 8),
+                    ...errors.map((error) => Padding(
+                      padding: EdgeInsets.only(bottom: 4),
+                      child: Text(
+                        error,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.red[700],
+                        ),
+                      ),
+                    )),
+                  ],
+                ],
+              ),
             ),
             actions: [
               TextButton(
