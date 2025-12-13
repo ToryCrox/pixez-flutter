@@ -232,10 +232,11 @@ abstract class _IllustStoreBase with Store {
         final file = File(info.path);
         if (await file.exists()) {
           final currentFileSize = await file.length();
-          if ((info.width == null || info.height == null) ||info.fileSize != currentFileSize) {
+          if ((info.width == null || info.height == null) || info.fileSize != currentFileSize) {
             final updatedInfo = await downloadStore.updateAndGetLocalImageInfo(
-                illusts!.id, i, info.path, currentFileSize);
+                id, i, info.path, currentFileSize);
             if (updatedInfo != null && updatedInfo != info) {
+              Log.d(() => 'updateLocalImageInfo: $updatedInfo');
               infos[i] = updatedInfo;
             }
           }
@@ -243,6 +244,7 @@ abstract class _IllustStoreBase with Store {
       }
     }
     if (infos.isNotEmpty) {
+      Log.d('updateLocalImageInfo: $infos');
       localImageInfos.addAll(infos);
       if (illusts != null) {
         downloadStore.dbProvider.updateAuthorStats(illusts!.user.id);
