@@ -165,7 +165,7 @@ class _DownloadedAuthorCardState extends State<DownloadedAuthorCard> {
               url: widget.author.profileImageUrl ?? '',
               id: widget.author.userId,
               onTap: () {
-                Navigator.of(context, rootNavigator: true).push(
+                Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (context) => UsersPage(
                       id: widget.author.userId,
