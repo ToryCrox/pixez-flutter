@@ -42,59 +42,54 @@ class _PainterAvatarState extends State<PainterAvatar> {
     }));
   }
 
+  void _handleTap() {
+    if (widget.onTap == null) {
+      pushToUserPage();
+    } else {
+      widget.onTap!();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    // 统一尺寸处理，默认 60x60
+    final size = widget.size ?? const Size(60.0, 60.0);
+    final theme = Theme.of(context);
+
     return GestureDetector(
-        onTap: () {
-          if (widget.onTap == null) {
-            pushToUserPage();
-          } else
-            widget.onTap!();
-        },
-        child: widget.size == null
-            ? CachedNetworkImage(
-                imageUrl: widget.url,
-                imageBuilder: (context, imageProvider) => Container(
-                  width: 60.0,
-                  height: 60.0,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    image: DecorationImage(
-                        image: imageProvider, fit: BoxFit.cover),
-                  ),
-                ),
-                httpHeaders: Hoster.header(url: widget.url),
-                cacheManager: pixivCacheManager,
-                errorWidget: (context, url, error) => Container(
-                  width: 60.0,
-                  height: 60.0,
-                  decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Theme.of(context).cardColor),
-                ),
-              )
-            : CachedNetworkImage(
-                imageUrl: widget.url,
-                cacheManager: pixivCacheManager,
-                errorWidget: (context, url, error) => Container(
-                  width: widget.size!.width,
-                  height: widget.size!.height,
-                  decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Theme.of(context).cardColor),
-                ),
-                imageBuilder: (context, imageProvider) => Container(
-                  width: widget.size!.width,
-                  height: widget.size!.height,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    image: DecorationImage(
-                        image: imageProvider, fit: BoxFit.cover),
-                  ),
-                ),
-                width: widget.size!.width,
-                height: widget.size!.height,
-                httpHeaders: Hoster.header(url: widget.url),
-              ));
+      onTap: _handleTap,
+      child: CachedNetworkImage(
+        imageUrl: widget.url,
+        cacheManager: pixivCacheManager,
+        httpHeaders: Hoster.header(url: widget.url),
+        imageBuilder: (context, imageProvider) => Container(
+          width: size.width,
+          height: size.height,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            image: DecorationImage(
+              image: imageProvider,
+              fit: BoxFit.cover,
+            ),
+          ),
+        ),
+        placeholder: (context, url) => Container(
+          width: size.width,
+          height: size.height,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: theme.cardColor,
+          ),
+        ),
+        errorWidget: (context, url, error) => Container(
+          width: size.width,
+          height: size.height,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: theme.cardColor,
+          ),
+        ),
+      ),
+    );
   }
 }

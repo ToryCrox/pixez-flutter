@@ -1,0 +1,45 @@
+# 自动检测文本文件并统一使用 LF 行尾符
+* text=auto eol=lf
+
+# 明确指定 Dart 文件使用 LF
+*.dart text eol=lf
+
+# 明确指定其他文本文件使用 LF
+*.md text eol=lf
+*.txt text eol=lf
+*.json text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.xml text eol=lf
+*.html text eol=lf
+*.css text eol=lf
+*.js text eol=lf
+*.ts text eol=lf
+*.sh text eol=lf
+*.bat text eol=lf
+*.ps1 text eol=lf
+*.gradle text eol=lf
+*.properties text eol=lf
+*.gitignore text eol=lf
+*.gitattributes text eol=lf
+
+# 二进制文件
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.jar binary
+*.apk binary
+*.ipa binary
+*.aab binary
+*.so binary
+*.dylib binary
+*.dll binary
+*.exe binary
+*.ttf binary
+*.otf binary
+*.woff binary
+*.woff2 binary
