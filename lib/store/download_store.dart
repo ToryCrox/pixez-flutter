@@ -203,9 +203,10 @@ abstract class _DownloadStoreBase with Store {
   Future<void> init(String downloadPath, {int maxConcurrent = 3}) async {
     if (_isInit) return;
     _isInit = true;
-    _downloadPath = downloadPath;
+    // downloadPath 是数据库所在目录，下载文件应该在 downloadPath/download
+    _downloadPath = path.join(downloadPath, 'download');
     _maxConcurrent = maxConcurrent;
-    Log.d('DownloadStore downloadPath: $downloadPath');
+    Log.d('DownloadStore downloadPath: $_downloadPath');
     await _dbProvider.open(downloadPath);
     await refreshCount();
     progressStream.listen((e) {

@@ -401,13 +401,21 @@ class DownloadDatabaseProvider {
   String get basePath => _basePath ?? '';
 
   Future<void> open(String downloadPath) async {
-    _basePath = downloadPath;
+    // downloadPath 是数据库所在目录，数据库文件在 downloadPath/download.db
+    // _basePath 应该指向下载文件的基础目录，即 downloadPath/download
+    _basePath = path.join(downloadPath, 'download');
     String dbPath = path.join(downloadPath, 'download.db');
 
     // 确保目录存在
     final dir = Directory(downloadPath);
     if (!await dir.exists()) {
       await dir.create(recursive: true);
+    }
+    
+    // 确保下载目录存在
+    final downloadDir = Directory(_basePath!);
+    if (!await downloadDir.exists()) {
+      await downloadDir.create(recursive: true);
     }
 
     db = await openDatabase(
@@ -929,76 +937,6 @@ class DownloadDatabaseProvider {
     return maps.map((e) => DownloadedImage.fromJson(e)).toList();
   }
 
-  /// 批量获取插画的所有图片信息及其完整路径（自动检测后缀名）
-  /// 返回 Map<part, LocalImageInfo>
-  Future<Map<int, LocalImageInfo>> getLocalImageInfosByIllustId(int illustId) async {
-    final t1 = DateTime.now();
-    final images = await getImagesByIllustId(illustId);
-    Log.d('getLocalImageInfosByIllustId: ${images.length} images, ${DateTime.now().difference(t1).inMilliseconds}ms');
-    
-    // 并行处理所有图片，大幅提升性能
-    final futures = images.map((image) async {
-      final foundPath = await _findImagePathForImage(image);
-      if (foundPath != null) {
-        return MapEntry(image.part, LocalImageInfo(
-          path: foundPath,
-          width: image.width,
-          height: image.height,
-          fileSize: image.fileSize,
-        ));
-      }
-      return null;
-    });
-    
-    final results = await Future.wait(futures);
-    final result = <int, LocalImageInfo>{};
-    for (final entry in results) {
-      if (entry != null) {
-        result[entry.key] = entry.value;
-      }
-    }
-    
-    return result;
-  }
-
-  /// 根据图片记录查找实际存在的文件路径（自动检测后缀名）
-  Future<String?> _findImagePathForImage(DownloadedImage image, {bool update = true}) async {
-    final basePath = path.join(_basePath!, image.relativePath, image.fileName);
-
-    // 首先尝试数据库中记录的后缀（最常见的情况）
-    String fullPath = '$basePath${image.extension}';
-    if (await File(fullPath).exists()) {
-      return fullPath;
-    }
-
-    // 并行检查其他常见后缀，提升性能
-    final otherExtensions = kImageExtensions.where((ext) => ext != image.extension).toList();
-    final checkFutures = otherExtensions.map((ext) async {
-      final testPath = '$basePath$ext';
-      if (await File(testPath).exists()) {
-        return testPath;
-      }
-      return null;
-    });
-    
-    final results = await Future.wait(checkFutures);
-    for (int i = 0; i < results.length; i++) {
-      if (results[i] != null) {
-        final foundPath = results[i]!;
-        if (update){
-          // 更新数据库中的后缀名（异步执行，不阻塞返回）
-          updateImageExtension(image.illustId, image.part, otherExtensions[i]).catchError((e) {
-            Log.e('Failed to update image extension: $e');
-            return 0; // 返回默认值以满足 catchError 的要求
-          });
-        }
-        
-        return foundPath;
-      }
-    }
-
-    return null;
-  }
 
   /// 更新图片的文件大小和宽高信息
   Future<int> updateImageFileSizeAndDimensions(
@@ -1104,6 +1042,77 @@ class DownloadDatabaseProvider {
     final userDir = buildUserDirName(illusts.user.name, illusts.user.id);
     final illustDir = buildIllustDirName(illusts.id, illusts.title);
     return path.join(userDir, illustDir);
+  }
+
+  /// 批量获取插画的所有图片信息及其完整路径（自动检测后缀名）
+  /// 返回 Map<part, LocalImageInfo>
+  Future<Map<int, LocalImageInfo>> getLocalImageInfosByIllustId(int illustId) async {
+    final t1 = DateTime.now();
+    final images = await getImagesByIllustId(illustId);
+    Log.d('getLocalImageInfosByIllustId: ${images.length} images, ${DateTime.now().difference(t1).inMilliseconds}ms');
+    
+    // 并行处理所有图片，大幅提升性能
+    final futures = images.map((image) async {
+      final foundPath = await _findImagePathForImage(image);
+      if (foundPath != null) {
+        return MapEntry(image.part, LocalImageInfo(
+          path: foundPath,
+          width: image.width,
+          height: image.height,
+          fileSize: image.fileSize,
+        ));
+      }
+      return null;
+    });
+    
+    final results = await Future.wait(futures);
+    final result = <int, LocalImageInfo>{};
+    for (final entry in results) {
+      if (entry != null) {
+        result[entry.key] = entry.value;
+      }
+    }
+    
+    return result;
+  }
+
+  /// 根据图片记录查找实际存在的文件路径（自动检测后缀名）
+  Future<String?> _findImagePathForImage(DownloadedImage image, {bool update = true}) async {
+    final basePath = path.join(_basePath!, image.relativePath, image.fileName);
+
+    // 首先尝试数据库中记录的后缀（最常见的情况）
+    String fullPath = '$basePath${image.extension}';
+    if (await File(fullPath).exists()) {
+      return fullPath;
+    }
+
+    // 并行检查其他常见后缀，提升性能
+    final otherExtensions = kImageExtensions.where((ext) => ext != image.extension).toList();
+    final checkFutures = otherExtensions.map((ext) async {
+      final testPath = '$basePath$ext';
+      if (await File(testPath).exists()) {
+        return testPath;
+      }
+      return null;
+    });
+    
+    final results = await Future.wait(checkFutures);
+    for (int i = 0; i < results.length; i++) {
+      if (results[i] != null) {
+        final foundPath = results[i]!;
+        if (update){
+          // 更新数据库中的后缀名（异步执行，不阻塞返回）
+          updateImageExtension(image.illustId, image.part, otherExtensions[i]).catchError((e) {
+            Log.e('Failed to update image extension: $e');
+            return 0; // 返回默认值以满足 catchError 的要求
+          });
+        }
+        
+        return foundPath;
+      }
+    }
+
+    return null;
   }
 
   /// 获取图片的完整文件路径
