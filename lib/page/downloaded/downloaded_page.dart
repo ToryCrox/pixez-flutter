@@ -224,20 +224,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
         );
       }
 
-      for (final illust in moreIllusts) {
-        _downloadedCounts[illust.illustId] =
-            await downloadStore.getDownloadedPageCount(illust.illustId);
-        final downloadStatus =
-            await downloadStore.getIllustDownloadStatus(illust.illustId);
-        if (downloadStatus != null) {
-          _illustDownloadStatus[illust.illustId] = downloadStatus.status;
-        }
-        _thumbnailPaths[illust.illustId] =
-            await downloadStore.getLocalImagePath(illust.illustId, 0);
-        _fileSizes[illust.illustId] =
-            await downloadStore.getIllustTotalFileSize(illust.illustId);
-      }
-
+      // 先添加到列表
       if (mounted) {
         setState(() {
           _illusts.addAll(moreIllusts);
@@ -248,6 +235,33 @@ class _DownloadedPageState extends State<DownloadedPage> {
           _hasMore ? IndicatorResult.success : IndicatorResult.noMore,
         );
       }
+
+      // 并行加载关键信息（下载状态和页数）
+      final criticalFutures = moreIllusts.map((illust) async {
+        final downloadStatus =
+            await downloadStore.getIllustDownloadStatus(illust.illustId);
+        return MapEntry(illust.illustId, downloadStatus);
+      }).toList();
+
+      final criticalResults = await Future.wait(criticalFutures);
+      
+      if (mounted) {
+        setState(() {
+          for (final entry in criticalResults) {
+            if (entry.value != null) {
+              _downloadedCounts[entry.key] = entry.value!.completedCount;
+              _illustDownloadStatus[entry.key] = entry.value!.status;
+              // 直接从 downloadStatus 中获取 fileSize，避免重复查询
+              if (entry.value!.fileSize > 0) {
+                _fileSizes[entry.key] = entry.value!.fileSize;
+              }
+            }
+          }
+        });
+      }
+
+      // 延迟加载非关键信息（仅缩略图）
+      _loadNonCriticalData(moreIllusts);
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -317,41 +331,81 @@ class _DownloadedPageState extends State<DownloadedPage> {
         );
       }
 
-      final counts = <int, int>{};
-      final statusMap = <int, DownloadTaskStatus>{};
-      final thumbnails = <int, String?>{};
-      final fileSizes = <int, int>{};
-      for (final illust in illusts) {
-        counts[illust.illustId] =
-            await downloadStore.getDownloadedPageCount(illust.illustId);
-        final downloadStatus =
-            await downloadStore.getIllustDownloadStatus(illust.illustId);
-        if (downloadStatus != null) {
-          statusMap[illust.illustId] = downloadStatus.status;
-        }
-        thumbnails[illust.illustId] =
-            await downloadStore.getLocalImagePath(illust.illustId, 0);
-        fileSizes[illust.illustId] =
-            await downloadStore.getIllustTotalFileSize(illust.illustId);
-      }
-
+      // 先显示列表，不等待所有数据加载完成
       if (mounted) {
         setState(() {
           _illusts = illusts;
-          _downloadedCounts = counts;
-          _illustDownloadStatus = statusMap;
-          _thumbnailPaths = thumbnails;
-          _fileSizes = fileSizes;
           _loading = false;
           _hasMore = illusts.length >= _pageSize;
         });
       }
+
+      // 并行加载关键信息（下载状态和页数）
+      final criticalFutures = illusts.map((illust) async {
+        final downloadStatus =
+            await downloadStore.getIllustDownloadStatus(illust.illustId);
+        return MapEntry(illust.illustId, downloadStatus);
+      }).toList();
+
+      final criticalResults = await Future.wait(criticalFutures);
+      final counts = <int, int>{};
+      final statusMap = <int, DownloadTaskStatus>{};
+      final fileSizes = <int, int>{};
+      
+      for (final entry in criticalResults) {
+        if (entry.value != null) {
+          counts[entry.key] = entry.value!.completedCount;
+          statusMap[entry.key] = entry.value!.status;
+          // 直接从 downloadStatus 中获取 fileSize，避免重复查询
+          if (entry.value!.fileSize > 0) {
+            fileSizes[entry.key] = entry.value!.fileSize;
+          }
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _downloadedCounts = counts;
+          _illustDownloadStatus = statusMap;
+          _fileSizes = fileSizes;
+        });
+      }
+
+      // 延迟加载非关键信息（仅缩略图），分批加载避免阻塞
+      _loadNonCriticalData(illusts);
     } catch (e) {
       if (mounted) {
         setState(() {
           _loading = false;
         });
       }
+    }
+  }
+
+  /// 延迟加载非关键数据（仅缩略图路径）
+  /// 分批加载，避免一次性加载过多导致性能问题
+  void _loadNonCriticalData(List<DownloadedIllust> illusts) {
+    if (illusts.isEmpty) return;
+    
+    // 分批加载，每批10个
+    const batchSize = 10;
+    for (int i = 0; i < illusts.length; i += batchSize) {
+      final batch = illusts.skip(i).take(batchSize).toList();
+      
+      // 并行加载每批的缩略图
+      Future.wait(batch.map((illust) async {
+        try {
+          final thumbnailPath = await downloadStore.getLocalImagePath(illust.illustId, 0);
+          
+          if (mounted && thumbnailPath != null) {
+            setState(() {
+              _thumbnailPaths[illust.illustId] = thumbnailPath;
+            });
+          }
+        } catch (e) {
+          // 忽略单个插画加载失败，不影响其他插画
+        }
+      }));
     }
   }
 
