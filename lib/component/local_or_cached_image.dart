@@ -20,7 +20,6 @@ import 'package:bot_toast/bot_toast.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:open_file/open_file.dart';
-import 'package:path/path.dart' as path;
 import 'package:photo_view/photo_view.dart';
 import 'package:pixez/component/pixiv_image.dart';
 import 'package:pixez/custom/log.dart';
@@ -29,6 +28,7 @@ import 'package:pixez/exts.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/models/download_record.dart';
 import 'package:pixez/models/illust.dart';
+import 'package:pixez/page/downloaded/update_illust_info_dialog.dart';
 import 'package:pixez/store/download_store.dart';
 
 /// 用于PhotoView的本地或网络图片Provider
@@ -606,6 +606,14 @@ class _IllustDownloadButtonState extends State<IllustDownloadButton> {
                       : null,
                 ),
                 ListTile(
+                  leading: Icon(Icons.info_outline),
+                  title: Text('更新信息'),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _openUpdateInfoDialog();
+                  },
+                ),
+                ListTile(
                   leading: Icon(Icons.delete, color: Colors.red),
                   title: Text('删除', style: TextStyle(color: Colors.red)),
                   onTap: () {
@@ -644,6 +652,33 @@ class _IllustDownloadButtonState extends State<IllustDownloadButton> {
     saveStore.saveImage(widget.illusts);
     if (userSetting.starAfterSave && widget.onStarAfterSave != null) {
       widget.onStarAfterSave!();
+    }
+  }
+
+  Future<void> _openUpdateInfoDialog() async {
+    if (!downloadStore.isInitialized) {
+      BotToast.showText(text: '下载功能未初始化');
+      return;
+    }
+
+    try {
+      final DownloadedIllust? downloadedIllust = await downloadStore.getDownloadedIllust(widget.illusts.id);
+      if (downloadedIllust == null) {
+        BotToast.showText(text: '未找到下载记录');
+        return;
+      }
+
+      if (!mounted) return;
+
+      await showDialog(
+        context: context,
+        builder: (ctx) => UpdateIllustInfoDialog(
+          illusts: [downloadedIllust],
+        ),
+      );
+    } catch (e) {
+      Log.e('Failed to open update info dialog: $e');
+      BotToast.showText(text: '打开更新信息对话框失败: $e');
     }
   }
 
