@@ -1381,6 +1381,85 @@ class DownloadDatabaseProvider {
     return {'total_image_count': 0, 'total_file_size': 0};
   }
 
+  /// 获取筛选条件下的统计信息
+  /// 返回：插画数量、图片数量（实际下载的图片记录数）、文件大小
+  /// filterType: 'all', 'user', 'search', 'incomplete'
+  Future<Map<String, int>> getFilteredStats({
+    String filterType = 'all',
+    int? userId,
+    String? searchKeyword,
+  }) async {
+    String whereClause = '';
+    List<dynamic> whereArgs = [];
+
+    if (filterType == 'user' && userId != null) {
+      whereClause = 'WHERE di.${DownloadedIllustColumns.userId} = ?';
+      whereArgs.add(userId);
+    } else if (filterType == 'search' && searchKeyword != null && searchKeyword.isNotEmpty) {
+      whereClause = 'WHERE di.${DownloadedIllustColumns.title} LIKE ? OR di.${DownloadedIllustColumns.userName} LIKE ? OR di.${DownloadedIllustColumns.tags} LIKE ?';
+      whereArgs.addAll(['%$searchKeyword%', '%$searchKeyword%', '%$searchKeyword%']);
+    } else if (filterType == 'incomplete') {
+      // 未下载完整：需要特殊处理，先找出所有未下载完整的作品ID
+      final incompleteIllusts = await db.rawQuery('''
+        SELECT di.${DownloadedIllustColumns.illustId}, di.${DownloadedIllustColumns.pageCount}
+        FROM ${DownloadedIllustColumns.tableName} di
+        LEFT JOIN ${DownloadedImageColumns.tableName} img ON di.${DownloadedIllustColumns.illustId} = img.${DownloadedImageColumns.illustId}
+        GROUP BY di.${DownloadedIllustColumns.id}
+        HAVING COUNT(img.${DownloadedImageColumns.illustId}) < di.${DownloadedIllustColumns.pageCount}
+      ''');
+      
+      if (incompleteIllusts.isEmpty) {
+        return {'illust_count': 0, 'image_count': 0, 'file_size': 0};
+      }
+      
+      final illustIds = incompleteIllusts.map((e) => e[DownloadedIllustColumns.illustId] as int).toList();
+      final placeholders = List.filled(illustIds.length, '?').join(',');
+      
+      // 统计这些作品的图片数量和文件大小
+      final stats = await db.rawQuery('''
+        SELECT 
+          COUNT(DISTINCT di.${DownloadedIllustColumns.id}) as illust_count,
+          COUNT(img.${DownloadedImageColumns.id}) as total_image_count,
+          COALESCE(SUM(img.${DownloadedImageColumns.fileSize}), 0) as total_file_size
+        FROM ${DownloadedIllustColumns.tableName} di
+        LEFT JOIN ${DownloadedImageColumns.tableName} img ON di.${DownloadedIllustColumns.illustId} = img.${DownloadedImageColumns.illustId}
+        WHERE di.${DownloadedIllustColumns.illustId} IN ($placeholders)
+      ''', illustIds);
+      
+      if (stats.isNotEmpty) {
+        return {
+          'illust_count': stats.first['illust_count'] as int? ?? 0,
+          'image_count': stats.first['total_image_count'] as int? ?? 0,
+          'file_size': stats.first['total_file_size'] as int? ?? 0,
+        };
+      }
+      return {'illust_count': 0, 'image_count': 0, 'file_size': 0};
+    }
+
+    // 对于其他情况，使用标准查询
+    // 统计实际下载的图片数量，而不是 pageCount 总和
+    final query = '''
+      SELECT 
+        COUNT(DISTINCT di.${DownloadedIllustColumns.id}) as illust_count,
+        COUNT(img.${DownloadedImageColumns.id}) as total_image_count,
+        COALESCE(SUM(img.${DownloadedImageColumns.fileSize}), 0) as total_file_size
+      FROM ${DownloadedIllustColumns.tableName} di
+      LEFT JOIN ${DownloadedImageColumns.tableName} img ON di.${DownloadedIllustColumns.illustId} = img.${DownloadedImageColumns.illustId}
+      $whereClause
+    ''';
+
+    final result = await db.rawQuery(query, whereArgs);
+    
+    if (result.isNotEmpty) {
+      return {
+        'illust_count': result.first['illust_count'] as int? ?? 0,
+        'image_count': result.first['total_image_count'] as int? ?? 0,
+        'file_size': result.first['total_file_size'] as int? ?? 0,
+      };
+    }
+    return {'illust_count': 0, 'image_count': 0, 'file_size': 0};
+  }
+
   // ============ PendingDownload 操作 ============
 
   /// 插入待下载任务

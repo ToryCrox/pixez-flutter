@@ -495,6 +495,20 @@ abstract class _DownloadStoreBase with Store {
     return await _dbProvider.getAuthorImageStats(userId);
   }
 
+  /// 获取筛选条件下的统计信息
+  /// 返回：插画数量、图片数量（pageCount总和）、文件大小
+  Future<Map<String, int>> getFilteredStats({
+    String filterType = 'all',
+    int? userId,
+    String? searchKeyword,
+  }) async {
+    return await _dbProvider.getFilteredStats(
+      filterType: filterType,
+      userId: userId,
+      searchKeyword: searchKeyword,
+    );
+  }
+
   Future<int> getDownloadedCount() async {
     return await _dbProvider.getIllustCount();
   }

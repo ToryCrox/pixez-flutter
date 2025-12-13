@@ -89,6 +89,9 @@ class _DownloadedPageState extends State<DownloadedPage> {
   // 排序相关
   IllustSortType _sortType = IllustSortType.downloadTime;
   bool _sortDesc = true; // true=倒序，false=正序
+  
+  // 统计信息
+  Map<String, int>? _stats; // 插画数量、图片数量、文件大小
 
   @override
   void initState() {
@@ -104,6 +107,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
     }
     _loadPersistedState();
     _loadData();
+    _loadStats();
     _downloadStatusSubscription = downloadStore.illustDownloadStatusStream
         .listen(_onDownloadStatusChanged);
   }
@@ -118,6 +122,40 @@ class _DownloadedPageState extends State<DownloadedPage> {
     final sortDesc = Prefer.getBool(_DOWNLOADED_ILLUSTS_SORT_DESC_KEY);
     if (sortDesc != null) {
       _sortDesc = sortDesc;
+    }
+  }
+
+  /// 加载统计信息
+  /// 根据作者筛选：如果有作者筛选则统计该作者的所有作品，否则统计全部
+  Future<void> _loadStats() async {
+    if (!downloadStore.isInitialized) {
+      return;
+    }
+
+    try {
+      String filterType = 'all';
+      int? userId;
+
+      // 只根据作者筛选来决定统计范围
+      if (_filterUserId != null) {
+        filterType = 'user';
+        userId = _filterUserId;
+      }
+      // 没有作者筛选则统计全部（filterType = 'all'）
+
+      final stats = await downloadStore.getFilteredStats(
+        filterType: filterType,
+        userId: userId,
+        searchKeyword: null, // 统计时不考虑搜索关键词
+      );
+
+      if (mounted) {
+        setState(() {
+          _stats = stats;
+        });
+      }
+    } catch (e) {
+      // 忽略错误，不影响主功能
     }
   }
 
@@ -496,7 +534,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(_filterUserName ?? '已下载'),
+        title: _buildAppBarTitle(),
         actions: [
           IconButton(
             icon: Icon(Icons.upload_file),
@@ -523,18 +561,22 @@ class _DownloadedPageState extends State<DownloadedPage> {
                 case 'filter_all':
                   setState(() => _downloadFilter = DownloadFilter.all);
                   _loadData();
+                  _loadStats();
                   break;
                 case 'filter_downloading':
                   setState(() => _downloadFilter = DownloadFilter.downloading);
                   _loadData();
+                  _loadStats();
                   break;
                 case 'filter_completed':
                   setState(() => _downloadFilter = DownloadFilter.completed);
                   _loadData();
+                  _loadStats();
                   break;
                 case 'filter_incomplete':
                   setState(() => _downloadFilter = DownloadFilter.incomplete);
                   _loadData();
+                  _loadStats();
                   break;
                 case 'update_info':
                   _showUpdateIllustInfoDialog();
@@ -696,6 +738,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
                   controller: _easyRefreshController,
                   onRefresh: () async {
                     await _loadData();
+                    await _loadStats();
                     _easyRefreshController.finishRefresh();
                   },
                   onLoad: _loadMore,
@@ -747,6 +790,37 @@ class _DownloadedPageState extends State<DownloadedPage> {
                   );
                 },
               ),
+    );
+  }
+
+  Widget _buildAppBarTitle() {
+    final title = _filterUserName ?? '已下载';
+    
+    if (_stats == null) {
+      return Text(title);
+    }
+
+    final illustCount = _stats!['illust_count'] ?? 0;
+    final imageCount = _stats!['image_count'] ?? 0;
+    final fileSize = _stats!['file_size'] ?? 0;
+
+    if (illustCount == 0 && imageCount == 0 && fileSize == 0) {
+      return Text(title);
+    }
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(title),
+        SizedBox(width: 8),
+        Text(
+          '${illustCount}作品 · ${imageCount}图 · ${fileSize.formatFileSize()}',
+          style: TextStyle(
+            fontSize: 12,
+            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+          ),
+        ),
+      ],
     );
   }
 
@@ -1224,6 +1298,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
               downloadStore.cancelIllustDownload(illust.illustId);
               await downloadStore.deleteDownloadedIllust(illust.illustId);
               _loadData();
+              _loadStats();
             }
           },
         ),
@@ -1240,6 +1315,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
     // 如果导入成功，刷新数据
     if (result == true) {
       _loadData();
+      _loadStats();
     }
   }
 
@@ -1273,6 +1349,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
 
     // 更新完成后刷新数据
     _loadData();
+    _loadStats();
   }
 
   void _showIllustOptions(DownloadedIllust illust) {
@@ -1354,6 +1431,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
                     ),
                   );
                   _loadData();
+                  _loadStats();
                 },
               ),
               ListTile(
@@ -1391,6 +1469,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
                     downloadStore.cancelIllustDownload(illust.illustId);
                     await downloadStore.deleteDownloadedIllust(illust.illustId);
                     _loadData();
+                    _loadStats();
                   }
                 },
               ),
