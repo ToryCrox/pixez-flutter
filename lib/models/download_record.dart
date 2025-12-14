@@ -1150,6 +1150,29 @@ class DownloadDatabaseProvider {
     return result.first['count'] as int? ?? 0;
   }
 
+  /// 获取插画的图片统计信息（数量和总文件大小）
+  /// 返回：已下载图片数量和总文件大小（字节）的记录
+  Future<({int count, int totalFileSize})> getIllustImageStats(int illustId) async {
+    final result = await db.rawQuery(
+      '''
+      SELECT 
+        COUNT(*) as count,
+        COALESCE(SUM(${DownloadedImageColumns.fileSize}), 0) as total_file_size
+      FROM ${DownloadedImageColumns.tableName}
+      WHERE ${DownloadedImageColumns.illustId} = ?
+      ''',
+      [illustId],
+    );
+    
+    if (result.isNotEmpty) {
+      return (
+        count: result.first['count'] as int? ?? 0,
+        totalFileSize: result.first['total_file_size'] as int? ?? 0,
+      );
+    }
+    return (count: 0, totalFileSize: 0);
+  }
+
   // ============ 路径工具 ============
 
   /// 生成作者目录名

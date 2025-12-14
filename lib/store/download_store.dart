@@ -549,28 +549,40 @@ abstract class _DownloadStoreBase with Store {
       return null;
     }
     final totalCount = downloadedIllust.pageCount;
-    // 下载完成的数量
-    final completedCount = await getDownloadedPageCount(illustId);
+    
+    // 使用优化的数据库查询，一次性获取图片数量和总文件大小
+    final (count: completedCount, totalFileSize: fileSize) = 
+        await _dbProvider.getIllustImageStats(illustId);
+    
+    // 优化状态判断：单次遍历，按优先级确定状态
     DownloadTaskStatus status;
-    if (completedCount > totalCount) {
+    if (completedCount >= totalCount) {
+      // 已完成或超额完成
       status = DownloadTaskStatus.completed;
     } else {
+      // 查找相关任务，单次遍历按优先级判断状态
       final tasks = downloadingTasks.values
           .where((t) => t.illusts.id == illustId)
           .toList();
-      if (tasks.any((e) => e.status == DownloadTaskStatus.downloading)) {
-        status = DownloadTaskStatus.downloading;
-      } else if (tasks.any((e) => e.status == DownloadTaskStatus.pending)) {
-        status = DownloadTaskStatus.pending;
-      } else if (tasks.any((e) => e.status == DownloadTaskStatus.failed)) {
-        status = DownloadTaskStatus.failed;
-      } else if (tasks.any((e) => e.status == DownloadTaskStatus.paused)) {
-        status = DownloadTaskStatus.paused;
-      } else {
+      
+      if (tasks.isEmpty) {
         status = DownloadTaskStatus.completed;
+      } else {
+        // 按优先级顺序检查：downloading > pending > failed > paused
+        final priorities = [
+          DownloadTaskStatus.downloading,
+          DownloadTaskStatus.pending,
+          DownloadTaskStatus.failed,
+          DownloadTaskStatus.paused,
+        ];
+        
+        status = priorities.firstWhere(
+          (priority) => tasks.any((t) => t.status == priority),
+          orElse: () => DownloadTaskStatus.completed,
+        );
       }
     }
-    final fileSize = await getIllustTotalFileSize(illustId);
+    
     return IllustDownloadStatus(
       illusts: downloadedIllust,
       status: status,
