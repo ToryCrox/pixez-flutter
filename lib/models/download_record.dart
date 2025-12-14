@@ -72,7 +72,8 @@ class DownloadedIllust {
     required String illustJson,
   }) : _illustJson = illustJson;
 
-  factory DownloadedIllust.fromIllusts(Illusts illusts, String relativePath, {int? downloadTime}) {
+  factory DownloadedIllust.fromIllusts(Illusts illusts, String relativePath,
+      {int? downloadTime}) {
     // 使用 copyWith 将需要移除的字段设置为空/默认值
     final optimizedIllusts = illusts.copyWith(
       id: 0,
@@ -93,13 +94,13 @@ class DownloadedIllust {
         name: '',
       ),
     );
-    
+
     // 转换成 Map
     final optimizedJson = optimizedIllusts.toJson();
-    
+
     // 使用 shrinkMap 移除空值，进一步优化 JSON 大小
     final shrunkJson = TypeUtil.shrinkMap(optimizedJson, copy: false);
-    
+
     return DownloadedIllust(
       illustId: illusts.id,
       userId: illusts.user.id,
@@ -171,10 +172,10 @@ class DownloadedIllust {
   Illusts toIllusts() {
     // 使用 TypeUtil.parseMap 安全地将字符串转换为 Map
     final json = TypeUtil.parseMap(_illustJson);
-    
+
     // 先从 illustJson 转换成 Illusts（即使 json 为空也能创建默认对象）
     final baseIllusts = Illusts.fromJson(json);
-    
+
     // 使用 copyWith 从表字段赋值，避免硬编码 map 字段
     return baseIllusts.copyWith(
       id: illustId,
@@ -471,7 +472,7 @@ class DownloadDatabaseProvider {
     if (!await dir.exists()) {
       await dir.create(recursive: true);
     }
-    
+
     // 确保下载目录存在
     final downloadDir = Directory(_basePath!);
     if (!await downloadDir.exists()) {
@@ -652,7 +653,7 @@ class DownloadDatabaseProvider {
         FROM ${DownloadedIllustColumns.tableName} di
         LEFT JOIN ${DownloadedImageColumns.tableName} img ON di.${DownloadedIllustColumns.illustId} = img.${DownloadedImageColumns.illustId}
         GROUP BY di.${DownloadedIllustColumns.id}
-        ORDER BY total_file_size $orderDirection
+        ORDER BY $orderBy
       ''';
       final args = <dynamic>[];
       if (limit != null) {
@@ -666,8 +667,9 @@ class DownloadDatabaseProvider {
       final maps = await db.rawQuery(query, args);
       return maps.map((e) => DownloadedIllust.fromJson(e)).toList();
     }
-    
-    final orderByClause = orderBy ?? '${DownloadedIllustColumns.downloadTime} ${desc ? 'DESC' : 'ASC'}';
+
+    final orderByClause = orderBy ??
+        '${DownloadedIllustColumns.downloadTime} ${desc ? 'DESC' : 'ASC'}';
     List<Map<String, dynamic>> maps = await db.query(
       DownloadedIllustColumns.tableName,
       orderBy: orderByClause,
@@ -692,7 +694,7 @@ class DownloadDatabaseProvider {
         LEFT JOIN ${DownloadedImageColumns.tableName} img ON di.${DownloadedIllustColumns.illustId} = img.${DownloadedImageColumns.illustId}
         WHERE di.${DownloadedIllustColumns.userId} = ?
         GROUP BY di.${DownloadedIllustColumns.id}
-        ORDER BY total_file_size $orderDirection
+        ORDER BY $orderBy
       ''';
       final args = <dynamic>[userId];
       if (limit != null) {
@@ -706,8 +708,9 @@ class DownloadDatabaseProvider {
       final maps = await db.rawQuery(query, args);
       return maps.map((e) => DownloadedIllust.fromJson(e)).toList();
     }
-    
-    final orderByClause = orderBy ?? '${DownloadedIllustColumns.downloadTime} DESC';
+
+    final orderByClause =
+        orderBy ?? '${DownloadedIllustColumns.downloadTime} DESC';
     List<Map<String, dynamic>> maps = await db.query(
       DownloadedIllustColumns.tableName,
       where: '${DownloadedIllustColumns.userId} = ?',
@@ -748,8 +751,9 @@ class DownloadDatabaseProvider {
       final maps = await db.rawQuery(query, args);
       return maps.map((e) => DownloadedIllust.fromJson(e)).toList();
     }
-    
-    final orderByClause = orderBy ?? '${DownloadedIllustColumns.downloadTime} DESC';
+
+    final orderByClause =
+        orderBy ?? '${DownloadedIllustColumns.downloadTime} DESC';
     List<Map<String, dynamic>> maps = await db.query(
       DownloadedIllustColumns.tableName,
       where: '${DownloadedIllustColumns.tags} LIKE ?',
@@ -790,8 +794,9 @@ class DownloadDatabaseProvider {
       final maps = await db.rawQuery(query, args);
       return maps.map((e) => DownloadedIllust.fromJson(e)).toList();
     }
-    
-    final orderByClause = orderBy ?? '${DownloadedIllustColumns.downloadTime} DESC';
+
+    final orderByClause =
+        orderBy ?? '${DownloadedIllustColumns.downloadTime} DESC';
     List<Map<String, dynamic>> maps = await db.query(
       DownloadedIllustColumns.tableName,
       where:
@@ -821,14 +826,13 @@ class DownloadDatabaseProvider {
       GROUP BY di.${DownloadedIllustColumns.id}
       HAVING COUNT(img.${DownloadedImageColumns.illustId}) < di.${DownloadedIllustColumns.pageCount}
     ''';
-    
+
     final args = <dynamic>[];
-    
+
     // 处理排序
     if (orderBy != null) {
       if (orderBy.contains('total_file_size')) {
-        // 如果按文件大小排序，需要重新构建查询
-        final orderDirection = orderBy.contains('DESC') ? 'DESC' : 'ASC';
+        // 如果按文件大小或平均文件大小排序，需要重新构建查询
         query = '''
           SELECT di.*, 
                  COALESCE(SUM(img.${DownloadedImageColumns.fileSize}), 0) as total_file_size,
@@ -837,7 +841,7 @@ class DownloadDatabaseProvider {
           LEFT JOIN ${DownloadedImageColumns.tableName} img ON di.${DownloadedIllustColumns.illustId} = img.${DownloadedImageColumns.illustId}
           GROUP BY di.${DownloadedIllustColumns.id}
           HAVING COUNT(img.${DownloadedImageColumns.illustId}) < di.${DownloadedIllustColumns.pageCount}
-          ORDER BY total_file_size $orderDirection
+          ORDER BY $orderBy
         ''';
       } else {
         query += ' ORDER BY $orderBy';
@@ -845,7 +849,7 @@ class DownloadDatabaseProvider {
     } else {
       query += ' ORDER BY di.${DownloadedIllustColumns.downloadTime} DESC';
     }
-    
+
     // 添加 LIMIT 和 OFFSET
     if (limit != null) {
       query += ' LIMIT ?';
@@ -855,7 +859,7 @@ class DownloadDatabaseProvider {
       query += ' OFFSET ?';
       args.add(offset);
     }
-    
+
     final maps = await db.rawQuery(query, args);
     return maps.map((e) => DownloadedIllust.fromJson(e)).toList();
   }
@@ -921,11 +925,12 @@ class DownloadDatabaseProvider {
 
   /// 批量检查图片是否已下载
   /// 返回一个 Set，包含已下载的 (illustId, part) 组合的 Map
-  Future<Set<Map<String, int>>> batchCheckImageDownloaded(List<Map<String, int>> illustParts) async {
+  Future<Set<Map<String, int>>> batchCheckImageDownloaded(
+      List<Map<String, int>> illustParts) async {
     if (illustParts.isEmpty) return {};
-    
+
     final result = <Map<String, int>>{};
-    
+
     // 按 illust_id 分组，减少 OR 条件的数量
     final groupedByIllustId = <int, Set<int>>{};
     for (final item in illustParts) {
@@ -933,43 +938,47 @@ class DownloadDatabaseProvider {
       final part = item['part']!;
       groupedByIllustId.putIfAbsent(illustId, () => <int>{}).add(part);
     }
-    
+
     // 分批处理 illust_id，每批最多 50 个 illust_id
     // 这样可以避免单个查询的 OR 条件过多
     const batchSize = 50;
     final illustIds = groupedByIllustId.keys.toList();
-    
+
     for (int i = 0; i < illustIds.length; i += batchSize) {
       final batchIllustIds = illustIds.skip(i).take(batchSize).toList();
-      
+
       // 构建查询：WHERE illust_id IN (?, ?, ...) AND (part IN (?, ?, ...) OR ...)
       // 但这样仍然可能复杂，改用更简单的方式：对每个 illust_id 单独查询其 parts
       for (final illustId in batchIllustIds) {
         final parts = groupedByIllustId[illustId]!.toList();
-        
+
         // 对每个 illust_id 的 parts 也进行分批，每批最多 100 个 part
         const partBatchSize = 100;
         for (int j = 0; j < parts.length; j += partBatchSize) {
           final batchParts = parts.skip(j).take(partBatchSize).toList();
-          
+
           final placeholders = List.filled(batchParts.length, '?').join(',');
           final maps = await db.query(
             DownloadedImageColumns.tableName,
-            columns: [DownloadedImageColumns.illustId, DownloadedImageColumns.part],
-            where: '${DownloadedImageColumns.illustId} = ? AND ${DownloadedImageColumns.part} IN ($placeholders)',
+            columns: [
+              DownloadedImageColumns.illustId,
+              DownloadedImageColumns.part
+            ],
+            where:
+                '${DownloadedImageColumns.illustId} = ? AND ${DownloadedImageColumns.part} IN ($placeholders)',
             whereArgs: [illustId, ...batchParts],
           );
-          
+
           result.addAll(
             maps.map((e) => {
-              'illustId': e[DownloadedImageColumns.illustId] as int,
-              'part': e[DownloadedImageColumns.part] as int,
-            }),
+                  'illustId': e[DownloadedImageColumns.illustId] as int,
+                  'part': e[DownloadedImageColumns.part] as int,
+                }),
           );
         }
       }
     }
-    
+
     return result;
   }
 
@@ -999,25 +1008,29 @@ class DownloadDatabaseProvider {
 
   /// 批量获取插画的所有图片信息及其完整路径（自动检测后缀名）
   /// 返回 Map<part, LocalImageInfo>
-  Future<Map<int, LocalImageInfo>> getLocalImageInfosByIllustId(int illustId) async {
+  Future<Map<int, LocalImageInfo>> getLocalImageInfosByIllustId(
+      int illustId) async {
     final t1 = DateTime.now();
     final images = await getImagesByIllustId(illustId);
-    Log.d('getLocalImageInfosByIllustId: ${images.length} images, ${DateTime.now().difference(t1).inMilliseconds}ms');
-    
+    Log.d(
+        'getLocalImageInfosByIllustId: ${images.length} images, ${DateTime.now().difference(t1).inMilliseconds}ms');
+
     // 并行处理所有图片，大幅提升性能
     final futures = images.map((image) async {
       final foundPath = await _findImagePathForImage(image);
       if (foundPath != null) {
-        return MapEntry(image.part, LocalImageInfo(
-          path: foundPath,
-          width: image.width,
-          height: image.height,
-          fileSize: image.fileSize,
-        ));
+        return MapEntry(
+            image.part,
+            LocalImageInfo(
+              path: foundPath,
+              width: image.width,
+              height: image.height,
+              fileSize: image.fileSize,
+            ));
       }
       return null;
     });
-    
+
     final results = await Future.wait(futures);
     final result = <int, LocalImageInfo>{};
     for (final entry in results) {
@@ -1025,12 +1038,13 @@ class DownloadDatabaseProvider {
         result[entry.key] = entry.value;
       }
     }
-    
+
     return result;
   }
 
   /// 根据图片记录查找实际存在的文件路径（自动检测后缀名）
-  Future<String?> _findImagePathForImage(DownloadedImage image, {bool update = true}) async {
+  Future<String?> _findImagePathForImage(DownloadedImage image,
+      {bool update = true}) async {
     final basePath = path.join(_basePath!, image.relativePath, image.fileName);
 
     // 首先尝试数据库中记录的后缀（最常见的情况）
@@ -1040,7 +1054,8 @@ class DownloadDatabaseProvider {
     }
 
     // 并行检查其他常见后缀，提升性能
-    final otherExtensions = kImageExtensions.where((ext) => ext != image.extension).toList();
+    final otherExtensions =
+        kImageExtensions.where((ext) => ext != image.extension).toList();
     final checkFutures = otherExtensions.map((ext) async {
       final testPath = '$basePath$ext';
       if (await File(testPath).exists()) {
@@ -1048,19 +1063,20 @@ class DownloadDatabaseProvider {
       }
       return null;
     });
-    
+
     final results = await Future.wait(checkFutures);
     for (int i = 0; i < results.length; i++) {
       if (results[i] != null) {
         final foundPath = results[i]!;
-        if (update){
+        if (update) {
           // 更新数据库中的后缀名（异步执行，不阻塞返回）
-          updateImageExtension(image.illustId, image.part, otherExtensions[i]).catchError((e) {
+          updateImageExtension(image.illustId, image.part, otherExtensions[i])
+              .catchError((e) {
             Log.e('Failed to update image extension: $e');
             return 0; // 返回默认值以满足 catchError 的要求
           });
         }
-        
+
         return foundPath;
       }
     }
@@ -1152,7 +1168,8 @@ class DownloadDatabaseProvider {
 
   /// 获取插画的图片统计信息（数量和总文件大小）
   /// 返回：已下载图片数量和总文件大小（字节）的记录
-  Future<({int count, int totalFileSize})> getIllustImageStats(int illustId) async {
+  Future<({int count, int totalFileSize})> getIllustImageStats(
+      int illustId) async {
     final result = await db.rawQuery(
       '''
       SELECT 
@@ -1163,7 +1180,7 @@ class DownloadDatabaseProvider {
       ''',
       [illustId],
     );
-    
+
     if (result.isNotEmpty) {
       return (
         count: result.first['count'] as int? ?? 0,
@@ -1208,7 +1225,8 @@ class DownloadDatabaseProvider {
   }
 
   /// 尝试找到图片文件（自动检测后缀名）
-  Future<String?> findImagePath(int illustId, int part, {bool update = true}) async {
+  Future<String?> findImagePath(int illustId, int part,
+      {bool update = true}) async {
     final image = await getImage(illustId, part);
     if (image == null) return null;
     return await _findImagePathForImage(image, update: update);
@@ -1260,16 +1278,18 @@ class DownloadDatabaseProvider {
         String? profileImageUrl;
         if (latestIllust.isNotEmpty) {
           try {
-            final illustJson = jsonDecode(
-                latestIllust.first[DownloadedIllustColumns.illustJson] as String);
-            profileImageUrl = illustJson['user']?['profile_image_urls']?['medium'];
+            final illustJson = jsonDecode(latestIllust
+                .first[DownloadedIllustColumns.illustJson] as String);
+            profileImageUrl =
+                illustJson['user']?['profile_image_urls']?['medium'];
           } catch (_) {}
         }
 
         // 计算总文件大小
         final images = await db.query(
           DownloadedImageColumns.tableName,
-          where: '${DownloadedImageColumns.illustId} IN (SELECT ${DownloadedIllustColumns.illustId} FROM ${DownloadedIllustColumns.tableName} WHERE ${DownloadedIllustColumns.userId} = ?)',
+          where:
+              '${DownloadedImageColumns.illustId} IN (SELECT ${DownloadedIllustColumns.illustId} FROM ${DownloadedIllustColumns.tableName} WHERE ${DownloadedIllustColumns.userId} = ?)',
           whereArgs: [userId],
         );
         int totalFileSize = 0;
@@ -1287,7 +1307,8 @@ class DownloadDatabaseProvider {
             DownloadedAuthorColumns.illustCount: count,
             DownloadedAuthorColumns.totalFileSize: totalFileSize,
             DownloadedAuthorColumns.lastDownloadTime: lastDownloadTime,
-            DownloadedAuthorColumns.lastUpdateTime: DateTime.now().millisecondsSinceEpoch,
+            DownloadedAuthorColumns.lastUpdateTime:
+                DateTime.now().millisecondsSinceEpoch,
           },
           conflictAlgorithm: ConflictAlgorithm.replace,
         );
@@ -1317,7 +1338,8 @@ class DownloadDatabaseProvider {
         DownloadedAuthorColumns.illustCount: illustCount,
         DownloadedAuthorColumns.totalFileSize: totalFileSize,
         DownloadedAuthorColumns.lastDownloadTime: lastDownloadTime,
-        DownloadedAuthorColumns.lastUpdateTime: DateTime.now().millisecondsSinceEpoch,
+        DownloadedAuthorColumns.lastUpdateTime:
+            DateTime.now().millisecondsSinceEpoch,
       },
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
@@ -1393,11 +1415,12 @@ class DownloadDatabaseProvider {
       try {
         final illustJson = jsonDecode(
             latestIllust.first[DownloadedIllustColumns.illustJson] as String);
-        userName = illustJson['user']?['name'] ?? 
-                   latestIllust.first[DownloadedIllustColumns.userName] as String;
+        userName = illustJson['user']?['name'] ??
+            latestIllust.first[DownloadedIllustColumns.userName] as String;
         profileImageUrl = illustJson['user']?['profile_image_urls']?['medium'];
       } catch (_) {
-        userName = latestIllust.first[DownloadedIllustColumns.userName] as String;
+        userName =
+            latestIllust.first[DownloadedIllustColumns.userName] as String;
       }
     }
 
@@ -1454,7 +1477,7 @@ class DownloadDatabaseProvider {
         WHERE ${DownloadedIllustColumns.userId} = ?
       )
     ''', [userId]);
-    
+
     if (result.isNotEmpty) {
       return {
         'total_image_count': result.first['total_image_count'] as int? ?? 0,
@@ -1478,9 +1501,13 @@ class DownloadDatabaseProvider {
     if (filterType == 'user' && userId != null) {
       whereClause = 'WHERE di.${DownloadedIllustColumns.userId} = ?';
       whereArgs.add(userId);
-    } else if (filterType == 'search' && searchKeyword != null && searchKeyword.isNotEmpty) {
-      whereClause = 'WHERE di.${DownloadedIllustColumns.title} LIKE ? OR di.${DownloadedIllustColumns.userName} LIKE ? OR di.${DownloadedIllustColumns.tags} LIKE ?';
-      whereArgs.addAll(['%$searchKeyword%', '%$searchKeyword%', '%$searchKeyword%']);
+    } else if (filterType == 'search' &&
+        searchKeyword != null &&
+        searchKeyword.isNotEmpty) {
+      whereClause =
+          'WHERE di.${DownloadedIllustColumns.title} LIKE ? OR di.${DownloadedIllustColumns.userName} LIKE ? OR di.${DownloadedIllustColumns.tags} LIKE ?';
+      whereArgs
+          .addAll(['%$searchKeyword%', '%$searchKeyword%', '%$searchKeyword%']);
     } else if (filterType == 'incomplete') {
       // 未下载完整：需要特殊处理，先找出所有未下载完整的作品ID
       final incompleteIllusts = await db.rawQuery('''
@@ -1490,14 +1517,16 @@ class DownloadDatabaseProvider {
         GROUP BY di.${DownloadedIllustColumns.id}
         HAVING COUNT(img.${DownloadedImageColumns.illustId}) < di.${DownloadedIllustColumns.pageCount}
       ''');
-      
+
       if (incompleteIllusts.isEmpty) {
         return {'illust_count': 0, 'image_count': 0, 'file_size': 0};
       }
-      
-      final illustIds = incompleteIllusts.map((e) => e[DownloadedIllustColumns.illustId] as int).toList();
+
+      final illustIds = incompleteIllusts
+          .map((e) => e[DownloadedIllustColumns.illustId] as int)
+          .toList();
       final placeholders = List.filled(illustIds.length, '?').join(',');
-      
+
       // 统计这些作品的图片数量和文件大小
       final stats = await db.rawQuery('''
         SELECT 
@@ -1508,7 +1537,7 @@ class DownloadDatabaseProvider {
         LEFT JOIN ${DownloadedImageColumns.tableName} img ON di.${DownloadedIllustColumns.illustId} = img.${DownloadedImageColumns.illustId}
         WHERE di.${DownloadedIllustColumns.illustId} IN ($placeholders)
       ''', illustIds);
-      
+
       if (stats.isNotEmpty) {
         return {
           'illust_count': stats.first['illust_count'] as int? ?? 0,
@@ -1532,7 +1561,7 @@ class DownloadDatabaseProvider {
     ''';
 
     final result = await db.rawQuery(query, whereArgs);
-    
+
     if (result.isNotEmpty) {
       return {
         'illust_count': result.first['illust_count'] as int? ?? 0,
@@ -1565,10 +1594,12 @@ class DownloadDatabaseProvider {
   }
 
   /// 获取指定状态的待下载任务
-  Future<List<PendingDownload>> getPendingDownloadsByStatus(List<String> status) async {
+  Future<List<PendingDownload>> getPendingDownloadsByStatus(
+      List<String> status) async {
     List<Map<String, dynamic>> maps = await db.query(
       PendingDownloadColumns.tableName,
-      where: '${PendingDownloadColumns.status} IN (${status.map((e) => '?').join(',')})',
+      where:
+          '${PendingDownloadColumns.status} IN (${status.map((e) => '?').join(',')})',
       whereArgs: [...status],
       orderBy: '${PendingDownloadColumns.createTime} ASC',
     );
@@ -1630,9 +1661,10 @@ class DownloadDatabaseProvider {
   }
 
   /// 批量插入待下载任务（使用事务优化性能）
-  Future<void> batchInsertPendingDownloads(List<PendingDownload> pendings) async {
+  Future<void> batchInsertPendingDownloads(
+      List<PendingDownload> pendings) async {
     if (pendings.isEmpty) return;
-    
+
     final batch = db.batch();
     for (final pending in pendings) {
       batch.insert(
@@ -1647,14 +1679,14 @@ class DownloadDatabaseProvider {
   /// 批量删除待下载任务（使用事务优化性能）
   Future<void> batchDeletePendingDownloads(List<String> taskKeys) async {
     if (taskKeys.isEmpty) return;
-    
+
     // 分批删除，每批最多 1000 条，避免 SQL 语句过长
     const batchSize = 1000;
-    
+
     for (int i = 0; i < taskKeys.length; i += batchSize) {
       final batch = taskKeys.skip(i).take(batchSize).toList();
       final dbBatch = db.batch();
-      
+
       for (final key in batch) {
         dbBatch.delete(
           PendingDownloadColumns.tableName,
@@ -1662,20 +1694,21 @@ class DownloadDatabaseProvider {
           whereArgs: [key],
         );
       }
-      
+
       await dbBatch.commit(noResult: true);
     }
   }
 
   /// 批量检查并插入插画记录（使用事务优化性能）
   /// 返回已存在的 illustId 集合
-  Future<Set<int>> batchInsertIllustsIfNotExists(List<DownloadedIllust> illusts) async {
+  Future<Set<int>> batchInsertIllustsIfNotExists(
+      List<DownloadedIllust> illusts) async {
     if (illusts.isEmpty) return {};
-    
+
     // 先批量查询已存在的 illustId
     final illustIds = illusts.map((e) => e.illustId).toList();
     final existingIds = <int>{};
-    
+
     // 分批查询，每批最多 1000 条
     const batchSize = 1000;
     for (int i = 0; i < illustIds.length; i += batchSize) {
@@ -1685,14 +1718,16 @@ class DownloadDatabaseProvider {
         'SELECT ${DownloadedIllustColumns.illustId} FROM ${DownloadedIllustColumns.tableName} WHERE ${DownloadedIllustColumns.illustId} IN ($placeholders)',
         batch,
       );
-      existingIds.addAll(maps.map((e) => e[DownloadedIllustColumns.illustId] as int));
+      existingIds
+          .addAll(maps.map((e) => e[DownloadedIllustColumns.illustId] as int));
     }
-    
+
     // 过滤出需要插入的 illusts
-    final illustsToInsert = illusts.where((e) => !existingIds.contains(e.illustId)).toList();
-    
+    final illustsToInsert =
+        illusts.where((e) => !existingIds.contains(e.illustId)).toList();
+
     if (illustsToInsert.isEmpty) return existingIds;
-    
+
     // 批量插入
     final dbBatch = db.batch();
     for (final illust in illustsToInsert) {
@@ -1703,7 +1738,7 @@ class DownloadDatabaseProvider {
       );
     }
     await dbBatch.commit(noResult: true);
-    
+
     return existingIds;
   }
 

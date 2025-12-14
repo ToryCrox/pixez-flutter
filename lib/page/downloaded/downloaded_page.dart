@@ -50,6 +50,7 @@ enum IllustSortType {
   downloadTime, // 下载时间
   createDate, // 作品时间
   fileSize, // 文件大小
+  averageFileSize, // 平均文件大小
 }
 
 // SharedPreferences 键名
@@ -88,11 +89,11 @@ class _DownloadedPageState extends State<DownloadedPage> {
   bool _hasMore = true;
   bool _loadingMore = false;
   StreamSubscription<IllustDownloadStatus>? _downloadStatusSubscription;
-  
+
   // 排序相关
   IllustSortType _sortType = IllustSortType.downloadTime;
   bool _sortDesc = true; // true=倒序，false=正序
-  
+
   // 统计信息
   Map<String, int>? _stats; // 插画数量、图片数量、文件大小
 
@@ -118,10 +119,12 @@ class _DownloadedPageState extends State<DownloadedPage> {
   /// 加载持久化的状态
   void _loadPersistedState() {
     final sortTypeIndex = Prefer.getInt(_DOWNLOADED_ILLUSTS_SORT_TYPE_KEY);
-    if (sortTypeIndex != null && sortTypeIndex >= 0 && sortTypeIndex < IllustSortType.values.length) {
+    if (sortTypeIndex != null &&
+        sortTypeIndex >= 0 &&
+        sortTypeIndex < IllustSortType.values.length) {
       _sortType = IllustSortType.values[sortTypeIndex];
     }
-    
+
     final sortDesc = Prefer.getBool(_DOWNLOADED_ILLUSTS_SORT_DESC_KEY);
     if (sortDesc != null) {
       _sortDesc = sortDesc;
@@ -180,7 +183,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
           _fileSizes.remove(status.illusts.illustId);
           return;
         }
-        
+
         // 如果当前有作者过滤，检查新插画是否属于当前作者
         if (_filterUserId != null && status.illusts.userId != _filterUserId) {
           // 不属于当前作者，不添加到列表，但更新状态信息（如果已存在）
@@ -190,7 +193,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
           }
           return;
         }
-        
+
         if (_illusts.firstWhereOrNull(
                 (e) => e.illustId == status.illusts.illustId) ==
             null) {
@@ -279,7 +282,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
       }).toList();
 
       final criticalResults = await Future.wait(criticalFutures);
-      
+
       if (mounted) {
         setState(() {
           for (final entry in criticalResults) {
@@ -316,6 +319,9 @@ class _DownloadedPageState extends State<DownloadedPage> {
       case IllustSortType.fileSize:
         // 文件大小排序在数据库中进行
         return 'total_file_size ${_sortDesc ? 'DESC' : 'ASC'}';
+      case IllustSortType.averageFileSize:
+        // 平均文件大小排序在数据库中进行
+        return 'total_file_size / page_count ${_sortDesc ? 'DESC' : 'ASC'}';
     }
   }
 
@@ -386,7 +392,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
       final counts = <int, int>{};
       final statusMap = <int, DownloadTaskStatus>{};
       final fileSizes = <int, int>{};
-      
+
       for (final entry in criticalResults) {
         if (entry.value != null) {
           counts[entry.key] = entry.value!.completedCount;
@@ -421,17 +427,18 @@ class _DownloadedPageState extends State<DownloadedPage> {
   /// 分批加载，避免一次性加载过多导致性能问题
   void _loadNonCriticalData(List<DownloadedIllust> illusts) {
     if (illusts.isEmpty) return;
-    
+
     // 分批加载，每批10个
     const batchSize = 10;
     for (int i = 0; i < illusts.length; i += batchSize) {
       final batch = illusts.skip(i).take(batchSize).toList();
-      
+
       // 并行加载每批的缩略图
       Future.wait(batch.map((illust) async {
         try {
-          final thumbnailPath = await downloadStore.getLocalImagePath(illust.illustId, 0);
-          
+          final thumbnailPath =
+              await downloadStore.getLocalImagePath(illust.illustId, 0);
+
           if (mounted && thumbnailPath != null) {
             setState(() {
               _thumbnailPaths[illust.illustId] = thumbnailPath;
@@ -443,8 +450,6 @@ class _DownloadedPageState extends State<DownloadedPage> {
       }));
     }
   }
-
-
 
   List<DownloadedIllust> get _filteredIllusts {
     if (_downloadFilter == DownloadFilter.all) {
@@ -468,7 +473,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
             status == DownloadTaskStatus.paused ||
             status == DownloadTaskStatus.failed;
       } else if (_downloadFilter == DownloadFilter.completed) {
-        return isCompleted && 
+        return isCompleted &&
             status != DownloadTaskStatus.downloading &&
             status != DownloadTaskStatus.pending &&
             status != DownloadTaskStatus.paused &&
@@ -759,53 +764,54 @@ class _DownloadedPageState extends State<DownloadedPage> {
                       physics: physics,
                       controller: scrollController,
                       slivers: [
-                      SliverPersistentHeader(
-                        key: ValueKey('sort_header_${_sortType}_$_sortDesc'),
-                        delegate: SliverChipDelegate(
-                          Container(
-                            alignment: Alignment.center,
-                            child: Stack(
-                              children: [
-                                // 居中显示排序菜单
-                                Center(
-                                  child: SortGroup(
-                                    key: ValueKey(_sortType),
-                                    children: [
-                                      '下载时间',
-                                      '作品时间',
-                                      '文件大小',
-                                    ],
-                                    onChange: _onSortChanged,
-                                    initIndex: _sortType.index,
+                        SliverPersistentHeader(
+                          key: ValueKey('sort_header_${_sortType}_$_sortDesc'),
+                          delegate: SliverChipDelegate(
+                            Container(
+                              alignment: Alignment.center,
+                              child: Stack(
+                                children: [
+                                  // 居中显示排序菜单
+                                  Center(
+                                    child: SortGroup(
+                                      key: ValueKey(_sortType),
+                                      children: [
+                                        '下载时间',
+                                        '作品时间',
+                                        '文件大小',
+                                        '平均大小',
+                                      ],
+                                      onChange: _onSortChanged,
+                                      initIndex: _sortType.index,
+                                    ),
                                   ),
-                                ),
-                                // 右侧显示正序/倒序按钮
-                                Positioned(
-                                  right: 8,
-                                  top: 0,
-                                  bottom: 0,
-                                  child: Center(
-                                    child: _buildSortOrderButton(),
+                                  // 右侧显示正序/倒序按钮
+                                  Positioned(
+                                    right: 8,
+                                    top: 0,
+                                    bottom: 0,
+                                    child: Center(
+                                      child: _buildSortOrderButton(),
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
+                            height: 52,
                           ),
-                          height: 52,
+                          pinned: true,
                         ),
-                        pinned: true,
-                      ),
-                      _buildGridView(),
-                    ],
-                  );
-                },
-              ),
+                        _buildGridView(),
+                      ],
+                    );
+                  },
+                ),
     );
   }
 
   Widget _buildAppBarTitle() {
     final title = _filterUserName ?? '已下载';
-    
+
     if (_stats == null) {
       return Text(title);
     }
@@ -1095,7 +1101,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
   Widget _buildThumbnail(DownloadedIllust illust) {
     final thumbnailPath = _thumbnailPaths[illust.illustId];
     final heroTag = 'downloaded_illust_${illust.illustId}';
-    
+
     Widget imageWidget;
     if (thumbnailPath != null) {
       imageWidget = CachedNetworkImage(
@@ -1116,7 +1122,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
         child: Icon(Icons.image, color: Colors.grey),
       );
     }
-    
+
     return Hero(
       tag: heroTag,
       child: imageWidget,
@@ -1317,7 +1323,6 @@ class _DownloadedPageState extends State<DownloadedPage> {
     );
   }
 
-
   void _showImportDialog() async {
     final result = await showDialog<bool>(
       context: context,
@@ -1332,7 +1337,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
 
   void _showUpdateIllustInfoDialog() async {
     List<DownloadedIllust> illustsToUpdate;
-    
+
     // 如果处于作者筛选条件下，获取所有作者的作品
     if (_filterUserId != null) {
       // 获取所有作者的作品（不限制数量）
@@ -1362,7 +1367,6 @@ class _DownloadedPageState extends State<DownloadedPage> {
     _loadData();
     _loadStats();
   }
-
 
   void _showIllustOptions(DownloadedIllust illust) {
     final status = _illustDownloadStatus[illust.illustId];
