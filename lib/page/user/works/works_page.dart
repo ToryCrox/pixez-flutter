@@ -17,6 +17,7 @@
 import 'dart:math';
 
 import 'package:bot_toast/bot_toast.dart';
+import 'package:collection/collection.dart';
 import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -32,6 +33,8 @@ import 'package:pixez/lighting/lighting_store.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/network/api_client.dart';
 import 'package:pixez/store/download_store.dart';
+import 'package:pixez/er/leader.dart';
+import 'package:pixez/page/downloaded/downloaded_page.dart';
 import 'package:waterfall_flow/waterfall_flow.dart';
 
 class WorksPage extends StatefulWidget {
@@ -174,6 +177,10 @@ class _WorksPageState extends State<WorksPage> {
                                     width: 8,
                                   ),
                                   _buildBatchDownloadButton(),
+                                  const SizedBox(
+                                    width: 8,
+                                  ),
+                                  _buildDownloadPageButton(),
                                 ],
                               ),
                             ),
@@ -310,6 +317,32 @@ class _WorksPageState extends State<WorksPage> {
             .where((store) => store.illusts != null && !store.illusts!.hateByUser(ai: false))
             .toList();
         _handleBatchDownload(availableIllusts);
+      },
+    );
+  }
+
+  Widget _buildDownloadPageButton() {
+    return IconButton(
+      icon: Icon(Icons.download_done, color: Theme.of(context).primaryColor),
+      tooltip: '下载页面',
+      onPressed: () {
+        // 从作品列表中获取画师用户名
+        String? userName;
+        final firstIllust = _store.iStores
+            .where((store) => store.illusts != null)
+            .firstOrNull
+            ?.illusts;
+        if (firstIllust != null) {
+          userName = firstIllust.user.name;
+        }
+        
+        Leader.push(
+          context,
+          DownloadedPage(
+            initialUserId: widget.id,
+            initialUserName: userName,
+          ),
+        );
       },
     );
   }
