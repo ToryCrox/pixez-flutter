@@ -297,7 +297,8 @@ class _WorksPageState extends State<WorksPage> {
         });
         widget.onWorkTypeChange(_workType);
         _store.source = ApiForceSource(
-            futureGet: (bool e) => apiClient.getUserIllusts(widget.id, type));
+            futureGet: (bool e) => apiClient.getUserIllusts(widget.id, type),
+            cacheKey: 'user_illusts_${widget.id}_${type}');
         _store.fetch();
       },
       children: [

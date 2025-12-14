@@ -80,7 +80,8 @@ class _UsersPageState extends State<UsersPage> with TickerProviderStateMixin {
   void initState() {
     _workStore = LightingStore(ApiForceSource(
         futureGet: (bool e) =>
-            apiClient.getUserIllusts(widget.id, _userWorkType)));
+            apiClient.getUserIllusts(widget.id, _userWorkType),
+        cacheKey: 'user_illusts_${widget.id}_${_userWorkType}'));
     _bookmarkStore = LightingStore(ApiForceSource(
         futureGet: (e) =>
             apiClient.getBookmarksIllust(widget.id, restrict, null)));
