@@ -205,16 +205,10 @@ class _DownloadedPageState extends State<DownloadedPage> {
             });
           });
         }
-        // 更新文件大小
-        downloadStore
-            .getIllustTotalFileSize(status.illusts.illustId)
-            .then((size) {
-          if (mounted) {
-            setState(() {
-              _fileSizes[status.illusts.illustId] = size;
-            });
-          }
-        });
+        // 直接从 status 中获取文件大小，避免重复查询
+        if (status.fileSize > 0) {
+          _fileSizes[status.illusts.illustId] = status.fileSize;
+        }
       });
     }
   }
