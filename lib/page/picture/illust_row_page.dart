@@ -621,11 +621,11 @@ class _IllustRowPageState extends State<IllustRowPage>
     final localImageInfo = _illustStore.getLocalImageInfo(index);
     if (illust.type == "manga") {
       imageUrl = illust.managaDetailImageUrl(index);
-      mediumImageUrl = illust.metaPages[index].imageUrls!.medium;
+      mediumImageUrl = illust.metaPages[index].imageUrls!.squareMedium;
       useMediumPlaceHolder = index == 0 && userSetting.mangaQuality >= 1;
     } else {
       imageUrl = illust.illustDetailImageUrl(index);
-      mediumImageUrl = illust.metaPages[index].imageUrls!.medium;
+      mediumImageUrl = illust.metaPages[index].imageUrls!.squareMedium;
       useMediumPlaceHolder = index == 0 && userSetting.pictureQuality >= 1;
     }
 
