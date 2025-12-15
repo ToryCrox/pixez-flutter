@@ -268,7 +268,7 @@ class _IllustRowPageState extends State<IllustRowPage>
   ScrollController scrollController = ScrollController();
 
   Widget _buildContent(BuildContext context, Illusts? data) {
-    if (_illustStore.errorMessage != null) return _buildErrorContent(context);
+    if (_illustStore.errorMessage != null && data == null) return _buildErrorContent(context);
     if (data == null)
       return Container(
         child: Center(
