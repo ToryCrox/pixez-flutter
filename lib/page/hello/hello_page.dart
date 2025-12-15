@@ -341,6 +341,7 @@ class _HelloPageState extends State<HelloPage> {
           },
           child: Navigator(
             key: _contentNavigatorKey,
+            observers: [HeroController()],
             onGenerateRoute: (settings) {
               // 默认路由显示 PageView
               if (settings.name == '/') {
