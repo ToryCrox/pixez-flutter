@@ -1,4 +1,3 @@
-
 import 'package:easy_refresh/easy_refresh.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:pixez/models/illust_series_with_id_model.dart';
@@ -25,14 +24,29 @@ class IllustSeriesStore extends _$IllustSeriesStore {
   EasyRefreshController controller = EasyRefreshController(
       controlFinishLoad: true, controlFinishRefresh: true);
   late int id;
+
   @override
   IllustSeriesState build(int id) {
     this.id = id;
+    // 当 provider 被销毁时,清理所有 IllustStore 实例
+    ref.onDispose(() {
+      _disposeAllIllustStores();
+    });
     return IllustSeriesState();
+  }
+
+  /// 清理所有 IllustStore 实例的订阅
+  void _disposeAllIllustStores() {
+    for (final illustStore in state.illusts) {
+      illustStore.dispose();
+    }
   }
 
   Future<void> fetch() async {
     try {
+      // 在更新状态前,先清理旧的 IllustStore 实例
+      _disposeAllIllustStores();
+
       state = state.copyWith(isLoading: true);
       final response = await apiClient.illustSeries(id);
       final model = IllustSeriesWithIdModel.fromJson(response.data);

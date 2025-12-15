@@ -84,6 +84,7 @@ class _SplashPageState extends State<SplashPage>
   @override
   void dispose() {
     controller.dispose();
+    lightingStore?.dispose();
     if (userDisposer != null) userDisposer!();
     if (reactionDisposer != null) reactionDisposer!();
     super.dispose();

@@ -82,6 +82,7 @@ class _IllustLightingPageState extends State<IllustLightingPage> {
 
   @override
   void dispose() {
+    widget.store?.dispose();
     // 退出详情页时减少缓存大小
     imageCacheManager.exitDetailPage();
     super.dispose();

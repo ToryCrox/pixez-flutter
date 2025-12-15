@@ -77,7 +77,7 @@ class _IllustRowPageState extends State<IllustRowPage>
   int _currentPage = 0;
   int _totalPages = 1;
   double? _itemHeight; // 存储每页高度，避免在滚动监听器中访问 context
-  
+
   @override
   void initState() {
     _refreshController = EasyRefreshController(
@@ -91,10 +91,10 @@ class _IllustRowPageState extends State<IllustRowPage>
     _aboutStore = IllustAboutStore(widget.id, _refreshController);
     super.initState();
   }
-  
+
   void _onPhotoScroll() {
     if (!_photoScrollController.hasClients || _itemHeight == null) return;
-    
+
     final illusts = _illustStore.illusts;
     if (illusts == null || illusts.pageCount <= 1) {
       if (_currentPage != 0 || _totalPages != 1) {
@@ -105,15 +105,15 @@ class _IllustRowPageState extends State<IllustRowPage>
       }
       return;
     }
-    
+
     _totalPages = illusts.pageCount;
     final scrollOffset = _photoScrollController.offset;
     final viewportHeight = _photoScrollController.position.viewportDimension;
-    
+
     // 计算当前页数（基于滚动位置和视口中心）
     int newPage = ((scrollOffset + viewportHeight / 2) / _itemHeight!).floor();
     newPage = newPage.clamp(0, _totalPages - 1);
-    
+
     if (newPage != _currentPage) {
       setState(() {
         _currentPage = newPage;
@@ -167,11 +167,11 @@ class _IllustRowPageState extends State<IllustRowPage>
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   IconButton(
-                      icon: Icon(Icons.more_vert),
-                      onPressed: () {
-                        buildShowModalBottomSheet(
-                            context, _illustStore.illusts!);
-                      })
+                    icon: Icon(Icons.more_vert),
+                    onPressed: () {
+                      buildShowModalBottomSheet(context, _illustStore.illusts!);
+                    },
+                  )
                 ],
               )
             ],
@@ -308,7 +308,7 @@ class _IllustRowPageState extends State<IllustRowPage>
           _currentPage = 0;
           _itemHeight = null;
         }
-        
+
         return Container(
           child: Stack(
             children: [
@@ -344,9 +344,10 @@ class _IllustRowPageState extends State<IllustRowPage>
                           controller: _scrollController,
                           slivers: [
                             SliverToBoxAdapter(
-                                child: Container(
-                                    height:
-                                        MediaQuery.of(context).padding.top)),
+                              child: Container(
+                                height: MediaQuery.of(context).padding.top,
+                              ),
+                            ),
                             SliverToBoxAdapter(
                               child: IllustDetailContent(
                                 illusts: data,
@@ -396,27 +397,29 @@ class _IllustRowPageState extends State<IllustRowPage>
       }),
     );
   }
-  
+
   KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
     if (event is KeyDownEvent) {
       if (event.logicalKey == LogicalKeyboardKey.arrowUp ||
           event.logicalKey == LogicalKeyboardKey.arrowDown) {
         if (!_photoScrollController.hasClients) return KeyEventResult.ignored;
-        
+
         final position = _photoScrollController.position;
         final viewportHeight = position.viewportDimension;
         final scrollDistance = viewportHeight * 0.75; // 滚动视口高度的 3/4
         final currentOffset = position.pixels;
         double targetOffset;
-        
+
         if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
           // 向上滚动
-          targetOffset = (currentOffset - scrollDistance).clamp(0.0, position.maxScrollExtent);
+          targetOffset = (currentOffset - scrollDistance)
+              .clamp(0.0, position.maxScrollExtent);
         } else {
           // 向下滚动
-          targetOffset = (currentOffset + scrollDistance).clamp(0.0, position.maxScrollExtent);
+          targetOffset = (currentOffset + scrollDistance)
+              .clamp(0.0, position.maxScrollExtent);
         }
-        
+
         if (targetOffset != currentOffset) {
           _scrollToOffset(targetOffset);
           return KeyEventResult.handled;
@@ -425,17 +428,17 @@ class _IllustRowPageState extends State<IllustRowPage>
     }
     return KeyEventResult.ignored;
   }
-  
+
   void _scrollToOffset(double offset) {
     if (!_photoScrollController.hasClients) return;
-    
+
     _photoScrollController.animateTo(
       offset,
       duration: Duration(milliseconds: 300),
       curve: Curves.easeInOut,
     );
   }
-  
+
   Widget _buildPageIndicator() {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -527,24 +530,19 @@ class _IllustRowPageState extends State<IllustRowPage>
             : SliverList(
                 delegate: SliverChildBuilderDelegate(
                     (BuildContext context, int index) {
-                return InkWell(
-                    onLongPress: () {
-                      _pressSave(data, index);
-                    },
-                    onTap: () {
-                      Leader.push(
-                          context,
-                          PhotoZoomPage(
-                            index: index,
-                            illusts: data,
-                            illustStore: _illustStore,
-                          ));
-                    },
-                    child: Observer(
-                      builder: (context) {
-                        return _buildIllustsItem(index, data, height);
-                      }
-                    ));
+                return InkWell(onLongPress: () {
+                  _pressSave(data, index);
+                }, onTap: () {
+                  Leader.push(
+                      context,
+                      PhotoZoomPage(
+                        index: index,
+                        illusts: data,
+                        illustStore: _illustStore,
+                      ));
+                }, child: Observer(builder: (context) {
+                  return _buildIllustsItem(index, data, height);
+                }));
               }, childCount: data.metaPages.length)),
     ];
   }
@@ -634,16 +632,18 @@ class _IllustRowPageState extends State<IllustRowPage>
     Widget child = PixivImage(
       imageUrl,
       localImageInfo: _illustStore.getLocalImageInfo(index),
-      placeWidget: useMediumPlaceHolder && localImageInfo == null ? PixivImage(
-        mediumImageUrl,
-        fade: false,
-      ) : Container(
-        height: height,
-        child: Center(
-          child: Text('$index',
-              style: Theme.of(context).textTheme.headlineMedium),
-        ),
-      ),
+      placeWidget: useMediumPlaceHolder && localImageInfo == null
+          ? PixivImage(
+              mediumImageUrl,
+              fade: false,
+            )
+          : Container(
+              height: height,
+              child: Center(
+                child: Text('$index',
+                    style: Theme.of(context).textTheme.headlineMedium),
+              ),
+            ),
       fade: false,
     );
     if (index == 0) {
@@ -1208,9 +1208,8 @@ class _IllustRowPageState extends State<IllustRowPage>
                 saveStore.saveImage(_illustStore.illusts!);
               }
               _illustStore.star(
-                  restrict: userSetting.defaultPrivateLike
-                      ? "private"
-                      : "public");
+                  restrict:
+                      userSetting.defaultPrivateLike ? "private" : "public");
               if (userSetting.followAfterStar) {
                 bool success = await _illustStore.followAfterStar();
                 if (success) {

@@ -14,7 +14,6 @@
  *
  */
 
-
 import 'package:dio/dio.dart';
 import 'package:easy_refresh/easy_refresh.dart';
 import 'package:mobx/mobx.dart';
@@ -81,14 +80,12 @@ abstract class _LightingStoreBase with Store {
   GlanceIllustPersistProvider glanceIllustPersistProvider =
       GlanceIllustPersistProvider();
 
-  dispose() {
-    // iStores.forEach((element) {
-    //   final provider = ExtendedNetworkImageProvider(
-    //     element.illusts.imageUrls.medium,
-    //   );
-    //   provider.evict();
-    // });
-    // iStores.clear();
+  void dispose() {
+    // 清理所有 IllustStore 实例的订阅
+    for (final illustStore in iStores) {
+      illustStore.dispose();
+    }
+    iStores.clear();
   }
 
   @observable
@@ -158,6 +155,10 @@ abstract class _LightingStoreBase with Store {
       Recommend recommend = Recommend.fromJson(result!.data);
       //https://app-api.pixiv.net/v1/user/illusts?filter=for_android&user_id=${user_id}&type=illust&offset=30
       nextUrl = recommend.nextUrl;
+      // 清理旧的 IllustStore 实例
+      for (final illustStore in iStores) {
+        illustStore.dispose();
+      }
       iStores.clear();
       iStores.addAll(recommend.illusts.map((e) => IllustStore(e.id, e)));
       String? glanceKey = source.glanceKey;
@@ -208,13 +209,13 @@ abstract class _LightingStoreBase with Store {
         Recommend recommend = Recommend.fromJson(result.data);
         nextUrl = recommend.nextUrl;
         var map = recommend.illusts.map((e) => IllustStore(e.id, e));
-        
+
         // 获取当前已加载的所有作品ID，用于去重
         var existingIds = iStores.map((element) => element.id).toSet();
-        
+
         // 过滤掉已存在的作品，确保不会重复显示
         map = map.where((element) => !existingIds.contains(element.id));
-        
+
         iStores.addAll(map);
         easyRefreshController?.finishLoad(IndicatorResult.success);
       } else {

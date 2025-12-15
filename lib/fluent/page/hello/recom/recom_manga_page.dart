@@ -33,6 +33,8 @@ class _RecomMangaPageState extends State<RecomMangaPage> {
 
   @override
   void dispose() {
+    _store.dispose();
+    controller.dispose();
     super.dispose();
   }
 

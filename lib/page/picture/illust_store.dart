@@ -60,7 +60,11 @@ abstract class _IllustStoreBase with Store {
   StreamSubscription<IllustDownloadStatus>? _downloadStatusSubscription;
 
   void dispose() {
-    _downloadStatusSubscription?.cancel();
+    if (_downloadStatusSubscription != null) {
+      Log.d(() => {'illust_id': id, 'method': 'dispose'});
+      _downloadStatusSubscription?.cancel();
+      _downloadStatusSubscription = null;
+    }
   }
 
   /// 获取指定页面的本地图片信息（同步方法）
@@ -71,10 +75,14 @@ abstract class _IllustStoreBase with Store {
   _IllustStoreBase(this.id, this.illusts) {
     isBookmark = illusts?.isBookmarked ?? false;
     state = illusts?.isBookmarked ?? isBookmark ? 2 : 0;
-    _initDownloadStatusListener();
   }
 
   void _initDownloadStatusListener() {
+    Log.d(() => {'illust_id': id, 'method': 'initDownloadStatusListener'});
+    if (_downloadStatusSubscription != null) {
+      _downloadStatusSubscription?.cancel();
+      _downloadStatusSubscription = null;
+    }
     _downloadStatusSubscription =
         downloadStore.illustDownloadStatusStream.listen((status) {
       if (status.illusts.illustId == id) {
@@ -99,9 +107,10 @@ abstract class _IllustStoreBase with Store {
   @action
   Future<void> fetch({bool force = false}) async {
     errorMessage = null;
+    _initDownloadStatusListener();
 
     await _loadLocalImageInfos();
-    
+
     // 1. 优先从数据库查询已下载的 illust（如果已下载）
     bool isDownloaded = false;
     Illusts? originalIllusts; // 保存从数据库加载的原始 illusts，用于对比
@@ -137,7 +146,8 @@ abstract class _IllustStoreBase with Store {
     }
 
     // 3. 如果仍然没有数据或需要更新（caption 为空），从网络加载
-    if (illusts == null || force ||
+    if (illusts == null ||
+        force ||
         illusts?.caption == null ||
         illusts?.caption.isEmpty == true) {
       final captionEmtpyCase = illusts != null && illusts!.caption.isEmpty;
@@ -157,13 +167,15 @@ abstract class _IllustStoreBase with Store {
 
         Log.d('从网络加载 illust:${id} 成功');
         // 5. 如果该 illust 已下载，对比数据是否有变化，有变化才更新数据库
-        if (isDownloaded && downloadStore.isInitialized && originalIllusts != null) {
+        if (isDownloaded &&
+            downloadStore.isInitialized &&
+            originalIllusts != null) {
           if (illusts!.hasDataChanged(originalIllusts)) {
             Log.d('已下载的 illust:${id} 数据有变化，更新数据库');
-            Log.d(()=> {
-              'illusts': illusts!.toJson(),
-              'originalIllusts': originalIllusts!.toJson(),
-            });
+            Log.d(() => {
+                  'illusts': illusts!.toJson(),
+                  'originalIllusts': originalIllusts!.toJson(),
+                });
             await downloadStore.updateDownloadedIllust(illusts!);
           } else {
             Log.d('已下载的 illust:${id} 数据未变化，无需更新');
@@ -233,7 +245,8 @@ abstract class _IllustStoreBase with Store {
         final file = File(info.path);
         if (await file.exists()) {
           final currentFileSize = await file.length();
-          if ((info.width == null || info.height == null) || info.fileSize != currentFileSize) {
+          if ((info.width == null || info.height == null) ||
+              info.fileSize != currentFileSize) {
             final updatedInfo = await downloadStore.updateAndGetLocalImageInfo(
                 id, i, info.path, currentFileSize);
             if (updatedInfo != null && updatedInfo != info) {

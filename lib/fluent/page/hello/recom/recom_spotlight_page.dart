@@ -65,6 +65,7 @@ class _RecomSpolightPageState extends State<RecomSpolightPage>
     subscription.cancel();
     _scrollController.dispose();
     _easyRefreshController.dispose();
+    _lightingStore.dispose();
     super.dispose();
   }
 
@@ -244,7 +245,8 @@ class _RecomSpolightPageState extends State<RecomSpolightPage>
                           child: ButtonTheme(
                             data: ButtonThemeData(
                               iconButtonStyle: ButtonStyle(
-                                padding: WidgetStateProperty.all(EdgeInsets.zero),
+                                padding:
+                                    WidgetStateProperty.all(EdgeInsets.zero),
                                 backgroundColor:
                                     WidgetStateProperty.all(Colors.transparent),
                               ),

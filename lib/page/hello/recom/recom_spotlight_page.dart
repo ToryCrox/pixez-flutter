@@ -57,6 +57,7 @@ class _RecomSpolightPageState extends State<RecomSpolightPage>
     subscription.cancel();
     _scrollController.dispose();
     _easyRefreshController.dispose();
+    _lightingStore.dispose();
     super.dispose();
   }
 

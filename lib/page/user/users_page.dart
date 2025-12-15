@@ -114,6 +114,8 @@ class _UsersPageState extends State<UsersPage> with TickerProviderStateMixin {
   void dispose() {
     _scrollController.dispose();
     _tabController.dispose();
+    _workStore.dispose();
+    _bookmarkStore.dispose();
     super.dispose();
   }
 
@@ -438,10 +440,11 @@ class _UsersPageState extends State<UsersPage> with TickerProviderStateMixin {
     // 在宽屏下限制最大高度，避免头图显示过大
     final isWideScreen = screenWidth > 800;
     final maxHeight = isWideScreen ? 400.0 : screenWidth / 2;
-    final backgroundHeight = userStore.userDetail?.profile.background_image_url != null
-        ? maxHeight.clamp(200.0, 400.0)
-        : MediaQuery.of(context).padding.top + 160;
-    
+    final backgroundHeight =
+        userStore.userDetail?.profile.background_image_url != null
+            ? maxHeight.clamp(200.0, 400.0)
+            : MediaQuery.of(context).padding.top + 160;
+
     return Container(
         width: screenWidth,
         height: backgroundHeight,
