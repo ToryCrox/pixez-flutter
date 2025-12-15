@@ -199,6 +199,8 @@ abstract class _DownloadStoreBase with Store {
   /// 初始化完成
   bool _isInit = false;
 
+  Timer? _debounceTimer;
+
   // 初始化
   Future<void> init(String downloadPath, {int maxConcurrent = 3}) async {
     if (_isInit) return;
@@ -211,7 +213,8 @@ abstract class _DownloadStoreBase with Store {
     await refreshCount();
     progressStream.listen((e) {
       _downloadProgressIllustIdBuffer.add(e.illusts.id);
-      Future.delayed(Duration(milliseconds: 10), () {
+      if (_debounceTimer?.isActive ?? false) return;
+      _debounceTimer = Timer(const Duration(milliseconds: 100), () {
         if (_downloadProgressIllustIdBuffer.isNotEmpty) {
           final idList = _downloadProgressIllustIdBuffer.toList();
           _downloadProgressIllustIdBuffer.clear();
@@ -275,6 +278,7 @@ abstract class _DownloadStoreBase with Store {
   }
 
   void dispose() {
+    _debounceTimer?.cancel();
     _progressController.close();
   }
 
@@ -288,7 +292,8 @@ abstract class _DownloadStoreBase with Store {
     return await _dbProvider.getIllustByIllustId(illustId);
   }
 
-  Future<String?> getLocalImagePath(int illustId, int part, {bool update = true}) async {
+  Future<String?> getLocalImagePath(int illustId, int part,
+      {bool update = true}) async {
     return await _dbProvider.findImagePath(illustId, part, update: update);
   }
 
@@ -549,11 +554,11 @@ abstract class _DownloadStoreBase with Store {
       return null;
     }
     final totalCount = downloadedIllust.pageCount;
-    
+
     // 使用优化的数据库查询，一次性获取图片数量和总文件大小
-    final (count: completedCount, totalFileSize: fileSize) = 
+    final (count: completedCount, totalFileSize: fileSize) =
         await _dbProvider.getIllustImageStats(illustId);
-    
+
     // 优化状态判断：单次遍历，按优先级确定状态
     DownloadTaskStatus status;
     if (completedCount >= totalCount) {
@@ -564,7 +569,7 @@ abstract class _DownloadStoreBase with Store {
       final tasks = downloadingTasks.values
           .where((t) => t.illusts.id == illustId)
           .toList();
-      
+
       if (tasks.isEmpty) {
         status = DownloadTaskStatus.completed;
       } else {
@@ -575,14 +580,14 @@ abstract class _DownloadStoreBase with Store {
           DownloadTaskStatus.failed,
           DownloadTaskStatus.paused,
         ];
-        
+
         status = priorities.firstWhere(
           (priority) => tasks.any((t) => t.status == priority),
           orElse: () => DownloadTaskStatus.completed,
         );
       }
     }
-    
+
     return IllustDownloadStatus(
       illusts: downloadedIllust,
       status: status,
@@ -726,26 +731,28 @@ abstract class _DownloadStoreBase with Store {
   }
 
   /// 加入下载（优化版本，支持批量处理）
-  Future<void> addDownloadTasks(List<DownloadTask> tasks, {bool batchMode = false}) async {
+  Future<void> addDownloadTasks(List<DownloadTask> tasks,
+      {bool batchMode = false}) async {
     if (tasks.isEmpty) return;
-    
+
     // 过滤掉已存在的任务
     final needAddTasks = <DownloadTask>[];
     final existingTaskKeys = <String>{};
-    
+
     for (final task in tasks) {
       final taskKey = task.taskKey;
       if (downloadingTasks.containsKey(taskKey)) {
         final existingTask = downloadingTasks[taskKey]!;
         if (!existingTask.isCanRetry) {
-          Log.d('DownloadStore task $taskKey already exists, ${existingTask.error}, ${existingTask.status}');
+          Log.d(
+              'DownloadStore task $taskKey already exists, ${existingTask.error}, ${existingTask.status}');
           continue;
         }
       }
       needAddTasks.add(task);
       existingTaskKeys.add(taskKey);
     }
-    
+
     if (needAddTasks.isEmpty) {
       BotToast.showText(text: '所有图片都已下载');
       return;
@@ -763,19 +770,23 @@ abstract class _DownloadStoreBase with Store {
   /// 批量添加下载任务（优化版本）
   Future<void> _addDownloadTasksBatch(List<DownloadTask> tasks) async {
     // 1. 批量检查已下载状态
-    final illustParts = tasks.map((t) => {
-      'illustId': t.illusts.id,
-      'part': t.part,
-    }).toList();
-    final downloadedResults = await _dbProvider.batchCheckImageDownloaded(illustParts);
-    
+    final illustParts = tasks
+        .map((t) => {
+              'illustId': t.illusts.id,
+              'part': t.part,
+            })
+        .toList();
+    final downloadedResults =
+        await _dbProvider.batchCheckImageDownloaded(illustParts);
+
     // 组装成字符串键集合，方便后续查找
-    final downloadedTaskKeys = downloadedResults.map((e) => '${e['illustId']}_${e['part']}').toSet();
-    
+    final downloadedTaskKeys =
+        downloadedResults.map((e) => '${e['illustId']}_${e['part']}').toSet();
+
     // 2. 过滤掉已下载的任务
     final tasksToAdd = <DownloadTask>[];
     final taskKeysToDelete = <String>[];
-    
+
     for (final task in tasks) {
       final key = '${task.illusts.id}_${task.part}';
       if (downloadedTaskKeys.contains(key)) {
@@ -784,13 +795,14 @@ abstract class _DownloadStoreBase with Store {
       }
       tasksToAdd.add(task);
     }
-    
+
     // 批量删除已下载任务的 pending 记录（使用批量删除优化性能）
     if (taskKeysToDelete.isNotEmpty) {
-      Log.d(() => 'DownloadStore delete ${taskKeysToDelete.length} pending downloads');
+      Log.d(() =>
+          'DownloadStore delete ${taskKeysToDelete.length} pending downloads');
       await _dbProvider.batchDeletePendingDownloads(taskKeysToDelete);
     }
-    
+
     if (tasksToAdd.isEmpty) {
       Log.d(() => 'DownloadStore all tasks already downloaded');
       BotToast.showText(text: '所有图片都已下载');
@@ -809,15 +821,15 @@ abstract class _DownloadStoreBase with Store {
         ));
       }
     }
-    
+
     // 批量检查并插入 illust（使用批量操作优化性能）
     await _dbProvider.batchInsertIllustsIfNotExists(illustsToInsert);
-    
+
     // 4. 批量添加到内存和数据库
     final pendingDownloads = <PendingDownload>[];
     final tasksToNotify = <DownloadTask>[];
     final tasksToQueue = <DownloadTask>[];
-    
+
     // 分批检查文件是否存在（避免一次性创建太多并发任务）
     const batchSize = 100;
     for (int i = 0; i < tasksToAdd.length; i += batchSize) {
@@ -844,7 +856,7 @@ abstract class _DownloadStoreBase with Store {
         }
       }));
     }
-    
+
     // 5. 先批量插入 pending 记录到数据库（保证数据一致性）
     if (tasksToQueue.isNotEmpty) {
       for (final task in tasksToQueue) {
@@ -852,7 +864,7 @@ abstract class _DownloadStoreBase with Store {
       }
       await _dbProvider.batchInsertPendingDownloads(pendingDownloads);
     }
-    
+
     // 6. 数据库插入成功后再更新内存（保证数据一致性）
     runInAction(() {
       for (final task in tasksToQueue) {
@@ -860,7 +872,7 @@ abstract class _DownloadStoreBase with Store {
         _pendingQueue.add(task);
       }
     });
-    
+
     // 7. 批量通知（减少 MobX 更新频率）
     if (tasksToNotify.isNotEmpty || tasksToQueue.isNotEmpty) {
       // 延迟通知，避免频繁更新 UI
@@ -880,10 +892,10 @@ abstract class _DownloadStoreBase with Store {
         }
       });
     }
-    
+
     // 处理队列
     _processQueue();
-    
+
     BotToast.showText(text: '添加 ${tasksToAdd.length} 个下载任务');
   }
 
@@ -900,7 +912,7 @@ abstract class _DownloadStoreBase with Store {
         await _dbProvider.deletePendingDownload(task.taskKey);
         continue;
       }
-      
+
       final illusts = task.illusts;
       if (!ids.contains(illusts.id)) {
         ids.add(illusts.id);
@@ -909,7 +921,7 @@ abstract class _DownloadStoreBase with Store {
       await _addDownloadTask(task);
       addedCount++;
     }
-    
+
     if (addedCount > 0) {
       BotToast.showText(text: '添加 $addedCount 个下载任务');
     } else if (tasks.isNotEmpty) {
@@ -1191,51 +1203,53 @@ abstract class _DownloadStoreBase with Store {
     }
 
     Log.d('开始优化 illustJson 字段...');
-    
+
     int optimizedCount = 0;
     int savedBytes = 0;
-    
+
     try {
       // 获取所有插画记录
       final allIllusts = await _dbProvider.getAllIllusts();
       final total = allIllusts.length;
-      
+
       Log.d('找到 $total 条记录需要优化');
-      
+
       // 分批处理，每批 50 条
       const batchSize = 50;
       for (int i = 0; i < allIllusts.length; i += batchSize) {
         // 检查是否应该取消
         if (shouldCancel != null && shouldCancel()) {
-          Log.d('优化已取消: 已优化 $optimizedCount 条记录，节省了 ${(savedBytes / 1024 / 1024).toStringAsFixed(2)} MB');
+          Log.d(
+              '优化已取消: 已优化 $optimizedCount 条记录，节省了 ${(savedBytes / 1024 / 1024).toStringAsFixed(2)} MB');
           throw Exception('优化已取消');
         }
-        
+
         final batch = allIllusts.skip(i).take(batchSize).toList();
-        
+
         for (final existingIllust in batch) {
           // 在处理每条记录前也检查取消标志
           if (shouldCancel != null && shouldCancel()) {
-            Log.d('优化已取消: 已优化 $optimizedCount 条记录，节省了 ${(savedBytes / 1024 / 1024).toStringAsFixed(2)} MB');
+            Log.d(
+                '优化已取消: 已优化 $optimizedCount 条记录，节省了 ${(savedBytes / 1024 / 1024).toStringAsFixed(2)} MB');
             throw Exception('优化已取消');
           }
-          
+
           try {
             // 尝试从 illustJson 反序列化为 Illusts
             final illusts = existingIllust.toIllusts();
-            
+
             // 使用 fromIllusts 重新创建优化后的记录
             final optimizedIllust = DownloadedIllust.fromIllusts(
               illusts,
               existingIllust.relativePath,
               downloadTime: existingIllust.downloadTime,
             );
-            
+
             // 计算节省的字节数
             final oldSize = existingIllust.illustJson.length;
             final newSize = optimizedIllust.illustJson.length;
             final saved = oldSize - newSize;
-            
+
             if (saved > 0) {
               // 更新数据库
               await _dbProvider.updateIllust(optimizedIllust);
@@ -1247,30 +1261,31 @@ abstract class _DownloadStoreBase with Store {
             Log.e('优化记录失败 (illustId: ${existingIllust.illustId}): $e');
           }
         }
-        
+
         // 报告进度（包含已节省的字节数）
         if (onProgress != null) {
           onProgress(i + batch.length, total, savedBytes);
         }
       }
-      
-      Log.d('优化完成: 优化了 $optimizedCount 条记录，节省了 ${(savedBytes / 1024 / 1024).toStringAsFixed(2)} MB');
-      
+
+      Log.d(
+          '优化完成: 优化了 $optimizedCount 条记录，节省了 ${(savedBytes / 1024 / 1024).toStringAsFixed(2)} MB');
+
       // 执行 VACUUM 回收数据库空间
       //if (optimizedCount > 0) {
-        Log.d('开始执行 VACUUM 回收数据库空间...');
-        if (onVacuumStart != null) {
-          onVacuumStart();
-        }
-        try {
-          await _dbProvider.vacuum();
-          Log.d('VACUUM 执行完成，数据库空间已回收');
-        } catch (e) {
-          Log.e('执行 VACUUM 失败: $e');
-          // VACUUM 失败不影响优化结果，只记录错误
-        }
+      Log.d('开始执行 VACUUM 回收数据库空间...');
+      if (onVacuumStart != null) {
+        onVacuumStart();
+      }
+      try {
+        await _dbProvider.vacuum();
+        Log.d('VACUUM 执行完成，数据库空间已回收');
+      } catch (e) {
+        Log.e('执行 VACUUM 失败: $e');
+        // VACUUM 失败不影响优化结果，只记录错误
+      }
       //}
-      
+
       return {
         'optimized_count': optimizedCount,
         'saved_bytes': savedBytes,
