@@ -1141,7 +1141,10 @@ class _DownloadedPageState extends State<DownloadedPage> {
       BuildContext context, DownloadedIllust illust, Offset? tapPosition) {
     final RenderBox overlay =
         Overlay.of(context).context.findRenderObject() as RenderBox;
-    final Offset position = tapPosition ?? Offset.zero;
+
+    // 将全局坐标转换为相对于 Overlay 的本地坐标
+    final localPosition =
+        tapPosition != null ? overlay.globalToLocal(tapPosition) : Offset.zero;
 
     final status = _illustDownloadStatus[illust.illustId];
     final isDownloading = status == DownloadTaskStatus.downloading ||
@@ -1151,11 +1154,9 @@ class _DownloadedPageState extends State<DownloadedPage> {
 
     showMenu(
       context: context,
-      position: RelativeRect.fromLTRB(
-        position.dx,
-        position.dy,
-        overlay.size.width - position.dx,
-        overlay.size.height - position.dy,
+      position: RelativeRect.fromRect(
+        localPosition & Size(40, 40),
+        Offset.zero & overlay.size,
       ),
       items: [
         PopupMenuItem(
