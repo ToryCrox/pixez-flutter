@@ -72,6 +72,64 @@ abstract class _IllustStoreBase with Store {
     return localImageInfos[part];
   }
 
+  /// 判断插画数据是否为被删除的无效数据
+  /// 被删除的插画图片 URL 会变成 limit_unknown 占位图
+  bool _isDeletedIllust(Illusts data) {
+    return data.imageUrls.medium.contains('limit_unknown');
+  }
+
+  /// 用本地图片路径修复被删除的插画数据
+  /// 将 limit_unknown 占位图 URL 替换为本地文件路径（file:// 协议）
+  Illusts _fixIllustsWithLocalPaths(Illusts data) {
+    if (localImageInfos.isEmpty) return data;
+
+    // 获取第一张图片的本地路径用于 imageUrls
+    final firstLocalPath = localImageInfos[0]?.path;
+    if (firstLocalPath == null) return data;
+
+    final localUrl = 'file://$firstLocalPath';
+
+    // 修复 imageUrls
+    final fixedImageUrls = ImageUrls(
+      squareMedium: localUrl,
+      medium: localUrl,
+      large: localUrl,
+    );
+
+    // 修复 metaSinglePage（单页插画）
+    MetaSinglePage? fixedMetaSinglePage;
+    final pageCount = localImageInfos.length;
+    if (pageCount == 1) {
+      fixedMetaSinglePage = MetaSinglePage(originalImageUrl: localUrl);
+    }
+
+    // 修复 metaPages（多页插画）
+    List<MetaPages> fixedMetaPages = [];
+    if (pageCount > 1) {
+      for (int i = 0; i < pageCount; i++) {
+        final localPath = localImageInfos[i]?.path;
+        if (localPath != null) {
+          final pageLocalUrl = 'file://$localPath';
+          fixedMetaPages.add(MetaPages(
+            imageUrls: MetaPagesImageUrls(
+              squareMedium: pageLocalUrl,
+              medium: pageLocalUrl,
+              large: pageLocalUrl,
+              original: pageLocalUrl,
+            ),
+          ));
+        }
+      }
+    }
+
+    return data.copyWith(
+      pageCount: pageCount,
+      imageUrls: fixedImageUrls,
+      metaSinglePage: fixedMetaSinglePage ?? data.metaSinglePage,
+      metaPages: fixedMetaPages.isNotEmpty ? fixedMetaPages : data.metaPages,
+    );
+  }
+
   _IllustStoreBase(this.id, this.illusts) {
     isBookmark = illusts?.isBookmarked ?? false;
     state = illusts?.isBookmarked ?? isBookmark ? 2 : 0;
@@ -119,11 +177,26 @@ abstract class _IllustStoreBase with Store {
       if (downloadedIllust != null) {
         Log.d('已下载的 illust: ${downloadedIllust.illustId}');
         try {
-          illusts = downloadedIllust.toIllusts();
-          originalIllusts = illusts; // 保存原始数据用于对比
-          isBookmark = illusts!.isBookmarked;
-          state = illusts?.isBookmarked ?? isBookmark ? 2 : 0;
-          isDownloaded = true;
+          final dbIllusts = downloadedIllust.toIllusts();
+          // 校验数据库中的数据是否是被删除的无效数据
+          // 但如果本地有图片文件，仍然可以使用数据库中的元数据（标题、作者等）
+          final hasLocalImages = localImageInfos.isNotEmpty;
+          if (_isDeletedIllust(dbIllusts) && !hasLocalImages) {
+            Log.d('数据库中 illust:${id} 数据无效且本地无图片，跳过');
+          } else {
+            if (_isDeletedIllust(dbIllusts)) {
+              // 用本地路径修复 illusts 的图片 URL
+              illusts = _fixIllustsWithLocalPaths(dbIllusts);
+              Log.d(() => 'illust:${id} 已被删除，但本地有图片，使用本地路径修复');
+              Log.d(() => illusts!.toJson());
+            } else {
+              illusts = dbIllusts;
+            }
+            originalIllusts = dbIllusts; // 保存原始数据用于对比
+            isBookmark = illusts!.isBookmarked;
+            state = illusts?.isBookmarked ?? isBookmark ? 2 : 0;
+            isDownloaded = true;
+          }
         } catch (e) {
           Log.e('从数据库恢复 illust 失败: $e');
         }
@@ -139,9 +212,14 @@ abstract class _IllustStoreBase with Store {
       );
 
       if (cachedData != null) {
-        illusts = cachedData;
-        isBookmark = illusts!.isBookmarked;
-        state = illusts?.isBookmarked ?? isBookmark ? 2 : 0;
+        // 校验缓存中的数据是否是被删除的无效数据
+        if (_isDeletedIllust(cachedData)) {
+          Log.d('缓存中 illust:${id} 数据无效 (limit_unknown)，跳过');
+        } else {
+          illusts = cachedData;
+          isBookmark = illusts!.isBookmarked;
+          state = illusts?.isBookmarked ?? isBookmark ? 2 : 0;
+        }
       }
     }
 
@@ -157,6 +235,19 @@ abstract class _IllustStoreBase with Store {
       try {
         Response response = await client.getIllustDetail(id);
         final result = Illusts.fromJson(response.data['illust']);
+
+        // 校验插画是否已被删除
+        // 被删除的插画图片 URL 会变成 limit_unknown 占位图
+        if (_isDeletedIllust(result)) {
+          Log.d('illust:${id} 已被删除 (图片为limit_unknown占位图)，使用缓存数据');
+          captionFetching = false;
+          // 只有当既无缓存数据又无本地图片时才设置错误信息
+          if (illusts == null && localImageInfos.isEmpty) {
+            errorMessage = '该作品已被删除';
+          }
+          return;
+        }
+
         illusts = result;
         isBookmark = illusts!.isBookmarked;
         state = illusts?.isBookmarked ?? isBookmark ? 2 : 0;
@@ -215,7 +306,7 @@ abstract class _IllustStoreBase with Store {
         final result = IllustSeriesDetailResponse.fromJson(response.data);
         illustSeriesDetailResponse = result;
       } catch (e) {
-        print(e);
+        Log.e(e);
       }
     }
   }
