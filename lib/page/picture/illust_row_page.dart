@@ -77,6 +77,7 @@ class _IllustRowPageState extends State<IllustRowPage>
   int _currentPage = 0;
   int _totalPages = 1;
   double? _itemHeight; // 存储每页高度，避免在滚动监听器中访问 context
+  bool _sidebarVisible = true; // 控制侧边栏显示/隐藏
 
   @override
   void initState() {
@@ -292,10 +293,18 @@ class _IllustRowPageState extends State<IllustRowPage>
     final centerType = height <= screenHeight;
     if (userStore == null) userStore = UserStore(data.user.id, null, data.user);
     final dividerWidth = 28.0;
+    // 动画持续时间
+    const animationDuration = Duration(milliseconds: 300);
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
       onTap: () {
         FocusManager.instance.primaryFocus?.unfocus();
+      },
+      onDoubleTap: () {
+        // 双击切换侧边栏显示/隐藏
+        setState(() {
+          _sidebarVisible = !_sidebarVisible;
+        });
       },
       child: Observer(builder: (context) {
         // 更新总页数和计算每页高度
@@ -310,79 +319,92 @@ class _IllustRowPageState extends State<IllustRowPage>
           _itemHeight = null;
         }
 
+        // 计算侧边栏宽度
+        final sidebarWidth = leftWidth;
+
         return Container(
           child: Stack(
             children: [
-              Row(
-                children: [
-                  Container(
-                    width: expectWidth,
-                    child: Focus(
-                      focusNode: _focusNode,
-                      autofocus: true,
-                      onKeyEvent: _handleKeyEvent,
-                      child: CustomScrollView(
-                        controller: _photoScrollController,
-                        slivers: [
-                          ..._buildPhotoList(data, centerType, height),
-                          SliverToBoxAdapter(
-                              child: Container(
-                            height: MediaQuery.of(context).padding.bottom,
-                          ))
-                        ],
-                      ),
-                    ),
+              // 图片区域，使用 AnimatedPositioned 实现平滑过渡
+              AnimatedPositioned(
+                duration: animationDuration,
+                curve: Curves.easeInOut,
+                left: 0,
+                top: 0,
+                bottom: 0,
+                right: _sidebarVisible ? sidebarWidth : 0,
+                child: Focus(
+                  focusNode: _focusNode,
+                  autofocus: true,
+                  onKeyEvent: _handleKeyEvent,
+                  child: CustomScrollView(
+                    controller: _photoScrollController,
+                    slivers: [
+                      ..._buildPhotoList(data, centerType, height),
+                      SliverToBoxAdapter(
+                          child: Container(
+                        height: MediaQuery.of(context).padding.bottom,
+                      ))
+                    ],
                   ),
-                  Expanded(
-                    child: Container(
-                      color: Theme.of(context).cardColor,
-                      child: EasyRefresh(
-                        controller: _refreshController,
-                        onLoad: () {
-                          _aboutStore.next();
-                        },
-                        child: CustomScrollView(
-                          controller: _scrollController,
-                          slivers: [
-                            SliverToBoxAdapter(
-                              child: Container(
-                                height: MediaQuery.of(context).padding.top,
-                              ),
-                            ),
-                            SliverToBoxAdapter(
-                              child: IllustDetailContent(
-                                illusts: data,
-                                userStore: userStore,
-                                illustStore: _illustStore,
-                                loadAbout: () {
-                                  _loadAbout();
-                                },
-                              ),
-                            ),
-                            _buildRecom()
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
-              Row(children: [
-                Container(
-                  width: expectWidth - (dividerWidth * 0.5),
-                ),
-                GestureDetector(
-                  onTap: () {},
-                  onHorizontalDragUpdate: (details) {
-                    userSetting.setDragStartX(details.localPosition.dx);
-                  },
-                  behavior: HitTestBehavior.translucent,
-                  child: Container(
-                    width: dividerWidth,
+              // 侧边栏，使用 AnimatedPositioned 实现从右侧滑入/滑出
+              AnimatedPositioned(
+                duration: animationDuration,
+                curve: Curves.easeInOut,
+                right: _sidebarVisible ? 0 : -sidebarWidth,
+                top: 0,
+                bottom: 0,
+                width: sidebarWidth,
+                child: Container(
+                  color: Theme.of(context).cardColor,
+                  child: EasyRefresh(
+                    controller: _refreshController,
+                    onLoad: () {
+                      _aboutStore.next();
+                    },
+                    child: CustomScrollView(
+                      controller: _scrollController,
+                      slivers: [
+                        SliverToBoxAdapter(
+                          child: Container(
+                            height: MediaQuery.of(context).padding.top,
+                          ),
+                        ),
+                        SliverToBoxAdapter(
+                          child: IllustDetailContent(
+                            illusts: data,
+                            userStore: userStore,
+                            illustStore: _illustStore,
+                            loadAbout: () {
+                              _loadAbout();
+                            },
+                          ),
+                        ),
+                        _buildRecom()
+                      ],
+                    ),
                   ),
                 ),
-                Spacer()
-              ]),
+              ),
+              // 拖拽调整宽度的分隔条，只在侧边栏可见时显示
+              if (_sidebarVisible)
+                Positioned(
+                  right: sidebarWidth - (dividerWidth * 0.5),
+                  top: 0,
+                  bottom: 0,
+                  child: GestureDetector(
+                    onTap: () {},
+                    onHorizontalDragUpdate: (details) {
+                      userSetting.setDragStartX(details.localPosition.dx);
+                    },
+                    behavior: HitTestBehavior.translucent,
+                    child: Container(
+                      width: dividerWidth,
+                    ),
+                  ),
+                ),
               // 页数指示器
               if (data.pageCount > 1)
                 Positioned(
@@ -536,13 +558,13 @@ class _IllustRowPageState extends State<IllustRowPage>
                 return InkWell(onLongPress: () {
                   _pressSave(data, index);
                 }, onTap: () {
-                  Leader.push(
-                      context,
-                      PhotoZoomPage(
-                        index: index,
-                        illusts: data,
-                        illustStore: _illustStore,
-                      ));
+                  // Leader.push(
+                  //     context,
+                  //     PhotoZoomPage(
+                  //       index: index,
+                  //       illusts: data,
+                  //       illustStore: _illustStore,
+                  //     ));
                 }, child: Observer(builder: (context) {
                   return _buildIllustsItem(index, data, height);
                 }));
@@ -558,18 +580,10 @@ class _IllustRowPageState extends State<IllustRowPage>
           url = data.managaDetailUrl;
         }
         Widget placeWidget = Container(height: height);
+        // 移除点击打开大图，保留长按保存
         return InkWell(
           onLongPress: () {
             _pressSave(data, 0);
-          },
-          onTap: () {
-            Leader.push(
-                context,
-                PhotoZoomPage(
-                  index: 0,
-                  illusts: data,
-                  illustStore: _illustStore,
-                ));
           },
           child: NullHero(
             tag: widget.heroString,
