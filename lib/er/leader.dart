@@ -19,8 +19,7 @@ import 'dart:io';
 import 'package:bot_toast/bot_toast.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:pixez/constants.dart';
-import 'package:pixez/er/fluent_leader.dart';
+
 import 'package:pixez/er/lprinter.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/models/account.dart';
@@ -39,10 +38,6 @@ import 'package:url_launcher/url_launcher_string.dart';
 
 class Leader {
   static Future<void> pushUntilHome(BuildContext context) async {
-    if (Constants.isFluent) {
-      FluentLeader.pushUntilHome(context);
-      return;
-    }
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(
         builder: (context) =>
@@ -57,10 +52,6 @@ class Leader {
   }
 
   static Future<bool> pushWithUri(BuildContext context, Uri link) async {
-    if (Constants.isFluent) {
-      FluentLeader.pushWithUri(context, link);
-      return false;
-    }
     // https://www.pixiv.net/novel/series/$id
     if (link.path.contains("novel") && link.path.contains("series")) {
       final id = int.tryParse(link.pathSegments.last);
@@ -304,17 +295,13 @@ class Leader {
 
   static Future<dynamic> pushWithScaffold(context, Widget widget,
       {Widget? icon, Widget? title}) {
-    if (Constants.isFluent) {
-      return FluentLeader.pushWithScaffold(context, widget,
-          icon: icon, title: title);
-    }
     // 检查是否在宽屏状态下，如果是，使用右侧的 Navigator
     final wideScreenNavigator = WideScreenNavigator.of(context);
     final navigator = wideScreenNavigator?.isWideScreen == true &&
             wideScreenNavigator?.contentNavigatorKey?.currentState != null
         ? wideScreenNavigator!.contentNavigatorKey!.currentState!
         : Navigator.of(context);
-    
+
     return navigator.push(MaterialPageRoute(
         builder: (context) => Scaffold(
               body: widget,
@@ -328,10 +315,6 @@ class Leader {
     Widget? title,
     bool forceSkipWrap = false,
   }) {
-    if (Constants.isFluent) {
-      return FluentLeader.push(context, widget,
-          icon: icon, title: title, forceSkipWrap: forceSkipWrap);
-    }
     return Navigator.of(context).push(MaterialPageRoute(
         builder: (context) => Scaffold(
               body: widget,

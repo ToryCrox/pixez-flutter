@@ -487,14 +487,6 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "1.1.1"
-  fluent_ui:
-    dependency: "direct main"
-    description:
-      name: fluent_ui
-      sha256: "069dc196e093864ba7252a3ed5cc4e28039f04fc9cb687f35aeaa2e2b265dd7e"
-      url: "https://pub.flutter-io.cn"
-    source: hosted
-    version: "4.10.0"
   flutter:
     dependency: "direct main"
     description: flutter
@@ -1092,14 +1084,6 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "0.11.1"
-  math_expressions:
-    dependency: transitive
-    description:
-      name: math_expressions
-      sha256: "218dc65bed4726562bb31c53d8daa3cc824664b26fb72d77bc592757edf74ba0"
-      url: "https://pub.flutter-io.cn"
-    source: hosted
-    version: "2.7.0"
   meta:
     dependency: transitive
     description:
@@ -1444,14 +1428,6 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "3.2.2"
-  recase:
-    dependency: transitive
-    description:
-      name: recase
-      sha256: e4eb4ec2dcdee52dcf99cb4ceabaffc631d7424ee55e56f280bc039737f89213
-      url: "https://pub.flutter-io.cn"
-    source: hosted
-    version: "4.1.0"
   receive_sharing_intent:
     dependency: "direct main"
     description:
@@ -1557,14 +1533,6 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "0.2.0"
-  scroll_pos:
-    dependency: transitive
-    description:
-      name: scroll_pos
-      sha256: cebf602b2dd939de6832bb902ffefb574608d1b84f420b82b381a4007d3c1e1b
-      url: "https://pub.flutter-io.cn"
-    source: hosted
-    version: "0.5.0"
   share_plus:
     dependency: "direct main"
     description:

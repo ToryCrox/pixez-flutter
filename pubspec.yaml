@@ -69,8 +69,7 @@ dependencies:
   flutter_riverpod: ^2.5.1
   riverpod_annotation: ^2.3.5
   freezed_annotation: ^2.4.4
-  # Design Style
-  fluent_ui: 4.10.0
+
   # Desktop Support
   flutter_acrylic: ^1.1.4
   window_manager: ^0.4.3
