@@ -13,11 +13,20 @@ class _CommonBackAreaState extends State<CommonBackArea> {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      child: IconButton(
-        icon: _isLongPress ? Icon(Icons.home) : BackButtonIcon(),
-        onPressed: () {
-          Navigator.pop(context);
-        },
+      child: Container(
+        margin: EdgeInsets.all(8.0),
+        decoration: BoxDecoration(
+          color: Colors.black.withOpacity(0.3),
+          shape: BoxShape.circle,
+        ),
+        child: IconButton(
+          icon: _isLongPress
+              ? Icon(Icons.home, color: Colors.white)
+              : Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () {
+            Navigator.pop(context);
+          },
+        ),
       ),
       onLongPress: () {
         setState(() {
