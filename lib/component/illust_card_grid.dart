@@ -246,22 +246,20 @@ class _IllustCardGridState extends State<IllustCardGrid> {
   }
 
   Widget _buildAnimationWraper(BuildContext context, Widget child) {
-    return GestureDetector(
+    return InkWell(
       onSecondaryTapDown: (details) {
         _tapPosition = details.globalPosition;
       },
       onSecondaryTap: () {
         _showContextMenu(context);
       },
-      child: InkWell(
-        onLongPress: () {
-          _buildLongPressToSaveHint();
-        },
-        onTap: () {
-          _buildInkTap(context, tag);
-        },
-        child: child,
-      ),
+      onLongPress: () {
+        _buildLongPressToSaveHint();
+      },
+      onTap: () {
+        _buildInkTap(context, tag);
+      },
+      child: child,
     );
   }
 
@@ -299,13 +297,15 @@ class _IllustCardGridState extends State<IllustCardGrid> {
     if (!isDirectoryExists) return;
 
     final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+
+    // 将全局坐标转换为相对于 Overlay 的本地坐标
+    final localPosition = overlay.globalToLocal(_tapPosition);
+
     final result = await showMenu(
       context: context,
-      position: RelativeRect.fromLTRB(
-        _tapPosition.dx,
-        _tapPosition.dy,
-        overlay.size.width - _tapPosition.dx,
-        overlay.size.height - _tapPosition.dy,
+      position: RelativeRect.fromRect(
+        localPosition & Size(40, 40),
+        Offset.zero & overlay.size,
       ),
       items: [
         PopupMenuItem(
