@@ -16,7 +16,6 @@
 import 'dart:io';
 
 import 'package:bot_toast/bot_toast.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:open_file/open_file.dart';
 import 'package:path/path.dart' as path;
@@ -32,14 +31,12 @@ import 'package:pixez/page/user/users_page.dart';
 class DownloadedAuthorCard extends StatefulWidget {
   final DownloadedAuthor author;
   final List<DownloadedIllust> illusts;
-  final List<String?> imagePaths; // 预加载的图片路径列表
   final bool showLatestPublished;
 
   const DownloadedAuthorCard({
     Key? key,
     required this.author,
     required this.illusts,
-    required this.imagePaths,
     required this.showLatestPublished,
   }) : super(key: key);
 
@@ -56,7 +53,7 @@ class _DownloadedAuthorCardState extends State<DownloadedAuthorCard> {
     super.initState();
     _loadImageStats();
   }
-  
+
   @override
   void didUpdateWidget(DownloadedAuthorCard oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -65,12 +62,12 @@ class _DownloadedAuthorCardState extends State<DownloadedAuthorCard> {
     }
   }
 
-
   Future<void> _loadImageStats() async {
     if (!downloadStore.isInitialized) return;
-    
+
     try {
-      final stats = await downloadStore.getAuthorImageStats(widget.author.userId);
+      final stats =
+          await downloadStore.getAuthorImageStats(widget.author.userId);
       if (mounted) {
         setState(() {
           _totalImageCount = stats['total_image_count'];
@@ -109,7 +106,6 @@ class _DownloadedAuthorCardState extends State<DownloadedAuthorCard> {
 
   Widget _buildPreviewSection(BuildContext context) {
     final illusts = widget.illusts;
-    final imagePaths = widget.imagePaths;
 
     return SizedBox(
       height: 120, // 固定预览区域高度
@@ -117,8 +113,8 @@ class _DownloadedAuthorCardState extends State<DownloadedAuthorCard> {
         children: [
           for (var i = 0; i < 3; i++)
             Expanded(
-              child: i < illusts.length && i < imagePaths.length
-                  ? _buildLocalImage(context, imagePaths[i])
+              child: i < illusts.length
+                  ? _buildCoverImage(context, illusts[i])
                   : Container(
                       color: Theme.of(context).cardColor,
                     ),
@@ -128,25 +124,18 @@ class _DownloadedAuthorCardState extends State<DownloadedAuthorCard> {
     );
   }
 
-  Widget _buildLocalImage(BuildContext context, String? imagePath) {
-    if (imagePath != null) {
-      return CachedNetworkImage(
-        imageUrl: Uri.file(imagePath).toString(),
-        cacheManager: pixivCacheManager,
-        fit: BoxFit.cover,
-        width: double.infinity,
-        height: double.infinity,
-        memCacheWidth: (100 * MediaQuery.of(context).devicePixelRatio).toInt(),
-        errorWidget: (context, error, stackTrace) {
-          return Container(
-            color: Theme.of(context).cardColor,
-            child: Icon(Icons.broken_image, color: Colors.grey),
-          );
-        },
-      );
-    }
-    return Container(
-      color: Theme.of(context).cardColor,
+  /// 使用 PixivImage 加载封面，通过 header 传递 illustId 让 PixivCacheManager 识别并缓存
+  Widget _buildCoverImage(BuildContext context, DownloadedIllust illust) {
+    final illusts = illust.toIllusts();
+    final coverUrl = illusts.imageUrls.squareMedium;
+
+    return PixivImage(
+      coverUrl,
+      fit: BoxFit.cover,
+      width: double.infinity,
+      height: double.infinity,
+      // 通过 header 传递 illustId，让 PixivCacheManager 识别封面请求
+      httpHeaders: {'cover': '${illust.illustId}'},
     );
   }
 
@@ -159,101 +148,110 @@ class _DownloadedAuthorCardState extends State<DownloadedAuthorCard> {
           crossAxisAlignment: CrossAxisAlignment.center,
           mainAxisAlignment: MainAxisAlignment.start,
           children: [
-          Hero(
-            tag: 'author_${widget.author.userId}_${this.hashCode}',
-            child: PainterAvatar(
-              url: widget.author.profileImageUrl ?? '',
-              id: widget.author.userId,
-              onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => UsersPage(
-                      id: widget.author.userId,
-                      userStore: UserStore(widget.author.userId, null, null),
-                      heroTag: 'author_${widget.author.userId}_${this.hashCode}',
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    widget.author.userName,
-                    style: Theme.of(context).textTheme.bodyLarge,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Text(
-                        '${widget.author.illustCount} 作品',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Colors.grey[600],
-                            ),
+            Hero(
+              tag: 'author_${widget.author.userId}_${this.hashCode}',
+              child: PainterAvatar(
+                url: widget.author.profileImageUrl ?? '',
+                id: widget.author.userId,
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => UsersPage(
+                        id: widget.author.userId,
+                        userStore: UserStore(widget.author.userId, null, null),
+                        heroTag:
+                            'author_${widget.author.userId}_${this.hashCode}',
                       ),
-                      if (_totalImageCount != null && _totalImageCount! > 0) ...[
-                        SizedBox(width: 8),
-                        Text(
-                          '$_totalImageCount 张',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: Colors.grey[600],
-                              ),
-                        ),
-                      ],
-                    ],
-                  ),
-                  if (_totalImageCount != null && _totalImageCount! > 0 && _totalFileSize != null && _totalFileSize! > 0) ...[
-                    SizedBox(height: 2),
+                    ),
+                  );
+                },
+              ),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      widget.author.userName,
+                      style: Theme.of(context).textTheme.bodyLarge,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    SizedBox(height: 4),
                     Row(
                       children: [
                         Text(
-                          '平均 ${(_totalFileSize! ~/ _totalImageCount!).formatFileSize()}/张',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: Colors.grey[500],
-                                fontSize: 11,
-                              ),
+                          '${widget.author.illustCount} 作品',
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: Colors.grey[600],
+                                  ),
                         ),
-                        SizedBox(width: 8),
-                        Text(
-                          '总计 ${_totalFileSize!.formatFileSize()}',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: Colors.grey[500],
-                                fontSize: 11,
-                              ),
-                        ),
+                        if (_totalImageCount != null &&
+                            _totalImageCount! > 0) ...[
+                          SizedBox(width: 8),
+                          Text(
+                            '$_totalImageCount 张',
+                            style:
+                                Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: Colors.grey[600],
+                                    ),
+                          ),
+                        ],
                       ],
                     ),
-                  ] else if (widget.author.totalFileSize > 0) ...[
-                    SizedBox(height: 2),
-                    Text(
-                      '总计 ${widget.author.totalFileSize.formatFileSize()}',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Colors.grey[500],
-                            fontSize: 11,
+                    if (_totalImageCount != null &&
+                        _totalImageCount! > 0 &&
+                        _totalFileSize != null &&
+                        _totalFileSize! > 0) ...[
+                      SizedBox(height: 2),
+                      Row(
+                        children: [
+                          Text(
+                            '平均 ${(_totalFileSize! ~/ _totalImageCount!).formatFileSize()}/张',
+                            style:
+                                Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: Colors.grey[500],
+                                      fontSize: 11,
+                                    ),
                           ),
-                    ),
+                          SizedBox(width: 8),
+                          Text(
+                            '总计 ${_totalFileSize!.formatFileSize()}',
+                            style:
+                                Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: Colors.grey[500],
+                                      fontSize: 11,
+                                    ),
+                          ),
+                        ],
+                      ),
+                    ] else if (widget.author.totalFileSize > 0) ...[
+                      SizedBox(height: 2),
+                      Text(
+                        '总计 ${widget.author.totalFileSize.formatFileSize()}',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Colors.grey[500],
+                              fontSize: 11,
+                            ),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
-          ),
-          IconButton(
-            icon: Icon(Icons.folder_open),
-            iconSize: 20,
-            color: Theme.of(context).iconTheme.color,
-            tooltip: '打开下载目录',
-            onPressed: () => _openAuthorDownloadDirectory(context),
-          ),
-        ],
-      ),
+            IconButton(
+              icon: Icon(Icons.folder_open),
+              iconSize: 20,
+              color: Theme.of(context).iconTheme.color,
+              tooltip: '打开下载目录',
+              onPressed: () => _openAuthorDownloadDirectory(context),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -270,7 +268,7 @@ class _DownloadedAuthorCardState extends State<DownloadedAuthorCard> {
         widget.author.userId,
       );
       final dirPath = path.join(downloadStore.downloadPath, userDirName);
-      
+
       final directory = Directory(dirPath);
       if (await directory.exists()) {
         await OpenFile.open(dirPath);
@@ -282,4 +280,3 @@ class _DownloadedAuthorCardState extends State<DownloadedAuthorCard> {
     }
   }
 }
-

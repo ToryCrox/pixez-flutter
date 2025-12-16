@@ -15,7 +15,6 @@
 
 import 'dart:async';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:collection/collection.dart';
 import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/material.dart';
@@ -75,7 +74,6 @@ class _DownloadedPageState extends State<DownloadedPage> {
   List<DownloadedIllust> _illusts = [];
   Map<int, int> _downloadedCounts = {};
   Map<int, DownloadTaskStatus> _illustDownloadStatus = {};
-  Map<int, String?> _thumbnailPaths = {};
   Map<int, int> _fileSizes = {}; // 存储文件大小（字节）
   bool _loading = true;
   String? _searchKeyword;
@@ -201,13 +199,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
         }
         _illustDownloadStatus[status.illusts.illustId] = status.status;
         _downloadedCounts[status.illusts.illustId] = status.completedCount;
-        if (_thumbnailPaths[status.illusts.illustId] == null) {
-          downloadStore.getLocalImagePath(status.illusts.illustId, 0).then((e) {
-            setState(() {
-              _thumbnailPaths[status.illusts.illustId] = e;
-            });
-          });
-        }
+        // 新策略：不需要预加载 _thumbnailPaths，直接使用 PixivImage + imageUrls.squareMedium
         // 直接从 status 中获取文件大小，避免重复查询
         if (status.fileSize > 0) {
           _fileSizes[status.illusts.illustId] = status.fileSize;
@@ -423,33 +415,11 @@ class _DownloadedPageState extends State<DownloadedPage> {
     }
   }
 
-  /// 延迟加载非关键数据（仅缩略图路径）
-  /// 分批加载，避免一次性加载过多导致性能问题
-  void _loadNonCriticalData(List<DownloadedIllust> illusts) {
-    if (illusts.isEmpty) return;
-
-    // 分批加载，每批10个
-    const batchSize = 10;
-    for (int i = 0; i < illusts.length; i += batchSize) {
-      final batch = illusts.skip(i).take(batchSize).toList();
-
-      // 并行加载每批的缩略图
-      Future.wait(batch.map((illust) async {
-        try {
-          final thumbnailPath =
-              await downloadStore.getLocalImagePath(illust.illustId, 0);
-
-          if (mounted && thumbnailPath != null) {
-            setState(() {
-              _thumbnailPaths[illust.illustId] = thumbnailPath;
-            });
-          }
-        } catch (e) {
-          // 忽略单个插画加载失败，不影响其他插画
-        }
-      }));
-    }
-  }
+  /// 延迟加载非关键数据（新策略已弃用）
+  /// 新策略直接使用 PixivImage + imageUrls.squareMedium，无需预加载路径
+  // ignore: unused_element
+  void _loadNonCriticalData(
+      List<DownloadedIllust> illusts) {} // ignore: unused_element
 
   List<DownloadedIllust> get _filteredIllusts {
     if (_downloadFilter == DownloadFilter.all) {
@@ -1099,29 +1069,18 @@ class _DownloadedPageState extends State<DownloadedPage> {
   }
 
   Widget _buildThumbnail(DownloadedIllust illust) {
-    final thumbnailPath = _thumbnailPaths[illust.illustId];
     final heroTag = 'downloaded_illust_${illust.illustId}';
 
-    Widget imageWidget;
-    if (thumbnailPath != null) {
-      imageWidget = CachedNetworkImage(
-        imageUrl: Uri.file(thumbnailPath).toString(),
-        fit: BoxFit.cover,
-        cacheManager: pixivCacheManager,
-        memCacheWidth: (200 * MediaQuery.devicePixelRatioOf(context)).toInt(),
-        errorWidget: (context, error, stackTrace) {
-          return Container(
-            color: Colors.grey[300],
-            child: Icon(Icons.broken_image, color: Colors.grey),
-          );
-        },
-      );
-    } else {
-      imageWidget = Container(
-        color: Colors.grey[300],
-        child: Icon(Icons.image, color: Colors.grey),
-      );
-    }
+    // 使用 PixivImage 直接加载封面，通过 header 传递 illustId
+    final illusts = illust.toIllusts();
+    final coverUrl = illusts.imageUrls.squareMedium;
+
+    Widget imageWidget = PixivImage(
+      coverUrl,
+      fit: BoxFit.cover,
+      // 通过 header 传递 illustId，让 PixivCacheManager 识别封面请求
+      httpHeaders: {'cover': '${illust.illustId}'},
+    );
 
     return Hero(
       tag: heroTag,

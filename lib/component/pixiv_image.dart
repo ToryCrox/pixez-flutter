@@ -25,7 +25,9 @@ import 'package:flutter/material.dart';
 import 'package:file/local.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_cache_manager_dio/flutter_cache_manager_dio.dart';
+import 'package:image/image.dart' as img;
 import 'package:pixez/models/download_record.dart';
+import 'package:path/path.dart' as path;
 
 import 'package:pixez/er/hoster.dart';
 import 'package:pixez/main.dart';
@@ -81,6 +83,117 @@ class PixivCacheManager extends CacheManager with ImageCacheManager {
     return null;
   }
 
+  /// 尝试加载或下载封面
+  /// 如果本地存在则返回本地文件，否则从网络下载并缓存
+  /// 如果图片已被删除（URL 含 limit_unknown_360.png），则从本地第一张图压缩生成封面
+  Future<FileInfo?> _tryLoadOrDownloadCover(String url, int illustId) async {
+    final coverPath = downloadStore.getCoverCachePath(illustId);
+
+    // 1. 本地存在则直接返回
+    if (await io.File(coverPath).exists()) {
+      Log.d(() => '加载本地封面缓存: $illustId');
+      return _fileInfoFromIoFile(coverPath, url);
+    }
+
+    // 2. 检查是否为已删除图片（limit_unknown_360.png）
+    if (url.contains('limit_unknown_360.png')) {
+      Log.d(() => '图片已删除，尝试从本地第一张图生成封面: $illustId');
+      return await _generateCoverFromLocalImage(illustId, coverPath, url);
+    }
+
+    // 3. 从网络下载并保存
+    try {
+      // 确保目录存在
+      final dir = io.Directory(path.dirname(coverPath));
+      if (!await dir.exists()) {
+        await dir.create(recursive: true);
+      }
+
+      // 下载文件（需要 headers 才能访问 Pixiv）
+      final file = await getSingleFile(url, headers: Hoster.header(url: url));
+
+      // 检查下载后的文件名是否为占位图（以防 URL 未包含但实际返回了占位图）
+      if (file.path.contains('limit_unknown')) {
+        Log.d(() => '下载到占位图，尝试从本地第一张图生成封面: $illustId');
+        return await _generateCoverFromLocalImage(illustId, coverPath, url);
+      }
+
+      // 复制到封面目录
+      await file.copy(coverPath);
+      Log.d(() => '下载封面成功: $illustId, url: $url');
+      return _fileInfoFromIoFile(coverPath, url);
+    } catch (e) {
+      Log.e('下载封面失败: $illustId, $e');
+      // 下载失败时也尝试从本地生成
+      return await _generateCoverFromLocalImage(illustId, coverPath, url);
+    }
+  }
+
+  /// 从本地第一张图生成封面（居中裁剪 + 压缩到 360x360）
+  Future<FileInfo?> _generateCoverFromLocalImage(
+      int illustId, String coverPath, String url) async {
+    try {
+      // 获取本地第一张图路径
+      final firstImagePath = await downloadStore.getLocalImagePath(illustId, 0);
+      if (firstImagePath == null) {
+        Log.e('无法生成封面：本地第一张图不存在: $illustId');
+        return null;
+      }
+
+      // 确保封面目录存在
+      final dir = io.Directory(path.dirname(coverPath));
+      if (!await dir.exists()) {
+        await dir.create(recursive: true);
+      }
+
+      // 使用 compute 在后台线程处理图片
+      final success = await compute(_processCoverImage, {
+        'sourcePath': firstImagePath,
+        'targetPath': coverPath,
+      });
+
+      if (success) {
+        Log.d(() => '从本地图生成封面成功: $illustId');
+        return _fileInfoFromIoFile(coverPath, url);
+      }
+      return null;
+    } catch (e) {
+      Log.e('从本地图生成封面失败: $illustId, $e');
+      return null;
+    }
+  }
+
+  /// 后台线程处理封面图片（居中裁剪 + 缩放到 360x360 + JPEG 70%）
+  static Future<bool> _processCoverImage(Map<String, String> params) async {
+    try {
+      final sourcePath = params['sourcePath']!;
+      final targetPath = params['targetPath']!;
+
+      // 读取原图
+      final bytes = await io.File(sourcePath).readAsBytes();
+      final image = img.decodeImage(bytes);
+      if (image == null) return false;
+
+      // 居中裁剪为正方形
+      final size = image.width < image.height ? image.width : image.height;
+      final x = (image.width - size) ~/ 2;
+      final y = (image.height - size) ~/ 2;
+      final cropped =
+          img.copyCrop(image, x: x, y: y, width: size, height: size);
+
+      // 缩放到 360x360
+      final resized = img.copyResize(cropped, width: 360, height: 360);
+
+      // 保存为 JPEG，质量 70%
+      final jpegBytes = img.encodeJpg(resized, quality: 70);
+      await io.File(targetPath).writeAsBytes(jpegBytes);
+
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
   @override
   Stream<FileResponse> getImageFile(
     String url, {
@@ -94,7 +207,6 @@ class PixivCacheManager extends CacheManager with ImageCacheManager {
     if (url.startsWith('file://')) {
       try {
         final uri = Uri.tryParse(url);
-        //final filePath = url.substring(7); // 移除 'file://' 前缀
         final filePath = uri?.toFilePath();
         if (filePath == null) {
           Log.e('filePath is null: $url');
@@ -113,11 +225,27 @@ class PixivCacheManager extends CacheManager with ImageCacheManager {
       throw Exception('getImageFile file not found: $url');
     }
 
-    // 2. 从下载目录中查询
+    // 2. 检查 header 中的 cover 参数（封面请求）
+    final illustIdStr = headers?['cover'];
+    if (illustIdStr != null && downloadStore.isInitialized) {
+      final illustId = int.tryParse(illustIdStr);
+      if (illustId != null) {
+        try {
+          final coverResult = await _tryLoadOrDownloadCover(url, illustId);
+          if (coverResult != null) {
+            yield coverResult;
+            return;
+          }
+        } catch (e) {
+          Log.e('加载封面失败: $url, $e');
+        }
+      }
+    }
+
+    // 3. 从下载目录中查询
     if (downloadStore.isInitialized) {
       try {
-        final imageInfo =
-            await downloadStore.getLocalImageInfoByUrl(url);
+        final imageInfo = await downloadStore.getLocalImageInfoByUrl(url);
         if (imageInfo != null) {
           Log.d(() => '加载下载文件成功: $url, ${imageInfo.path}');
           final response = await _fileInfoFromIoFile(imageInfo.path, url);
@@ -152,6 +280,7 @@ class PixivImage extends StatefulWidget {
   final double? height;
   final double? width;
   final String? host;
+  final Map<String, String>? httpHeaders; // 自定义 HTTP 头（用于封面标识）
 
   PixivImage(
     this.url, {
@@ -163,6 +292,7 @@ class PixivImage extends StatefulWidget {
     this.height,
     this.host,
     this.width,
+    this.httpHeaders,
   });
 
   @override
@@ -298,7 +428,7 @@ class _PixivImageState extends State<PixivImage> {
           ),
           fadeOutDuration:
               widget.fade ? const Duration(milliseconds: 300) : null,
-          fadeInDuration: Duration(milliseconds: 300) ,
+          fadeInDuration: Duration(milliseconds: 300),
           // memCacheWidth: width?.toInt(),
           // memCacheHeight: height?.toInt(),
           //imageUrl: 'file://${localInfo.path}',
@@ -350,7 +480,10 @@ class _PixivImageState extends State<PixivImage> {
       height: height,
       width: width,
       fit: fit ?? BoxFit.fitWidth,
-      httpHeaders: Hoster.header(url: url),
+      httpHeaders: {
+        ...Hoster.header(url: url),
+        ...?widget.httpHeaders, // 合并自定义 headers
+      },
     );
   }
 }

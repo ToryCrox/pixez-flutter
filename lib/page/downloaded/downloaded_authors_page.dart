@@ -32,7 +32,8 @@ enum AuthorSortType {
 
 // SharedPreferences 键名
 const String _DOWNLOADED_AUTHORS_SORT_TYPE_KEY = 'downloaded_authors_sort_type';
-const String _DOWNLOADED_AUTHORS_SHOW_LATEST_PUBLISHED_KEY = 'downloaded_authors_show_latest_published';
+const String _DOWNLOADED_AUTHORS_SHOW_LATEST_PUBLISHED_KEY =
+    'downloaded_authors_show_latest_published';
 const String _DOWNLOADED_AUTHORS_SORT_DESC_KEY = 'downloaded_authors_sort_desc';
 
 class DownloadedAuthorsPage extends StatefulWidget {
@@ -52,16 +53,12 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
   bool _hasMore = true;
   int _page = 0;
   static const int _pageSize = 20;
-  
+
   // 显示模式：false=最新下载，true=最新发布
   bool _showLatestPublished = false;
-  
-  // 预加载的插画数据和图片路径：key为userId，value为[最新下载列表, 最新发布列表]
+
+  // 预加载的插画数据：key为userId，value为[最新下载列表, 最新发布列表]
   Map<int, List<List<DownloadedIllust>>> _authorIllustsMap = {};
-  
-  // 预加载的图片路径：key为userId，value为[最新下载路径列表, 最新发布路径列表]
-  // 每个路径列表包含最多3个图片路径（可能为null）
-  Map<int, List<List<String?>>> _authorImagePathsMap = {};
 
   @override
   void initState() {
@@ -77,15 +74,18 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
   /// 加载持久化的状态
   void _loadPersistedState() {
     final sortTypeIndex = Prefer.getInt(_DOWNLOADED_AUTHORS_SORT_TYPE_KEY);
-    if (sortTypeIndex != null && sortTypeIndex >= 0 && sortTypeIndex < AuthorSortType.values.length) {
+    if (sortTypeIndex != null &&
+        sortTypeIndex >= 0 &&
+        sortTypeIndex < AuthorSortType.values.length) {
       _sortType = AuthorSortType.values[sortTypeIndex];
     }
-    
-    final showLatestPublished = Prefer.getBool(_DOWNLOADED_AUTHORS_SHOW_LATEST_PUBLISHED_KEY);
+
+    final showLatestPublished =
+        Prefer.getBool(_DOWNLOADED_AUTHORS_SHOW_LATEST_PUBLISHED_KEY);
     if (showLatestPublished != null) {
       _showLatestPublished = showLatestPublished;
     }
-    
+
     final sortDesc = Prefer.getBool(_DOWNLOADED_AUTHORS_SORT_DESC_KEY);
     if (sortDesc != null) {
       _sortDesc = sortDesc;
@@ -141,15 +141,14 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
           if (refresh) {
             _authors = authors;
             _authorIllustsMap.clear();
-            _authorImagePathsMap.clear();
           } else {
             _authors.addAll(authors);
           }
           _hasMore = authors.length >= _pageSize;
           _loading = false;
         });
-        
-        // 预加载所有作者的插画数据和图片路径
+
+        // 预加载所有作者的插画数据
         _preloadAuthorIllusts(authors);
       }
     } catch (e) {
@@ -187,50 +186,31 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
     _loadData(refresh: true);
   }
 
-  /// 预加载作者的插画数据和图片路径（最新下载和最新发布）
+  /// 预加载作者的插画数据（最新下载和最新发布）
+  /// 注意：新策略直接使用 PixivImage + imageUrls.squareMedium，无需预加载图片路径
   Future<void> _preloadAuthorIllusts(List<DownloadedAuthor> authors) async {
     // 异步加载，不阻塞UI
     Future.microtask(() async {
       for (final author in authors) {
         if (_authorIllustsMap.containsKey(author.userId)) continue;
-        
+
         try {
           // 并行加载最新下载和最新发布的插画
           final illustsFutures = await Future.wait([
             downloadStore.getAuthorLatestIllusts(author.userId, limit: 3),
-            downloadStore.getAuthorLatestPublishedIllusts(author.userId, limit: 3),
+            downloadStore.getAuthorLatestPublishedIllusts(author.userId,
+                limit: 3),
           ]);
-          
+
           final latestDownloadIllusts = illustsFutures[0];
           final latestPublishedIllusts = illustsFutures[1];
-          
-          // 并行加载所有图片路径
-          final imagePathFutures = [
-            Future.wait(
-              latestDownloadIllusts.map((illust) => 
-                downloadStore.getLocalImagePath(illust.illustId, 0)
-              ).toList(),
-            ),
-            Future.wait(
-              latestPublishedIllusts.map((illust) => 
-                downloadStore.getLocalImagePath(illust.illustId, 0)
-              ).toList(),
-            ),
-          ];
-          
-          final imagePaths = await Future.wait(imagePathFutures);
-          
+
           if (mounted) {
             setState(() {
               // 存储插画数据：[最新下载列表, 最新发布列表]
               _authorIllustsMap[author.userId] = [
                 latestDownloadIllusts,
                 latestPublishedIllusts,
-              ];
-              // 存储图片路径：[最新下载路径列表, 最新发布路径列表]
-              _authorImagePathsMap[author.userId] = [
-                imagePaths[0],
-                imagePaths[1],
               ];
             });
           }
@@ -284,54 +264,55 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
                   physics: physics,
                   controller: scrollController,
                   slivers: [
-                  SliverPersistentHeader(
-                    key: ValueKey('sort_header_${_sortType}_${_showLatestPublished}_${_sortDesc}'),
-                    delegate: SliverChipDelegate(
-                      Container(
-                        alignment: Alignment.center,
-                        child: Stack(
-                          children: [
-                            // 居中显示筛选菜单
-                            Center(
-                              child: SortGroup(
-                                key: ValueKey(_sortType),
-                                children: [
-                                  '最新下载',
-                                  '用户名',
-                                  '插画数量',
-                                ],
-                                onChange: _onSortChanged,
-                                initIndex: _sortType.index,
-                              ),
-                            ),
-                            // 右侧显示排序方向和显示模式按钮
-                            Positioned(
-                              right: 8,
-                              top: 0,
-                              bottom: 0,
-                              child: Center(
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
+                    SliverPersistentHeader(
+                      key: ValueKey(
+                          'sort_header_${_sortType}_${_showLatestPublished}_${_sortDesc}'),
+                      delegate: SliverChipDelegate(
+                        Container(
+                          alignment: Alignment.center,
+                          child: Stack(
+                            children: [
+                              // 居中显示筛选菜单
+                              Center(
+                                child: SortGroup(
+                                  key: ValueKey(_sortType),
                                   children: [
-                                    _buildSortOrderButton(),
-                                    SizedBox(width: 16),
-                                    _buildDisplayModeButton(),
+                                    '最新下载',
+                                    '用户名',
+                                    '插画数量',
                                   ],
+                                  onChange: _onSortChanged,
+                                  initIndex: _sortType.index,
                                 ),
                               ),
-                            ),
-                          ],
+                              // 右侧显示排序方向和显示模式按钮
+                              Positioned(
+                                right: 8,
+                                top: 0,
+                                bottom: 0,
+                                child: Center(
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      _buildSortOrderButton(),
+                                      SizedBox(width: 16),
+                                      _buildDisplayModeButton(),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
+                        height: 52,
                       ),
-                      height: 52,
+                      pinned: true,
                     ),
-                    pinned: true,
-                  ),
-                  _buildList(),
-                ],
-              );
-            },
-          )
+                    _buildList(),
+                  ],
+                );
+              },
+            )
           : _loading
               ? Center(child: CircularProgressIndicator())
               : Center(
@@ -379,7 +360,8 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
               _showLatestPublished = value;
             });
             // 持久化显示模式
-            Prefer.setBool(_DOWNLOADED_AUTHORS_SHOW_LATEST_PUBLISHED_KEY, value);
+            Prefer.setBool(
+                _DOWNLOADED_AUTHORS_SHOW_LATEST_PUBLISHED_KEY, value);
           },
         ),
       ],
@@ -393,20 +375,15 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
           if (index < _authors.length) {
             final author = _authors[index];
             final illustsData = _authorIllustsMap[author.userId];
-            final imagePathsData = _authorImagePathsMap[author.userId];
-            
-            // 根据显示模式选择插画和图片路径：最新下载（索引0）或最新发布（索引1）
+
+            // 根据显示模式选择插画：最新下载（索引0）或最新发布（索引1）
             final displayIllusts = illustsData != null
                 ? (_showLatestPublished ? illustsData[1] : illustsData[0])
                 : <DownloadedIllust>[];
-            final displayImagePaths = imagePathsData != null
-                ? (_showLatestPublished ? imagePathsData[1] : imagePathsData[0])
-                : <String?>[];
-            
+
             return DownloadedAuthorCard(
               author: author,
               illusts: displayIllusts,
-              imagePaths: displayImagePaths,
               showLatestPublished: _showLatestPublished,
             );
           }
@@ -415,9 +392,7 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
         childCount: _authors.length,
       ),
       gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: 600,
-        mainAxisExtent: 210
-      ),
+          maxCrossAxisExtent: 600, mainAxisExtent: 210),
     );
   }
 }
@@ -445,4 +420,3 @@ class SliverChipDelegate extends SliverPersistentHeaderDelegate {
     return height != oldDelegate.height;
   }
 }
-

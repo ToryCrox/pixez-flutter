@@ -297,6 +297,15 @@ abstract class _DownloadStoreBase with Store {
     return await _dbProvider.findImagePath(illustId, part, update: update);
   }
 
+  /// 获取封面缓存路径（集中存储格式）
+  /// 路径格式：databasePath/covers/{illustId}.jpg
+  /// databasePath 是 _downloadPath 的上一级目录
+  String getCoverCachePath(int illustId) {
+    // _downloadPath = databasePath/download，所以取上一级
+    final dbDir = path.dirname(_downloadPath!);
+    return path.join(dbDir, 'covers', '$illustId.jpg');
+  }
+
   /// 获取本地图片信息（包含宽高）
   Future<DownloadedImage?> getLocalImage(int illustId, int part) async {
     return await _dbProvider.getImage(illustId, part);
