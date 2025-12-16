@@ -1,0 +1,19 @@
+Windows Registry Editor Version 5.00
+
+; PixEz - Pixiv URL Scheme Registration
+; 请先修改下面的路径为你的 pixez.exe 实际位置，然后双击导入此文件
+
+[HKEY_CURRENT_USER\Software\Classes\pixiv]
+@="URL:Pixiv Protocol"
+"URL Protocol"=""
+
+[HKEY_CURRENT_USER\Software\Classes\pixiv\DefaultIcon]
+@="\"E:\\Program Files\\PixEz\\pixez.exe\",0"
+
+[HKEY_CURRENT_USER\Software\Classes\pixiv\shell\open\command]
+@="\"E:\\Program Files\\PixEz\\pixez.exe\" \"%1\""
+
+; 注意事项:
+; 1. 修改上面两处的路径为你的实际安装路径
+; 2. 路径中的反斜杠需要双写 (例如: E:\\Program Files\\PixEz\\pixez.exe)
+; 3. 导入后可以在浏览器地址栏输入 pixiv://test 测试是否成功
