@@ -48,6 +48,10 @@ class WindowFrameController {
 
   VoidCallback openSideBar = () {};
 
+  // 宽屏状态和右侧 Navigator 引用
+  bool isWideScreen = false;
+  GlobalKey<NavigatorState>? wideScreenNavigatorKey;
+
   void hideWindowFrame() {
     isHideWindowFrame = true;
     update();
@@ -85,13 +89,15 @@ class _WindowFrameState extends State<WindowFrame> {
     return Shortcuts(
       shortcuts: <ShortcutActivator, Intent>{
         const SingleActivator(LogicalKeyboardKey.escape): const _GoBackIntent(),
-        const SingleActivator(LogicalKeyboardKey.f11): const _ToggleMaximizeIntent(),
+        const SingleActivator(LogicalKeyboardKey.f11):
+            const _ToggleMaximizeIntent(),
       },
       child: Actions(
         actions: <Type, Action<Intent>>{
           _GoBackIntent: CallbackAction<_GoBackIntent>(
             onInvoke: (_) {
-              final navigator = Navigator.maybeOf(globalNavigatorKey.currentContext!);
+              final navigator =
+                  Navigator.maybeOf(globalNavigatorKey.currentContext!);
               if (navigator != null && navigator.canPop()) {
                 navigator.pop();
               }
@@ -130,8 +136,9 @@ class _WindowFrameState extends State<WindowFrame> {
                   color: Colors.transparent,
                   child: Theme(
                     data: Theme.of(context).copyWith(
-                      brightness:
-                          windowFrameController.useDarkTheme ? Brightness.dark : null,
+                      brightness: windowFrameController.useDarkTheme
+                          ? Brightness.dark
+                          : null,
                     ),
                     child: Builder(builder: (context) {
                       return SizedBox(
@@ -153,11 +160,12 @@ class _WindowFrameState extends State<WindowFrame> {
                                   'Pixez',
                                   style: TextStyle(
                                     fontSize: 13,
-                                    color: (windowFrameController.useDarkTheme ||
-                                            Theme.of(context).brightness ==
-                                                Brightness.dark)
-                                        ? Colors.white
-                                        : Colors.black,
+                                    color:
+                                        (windowFrameController.useDarkTheme ||
+                                                Theme.of(context).brightness ==
+                                                    Brightness.dark)
+                                            ? Colors.white
+                                            : Colors.black,
                                   ),
                                 ),
                               ),
@@ -333,9 +341,7 @@ class _SideBarBody extends StatelessWidget {
           title: '偏好设置',
           onTap: () {
             windowFrameController.openSideBar();
-            Navigator.of(globalNavigatorKey.currentContext!).push(
-              MaterialPageRoute(builder: (context) => SettingQualityPage()),
-            );
+            _pushPage(SettingQualityPage());
           },
         ),
         buildItem(
@@ -343,9 +349,7 @@ class _SideBarBody extends StatelessWidget {
           title: '下载任务',
           onTap: () {
             windowFrameController.openSideBar();
-            Navigator.of(globalNavigatorKey.currentContext!).push(
-              MaterialPageRoute(builder: (context) => JobPage()),
-            );
+            _pushPage(JobPage());
           },
         ),
         buildItem(
@@ -353,9 +357,7 @@ class _SideBarBody extends StatelessWidget {
           title: '下载记录',
           onTap: () {
             windowFrameController.openSideBar();
-            Navigator.of(globalNavigatorKey.currentContext!).push(
-              MaterialPageRoute(builder: (context) => DownloadedPage()),
-            );
+            _pushPage(DownloadedPage());
           },
         ),
         buildItem(
@@ -363,12 +365,29 @@ class _SideBarBody extends StatelessWidget {
           title: '作者列表',
           onTap: () {
             windowFrameController.openSideBar();
-            Navigator.of(globalNavigatorKey.currentContext!).push(
-              MaterialPageRoute(builder: (context) => DownloadedAuthorsPage()),
-            );
+            _pushPage(DownloadedAuthorsPage());
           },
         ),
       ],
+    );
+  }
+
+  // 根据宽屏状态选择合适的 Navigator 来打开页面
+  void _pushPage(Widget page) {
+    final controller = windowFrameController;
+    NavigatorState? navigator;
+
+    // 如果是宽屏且有宽屏 Navigator，使用宽屏 Navigator
+    if (controller.isWideScreen &&
+        controller.wideScreenNavigatorKey?.currentState != null) {
+      navigator = controller.wideScreenNavigatorKey!.currentState!;
+    } else {
+      // 否则使用全局 Navigator
+      navigator = Navigator.of(globalNavigatorKey.currentContext!);
+    }
+
+    navigator.push(
+      MaterialPageRoute(builder: (context) => Scaffold(body: page)),
     );
   }
 

@@ -15,6 +15,7 @@
  */
 
 import 'dart:async';
+import 'dart:io';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -22,6 +23,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:pixez/component/painter_avatar.dart';
 import 'package:pixez/constants.dart';
+import 'package:pixez/custom/window_frame.dart';
 import 'package:pixez/deep_link_plugin.dart';
 import 'package:pixez/er/leader.dart';
 import 'package:pixez/er/prefer.dart';
@@ -151,6 +153,14 @@ class _HelloPageState extends State<HelloPage> {
       final wide = constraints.maxWidth > constraints.maxHeight;
       final list = wide ? _wideLists : _lists;
       index = index.clamp(0, list.length - 1);
+
+      // 更新 windowFrameController 的宽屏状态
+      if (Platform.isWindows || Platform.isLinux) {
+        windowFrameController.isWideScreen = wide;
+        windowFrameController.wideScreenNavigatorKey =
+            wide ? _contentNavigatorKey : null;
+      }
+
       return WideScreenNavigator(
         isWideScreen: wide,
         contentNavigatorKey: wide ? _contentNavigatorKey : null,
