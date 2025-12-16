@@ -185,14 +185,15 @@ class _SearchSuggestionPageState extends State<SearchSuggestionPage> {
                                 setState(() {});
                               } else {
                                 FocusScope.of(context).unfocus();
-                                Navigator.of(context, rootNavigator: true)
-                                    .push(MaterialPageRoute(builder: (context) {
-                                  return ResultPage(
-                                    word: tags[index].name,
-                                    translatedName:
-                                        tags[index].translated_name ?? "",
-                                  );
-                                }));
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => ResultPage(
+                                      word: tags[index].name,
+                                      translatedName:
+                                          tags[index].translated_name ?? "",
+                                    ),
+                                  ),
+                                );
                               }
                             },
                             title: Text(tags[index].name),
@@ -286,10 +287,13 @@ class _SearchSuggestionPageState extends State<SearchSuggestionPage> {
         onSubmitted: (s) {
           var word = s.trim();
           if (word.isEmpty) return;
-          Navigator.of(context, rootNavigator: true).push(MaterialPageRoute(
-              builder: (context) => ResultPage(
-                    word: word,
-                  )));
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => ResultPage(
+                word: word,
+              ),
+            ),
+          );
         },
         decoration: InputDecoration(
           border: InputBorder.none,

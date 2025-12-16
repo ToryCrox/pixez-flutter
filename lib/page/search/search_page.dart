@@ -338,12 +338,13 @@ class _SearchPageState extends State<SearchPage>
                     final tags = _trendTagsStore.trendTags;
                     return GestureDetector(
                       onTap: () {
-                        Navigator.of(context, rootNavigator: true)
-                            .push(MaterialPageRoute(builder: (_) {
-                          return ResultPage(
-                            word: tags[index].tag,
-                          );
-                        }));
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => ResultPage(
+                              word: tags[index].tag,
+                            ),
+                          ),
+                        );
                       },
                       onLongPress: () {
                         Navigator.of(context, rootNavigator: true)
@@ -443,11 +444,14 @@ class _SearchPageState extends State<SearchPage>
           style: TextStyle(fontSize: 12.0),
         ),
         onPressed: () {
-          Navigator.of(context, rootNavigator: true).push(MaterialPageRoute(
-              builder: (context) => ResultPage(
-                    word: f.name,
-                    translatedName: f.translatedName,
-                  )));
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => ResultPage(
+                word: f.name,
+                translatedName: f.translatedName,
+              ),
+            ),
+          );
         },
       ),
     );
