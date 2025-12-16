@@ -84,24 +84,31 @@ class PixivCacheManager extends CacheManager with ImageCacheManager {
   }
 
   /// 尝试加载或下载封面
+  /// 只对已下载的插画进行本地封面缓存
   /// 如果本地存在则返回本地文件，否则从网络下载并缓存
   /// 如果图片已被删除（URL 含 limit_unknown_360.png），则从本地第一张图压缩生成封面
   Future<FileInfo?> _tryLoadOrDownloadCover(String url, int illustId) async {
     final coverPath = downloadStore.getCoverCachePath(illustId);
 
-    // 1. 本地存在则直接返回
+    // 1. 本地封面缓存存在则直接返回
     if (await io.File(coverPath).exists()) {
       Log.d(() => '加载本地封面缓存: $illustId');
       return _fileInfoFromIoFile(coverPath, url);
     }
 
-    // 2. 检查是否为已删除图片（limit_unknown_360.png）
+    // 2. 检查该插画是否已下载，未下载则返回 null，走正常网络加载流程
+    final isDownloaded = await downloadStore.isIllustDownloaded(illustId);
+    if (!isDownloaded) {
+      return null;
+    }
+
+    // 3. 检查是否为已删除图片（limit_unknown_360.png）
     if (url.contains('limit_unknown_360.png')) {
       Log.d(() => '图片已删除，尝试从本地第一张图生成封面: $illustId');
       return await _generateCoverFromLocalImage(illustId, coverPath, url);
     }
 
-    // 3. 从网络下载并保存
+    // 4. 从网络下载并保存
     try {
       // 确保目录存在
       final dir = io.Directory(path.dirname(coverPath));

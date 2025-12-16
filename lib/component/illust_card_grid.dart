@@ -135,8 +135,7 @@ class _IllustCardGridState extends State<IllustCardGrid> {
   }
 
   Future _buildTap(BuildContext context) {
-    return Navigator.of(context)
-        .push(MaterialPageRoute(builder: (_) {
+    return Navigator.of(context).push(MaterialPageRoute(builder: (_) {
       return PictureListPage(
         iStores: iStores!,
         store: store,
@@ -168,6 +167,8 @@ class _IllustCardGridState extends State<IllustCardGrid> {
       child: PixivImage(
         store.illusts!.imageUrls.squareMedium,
         fit: BoxFit.cover,
+        // 通过 header 传递 illustId，让 PixivCacheManager 识别封面请求并优先使用本地已下载的封面
+        httpHeaders: {'cover': '${store.illusts!.id}'},
       ),
     );
   }
@@ -183,22 +184,22 @@ class _IllustCardGridState extends State<IllustCardGrid> {
             children: <Widget>[
               Expanded(
                   child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      _buildPic(tag),
-                      Positioned(
-                          top: 5.0,
-                          right: 5.0,
-                          child: Row(
-                            children: [
-                              if (userSetting.feedAIBadge &&
-                                  store.illusts!.illustAIType == 2)
-                                _buildAIBadge(),
-                              _buildVisibility()
-                            ],
-                          )),
-                    ],
-                  )),
+                fit: StackFit.expand,
+                children: [
+                  _buildPic(tag),
+                  Positioned(
+                      top: 5.0,
+                      right: 5.0,
+                      child: Row(
+                        children: [
+                          if (userSetting.feedAIBadge &&
+                              store.illusts!.illustAIType == 2)
+                            _buildAIBadge(),
+                          _buildVisibility()
+                        ],
+                      )),
+                ],
+              )),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -292,8 +293,9 @@ class _IllustCardGridState extends State<IllustCardGrid> {
   Future<void> _showContextMenu(BuildContext context) async {
     if (store.illusts == null) return;
 
-    final isDirectoryExists = await downloadStore.isIllustDirectoryExists(store.illusts!);
-    
+    final isDirectoryExists =
+        await downloadStore.isIllustDirectoryExists(store.illusts!);
+
     if (!isDirectoryExists) return;
 
     final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
@@ -381,7 +383,8 @@ class _IllustCardGridState extends State<IllustCardGrid> {
                       maxLines: 1,
                       overflow: TextOverflow.clip,
                       style: Theme.of(context).textTheme.bodyMedium,
-                      strutStyle: StrutStyle(forceStrutHeight: true, leading: 0),
+                      strutStyle:
+                          StrutStyle(forceStrutHeight: true, leading: 0),
                     ),
                   ),
                 ],

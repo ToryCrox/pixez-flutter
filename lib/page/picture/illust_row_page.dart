@@ -268,7 +268,8 @@ class _IllustRowPageState extends State<IllustRowPage>
   ScrollController scrollController = ScrollController();
 
   Widget _buildContent(BuildContext context, Illusts? data) {
-    if (_illustStore.errorMessage != null && data == null) return _buildErrorContent(context);
+    if (_illustStore.errorMessage != null && data == null)
+      return _buildErrorContent(context);
     if (data == null)
       return Container(
         child: Center(
@@ -487,6 +488,8 @@ class _IllustRowPageState extends State<IllustRowPage>
                 PixivImage(
                   illust.imageUrls.squareMedium,
                   enableMemoryCache: false,
+                  // 通过 header 传递 illustId，让 PixivCacheManager 识别封面请求
+                  httpHeaders: {'cover': '${illust.id}'},
                 ),
                 Positioned(
                   top: 4,
@@ -632,10 +635,11 @@ class _IllustRowPageState extends State<IllustRowPage>
     Widget child = PixivImage(
       imageUrl,
       localImageInfo: _illustStore.getLocalImageInfo(index),
-      placeWidget: useMediumPlaceHolder && localImageInfo == null
+      placeWidget: useMediumPlaceHolder
           ? PixivImage(
               mediumImageUrl,
               fade: false,
+              httpHeaders: {'cover': '${illust.id}'},
             )
           : Container(
               height: height,

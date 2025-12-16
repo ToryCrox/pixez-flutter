@@ -515,6 +515,8 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
                       PixivImage(
                         illust.imageUrls.squareMedium,
                         enableMemoryCache: false,
+                        // 通过 header 传递 illustId，让 PixivCacheManager 识别封面请求
+                        httpHeaders: {'cover': '${illust.id}'},
                       ),
                       Positioned(
                         top: 4,

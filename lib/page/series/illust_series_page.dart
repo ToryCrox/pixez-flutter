@@ -266,16 +266,19 @@ class _IllustSeriesPageState extends ConsumerState<IllustSeriesPage> {
                                       gridDelegate: _buildGridDelegate(context),
                                       delegate: SliverChildBuilderDelegate(
                                         (BuildContext context, int index) {
-                                          return _buildItem(illusts[index], true);
+                                          return _buildItem(
+                                              illusts[index], true);
                                         },
                                         childCount: illusts.length,
                                       ),
                                     )
                                   : SliverGrid(
-                                      gridDelegate: _buildSliverGridDelegate(context),
+                                      gridDelegate:
+                                          _buildSliverGridDelegate(context),
                                       delegate: SliverChildBuilderDelegate(
                                         (BuildContext context, int index) {
-                                          return _buildItem(illusts[index], false);
+                                          return _buildItem(
+                                              illusts[index], false);
                                         },
                                         childCount: illusts.length,
                                       ),
@@ -418,7 +421,8 @@ class _IllustSeriesPageState extends ConsumerState<IllustSeriesPage> {
 
     if (successCount > 0) {
       BotToast.showText(
-          text: '已添加 $successCount 个下载任务${failCount > 0 ? '，失败 $failCount 个' : ''}');
+          text:
+              '已添加 $successCount 个下载任务${failCount > 0 ? '，失败 $failCount 个' : ''}');
     } else if (failCount > 0) {
       BotToast.showText(text: '下载失败');
     }
@@ -429,7 +433,8 @@ class IllustSeriesItem extends StatefulHookConsumerWidget {
   final IllustStore illust;
   final bool isWaterfallFlow;
 
-  const IllustSeriesItem({super.key, required this.illust, this.isWaterfallFlow = true});
+  const IllustSeriesItem(
+      {super.key, required this.illust, this.isWaterfallFlow = true});
 
   @override
   ConsumerState<ConsumerStatefulWidget> createState() => _State();
@@ -450,6 +455,8 @@ class _State extends ConsumerState<IllustSeriesItem> {
         : PixivImage(
             illust.imageUrls.squareMedium,
             fit: BoxFit.cover,
+            // 通过 header 传递 illustId，让 PixivCacheManager 识别封面请求
+            httpHeaders: {'cover': '${illust.id}'},
           );
 
     final stackChildren = [
@@ -468,8 +475,8 @@ class _State extends ConsumerState<IllustSeriesItem> {
                   color: Colors.black26,
                   borderRadius: BorderRadius.all(Radius.circular(4.0))),
               child: Padding(
-                padding: const EdgeInsets.symmetric(
-                    vertical: 2.0, horizontal: 2.0),
+                padding:
+                    const EdgeInsets.symmetric(vertical: 2.0, horizontal: 2.0),
                 child: Text(
                   illust.metaPages.length.toString(),
                   style: TextStyle(color: Colors.white),
@@ -489,9 +496,7 @@ class _State extends ConsumerState<IllustSeriesItem> {
       child: stack,
     );
 
-    return widget.isWaterfallFlow
-        ? clipRRect
-        : Expanded(child: clipRRect);
+    return widget.isWaterfallFlow ? clipRRect : Expanded(child: clipRRect);
   }
 
   @override
