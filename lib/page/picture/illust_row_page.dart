@@ -45,6 +45,7 @@ import 'package:pixez/page/user/user_store.dart';
 import 'package:pixez/page/user/users_page.dart';
 import 'package:pixez/page/zoom/photo_zoom_page.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher_string.dart';
 
 class IllustRowPage extends StatefulWidget {
   final int id;
@@ -1177,6 +1178,17 @@ class _IllustRowPageState extends State<IllustRowPage>
                           BotToast.showText(
                               text: I18n.of(context).copied_to_clipboard);
                           Navigator.of(context).pop();
+                        },
+                      ),
+                      ListTile(
+                        leading: Icon(
+                          Icons.open_in_browser,
+                        ),
+                        title: Text(I18n.of(context).open_in_browser),
+                        onTap: () async {
+                          Navigator.of(context).pop();
+                          await launchUrlString(
+                              "https://www.pixiv.net/artworks/${widget.id}");
                         },
                       ),
                       ListTile(
