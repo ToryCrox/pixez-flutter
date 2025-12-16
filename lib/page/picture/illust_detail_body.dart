@@ -16,6 +16,7 @@
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:intl/intl.dart';
 import 'package:pixez/component/painter_avatar.dart';
@@ -226,8 +227,59 @@ class IllustDetailBody extends StatelessWidget {
     });
   }
 
+  Future _showTagContextMenu(
+      BuildContext context, Tags f, Offset position) async {
+    final RenderBox overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox;
+
+    final result = await showMenu<int>(
+      context: context,
+      position: RelativeRect.fromRect(
+        position & Size(40, 40),
+        Offset.zero & overlay.size,
+      ),
+      items: [
+        PopupMenuItem<int>(
+          value: 0,
+          child: Row(
+            children: [
+              Icon(Icons.copy, size: 20),
+              SizedBox(width: 12),
+              Text(I18n.of(context).copy),
+            ],
+          ),
+        ),
+        PopupMenuItem<int>(
+          value: 1,
+          child: Row(
+            children: [
+              Icon(Icons.bookmark_outline, size: 20),
+              SizedBox(width: 12),
+              Text(I18n.of(context).bookmark),
+            ],
+          ),
+        ),
+      ],
+    );
+
+    if (result != null) {
+      switch (result) {
+        case 0:
+          await Clipboard.setData(ClipboardData(text: f.name));
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            duration: Duration(seconds: 1),
+            content: Text(I18n.of(context).copied_to_clipboard),
+          ));
+          break;
+        case 1:
+          bookTagStore.bookTag(f.name);
+          break;
+      }
+    }
+  }
+
   Widget buildRow(BuildContext context, Tags f) {
-    return GestureDetector(
+    return InkWell(
       onLongPress: () async {
         await _longPressTag(context, f);
       },
@@ -239,6 +291,10 @@ class IllustDetailBody extends StatelessWidget {
           );
         }));
       },
+      onSecondaryTapDown: (details) async {
+        await _showTagContextMenu(context, f, details.globalPosition);
+      },
+      mouseCursor: SystemMouseCursors.click,
       child: RichText(
           textAlign: TextAlign.center,
           text: TextSpan(
