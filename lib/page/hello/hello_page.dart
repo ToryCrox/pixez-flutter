@@ -37,6 +37,7 @@ import 'package:pixez/page/hello/ranking/rank_page.dart';
 import 'package:pixez/page/hello/recom/recom_spotlight_page.dart';
 import 'package:pixez/page/hello/setting/setting_page.dart';
 import 'package:pixez/page/history/history_page.dart';
+import 'package:pixez/page/theme/theme_page.dart';
 import 'package:pixez/page/preview/preview_page.dart';
 import 'package:pixez/page/search/search_page.dart';
 
@@ -265,6 +266,26 @@ class _HelloPageState extends State<HelloPage> {
                         );
                       } else {
                         Leader.push(context, HistoryPage());
+                      }
+                    },
+                  ),
+                  // 主题设置按钮
+                  IconButton(
+                    icon: Icon(Icons.palette),
+                    tooltip: '主题设置',
+                    onPressed: () {
+                      // 在宽屏模式下使用右侧导航器
+                      final wideScreenNav = WideScreenNavigator.of(context);
+                      if (wideScreenNav != null &&
+                          wideScreenNav.isWideScreen &&
+                          wideScreenNav.contentNavigatorKey != null) {
+                        wideScreenNav.contentNavigatorKey!.currentState?.push(
+                          MaterialPageRoute(
+                            builder: (context) => ThemePage(),
+                          ),
+                        );
+                      } else {
+                        Leader.push(context, ThemePage());
                       }
                     },
                   ),
