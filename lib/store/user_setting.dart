@@ -87,6 +87,7 @@ abstract class _UserSetting with Store {
   static const String DRAG_START_X_KEY = "drag_start_x";
   static const String USE_WATERFALL_FLOW_KEY = "use_waterfall_flow";
   static const String GRID_ASPECT_RATIO_KEY = "grid_aspect_ratio";
+  static const String ILLUST_AUTO_SCROLL_SPEED_KEY = "illust_auto_scroll_speed";
 
   @observable
   double dragStartX = 0;
@@ -196,7 +197,16 @@ abstract class _UserSetting with Store {
   String? format = "";
   @observable
   bool feedAIBadge = false;
+  @observable
+  double illustAutoScrollSpeed = 2.0;
+
   static const String intialFormat = "{illust_id}_p{part}";
+
+  @action
+  setIllustAutoScrollSpeed(double value) async {
+    await prefs.setDouble(ILLUST_AUTO_SCROLL_SPEED_KEY, value);
+    illustAutoScrollSpeed = value;
+  }
 
   @action
   setFeedAIBadge(bool value) async {
@@ -473,6 +483,8 @@ abstract class _UserSetting with Store {
     gridAspectRatio = prefs.getDouble(GRID_ASPECT_RATIO_KEY) ?? 0.7;
     illustDetailSaveSkipLongPress =
         prefs.getBool(ILLUST_DETAIL_SAVE_SKIP_LONG_PRESS_KEY) ?? false;
+    illustAutoScrollSpeed =
+        prefs.getDouble(ILLUST_AUTO_SCROLL_SPEED_KEY) ?? 2.0;
     if (Platform.isAndroid) {
       try {
         await SecurePlugin.configSecureWindow(nsfwMask);

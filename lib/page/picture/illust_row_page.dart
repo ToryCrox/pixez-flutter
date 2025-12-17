@@ -17,6 +17,7 @@
 import 'package:bot_toast/bot_toast.dart';
 import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:scrollview_observer/scrollview_observer.dart';
@@ -67,7 +68,7 @@ class IllustRowPage extends StatefulWidget {
 }
 
 class _IllustRowPageState extends State<IllustRowPage>
-    with AutomaticKeepAliveClientMixin {
+    with AutomaticKeepAliveClientMixin, TickerProviderStateMixin {
   UserStore? userStore;
   late IllustStore _illustStore;
   late IllustAboutStore _aboutStore;
@@ -78,6 +79,9 @@ class _IllustRowPageState extends State<IllustRowPage>
   late ListObserverController _observerController; // 用于监听可见元素的控制器
   bool tempView = false;
   bool _sidebarVisible = true; // 控制侧边栏显示/隐藏
+  Ticker? _autoScrollTicker;
+  bool _isAutoScrolling = false;
+  Offset _tapPosition = Offset.zero;
 
   @override
   void initState() {
@@ -108,10 +112,10 @@ class _IllustRowPageState extends State<IllustRowPage>
     if (_illustStore.totalPages != illusts.pageCount) {
       _illustStore.updateTotalPages(illusts.pageCount);
     }
-    
+
     // 获取第一个可见的元素索引作为当前页
     final firstVisibleIndex = observeModel.firstChild?.index ?? 0;
-    
+
     if (firstVisibleIndex != _illustStore.currentPage) {
       _illustStore.updateCurrentPage(firstVisibleIndex);
     }
@@ -140,6 +144,7 @@ class _IllustRowPageState extends State<IllustRowPage>
     _illustStore.dispose();
     _scrollController.dispose();
     _photoScrollController.dispose();
+    _autoScrollTicker?.dispose();
     _focusNode.dispose();
     _refreshController.dispose();
     super.dispose();
@@ -464,20 +469,109 @@ class _IllustRowPageState extends State<IllustRowPage>
     );
   }
 
+  void _stopAutoScroll() {
+    if (_autoScrollTicker != null && _autoScrollTicker!.isActive) {
+      _autoScrollTicker!.stop();
+      setState(() {
+        _isAutoScrolling = false;
+      });
+    }
+  }
+
+  void _startAutoScroll() {
+    if (_autoScrollTicker == null) {
+      _autoScrollTicker = createTicker((elapsed) {
+        if (!_photoScrollController.hasClients) return;
+        double current = _photoScrollController.offset;
+        double max = _photoScrollController.position.maxScrollExtent;
+        if (current >= max) {
+          _stopAutoScroll();
+          return;
+        }
+        double delta = userSetting.illustAutoScrollSpeed;
+        _photoScrollController.jumpTo((current + delta).clamp(0.0, max));
+      });
+    }
+    if (!_autoScrollTicker!.isActive) {
+      _autoScrollTicker!.start();
+      setState(() {
+        _isAutoScrolling = true;
+      });
+    }
+  }
+
+  void _showSpeedControl(Offset position) {
+    if (_isAutoScrolling) {
+      // 保持滚动，不停止
+    }
+    final RenderBox overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox;
+    showMenu(
+      context: context,
+      position: RelativeRect.fromRect(
+        position & Size(1, 1),
+        Offset.zero & overlay.size,
+      ),
+      items: [
+        PopupMenuItem(
+          child: StatefulBuilder(
+            builder: (context, setState) {
+              return Container(
+                width: 200,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text("Speed/速度"),
+                    Slider(
+                      value: userSetting.illustAutoScrollSpeed,
+                      min: 0.5,
+                      max: 10.0,
+                      onChanged: (value) {
+                        userSetting.setIllustAutoScrollSpeed(value);
+                        setState(() {});
+                      },
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildPageIndicator() {
     return Observer(builder: (_) {
-      return Container(
-        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.6),
+      return Material(
+        color: Colors.black.withOpacity(0.6),
+        borderRadius: BorderRadius.circular(20),
+        child: InkWell(
+          mouseCursor: SystemMouseCursors.click,
           borderRadius: BorderRadius.circular(20),
-        ),
-        child: Text(
-          '${_illustStore.currentPage + 1} / ${_illustStore.totalPages}',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
+          onTapDown: (details) {
+            _tapPosition = details.globalPosition;
+          },
+          onTap: () {
+            if (_isAutoScrolling) {
+              _stopAutoScroll();
+            } else {
+              _startAutoScroll();
+            }
+          },
+          onLongPress: () {
+            _showSpeedControl(_tapPosition);
+          },
+          child: Container(
+            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            child: Text(
+              '${_illustStore.currentPage + 1} / ${_illustStore.totalPages}',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
           ),
         ),
       );
