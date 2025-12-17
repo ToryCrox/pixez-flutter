@@ -52,6 +52,14 @@ abstract class _IllustStoreBase with Store {
   @observable
   IllustSeriesDetailResponse? illustSeriesDetailResponse;
 
+  /// 当前浏览的页数（用于多页插画）
+  @observable
+  int currentPage = 0;
+
+  /// 总页数（用于多页插画）
+  @observable
+  int totalPages = 1;
+
   /// 本地图片信息（包含路径和宽高）
   @observable
   ObservableMap<int, LocalImageInfo?> localImageInfos =
@@ -399,5 +407,25 @@ abstract class _IllustStoreBase with Store {
     }
     state = illusts!.isBookmarked ? 2 : 0;
     return illusts!.isBookmarked;
+  }
+
+  /// 更新当前页数
+  @action
+  void updateCurrentPage(int page) {
+    if (page != currentPage && page >= 0 && page < totalPages) {
+      currentPage = page;
+    }
+  }
+
+  /// 更新总页数
+  @action
+  void updateTotalPages(int pages) {
+    if (pages != totalPages && pages > 0) {
+      totalPages = pages;
+      // 如果当前页超出范围，重置为0
+      if (currentPage >= pages) {
+        currentPage = 0;
+      }
+    }
   }
 }

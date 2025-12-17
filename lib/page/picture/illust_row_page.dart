@@ -19,6 +19,7 @@ import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
+import 'package:scrollview_observer/scrollview_observer.dart';
 import 'package:pixez/component/ban_page.dart';
 import 'package:pixez/component/common_back_area.dart';
 import 'package:pixez/component/local_or_cached_image.dart';
@@ -74,10 +75,8 @@ class _IllustRowPageState extends State<IllustRowPage>
   late ScrollController _photoScrollController;
   late EasyRefreshController _refreshController;
   late FocusNode _focusNode;
+  late ListObserverController _observerController; // 用于监听可见元素的控制器
   bool tempView = false;
-  int _currentPage = 0;
-  int _totalPages = 1;
-  double? _itemHeight; // 存储每页高度，避免在滚动监听器中访问 context
   bool _sidebarVisible = true; // 控制侧边栏显示/隐藏
 
   @override
@@ -87,39 +86,34 @@ class _IllustRowPageState extends State<IllustRowPage>
     _scrollController = ScrollController();
     _photoScrollController = ScrollController();
     _focusNode = FocusNode();
-    _photoScrollController.addListener(_onPhotoScroll);
+    _observerController = ListObserverController(); // 初始化观察控制器
     _illustStore = widget.store ?? IllustStore(widget.id, null);
     _illustStore.fetch(force: true);
     _aboutStore = IllustAboutStore(widget.id, _refreshController);
     super.initState();
   }
 
-  void _onPhotoScroll() {
-    if (!_photoScrollController.hasClients || _itemHeight == null) return;
-
+  // 处理滚动观察回调，更新当前页数
+  void _onObserve(ListViewObserveModel observeModel) {
     final illusts = _illustStore.illusts;
     if (illusts == null || illusts.pageCount <= 1) {
-      if (_currentPage != 0 || _totalPages != 1) {
-        setState(() {
-          _currentPage = 0;
-          _totalPages = 1;
-        });
+      if (_illustStore.currentPage != 0 || _illustStore.totalPages != 1) {
+        _illustStore.updateTotalPages(1);
+        _illustStore.updateCurrentPage(0);
       }
       return;
     }
 
-    _totalPages = illusts.pageCount;
-    final scrollOffset = _photoScrollController.offset;
-    final viewportHeight = _photoScrollController.position.viewportDimension;
-
-    // 计算当前页数（基于滚动位置和视口中心）
-    int newPage = ((scrollOffset + viewportHeight / 2) / _itemHeight!).floor();
-    newPage = newPage.clamp(0, _totalPages - 1);
-
-    if (newPage != _currentPage) {
-      setState(() {
-        _currentPage = newPage;
-      });
+    // 更新总页数
+    if (_illustStore.totalPages != illusts.pageCount) {
+      _illustStore.updateTotalPages(illusts.pageCount);
+    }
+    
+    // 获取第一个可见的元素索引作为当前页
+    final firstVisibleIndex = observeModel.firstChild?.index ?? 0;
+    
+    if (firstVisibleIndex != _illustStore.currentPage) {
+      _illustStore.updateCurrentPage(firstVisibleIndex);
     }
   }
 
@@ -145,7 +139,6 @@ class _IllustRowPageState extends State<IllustRowPage>
   void dispose() {
     _illustStore.dispose();
     _scrollController.dispose();
-    _photoScrollController.removeListener(_onPhotoScroll);
     _photoScrollController.dispose();
     _focusNode.dispose();
     _refreshController.dispose();
@@ -308,16 +301,20 @@ class _IllustRowPageState extends State<IllustRowPage>
         });
       },
       child: Observer(builder: (context) {
-        // 更新总页数和计算每页高度
+        // 更新总页数
         if (data.pageCount > 1) {
-          _totalPages = data.pageCount;
-          // 计算每页高度
-          final radio = (data.height.toDouble() / data.width);
-          _itemHeight = radio * expectWidth;
+          // 使用 runInAction 确保在 observer 外部更新状态
+          if (_illustStore.totalPages != data.pageCount) {
+            Future.microtask(
+                () => _illustStore.updateTotalPages(data.pageCount));
+          }
         } else {
-          _totalPages = 1;
-          _currentPage = 0;
-          _itemHeight = null;
+          if (_illustStore.totalPages != 1 || _illustStore.currentPage != 0) {
+            Future.microtask(() {
+              _illustStore.updateTotalPages(1);
+              _illustStore.updateCurrentPage(0);
+            });
+          }
         }
 
         // 计算侧边栏宽度
@@ -338,15 +335,19 @@ class _IllustRowPageState extends State<IllustRowPage>
                   focusNode: _focusNode,
                   autofocus: true,
                   onKeyEvent: _handleKeyEvent,
-                  child: CustomScrollView(
-                    controller: _photoScrollController,
-                    slivers: [
-                      ..._buildPhotoList(data, centerType, height),
-                      SliverToBoxAdapter(
-                          child: Container(
-                        height: MediaQuery.of(context).padding.bottom,
-                      ))
-                    ],
+                  child: ListViewObserver(
+                    controller: _observerController,
+                    onObserve: _onObserve,
+                    child: CustomScrollView(
+                      controller: _photoScrollController,
+                      slivers: [
+                        ..._buildPhotoList(data, centerType, height),
+                        SliverToBoxAdapter(
+                            child: Container(
+                          height: MediaQuery.of(context).padding.bottom,
+                        ))
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -464,21 +465,23 @@ class _IllustRowPageState extends State<IllustRowPage>
   }
 
   Widget _buildPageIndicator() {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.6),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        '${_currentPage + 1} / $_totalPages',
-        style: TextStyle(
-          color: Colors.white,
-          fontSize: 14,
-          fontWeight: FontWeight.w500,
+    return Observer(builder: (_) {
+      return Container(
+        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.black.withOpacity(0.6),
+          borderRadius: BorderRadius.circular(20),
         ),
-      ),
-    );
+        child: Text(
+          '${_illustStore.currentPage + 1} / ${_illustStore.totalPages}',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      );
+    });
   }
 
   SliverGrid _buildRecom() {
