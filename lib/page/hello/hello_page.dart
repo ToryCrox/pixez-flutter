@@ -36,6 +36,7 @@ import 'package:pixez/page/hello/new/new_page.dart';
 import 'package:pixez/page/hello/ranking/rank_page.dart';
 import 'package:pixez/page/hello/recom/recom_spotlight_page.dart';
 import 'package:pixez/page/hello/setting/setting_page.dart';
+import 'package:pixez/page/history/history_page.dart';
 import 'package:pixez/page/preview/preview_page.dart';
 import 'package:pixez/page/search/search_page.dart';
 
@@ -165,13 +166,15 @@ class _HelloPageState extends State<HelloPage> {
         isWideScreen: wide,
         contentNavigatorKey: wide ? _contentNavigatorKey : null,
         child: Scaffold(
-          body: Row(
-            children: <Widget>[
-              if (wide) ..._buildRail(context),
-              Expanded(
-                child: _buildPageView(context, wide),
-              ),
-            ],
+          body: Builder(
+            builder: (context) => Row(
+              children: <Widget>[
+                if (wide) ..._buildRail(context),
+                Expanded(
+                  child: _buildPageView(context, wide),
+                ),
+              ],
+            ),
           ),
           extendBody: true,
           bottomNavigationBar: wide
@@ -245,12 +248,24 @@ class _HelloPageState extends State<HelloPage> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // 已下载按钮
+                  // 历史记录按钮
                   IconButton(
-                    icon: Icon(Icons.download_done),
+                    icon: Icon(Icons.history),
                     tooltip: I18n.of(context).history,
                     onPressed: () {
-                      Leader.push(context, DownloadedPage());
+                      // 在宽屏模式下使用右侧导航器
+                      final wideScreenNav = WideScreenNavigator.of(context);
+                      if (wideScreenNav != null &&
+                          wideScreenNav.isWideScreen &&
+                          wideScreenNav.contentNavigatorKey != null) {
+                        wideScreenNav.contentNavigatorKey!.currentState?.push(
+                          MaterialPageRoute(
+                            builder: (context) => HistoryPage(),
+                          ),
+                        );
+                      } else {
+                        Leader.push(context, HistoryPage());
+                      }
                     },
                   ),
                   SizedBox(height: 8),
