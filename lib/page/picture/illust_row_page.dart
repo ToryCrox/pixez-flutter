@@ -340,18 +340,45 @@ class _IllustRowPageState extends State<IllustRowPage>
                   focusNode: _focusNode,
                   autofocus: true,
                   onKeyEvent: _handleKeyEvent,
-                  child: ListViewObserver(
-                    controller: _observerController,
-                    onObserve: _onObserve,
-                    child: CustomScrollView(
-                      controller: _photoScrollController,
-                      slivers: [
-                        ..._buildPhotoList(data, centerType, height),
-                        SliverToBoxAdapter(
-                            child: Container(
-                          height: MediaQuery.of(context).padding.bottom,
-                        ))
-                      ],
+                  child: Listener(
+                    onPointerDown: (_) {
+                      if (_isAutoScrolling) {
+                        _autoScrollTicker?.stop();
+                      }
+                    },
+                    onPointerUp: (_) {
+                      if (_isAutoScrolling &&
+                          _autoScrollTicker != null &&
+                          !_autoScrollTicker!.isActive) {
+                        _resumeAutoScrollAfterInertia();
+                      }
+                      // 检测快速滑动
+                      // - 如果未开启自动滚动，向下快速滑动可启动
+                      // - 如果已开启自动滚动，向上快速滑动可停止
+                      _checkFlingGesture();
+                    },
+                    onPointerCancel: (_) {
+                      if (_isAutoScrolling &&
+                          _autoScrollTicker != null &&
+                          !_autoScrollTicker!.isActive) {
+                        _resumeAutoScrollAfterInertia();
+                      }
+                      // 检测快速滑动
+                      _checkFlingGesture();
+                    },
+                    child: ListViewObserver(
+                      controller: _observerController,
+                      onObserve: _onObserve,
+                      child: CustomScrollView(
+                        controller: _photoScrollController,
+                        slivers: [
+                          ..._buildPhotoList(data, centerType, height),
+                          SliverToBoxAdapter(
+                              child: Container(
+                            height: MediaQuery.of(context).padding.bottom,
+                          ))
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -470,8 +497,8 @@ class _IllustRowPageState extends State<IllustRowPage>
   }
 
   void _stopAutoScroll() {
-    if (_autoScrollTicker != null && _autoScrollTicker!.isActive) {
-      _autoScrollTicker!.stop();
+    _autoScrollTicker?.stop();
+    if (_isAutoScrolling) {
       setState(() {
         _isAutoScrolling = false;
       });
@@ -497,6 +524,95 @@ class _IllustRowPageState extends State<IllustRowPage>
       setState(() {
         _isAutoScrolling = true;
       });
+    }
+  }
+
+  // 等待惯性滚动结束后再恢复自动滚动
+  void _resumeAutoScrollAfterInertia() {
+    if (!_photoScrollController.hasClients) return;
+
+    // 使用 ScrollPosition 的 isScrollingNotifier 来监听滚动状态
+    final position = _photoScrollController.position;
+
+    void checkAndResume() {
+      // 确保监听器只执行一次
+      position.isScrollingNotifier.removeListener(checkAndResume);
+
+      // 如果滚动已停止且仍处于自动滚动模式，则恢复
+      if (!position.isScrollingNotifier.value &&
+          _isAutoScrolling &&
+          _autoScrollTicker != null &&
+          !_autoScrollTicker!.isActive) {
+        _autoScrollTicker!.start();
+      }
+    }
+
+    // 如果当前正在滚动（惯性滚动），则等待停止
+    if (position.isScrollingNotifier.value) {
+      position.isScrollingNotifier.addListener(checkAndResume);
+    } else {
+      // 如果已经停止，直接恢复
+      if (_autoScrollTicker != null && !_autoScrollTicker!.isActive) {
+        _autoScrollTicker!.start();
+      }
+    }
+  }
+
+  // 检测快速滑动手势
+  // - 向下快速滑动：如果未开启自动滚动，则自动启动
+  // - 向上快速滑动：如果已开启自动滚动，则自动停止
+  void _checkFlingGesture() async {
+    if (!_photoScrollController.hasClients) return;
+
+    final position = _photoScrollController.position;
+
+    // 等待 50ms 让惯性滚动开始
+    await Future.delayed(Duration(milliseconds: 50));
+
+    if (!mounted || !_photoScrollController.hasClients) return;
+    if (!position.isScrollingNotifier.value) return; // 没有惯性滚动
+
+    final startPos = position.pixels;
+
+    // 再等待 50ms 来计算速度
+    await Future.delayed(Duration(milliseconds: 50));
+
+    if (!mounted || !_photoScrollController.hasClients) return;
+    final endPos = _photoScrollController.position.pixels;
+
+    // 计算速度：像素/秒（正值表示向下，负值表示向上）
+    final velocity = (endPos - startPos) / 0.05; // 50ms = 0.05s
+
+    // ========== 速度阈值配置 ==========
+    // 向下滚动速度阈值（单位：像素/秒）
+    // 当用户快速向下滑动并松手后，如果惯性滚动速度超过此值，则自动启动自动滚动模式
+    // 建议值范围：300.0 ~ 1500.0
+    const double downwardVelocityThreshold = 1000.0;
+
+    // 向上滚动速度阈值（单位：像素/秒，取绝对值）
+    // 当用户快速向上滑动并松手后，如果惯性滚动速度超过此值，则自动停止自动滚动模式
+    // 建议值范围：300.0 ~ 1500.0
+    const double upwardVelocityThreshold = 800.0;
+    // ================================
+
+    if (velocity > downwardVelocityThreshold && !_isAutoScrolling) {
+      // 向下快速滑动且未开启自动滚动 → 启动自动滚动
+      // 等待惯性滚动结束后再启动，避免速度突变
+      void waitAndStart() {
+        position.isScrollingNotifier.removeListener(waitAndStart);
+        if (!_isAutoScrolling && mounted && _photoScrollController.hasClients) {
+          _startAutoScroll();
+        }
+      }
+
+      if (position.isScrollingNotifier.value) {
+        position.isScrollingNotifier.addListener(waitAndStart);
+      } else {
+        _startAutoScroll();
+      }
+    } else if (velocity < -upwardVelocityThreshold && _isAutoScrolling) {
+      // 向上快速滑动且已开启自动滚动 → 停止自动滚动
+      _stopAutoScroll();
     }
   }
 
