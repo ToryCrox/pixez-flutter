@@ -1358,13 +1358,15 @@ class DownloadDatabaseProvider {
     return null;
   }
 
-  /// 获取作者列表，支持排序
+  /// 获取作者列表，支持排序和搜索
   /// sortBy: 'last_download_time', 'user_name', 'illust_count'
+  /// searchKeyword: 搜索关键词，支持作者名模糊匹配和用户ID精确匹配
   Future<List<DownloadedAuthor>> getAuthorsWithStats({
     String sortBy = 'last_download_time',
     bool desc = true,
     int? limit,
     int? offset,
+    String? searchKeyword,
   }) async {
     String orderBy = sortBy;
     if (desc) {
@@ -1373,8 +1375,31 @@ class DownloadDatabaseProvider {
       orderBy += ' ASC';
     }
 
+    String? where;
+    List<Object?>? whereArgs;
+
+    // 如果有搜索关键词，添加搜索条件
+    if (searchKeyword != null && searchKeyword.trim().isNotEmpty) {
+      final keyword = searchKeyword.trim();
+      // 尝试将关键词解析为数字（用户ID）
+      final userId = int.tryParse(keyword);
+
+      if (userId != null) {
+        // 如果是数字，同时搜索用户ID和用户名
+        where =
+            '(${DownloadedAuthorColumns.userId} = ? OR ${DownloadedAuthorColumns.userName} LIKE ?)';
+        whereArgs = [userId, '%$keyword%'];
+      } else {
+        // 如果不是数字，只搜索用户名
+        where = '${DownloadedAuthorColumns.userName} LIKE ?';
+        whereArgs = ['%$keyword%'];
+      }
+    }
+
     List<Map<String, dynamic>> maps = await db.query(
       DownloadedAuthorColumns.tableName,
+      where: where,
+      whereArgs: whereArgs,
       orderBy: orderBy,
       limit: limit,
       offset: offset,

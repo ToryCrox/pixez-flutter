@@ -459,18 +459,20 @@ abstract class _DownloadStoreBase with Store {
     return await _dbProvider.getDistinctUsers();
   }
 
-  /// 获取下载的作者列表，支持排序
+  /// 获取下载的作者列表，支持排序和搜索
   Future<List<DownloadedAuthor>> getDownloadedAuthors({
     String sortBy = 'last_download_time',
     bool desc = true,
     int? limit,
     int? offset,
+    String? searchKeyword,
   }) async {
     return await _dbProvider.getAuthorsWithStats(
       sortBy: sortBy,
       desc: desc,
       limit: limit,
       offset: offset,
+      searchKeyword: searchKeyword,
     );
   }
 

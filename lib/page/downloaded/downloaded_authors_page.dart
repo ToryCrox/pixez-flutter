@@ -13,6 +13,8 @@
  * this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+import 'dart:async';
+
 import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/material.dart';
 import 'package:pixez/component/downloaded_author_card.dart';
@@ -45,6 +47,8 @@ class DownloadedAuthorsPage extends StatefulWidget {
 
 class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
   late EasyRefreshController _easyRefreshController;
+  late TextEditingController _searchController;
+  late FocusNode _searchFocusNode;
 
   List<DownloadedAuthor> _authors = [];
   AuthorSortType _sortType = AuthorSortType.lastDownloadTime;
@@ -60,6 +64,11 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
   // 预加载的插画数据：key为userId，value为[最新下载列表, 最新发布列表]
   Map<int, List<List<DownloadedIllust>>> _authorIllustsMap = {};
 
+  // 搜索关键词
+  String? _searchKeyword;
+  bool _isSearching = false;
+  Timer? _searchDebounce; // 防抖定时器
+
   @override
   void initState() {
     super.initState();
@@ -67,6 +76,9 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
       controlFinishLoad: true,
       controlFinishRefresh: true,
     );
+    _searchController = TextEditingController();
+    _searchFocusNode = FocusNode();
+    _searchController.addListener(_onSearchChanged);
     _loadPersistedState();
     _loadData();
   }
@@ -95,6 +107,10 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
   @override
   void dispose() {
     _easyRefreshController.dispose();
+    _searchController.removeListener(_onSearchChanged);
+    _searchController.dispose();
+    _searchFocusNode.dispose();
+    _searchDebounce?.cancel(); // 取消防抖定时器
     super.dispose();
   }
 
@@ -134,6 +150,7 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
         desc: _sortDesc,
         limit: _pageSize,
         offset: _page * _pageSize,
+        searchKeyword: _searchKeyword,
       );
 
       if (mounted) {
@@ -186,6 +203,35 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
     _loadData(refresh: true);
   }
 
+  void _onSearchChanged() {
+    // 取消之前的定时器
+    _searchDebounce?.cancel();
+
+    // 设置新的定时器,延迟300ms后执行搜索
+    _searchDebounce = Timer(const Duration(milliseconds: 300), () {
+      final keyword = _searchController.text.trim();
+      if (keyword != _searchKeyword) {
+        setState(() {
+          _searchKeyword = keyword.isEmpty ? null : keyword;
+        });
+        _loadData(refresh: true);
+      }
+    });
+  }
+
+  void _toggleSearch() {
+    setState(() {
+      _isSearching = !_isSearching;
+      if (!_isSearching) {
+        _searchController.clear();
+        _searchKeyword = null;
+        _loadData(refresh: true);
+      } else {
+        _searchFocusNode.requestFocus();
+      }
+    });
+  }
+
   /// 预加载作者的插画数据（最新下载和最新发布）
   /// 注意：新策略直接使用 PixivImage + imageUrls.squareMedium，无需预加载图片路径
   Future<void> _preloadAuthorIllusts(List<DownloadedAuthor> authors) async {
@@ -225,8 +271,31 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('下载的作者'),
+        title: _isSearching
+            ? TextField(
+                controller: _searchController,
+                focusNode: _searchFocusNode,
+                decoration: InputDecoration(
+                  hintText: '搜索作者名或用户ID',
+                  border: InputBorder.none,
+                  hintStyle: TextStyle(
+                    color: Theme.of(context)
+                        .appBarTheme
+                        .foregroundColor
+                        ?.withOpacity(0.6),
+                  ),
+                ),
+                style: TextStyle(
+                  color: Theme.of(context).appBarTheme.foregroundColor,
+                ),
+              )
+            : Text('下载的作者'),
         actions: [
+          IconButton(
+            icon: Icon(_isSearching ? Icons.close : Icons.search),
+            tooltip: _isSearching ? '关闭搜索' : '搜索',
+            onPressed: _toggleSearch,
+          ),
           IconButton(
             icon: Icon(Icons.list),
             tooltip: '下载记录',
