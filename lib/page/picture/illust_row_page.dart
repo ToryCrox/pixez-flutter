@@ -299,12 +299,6 @@ class _IllustRowPageState extends State<IllustRowPage>
       onTap: () {
         FocusManager.instance.primaryFocus?.unfocus();
       },
-      onDoubleTap: () {
-        // 双击切换侧边栏显示/隐藏
-        setState(() {
-          _sidebarVisible = !_sidebarVisible;
-        });
-      },
       child: Observer(builder: (context) {
         // 更新总页数
         if (data.pageCount > 1) {
@@ -336,48 +330,57 @@ class _IllustRowPageState extends State<IllustRowPage>
                 top: 0,
                 bottom: 0,
                 right: _sidebarVisible ? sidebarWidth : 0,
-                child: Focus(
-                  focusNode: _focusNode,
-                  autofocus: true,
-                  onKeyEvent: _handleKeyEvent,
-                  child: Listener(
-                    onPointerDown: (_) {
-                      if (_isAutoScrolling) {
-                        _autoScrollTicker?.stop();
-                      }
-                    },
-                    onPointerUp: (_) {
-                      if (_isAutoScrolling &&
-                          _autoScrollTicker != null &&
-                          !_autoScrollTicker!.isActive) {
-                        _resumeAutoScrollAfterInertia();
-                      }
-                      // 检测快速滑动
-                      // - 如果未开启自动滚动，向下快速滑动可启动
-                      // - 如果已开启自动滚动，向上快速滑动可停止
-                      _checkFlingGesture();
-                    },
-                    onPointerCancel: (_) {
-                      if (_isAutoScrolling &&
-                          _autoScrollTicker != null &&
-                          !_autoScrollTicker!.isActive) {
-                        _resumeAutoScrollAfterInertia();
-                      }
-                      // 检测快速滑动
-                      _checkFlingGesture();
-                    },
-                    child: ListViewObserver(
-                      controller: _observerController,
-                      onObserve: _onObserve,
-                      child: CustomScrollView(
-                        controller: _photoScrollController,
-                        slivers: [
-                          ..._buildPhotoList(data, centerType, height),
-                          SliverToBoxAdapter(
-                              child: Container(
-                            height: MediaQuery.of(context).padding.bottom,
-                          ))
-                        ],
+                child: GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onDoubleTap: () {
+                    // 双击切换侧边栏显示/隐藏
+                    setState(() {
+                      _sidebarVisible = !_sidebarVisible;
+                    });
+                  },
+                  child: Focus(
+                    focusNode: _focusNode,
+                    autofocus: true,
+                    onKeyEvent: _handleKeyEvent,
+                    child: Listener(
+                      onPointerDown: (_) {
+                        if (_isAutoScrolling) {
+                          _autoScrollTicker?.stop();
+                        }
+                      },
+                      onPointerUp: (_) {
+                        if (_isAutoScrolling &&
+                            _autoScrollTicker != null &&
+                            !_autoScrollTicker!.isActive) {
+                          _resumeAutoScrollAfterInertia();
+                        }
+                        // 检测快速滑动
+                        // - 如果未开启自动滚动,向下快速滑动可启动
+                        // - 如果已开启自动滚动,向上快速滑动可停止
+                        _checkFlingGesture();
+                      },
+                      onPointerCancel: (_) {
+                        if (_isAutoScrolling &&
+                            _autoScrollTicker != null &&
+                            !_autoScrollTicker!.isActive) {
+                          _resumeAutoScrollAfterInertia();
+                        }
+                        // 检测快速滑动
+                        _checkFlingGesture();
+                      },
+                      child: ListViewObserver(
+                        controller: _observerController,
+                        onObserve: _onObserve,
+                        child: CustomScrollView(
+                          controller: _photoScrollController,
+                          slivers: [
+                            ..._buildPhotoList(data, centerType, height),
+                            SliverToBoxAdapter(
+                                child: Container(
+                              height: MediaQuery.of(context).padding.bottom,
+                            ))
+                          ],
+                        ),
                       ),
                     ),
                   ),
