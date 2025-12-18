@@ -205,9 +205,8 @@ class _WorksPageState extends State<WorksPage> {
                               )
                             : SliverGrid(
                                 gridDelegate: _buildSliverGridDelegate(),
-                                delegate:
-                                    _buildSliverGridChildBuilderDelegate(
-                                        context),
+                                delegate: _buildSliverGridChildBuilderDelegate(
+                                    context),
                               ),
                         const FooterLocator.sliver(),
                       ],
@@ -311,11 +310,12 @@ class _WorksPageState extends State<WorksPage> {
 
   Widget _buildBatchDownloadButton() {
     return IconButton(
-      icon: Icon(Icons.download, color: Theme.of(context).primaryColor),
+      icon: Icon(Icons.download, color: Theme.of(context).iconTheme.color),
       tooltip: '批量下载',
       onPressed: () {
         final availableIllusts = _store.iStores
-            .where((store) => store.illusts != null && !store.illusts!.hateByUser(ai: false))
+            .where((store) =>
+                store.illusts != null && !store.illusts!.hateByUser(ai: false))
             .toList();
         _handleBatchDownload(availableIllusts);
       },
@@ -324,7 +324,7 @@ class _WorksPageState extends State<WorksPage> {
 
   Widget _buildDownloadPageButton() {
     return IconButton(
-      icon: Icon(Icons.download_done, color: Theme.of(context).primaryColor),
+      icon: Icon(Icons.download_done, color: Theme.of(context).iconTheme.color),
       tooltip: '下载页面',
       onPressed: () {
         // 从作品列表中获取画师用户名
@@ -336,7 +336,7 @@ class _WorksPageState extends State<WorksPage> {
         if (firstIllust != null) {
           userName = firstIllust.user.name;
         }
-        
+
         Leader.push(
           context,
           DownloadedPage(
@@ -363,18 +363,18 @@ class _WorksPageState extends State<WorksPage> {
     int totalIllustCount = 0;
     int totalImageCount = 0;
     int skipCount = 0;
-    
+
     for (final store in illustStores) {
       if (store.illusts == null) continue;
-      
+
       final illusts = store.illusts!;
-      
+
       // 跳过动图
       if (illusts.type == 'ugoira') {
         skipCount++;
         continue;
       }
-      
+
       totalIllustCount++;
       // 计算图片数量
       if (illusts.pageCount == 1) {
@@ -385,7 +385,8 @@ class _WorksPageState extends State<WorksPage> {
     }
 
     if (totalIllustCount == 0) {
-      BotToast.showText(text: '没有可下载的插画${skipCount > 0 ? '（跳过 $skipCount 个动图）' : ''}');
+      BotToast.showText(
+          text: '没有可下载的插画${skipCount > 0 ? '（跳过 $skipCount 个动图）' : ''}');
       return;
     }
 
@@ -417,21 +418,21 @@ class _WorksPageState extends State<WorksPage> {
 
     // 显示进度提示
     BotToast.showLoading();
-    
+
     // 在后台异步处理，避免阻塞 UI
     await Future(() async {
       int successCount = 0;
       int skipCount = 0;
       int errorCount = 0;
-      
+
       // 收集所有需要下载的任务
       final allTasks = <DownloadTask>[];
-      
+
       for (final store in illustStores) {
         if (store.illusts == null) continue;
-        
+
         final illusts = store.illusts!;
-        
+
         // 跳过动图
         if (illusts.type == 'ugoira') {
           skipCount++;
@@ -460,7 +461,7 @@ class _WorksPageState extends State<WorksPage> {
 
       // 关闭加载提示
       BotToast.closeAllLoading();
-      
+
       // 显示结果
       final message = '已添加 $successCount 个插画的下载任务（共 ${allTasks.length} 张图片）';
       if (skipCount > 0) {
