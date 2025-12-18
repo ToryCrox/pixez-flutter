@@ -81,7 +81,6 @@ class _IllustRowPageState extends State<IllustRowPage>
   bool _sidebarVisible = true; // 控制侧边栏显示/隐藏
   Ticker? _autoScrollTicker;
   bool _isAutoScrolling = false;
-  Offset _tapPosition = Offset.zero;
 
   @override
   void initState() {
@@ -619,16 +618,33 @@ class _IllustRowPageState extends State<IllustRowPage>
     }
   }
 
-  void _showSpeedControl(Offset position) {
+  void _showSpeedControl(RenderBox button) {
     if (_isAutoScrolling) {
       // 保持滚动，不停止
     }
     final RenderBox overlay =
         Overlay.of(context).context.findRenderObject() as RenderBox;
+
+    final double menuWidth = 80.0;
+    final double menuHeight = 200.0;
+
+    // 获取按钮在全局坐标中的位置和大小
+    final buttonPosition = button.localToGlobal(Offset.zero);
+    final buttonSize = button.size;
+
+    // 计算菜单应该出现的位置（在按钮正上方，水平居中）
+    final menuGlobalPosition = Offset(
+      buttonPosition.dx + (buttonSize.width - menuWidth) / 2, // 水平居中对齐按钮
+      buttonPosition.dy - menuHeight - 30, // 菜单底部在按钮上方30px
+    );
+
+    // 转换为 overlay 的本地坐标
+    final menuLocalPosition = overlay.globalToLocal(menuGlobalPosition);
+
     showMenu(
       context: context,
       position: RelativeRect.fromRect(
-        position & Size(1, 1),
+        menuLocalPosition & Size(menuWidth, menuHeight),
         Offset.zero & overlay.size,
       ),
       items: [
@@ -636,19 +652,37 @@ class _IllustRowPageState extends State<IllustRowPage>
           child: StatefulBuilder(
             builder: (context, setState) {
               return Container(
-                width: 200,
+                width: menuWidth,
+                height: menuHeight,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text("Speed/速度"),
-                    Slider(
-                      value: userSetting.illustAutoScrollSpeed,
-                      min: 0.5,
-                      max: 10.0,
-                      onChanged: (value) {
-                        userSetting.setIllustAutoScrollSpeed(value);
-                        setState(() {});
-                      },
+                    Text(
+                      "速度",
+                      style:
+                          TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                    ),
+                    SizedBox(height: 8),
+                    // 使用 RotatedBox 将 Slider 旋转 90 度，使其垂直显示
+                    Expanded(
+                      child: RotatedBox(
+                        quarterTurns: 3, // 逆时针旋转 270 度（3 个 90 度）
+                        child: Slider(
+                          value: userSetting.illustAutoScrollSpeed,
+                          min: 0.5,
+                          max: 10.0,
+                          onChanged: (value) {
+                            userSetting.setIllustAutoScrollSpeed(value);
+                            setState(() {});
+                          },
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      userSetting.illustAutoScrollSpeed.toStringAsFixed(1),
+                      style: TextStyle(fontSize: 12, color: Colors.grey),
                     ),
                   ],
                 ),
@@ -661,16 +695,13 @@ class _IllustRowPageState extends State<IllustRowPage>
   }
 
   Widget _buildPageIndicator() {
-    return Observer(builder: (_) {
+    return Observer(builder: (context) {
       return Material(
         color: Colors.black.withOpacity(0.6),
         borderRadius: BorderRadius.circular(20),
         child: InkWell(
           mouseCursor: SystemMouseCursors.click,
           borderRadius: BorderRadius.circular(20),
-          onTapDown: (details) {
-            _tapPosition = details.globalPosition;
-          },
           onTap: () {
             if (_isAutoScrolling) {
               _stopAutoScroll();
@@ -679,7 +710,9 @@ class _IllustRowPageState extends State<IllustRowPage>
             }
           },
           onLongPress: () {
-            _showSpeedControl(_tapPosition);
+            // 直接使用 Observer 的 context 获取按钮的 RenderBox
+            final RenderBox button = context.findRenderObject() as RenderBox;
+            _showSpeedControl(button);
           },
           child: Container(
             padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
