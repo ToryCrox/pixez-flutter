@@ -28,6 +28,8 @@ import 'package:pixez/i18n.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/models/download_record.dart';
 import 'package:pixez/page/picture/illust_lighting_page.dart';
+import 'package:pixez/page/picture/illust_store.dart';
+import 'package:pixez/page/picture/picture_list_page.dart';
 import 'package:pixez/page/downloaded/downloaded_authors_page.dart';
 import 'package:pixez/page/downloaded/import_dialog.dart';
 import 'package:pixez/page/downloaded/optimize_json_dialog.dart';
@@ -890,10 +892,21 @@ class _DownloadedPageState extends State<DownloadedPage> {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () {
+          // 从当前筛选后的列表创建 IllustStore 列表以支持滑动切换
+          final iStores = _filteredIllusts.map((item) {
+            return IllustStore(item.illustId, item.toIllusts());
+          }).toList();
+
+          // 找到当前点击的 IllustStore
+          final currentIndex = _filteredIllusts.indexOf(illust);
+          final currentStore = iStores[currentIndex];
+
           Leader.push(
             context,
-            IllustLightingPage(
-              id: illust.illustId,
+            PictureListPage(
+              iStores: iStores,
+              store: currentStore,
+              lightingStore: null,
               heroString: 'downloaded_illust_${illust.illustId}',
             ),
           );
@@ -1177,10 +1190,21 @@ class _DownloadedPageState extends State<DownloadedPage> {
             ],
           ),
           onTap: () {
+            // 从当前筛选后的列表创建 IllustStore 列表以支持滑动切换
+            final iStores = _filteredIllusts.map((item) {
+              return IllustStore(item.illustId, item.toIllusts());
+            }).toList();
+
+            // 找到当前点击的 IllustStore
+            final currentIndex = _filteredIllusts.indexOf(illust);
+            final currentStore = iStores[currentIndex];
+
             Leader.push(
               context,
-              IllustLightingPage(
-                id: illust.illustId,
+              PictureListPage(
+                iStores: iStores,
+                store: currentStore,
+                lightingStore: null,
                 heroString: 'downloaded_illust_${illust.illustId}',
               ),
             );
