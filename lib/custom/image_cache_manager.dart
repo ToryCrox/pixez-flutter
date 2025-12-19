@@ -66,7 +66,8 @@ class ImageCacheManager {
         // 所有详情页都已退出，还原缓存大小为240MB
         final imageCache = PaintingBinding.instance.imageCache;
         Log.d(() => '退出详情页，还原缓存大小为240MB');
-        imageCache.clear();
+        // 只调整缓存大小，让 Flutter 自动淘汰超出的缓存
+        // 不调用 clear()，避免阻塞主线程导致页面加载卡顿
         imageCache.maximumSizeBytes = defaultCacheSize;
       }
     }
@@ -78,4 +79,3 @@ class ImageCacheManager {
 
 /// 全局单例
 final imageCacheManager = ImageCacheManager();
-
