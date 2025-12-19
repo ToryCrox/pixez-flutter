@@ -15,11 +15,13 @@
 
 import 'dart:async';
 
+import 'package:bot_toast/bot_toast.dart';
 import 'package:collection/collection.dart';
 import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/material.dart';
 import 'package:open_file/open_file.dart';
 import 'package:path/path.dart' as p;
+import 'package:pixez/custom/log.dart';
 import 'package:pixez/er/leader.dart';
 import 'package:pixez/exts.dart';
 import 'package:pixez/i18n.dart';
@@ -335,6 +337,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
       List<DownloadedIllust> illusts;
       final orderBy = _getSortBy();
 
+      final t1 = DateTime.now();
       if (_downloadFilter == DownloadFilter.incomplete) {
         // 未下载完整过滤：查询数据库中所有未下载完整的作品
         illusts = await downloadStore.getIncompleteDownloaded(
@@ -362,6 +365,12 @@ class _DownloadedPageState extends State<DownloadedPage> {
           offset: 0,
           orderBy: orderBy,
         );
+      }
+      final timeSpent = DateTime.now().difference(t1);
+      Log.i(() =>
+          'loadData cost ${timeSpent.inMilliseconds}ms, count ${illusts.length}');
+      if (timeSpent.inMilliseconds > 300) {
+        BotToast.showText(text: 'loadData cost ${timeSpent.inMilliseconds}ms');
       }
 
       // 先显示列表，不等待所有数据加载完成

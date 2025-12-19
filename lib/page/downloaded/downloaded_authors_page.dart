@@ -15,12 +15,14 @@
 
 import 'dart:async';
 
+import 'package:bot_toast/bot_toast.dart';
 import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/material.dart';
 import 'package:pixez/component/downloaded_author_card.dart';
 import 'package:pixez/component/pixez_default_header.dart';
 import 'package:pixez/component/pixez_easy_refresh.dart';
 import 'package:pixez/component/sort_group.dart';
+import 'package:pixez/custom/log.dart';
 import 'package:pixez/er/prefer.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/models/download_record.dart';
@@ -145,6 +147,7 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
     });
 
     try {
+      final t1 = DateTime.now();
       final authors = await downloadStore.getDownloadedAuthors(
         sortBy: _getSortBy(),
         desc: _sortDesc,
@@ -152,6 +155,12 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
         offset: _page * _pageSize,
         searchKeyword: _searchKeyword,
       );
+      final timeSpent = DateTime.now().difference(t1);
+      Log.i(() =>
+          'loadData cost ${timeSpent.inMilliseconds}ms, count ${authors.length}');
+      if (timeSpent.inMilliseconds > 300) {
+        BotToast.showText(text: 'loadData cost ${timeSpent.inMilliseconds}ms');
+      }
 
       if (mounted) {
         setState(() {
