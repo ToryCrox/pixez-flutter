@@ -549,7 +549,7 @@ class DownloadDatabaseProvider {
 
     db = await openDatabase(
       dbPath,
-      version: 5,
+      version: 6,
       onCreate: (Database db, int version) async {
         await db.execute('''
           CREATE TABLE ${DownloadedIllustColumns.tableName} (
@@ -624,6 +624,23 @@ class DownloadDatabaseProvider {
         await db.execute('''
           CREATE INDEX idx_image_illust ON ${DownloadedImageColumns.tableName}(${DownloadedImageColumns.illustId})
         ''');
+        // 排序字段索引
+        await db.execute('''
+          CREATE INDEX idx_illust_download_time ON ${DownloadedIllustColumns.tableName}(${DownloadedIllustColumns.downloadTime})
+        ''');
+        await db.execute('''
+          CREATE INDEX idx_illust_create_date ON ${DownloadedIllustColumns.tableName}(${DownloadedIllustColumns.createDate})
+        ''');
+        // 作者表排序字段索引
+        await db.execute('''
+          CREATE INDEX idx_author_last_download_time ON ${DownloadedAuthorColumns.tableName}(${DownloadedAuthorColumns.lastDownloadTime})
+        ''');
+        await db.execute('''
+          CREATE INDEX idx_author_user_name ON ${DownloadedAuthorColumns.tableName}(${DownloadedAuthorColumns.userName})
+        ''');
+        await db.execute('''
+          CREATE INDEX idx_author_illust_count ON ${DownloadedAuthorColumns.tableName}(${DownloadedAuthorColumns.illustCount})
+        ''');
       },
       onUpgrade: (Database db, int oldVersion, int newVersion) async {
         if (oldVersion < 2) {
@@ -671,6 +688,24 @@ class DownloadDatabaseProvider {
           await db.execute('''
             ALTER TABLE ${DownloadedIllustColumns.tableName}
             ADD COLUMN ${DownloadedIllustColumns.imageUrlsJson} TEXT NOT NULL DEFAULT ''
+          ''');
+        }
+        if (oldVersion < 6) {
+          // 添加排序字段索引以优化查询性能
+          await db.execute('''
+            CREATE INDEX IF NOT EXISTS idx_illust_download_time ON ${DownloadedIllustColumns.tableName}(${DownloadedIllustColumns.downloadTime})
+          ''');
+          await db.execute('''
+            CREATE INDEX IF NOT EXISTS idx_illust_create_date ON ${DownloadedIllustColumns.tableName}(${DownloadedIllustColumns.createDate})
+          ''');
+          await db.execute('''
+            CREATE INDEX IF NOT EXISTS idx_author_last_download_time ON ${DownloadedAuthorColumns.tableName}(${DownloadedAuthorColumns.lastDownloadTime})
+          ''');
+          await db.execute('''
+            CREATE INDEX IF NOT EXISTS idx_author_user_name ON ${DownloadedAuthorColumns.tableName}(${DownloadedAuthorColumns.userName})
+          ''');
+          await db.execute('''
+            CREATE INDEX IF NOT EXISTS idx_author_illust_count ON ${DownloadedAuthorColumns.tableName}(${DownloadedAuthorColumns.illustCount})
           ''');
         }
       },
