@@ -126,8 +126,14 @@ class _DownloadedAuthorCardState extends State<DownloadedAuthorCard> {
 
   /// 使用 PixivImage 加载封面，通过 header 传递 illustId 让 PixivCacheManager 识别并缓存
   Widget _buildCoverImage(BuildContext context, DownloadedIllust illust) {
-    final illusts = illust.toIllusts();
-    final coverUrl = illusts.imageUrls.squareMedium;
+    // 优化：直接使用 imageUrls 字段，无需解析 illustJson
+    // 对于旧数据（imageUrlsJson 为空），回退到解析 illustJson
+    final imageUrls = illust.getImageUrls();
+    String coverUrl = imageUrls.squareMedium;
+    if (coverUrl.isEmpty) {
+      final illusts = illust.toIllusts();
+      coverUrl = illusts.imageUrls.squareMedium;
+    }
 
     return PixivImage(
       coverUrl,

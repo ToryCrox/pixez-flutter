@@ -1093,9 +1093,14 @@ class _DownloadedPageState extends State<DownloadedPage> {
   Widget _buildThumbnail(DownloadedIllust illust) {
     final heroTag = 'downloaded_illust_${illust.illustId}';
 
-    // 使用 PixivImage 直接加载封面，通过 header 传递 illustId
-    final illusts = illust.toIllusts();
-    final coverUrl = illusts.imageUrls.squareMedium;
+    // 优化：直接使用 imageUrls 字段，无需解析 illustJson
+    // 对于旧数据（imageUrlsJson 为空），回退到解析 illustJson
+    final imageUrls = illust.getImageUrls();
+    String coverUrl = imageUrls.squareMedium;
+    if (coverUrl.isEmpty) {
+      final illusts = illust.toIllusts();
+      coverUrl = illusts.imageUrls.squareMedium;
+    }
 
     Widget imageWidget = PixivImage(
       coverUrl,

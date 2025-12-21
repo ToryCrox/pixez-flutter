@@ -1261,11 +1261,12 @@ abstract class _DownloadStoreBase with Store {
             final newSize = optimizedIllust.illustJson.length;
             final saved = oldSize - newSize;
 
-            if (saved > 0) {
+            // 如果节省了空间，或者 imageUrlsJson 字段为空（需要迁移），则更新
+            if (saved > 0 || existingIllust.imageUrlsJson.isEmpty) {
               // 更新数据库
               await _dbProvider.updateIllust(optimizedIllust);
               optimizedCount++;
-              savedBytes += saved;
+              savedBytes += saved > 0 ? saved : 0;
             }
           } catch (e) {
             // 如果反序列化失败，可能是数据损坏，跳过

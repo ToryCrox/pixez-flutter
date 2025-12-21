@@ -47,6 +47,7 @@ class DownloadedIllust {
   final String relativePath; // 相对目录路径
   final int downloadTime; // 下载时间戳
   final String _illustJson; // 完整Illusts JSON（私有）
+  final String imageUrlsJson; // imageUrls 的 JSON 字符串
 
   // Getter 用于数据库序列化
   String get illustJson => _illustJson;
@@ -70,7 +71,16 @@ class DownloadedIllust {
     required this.relativePath,
     required this.downloadTime,
     required String illustJson,
+    this.imageUrlsJson = '',
   }) : _illustJson = illustJson;
+
+  /// 从 imageUrlsJson 解析 ImageUrls 对象
+  ImageUrls getImageUrls() {
+    if (imageUrlsJson.isEmpty) {
+      return const ImageUrls();
+    }
+    return ImageUrls.fromJson(TypeUtil.parseMap(imageUrlsJson));
+  }
 
   factory DownloadedIllust.fromIllusts(Illusts illusts, String relativePath,
       {int? downloadTime}) {
@@ -89,6 +99,7 @@ class DownloadedIllust {
       totalView: 0,
       totalBookmarks: 0,
       tags: [],
+      imageUrls: const ImageUrls(), // 将 imageUrls 设为空，从 illustJson 中移除
       user: illusts.user.copyWith(
         id: 0,
         name: '',
@@ -120,6 +131,7 @@ class DownloadedIllust {
       relativePath: relativePath,
       downloadTime: downloadTime ?? DateTime.now().millisecondsSinceEpoch,
       illustJson: jsonEncode(shrunkJson),
+      imageUrlsJson: jsonEncode(illusts.imageUrls.toJson()), // 提取 imageUrls 为独立字段
     );
   }
 
@@ -143,6 +155,7 @@ class DownloadedIllust {
       relativePath: json[DownloadedIllustColumns.relativePath],
       downloadTime: json[DownloadedIllustColumns.downloadTime],
       illustJson: json[DownloadedIllustColumns.illustJson],
+      imageUrlsJson: json[DownloadedIllustColumns.imageUrlsJson] ?? '', // 兼容旧数据
     );
   }
 
@@ -166,6 +179,7 @@ class DownloadedIllust {
     data[DownloadedIllustColumns.relativePath] = relativePath;
     data[DownloadedIllustColumns.downloadTime] = downloadTime;
     data[DownloadedIllustColumns.illustJson] = illustJson;
+    data[DownloadedIllustColumns.imageUrlsJson] = imageUrlsJson;
     return data;
   }
 
@@ -175,6 +189,15 @@ class DownloadedIllust {
 
     // 先从 illustJson 转换成 Illusts（即使 json 为空也能创建默认对象）
     final baseIllusts = Illusts.fromJson(json);
+
+    // 解析 imageUrls：优先从独立字段读取，兼容旧数据回退到 illustJson
+    ImageUrls imageUrls;
+    if (imageUrlsJson.isNotEmpty) {
+      imageUrls = ImageUrls.fromJson(TypeUtil.parseMap(imageUrlsJson));
+    } else {
+      // 兼容旧数据：从 illustJson 中读取
+      imageUrls = baseIllusts.imageUrls;
+    }
 
     // 使用 copyWith 从表字段赋值，避免硬编码 map 字段
     return baseIllusts.copyWith(
@@ -191,6 +214,7 @@ class DownloadedIllust {
       totalView: totalView,
       totalBookmarks: totalBookmarks,
       tags: getTagsList(),
+      imageUrls: imageUrls,
       user: baseIllusts.user.copyWith(
         id: userId,
         name: userName,
@@ -329,6 +353,7 @@ class DownloadedIllustColumns {
   static const String relativePath = 'relative_path';
   static const String downloadTime = 'download_time';
   static const String illustJson = 'illust_json';
+  static const String imageUrlsJson = 'image_urls_json'; // 新增：imageUrls JSON
 }
 
 class DownloadedImageColumns {
@@ -481,7 +506,7 @@ class DownloadDatabaseProvider {
 
     db = await openDatabase(
       dbPath,
-      version: 4,
+      version: 5,
       onCreate: (Database db, int version) async {
         await db.execute('''
           CREATE TABLE ${DownloadedIllustColumns.tableName} (
@@ -503,7 +528,8 @@ class DownloadDatabaseProvider {
             ${DownloadedIllustColumns.tags} TEXT NOT NULL,
             ${DownloadedIllustColumns.relativePath} TEXT NOT NULL,
             ${DownloadedIllustColumns.downloadTime} INTEGER NOT NULL,
-            ${DownloadedIllustColumns.illustJson} TEXT NOT NULL
+            ${DownloadedIllustColumns.illustJson} TEXT NOT NULL,
+            ${DownloadedIllustColumns.imageUrlsJson} TEXT NOT NULL DEFAULT ''
           )
         ''');
 
@@ -596,6 +622,13 @@ class DownloadDatabaseProvider {
           ''');
           // 从现有数据生成作者表
           await _migrateAuthorsFromIllusts(db);
+        }
+        if (oldVersion < 5) {
+          // 添加 image_urls_json 列
+          await db.execute('''
+            ALTER TABLE ${DownloadedIllustColumns.tableName}
+            ADD COLUMN ${DownloadedIllustColumns.imageUrlsJson} TEXT NOT NULL DEFAULT ''
+          ''');
         }
       },
     );

@@ -128,6 +128,8 @@ class _OptimizeDialogState extends State<_OptimizeDialog> {
           children: [
             Text('此操作将优化数据库中的 illustJson 字段，移除重复存储的数据。'),
             SizedBox(height: 8),
+            Text('同时会将图片 URL 提取为独立字段，提升列表加载性能。'),
+            SizedBox(height: 8),
             Text('优化后可以显著减少数据库文件大小。'),
             SizedBox(height: 8),
             Text(
