@@ -13,10 +13,10 @@
  * this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as path;
+import 'package:pixez/custom/pixiv_url_util.dart';
 import 'package:pixez/custom/type_util.dart';
 import 'package:pixez/exts.dart';
 import 'package:pixez/models/illust.dart';
@@ -29,21 +29,6 @@ const kImageExtensions = ['.webp', '.jpg', '.png', '.gif', '.jpeg'];
 
 // 下载的插画记录
 class DownloadedIllust {
-  /// Pixiv 图片服务器前缀
-  static const String _pxImgHost = 'https://i.pximg.net';
-
-  /// 占位符（用于替换 URL 前缀，确保压缩/解压完全匹配）
-  static const String _pxImgPlaceholder = r'$PX$';
-
-  /// 压缩 JSON 字符串，将 Pixiv 图片 URL 前缀替换为占位符
-  static String _compressPxImgUrl(String json) {
-    return json.replaceAll(_pxImgHost, _pxImgPlaceholder);
-  }
-
-  /// 解压缩 JSON 字符串，将占位符还原为 Pixiv 图片 URL 前缀
-  static String _decompressPxImgUrl(String json) {
-    return json.replaceAll(_pxImgPlaceholder, _pxImgHost);
-  }
 
   final int illustId;
   final int userId;
@@ -95,7 +80,8 @@ class DownloadedIllust {
     if (imageUrlsJson.isEmpty) {
       return const ImageUrls();
     }
-    return ImageUrls.fromJson(TypeUtil.parseMap(_decompressPxImgUrl(imageUrlsJson)));
+    return ImageUrls.fromJson(
+        TypeUtil.parseMap(PixivUrlUtil.decompressPxUrl(imageUrlsJson)));
   }
 
   factory DownloadedIllust.fromIllusts(Illusts illusts, String relativePath,
@@ -143,37 +129,41 @@ class DownloadedIllust {
       xRestrict: illusts.xRestrict,
       totalView: illusts.totalView,
       totalBookmarks: illusts.totalBookmarks,
-      tags: jsonEncode(
+      tags: TypeUtil.parseJsonString(
           illusts.tags.map((t) => TypeUtil.shrinkMap(t.toJson())).toList()),
       relativePath: relativePath,
       downloadTime: downloadTime ?? DateTime.now().millisecondsSinceEpoch,
-      illustJson: _compressPxImgUrl(jsonEncode(shrunkJson)),
-      imageUrlsJson:
-          _compressPxImgUrl(jsonEncode(illusts.imageUrls.toJson())),
+      illustJson: PixivUrlUtil.compressPxUrl(TypeUtil.parseJsonString(shrunkJson)),
+      imageUrlsJson: PixivUrlUtil.compressPxUrl(
+          TypeUtil.parseJsonString(illusts.imageUrls.toJson())),
     );
   }
 
   factory DownloadedIllust.fromJson(Map<String, dynamic> json) {
     return DownloadedIllust(
-      illustId: json[DownloadedIllustColumns.illustId],
-      userId: json[DownloadedIllustColumns.userId],
-      userName: json[DownloadedIllustColumns.userName],
-      title: json[DownloadedIllustColumns.title],
-      type: json[DownloadedIllustColumns.type],
-      caption: json[DownloadedIllustColumns.caption],
-      createDate: json[DownloadedIllustColumns.createDate],
-      pageCount: json[DownloadedIllustColumns.pageCount],
-      width: json[DownloadedIllustColumns.width],
-      height: json[DownloadedIllustColumns.height],
-      sanityLevel: json[DownloadedIllustColumns.sanityLevel],
-      xRestrict: json[DownloadedIllustColumns.xRestrict],
-      totalView: json[DownloadedIllustColumns.totalView],
-      totalBookmarks: json[DownloadedIllustColumns.totalBookmarks],
-      tags: json[DownloadedIllustColumns.tags],
-      relativePath: json[DownloadedIllustColumns.relativePath],
-      downloadTime: json[DownloadedIllustColumns.downloadTime],
-      illustJson: json[DownloadedIllustColumns.illustJson],
-      imageUrlsJson: json[DownloadedIllustColumns.imageUrlsJson] ?? '', // 兼容旧数据
+      illustId: TypeUtil.parseInt(json[DownloadedIllustColumns.illustId]),
+      userId: TypeUtil.parseInt(json[DownloadedIllustColumns.userId]),
+      userName: TypeUtil.parseString(json[DownloadedIllustColumns.userName]),
+      title: TypeUtil.parseString(json[DownloadedIllustColumns.title]),
+      type: TypeUtil.parseString(json[DownloadedIllustColumns.type]),
+      caption: TypeUtil.parseString(json[DownloadedIllustColumns.caption]),
+      createDate: TypeUtil.parseString(json[DownloadedIllustColumns.createDate]),
+      pageCount: TypeUtil.parseInt(json[DownloadedIllustColumns.pageCount]),
+      width: TypeUtil.parseInt(json[DownloadedIllustColumns.width]),
+      height: TypeUtil.parseInt(json[DownloadedIllustColumns.height]),
+      sanityLevel: TypeUtil.parseInt(json[DownloadedIllustColumns.sanityLevel]),
+      xRestrict: TypeUtil.parseInt(json[DownloadedIllustColumns.xRestrict]),
+      totalView: TypeUtil.parseInt(json[DownloadedIllustColumns.totalView]),
+      totalBookmarks:
+          TypeUtil.parseInt(json[DownloadedIllustColumns.totalBookmarks]),
+      tags: TypeUtil.parseString(json[DownloadedIllustColumns.tags]),
+      relativePath:
+          TypeUtil.parseString(json[DownloadedIllustColumns.relativePath]),
+      downloadTime:
+          TypeUtil.parseInt(json[DownloadedIllustColumns.downloadTime]),
+      illustJson: TypeUtil.parseString(json[DownloadedIllustColumns.illustJson]),
+      imageUrlsJson: TypeUtil.parseString(
+          json[DownloadedIllustColumns.imageUrlsJson]), // 兼容旧数据
     );
   }
 
@@ -203,7 +193,7 @@ class DownloadedIllust {
 
   Illusts toIllusts() {
     // 使用 TypeUtil.parseMap 安全地将字符串转换为 Map（先解压 URL 前缀）
-    final json = TypeUtil.parseMap(_decompressPxImgUrl(_illustJson));
+    final json = TypeUtil.parseMap(PixivUrlUtil.decompressPxUrl(_illustJson));
 
     // 先从 illustJson 转换成 Illusts（即使 json 为空也能创建默认对象）
     final baseIllusts = Illusts.fromJson(json);
@@ -211,7 +201,8 @@ class DownloadedIllust {
     // 解析 imageUrls：优先从独立字段读取，兼容旧数据回退到 illustJson
     ImageUrls imageUrls;
     if (imageUrlsJson.isNotEmpty) {
-      imageUrls = ImageUrls.fromJson(TypeUtil.parseMap(imageUrlsJson));
+      imageUrls = ImageUrls.fromJson(
+          TypeUtil.parseMap(PixivUrlUtil.decompressPxUrl(imageUrlsJson)));
     } else {
       // 兼容旧数据：从 illustJson 中读取
       imageUrls = baseIllusts.imageUrls;
@@ -288,32 +279,6 @@ class LocalImageInfo {
 
 // 下载的图片记录
 class DownloadedImage {
-  /// Pixiv 原图 URL 前缀
-  static const String _pxImgOriginalPrefix = 'https://i.pximg.net/img-original/img';
-
-  /// 占位符（用于替换 URL 前缀，节约数据库空间）
-  static const String _pxImgPlaceholder = r'$PX_IMG$';
-
-  /// 压缩 URL，将 Pixiv 原图前缀替换为占位符
-  static String compressUrl(String url) {
-    if (url.startsWith(_pxImgOriginalPrefix)) {
-      return url.replaceFirst(_pxImgOriginalPrefix, _pxImgPlaceholder);
-    }
-    return url;
-  }
-
-  /// 解压缩 URL，将占位符还原为 Pixiv 原图前缀
-  static String decompressUrl(String url) {
-    if (url.startsWith(_pxImgPlaceholder)) {
-      return url.replaceFirst(_pxImgPlaceholder, _pxImgOriginalPrefix);
-    }
-    return url;
-  }
-
-  /// 判断是否为 Pixiv 原图 URL
-  static bool isPixivOriginalUrl(String url) {
-    return url.startsWith(_pxImgOriginalPrefix);
-  }
 
   final int illustId;
   final int part;
@@ -339,17 +304,19 @@ class DownloadedImage {
 
   factory DownloadedImage.fromJson(Map<String, dynamic> json) {
     // 从数据库读取时解压 URL
-    final compressedUrl = json[DownloadedImageColumns.originalUrl] as String? ?? '';
+    final compressedUrl =
+        TypeUtil.parseString(json[DownloadedImageColumns.originalUrl]);
     return DownloadedImage(
-      illustId: json[DownloadedImageColumns.illustId],
-      part: json[DownloadedImageColumns.part],
-      fileName: json[DownloadedImageColumns.fileName],
-      extension: json[DownloadedImageColumns.extension],
-      fileSize: json[DownloadedImageColumns.fileSize],
-      originalUrl: decompressUrl(compressedUrl),
-      relativePath: json[DownloadedImageColumns.relativePath],
-      width: json[DownloadedImageColumns.width],
-      height: json[DownloadedImageColumns.height],
+      illustId: TypeUtil.parseInt(json[DownloadedImageColumns.illustId]),
+      part: TypeUtil.parseInt(json[DownloadedImageColumns.part]),
+      fileName: TypeUtil.parseString(json[DownloadedImageColumns.fileName]),
+      extension: TypeUtil.parseString(json[DownloadedImageColumns.extension]),
+      fileSize: TypeUtil.parseInt(json[DownloadedImageColumns.fileSize]),
+      originalUrl: PixivUrlUtil.decompressOriginalUrl(compressedUrl),
+      relativePath:
+          TypeUtil.parseString(json[DownloadedImageColumns.relativePath]),
+      width: TypeUtil.parseInt(json[DownloadedImageColumns.width]),
+      height: TypeUtil.parseInt(json[DownloadedImageColumns.height]),
     );
   }
 
@@ -361,7 +328,8 @@ class DownloadedImage {
     data[DownloadedImageColumns.extension] = extension;
     data[DownloadedImageColumns.fileSize] = fileSize;
     // 写入数据库时压缩 URL
-    data[DownloadedImageColumns.originalUrl] = compressUrl(originalUrl);
+    data[DownloadedImageColumns.originalUrl] =
+        PixivUrlUtil.compressOriginalUrl(originalUrl);
     data[DownloadedImageColumns.relativePath] = relativePath;
     data[DownloadedImageColumns.width] = width;
     data[DownloadedImageColumns.height] = height;
@@ -459,12 +427,12 @@ class PendingDownload {
 
   factory PendingDownload.fromJson(Map<String, dynamic> json) {
     return PendingDownload(
-      id: json[PendingDownloadColumns.id],
-      part: json[PendingDownloadColumns.part],
-      url: json[PendingDownloadColumns.url],
-      illustJson: json[PendingDownloadColumns.illustJson],
-      createTime: json[PendingDownloadColumns.createTime],
-      status: json[PendingDownloadColumns.status] ?? 0,
+      id: TypeUtil.parseString(json[PendingDownloadColumns.id]),
+      part: TypeUtil.parseInt(json[PendingDownloadColumns.part]),
+      url: TypeUtil.parseString(json[PendingDownloadColumns.url]),
+      illustJson: TypeUtil.parseString(json[PendingDownloadColumns.illustJson]),
+      createTime: TypeUtil.parseInt(json[PendingDownloadColumns.createTime]),
+      status: TypeUtil.parseString(json[PendingDownloadColumns.status], 'pending'),
     );
   }
 
@@ -502,14 +470,18 @@ class DownloadedAuthor {
 
   factory DownloadedAuthor.fromJson(Map<String, dynamic> json) {
     return DownloadedAuthor(
-      userId: json[DownloadedAuthorColumns.userId],
-      userName: json[DownloadedAuthorColumns.userName],
-      profileImageUrl: DownloadedIllust._decompressPxImgUrl(
-          json[DownloadedAuthorColumns.profileImageUrl] ?? ''),
-      illustCount: json[DownloadedAuthorColumns.illustCount] ?? 0,
-      totalFileSize: json[DownloadedAuthorColumns.totalFileSize] ?? 0,
-      lastDownloadTime: json[DownloadedAuthorColumns.lastDownloadTime] ?? 0,
-      lastUpdateTime: json[DownloadedAuthorColumns.lastUpdateTime] ?? 0,
+      userId: TypeUtil.parseInt(json[DownloadedAuthorColumns.userId]),
+      userName: TypeUtil.parseString(json[DownloadedAuthorColumns.userName]),
+      profileImageUrl: PixivUrlUtil.decompressPxUrl(
+          TypeUtil.parseString(json[DownloadedAuthorColumns.profileImageUrl])),
+      illustCount:
+          TypeUtil.parseInt(json[DownloadedAuthorColumns.illustCount]),
+      totalFileSize:
+          TypeUtil.parseInt(json[DownloadedAuthorColumns.totalFileSize]),
+      lastDownloadTime:
+          TypeUtil.parseInt(json[DownloadedAuthorColumns.lastDownloadTime]),
+      lastUpdateTime:
+          TypeUtil.parseInt(json[DownloadedAuthorColumns.lastUpdateTime]),
     );
   }
 
@@ -519,7 +491,7 @@ class DownloadedAuthor {
     data[DownloadedAuthorColumns.userName] = userName;
     if (profileImageUrl != null) {
       data[DownloadedAuthorColumns.profileImageUrl] =
-          DownloadedIllust._compressPxImgUrl(profileImageUrl!);
+          PixivUrlUtil.compressPxUrl(profileImageUrl!);
     }
     data[DownloadedAuthorColumns.illustCount] = illustCount;
     data[DownloadedAuthorColumns.totalFileSize] = totalFileSize;
@@ -1103,7 +1075,7 @@ class DownloadDatabaseProvider {
   /// 通过原始URL查询图片记录
   Future<DownloadedImage?> getImageByOriginalUrl(String originalUrl) async {
     // 查询时需要使用压缩后的 URL 格式（与数据库存储格式一致）
-    final compressedUrl = DownloadedImage.compressUrl(originalUrl);
+    final compressedUrl = PixivUrlUtil.compressOriginalUrl(originalUrl);
     List<Map<String, dynamic>> maps = await db.query(
       DownloadedImageColumns.tableName,
       where: '${DownloadedImageColumns.originalUrl} = ?',
@@ -1442,10 +1414,12 @@ class DownloadDatabaseProvider {
         String? profileImageUrl;
         if (latestIllust.isNotEmpty) {
           try {
-            final illustJsonStr = latestIllust.first[DownloadedIllustColumns.illustJson] as String;
-            final illustJson = jsonDecode(DownloadedIllust._decompressPxImgUrl(illustJsonStr));
+            final illustJsonStr =
+                latestIllust.first[DownloadedIllustColumns.illustJson]
+                    as String;
+            final illustJson = PixivUrlUtil.decompressPxUrl(illustJsonStr);
             profileImageUrl =
-                illustJson['user']?['profile_image_urls']?['medium'];
+                TypeUtil.parseMap(illustJson)['user']?['profile_image_urls']?['medium'];
           } catch (_) {}
         }
 
@@ -1499,7 +1473,7 @@ class DownloadDatabaseProvider {
         DownloadedAuthorColumns.userId: userId,
         DownloadedAuthorColumns.userName: userName,
         DownloadedAuthorColumns.profileImageUrl:
-            DownloadedIllust._compressPxImgUrl(profileImageUrl ?? ''),
+            PixivUrlUtil.compressPxUrl(profileImageUrl ?? ''),
         DownloadedAuthorColumns.illustCount: illustCount,
         DownloadedAuthorColumns.totalFileSize: totalFileSize,
         DownloadedAuthorColumns.lastDownloadTime: lastDownloadTime,
@@ -1603,11 +1577,14 @@ class DownloadDatabaseProvider {
     String? profileImageUrl;
     if (latestIllust.isNotEmpty) {
       try {
-        final illustJsonStr = latestIllust.first[DownloadedIllustColumns.illustJson] as String;
-        final illustJson = jsonDecode(DownloadedIllust._decompressPxImgUrl(illustJsonStr));
-        userName = illustJson['user']?['name'] ??
-            latestIllust.first[DownloadedIllustColumns.userName] as String;
-        profileImageUrl = illustJson['user']?['profile_image_urls']?['medium'];
+        final illustJsonStr =
+            latestIllust.first[DownloadedIllustColumns.illustJson] as String;
+        final illustJson = PixivUrlUtil.decompressPxUrl(illustJsonStr);
+        final illustMap = TypeUtil.parseMap(illustJson);
+        userName = illustMap['user']?['name'] ??
+            TypeUtil.parseString(
+                latestIllust.first[DownloadedIllustColumns.userName]);
+        profileImageUrl = illustMap['user']?['profile_image_urls']?['medium'];
       } catch (_) {
         userName =
             latestIllust.first[DownloadedIllustColumns.userName] as String;

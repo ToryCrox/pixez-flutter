@@ -27,6 +27,7 @@ import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_cache_manager_dio/flutter_cache_manager_dio.dart';
 import 'package:image/image.dart' as img;
 import 'package:pixez/models/download_record.dart';
+import 'package:pixez/custom/pixiv_url_util.dart';
 import 'package:path/path.dart' as path;
 
 import 'package:pixez/er/hoster.dart';
@@ -250,7 +251,7 @@ class PixivCacheManager extends CacheManager with ImageCacheManager {
     }
 
     // 3. 从下载目录中查询
-    if (downloadStore.isInitialized && DownloadedImage.isPixivOriginalUrl(url)) {
+    if (downloadStore.isInitialized && PixivUrlUtil.isPixivOriginalUrl(url)) {
       try {
         final imageInfo = await downloadStore.getLocalImageInfoByUrl(url);
         if (imageInfo != null) {

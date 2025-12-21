@@ -206,7 +206,6 @@ class TypeUtil {
     });
     return newMap;
   }
-
 }
 
 Object? _toEncodableFallback(dynamic object) {
