@@ -83,12 +83,13 @@ class _NovelRailState extends State<NovelRail> {
       child: Scaffold(
         floatingActionButton: FloatingActionButton(
           onPressed: () {
+            Constants.type = 0;
             Navigator.of(context).pushReplacement(MaterialPageRoute(
-                builder: (context) => Platform.isIOS || Platform.isMacOS
-                    ? HelloPage()
-                    : AndroidHelloPage()));
+                builder: (context) => Platform.isAndroid
+                    ? const AndroidHelloPage()
+                    : HelloPage()));
           },
-          child: Icon(Icons.picture_in_picture),
+          child: const Icon(Icons.picture_in_picture_alt_rounded),
         ),
         bottomNavigationBar: _buildNavigationBar(context),
         body: PageView.builder(

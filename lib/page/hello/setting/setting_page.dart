@@ -33,6 +33,8 @@ import 'package:pixez/page/account/edit/account_edit_page.dart';
 import 'package:pixez/page/account/select/account_select_page.dart';
 import 'package:pixez/page/board/board_page.dart';
 import 'package:pixez/page/book/tag/book_tag_page.dart';
+import 'package:pixez/page/hello/android_hello_page.dart';
+import 'package:pixez/page/hello/hello_page.dart';
 import 'package:pixez/page/hello/recom/recom_manga_page.dart';
 import 'package:pixez/page/hello/setting/data_export_page.dart';
 import 'package:pixez/page/hello/setting/setting_quality_page.dart';
@@ -275,11 +277,25 @@ class _SettingPageState extends State<SettingPage> {
                       onTap: () => Leader.push(context, RecomMangaPage()),
                     ),
                     ListTile(
-                      leading: Icon(Icons.book),
-                      title: Text(I18n.of(context).novel),
-                      onTap: () => Navigator.of(context, rootNavigator: true)
-                          .pushReplacement(MaterialPageRoute(
-                              builder: (context) => NovelRail())),
+                      leading: Icon(
+                          Constants.type == 0 ? Icons.book : Icons.image),
+                      title: Text(Constants.type == 0
+                          ? I18n.of(context).novel
+                          : I18n.of(context).illust),
+                      onTap: () {
+                        if (Constants.type == 0) {
+                          Navigator.of(context, rootNavigator: true)
+                              .pushReplacement(MaterialPageRoute(
+                                  builder: (context) => NovelRail()));
+                        } else {
+                          Constants.type = 0;
+                          Navigator.of(context, rootNavigator: true)
+                              .pushReplacement(MaterialPageRoute(
+                                  builder: (context) => Platform.isAndroid
+                                      ? const AndroidHelloPage()
+                                      : HelloPage()));
+                        }
+                      },
                     ),
                     ListTile(
                       leading: Icon(Icons.message),
