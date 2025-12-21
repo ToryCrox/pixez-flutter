@@ -83,266 +83,22 @@ class _DownloadedPageState extends State<DownloadedPage> {
   Widget build(BuildContext context) {
     return Observer(
       builder: (_) => Scaffold(
-        appBar: AppBar(
-          title: _buildAppBarTitle(),
-          actions: [
-            IconButton(
-              icon: Icon(Icons.upload_file),
-              tooltip: '导入',
-              onPressed: () {
-                _showImportDialog();
-              },
-            ),
-            IconButton(
-              icon: Icon(Icons.people),
-              tooltip: '作者列表',
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => DownloadedAuthorsPage(),
-                  ),
-                );
-              },
-            ),
-            PopupMenuButton<String>(
-              icon: Icon(Icons.more_vert),
-              onSelected: (value) {
-                switch (value) {
-                  case 'filter_all':
-                    _store.onFilterChanged(DownloadFilter.all);
-                    break;
-                  case 'filter_downloading':
-                    _store.onFilterChanged(DownloadFilter.downloading);
-                    break;
-                  case 'filter_completed':
-                    _store.onFilterChanged(DownloadFilter.completed);
-                    break;
-                  case 'filter_incomplete':
-                    _store.onFilterChanged(DownloadFilter.incomplete);
-                    break;
-                  case 'update_info':
-                    _showUpdateIllustInfoDialog();
-                    break;
-                  case 'pause_all':
-                    _store.pauseAll();
-                    break;
-                  case 'resume_all':
-                    _store.resumeAll();
-                    break;
-                  case 'cancel_all':
-                    _store.cancelAll();
-                    break;
-                  case 'optimize_json':
-                    OptimizeJsonDialog.show(context, downloadStore);
-                    break;
-                }
-              },
-              itemBuilder: (context) => [
-                PopupMenuItem(
-                  value: 'filter_all',
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.list,
-                        color: _store.downloadFilter == DownloadFilter.all
-                            ? Theme.of(context).colorScheme.primary
-                            : null,
-                      ),
-                      SizedBox(width: 8),
-                      Text(I18n.of(context).all),
-                      if (_store.downloadFilter == DownloadFilter.all)
-                        Padding(
-                          padding: const EdgeInsets.only(left: 8.0),
-                          child: Icon(Icons.check,
-                              size: 16,
-                              color: Theme.of(context).colorScheme.primary),
-                        ),
-                    ],
-                  ),
-                ),
-                PopupMenuItem(
-                  value: 'filter_downloading',
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.downloading,
-                        color: _store.downloadFilter == DownloadFilter.downloading
-                            ? Theme.of(context).colorScheme.primary
-                            : null,
-                      ),
-                      SizedBox(width: 8),
-                      Text(I18n.of(context).running),
-                      if (_store.downloadFilter == DownloadFilter.downloading)
-                        Padding(
-                          padding: const EdgeInsets.only(left: 8.0),
-                          child: Icon(Icons.check,
-                              size: 16,
-                              color: Theme.of(context).colorScheme.primary),
-                        ),
-                    ],
-                  ),
-                ),
-                PopupMenuItem(
-                  value: 'filter_completed',
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.check_circle_outline,
-                        color: _store.downloadFilter == DownloadFilter.completed
-                            ? Theme.of(context).colorScheme.primary
-                            : null,
-                      ),
-                      SizedBox(width: 8),
-                      Text(I18n.of(context).complete),
-                      if (_store.downloadFilter == DownloadFilter.completed)
-                        Padding(
-                          padding: const EdgeInsets.only(left: 8.0),
-                          child: Icon(Icons.check,
-                              size: 16,
-                              color: Theme.of(context).colorScheme.primary),
-                        ),
-                    ],
-                  ),
-                ),
-                PopupMenuItem(
-                  value: 'filter_incomplete',
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.warning_amber,
-                        color: _store.downloadFilter == DownloadFilter.incomplete
-                            ? Theme.of(context).colorScheme.primary
-                            : null,
-                      ),
-                      SizedBox(width: 8),
-                      Text('未下载完整'),
-                      if (_store.downloadFilter == DownloadFilter.incomplete)
-                        Padding(
-                          padding: const EdgeInsets.only(left: 8.0),
-                          child: Icon(Icons.check,
-                              size: 16,
-                              color: Theme.of(context).colorScheme.primary),
-                        ),
-                    ],
-                  ),
-                ),
-                PopupMenuDivider(),
-                PopupMenuItem(
-                  value: 'update_info',
-                  child: Row(
-                    children: [
-                      Icon(Icons.update),
-                      SizedBox(width: 8),
-                      Text('更新插画信息'),
-                    ],
-                  ),
-                ),
-                PopupMenuItem(
-                  value: 'optimize_json',
-                  child: Row(
-                    children: [
-                      Icon(Icons.storage, color: Colors.orange),
-                      SizedBox(width: 8),
-                      Text('优化数据库存储'),
-                    ],
-                  ),
-                ),
-                PopupMenuDivider(),
-                PopupMenuItem(
-                  value: 'pause_all',
-                  child: Row(
-                    children: [
-                      Icon(Icons.pause_circle_outline),
-                      SizedBox(width: 8),
-                      Text('暂停${I18n.of(context).all}'),
-                    ],
-                  ),
-                ),
-                PopupMenuItem(
-                  value: 'resume_all',
-                  child: Row(
-                    children: [
-                      Icon(Icons.play_circle_outline),
-                      SizedBox(width: 8),
-                      Text('${I18n.of(context).start}${I18n.of(context).all}'),
-                    ],
-                  ),
-                ),
-                PopupMenuItem(
-                  value: 'cancel_all',
-                  child: Row(
-                    children: [
-                      Icon(Icons.cancel, color: Colors.red),
-                      SizedBox(width: 8),
-                      Text(
-                        '取消${I18n.of(context).all}',
-                        style: TextStyle(color: Colors.red),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-        body: _store.loading && _store.filteredIllusts.isEmpty
-            ? Center(child: CircularProgressIndicator())
-            : _store.filteredIllusts.isEmpty
-                ? _buildEmptyView()
-                : PixezEasyRefresh.builder(
-                    controller: _easyRefreshController,
-                    onRefresh: () async {
-                      await _store.refresh();
-                    },
-                    onLoad: _store.loadMore,
-                    header: PixezDefault.header(context),
-                    footer: PixezDefault.footer(context),
-                    childBuilder: (context, physics, scrollController) {
-                      return CustomScrollView(
-                        physics: physics,
-                        controller: scrollController,
-                        slivers: [
-                          SliverPersistentHeader(
-                            key: ValueKey('sort_header_${_store.sortType}_${_store.sortDesc}'),
-                            delegate: SliverChipDelegate(
-                              Container(
-                                alignment: Alignment.center,
-                                child: Stack(
-                                  children: [
-                                    Center(
-                                      child: SortGroup(
-                                        key: ValueKey(_store.sortType),
-                                        children: [
-                                          '下载时间',
-                                          '作品时间',
-                                          '文件大小',
-                                          '平均大小',
-                                        ],
-                                        onChange: _store.onSortChanged,
-                                        initIndex: _store.sortType.index,
-                                      ),
-                                    ),
-                                    Positioned(
-                                      right: 8,
-                                      top: 0,
-                                      bottom: 0,
-                                      child: Center(
-                                        child: _buildSortOrderButton(),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              height: 52,
-                            ),
-                            pinned: true,
-                          ),
-                          _buildGridView(),
-                        ],
-                      );
-                    },
-                  ),
+        appBar: _buildAppBar(),
+        body: _buildBody(),
       ),
+    );
+  }
+
+  // ============ AppBar 相关 ============
+
+  PreferredSizeWidget _buildAppBar() {
+    return AppBar(
+      title: _buildAppBarTitle(),
+      actions: [
+        _buildImportButton(),
+        _buildAuthorsButton(),
+        _buildMoreMenu(),
+      ],
     );
   }
 
@@ -378,6 +134,204 @@ class _DownloadedPageState extends State<DownloadedPage> {
     );
   }
 
+  Widget _buildImportButton() {
+    return IconButton(
+      icon: Icon(Icons.upload_file),
+      tooltip: '导入',
+      onPressed: _showImportDialog,
+    );
+  }
+
+  Widget _buildAuthorsButton() {
+    return IconButton(
+      icon: Icon(Icons.people),
+      tooltip: '作者列表',
+      onPressed: () {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => DownloadedAuthorsPage(),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildMoreMenu() {
+    return PopupMenuButton<String>(
+      icon: Icon(Icons.more_vert),
+      onSelected: _onMenuSelected,
+      itemBuilder: (context) => [
+        ..._buildFilterMenuItems(),
+        PopupMenuDivider(),
+        ..._buildActionMenuItems(),
+        PopupMenuDivider(),
+        ..._buildDownloadControlMenuItems(),
+      ],
+    );
+  }
+
+  void _onMenuSelected(String value) {
+    switch (value) {
+      case 'filter_all':
+        _store.onFilterChanged(DownloadFilter.all);
+        break;
+      case 'filter_downloading':
+        _store.onFilterChanged(DownloadFilter.downloading);
+        break;
+      case 'filter_completed':
+        _store.onFilterChanged(DownloadFilter.completed);
+        break;
+      case 'filter_incomplete':
+        _store.onFilterChanged(DownloadFilter.incomplete);
+        break;
+      case 'update_info':
+        _showUpdateIllustInfoDialog();
+        break;
+      case 'pause_all':
+        _store.pauseAll();
+        break;
+      case 'resume_all':
+        _store.resumeAll();
+        break;
+      case 'cancel_all':
+        _store.cancelAll();
+        break;
+      case 'optimize_json':
+        OptimizeJsonDialog.show(context, downloadStore);
+        break;
+    }
+  }
+
+  List<PopupMenuEntry<String>> _buildFilterMenuItems() {
+    return [
+      _buildFilterMenuItem(
+        value: 'filter_all',
+        icon: Icons.list,
+        label: I18n.of(context).all,
+        isSelected: _store.downloadFilter == DownloadFilter.all,
+      ),
+      _buildFilterMenuItem(
+        value: 'filter_downloading',
+        icon: Icons.downloading,
+        label: I18n.of(context).running,
+        isSelected: _store.downloadFilter == DownloadFilter.downloading,
+      ),
+      _buildFilterMenuItem(
+        value: 'filter_completed',
+        icon: Icons.check_circle_outline,
+        label: I18n.of(context).complete,
+        isSelected: _store.downloadFilter == DownloadFilter.completed,
+      ),
+      _buildFilterMenuItem(
+        value: 'filter_incomplete',
+        icon: Icons.warning_amber,
+        label: '未下载完整',
+        isSelected: _store.downloadFilter == DownloadFilter.incomplete,
+      ),
+    ];
+  }
+
+  PopupMenuItem<String> _buildFilterMenuItem({
+    required String value,
+    required IconData icon,
+    required String label,
+    required bool isSelected,
+  }) {
+    final primaryColor = Theme.of(context).colorScheme.primary;
+    return PopupMenuItem(
+      value: value,
+      child: Row(
+        children: [
+          Icon(icon, color: isSelected ? primaryColor : null),
+          SizedBox(width: 8),
+          Text(label),
+          if (isSelected)
+            Padding(
+              padding: const EdgeInsets.only(left: 8.0),
+              child: Icon(Icons.check, size: 16, color: primaryColor),
+            ),
+        ],
+      ),
+    );
+  }
+
+  List<PopupMenuEntry<String>> _buildActionMenuItems() {
+    return [
+      PopupMenuItem(
+        value: 'update_info',
+        child: Row(
+          children: [
+            Icon(Icons.update),
+            SizedBox(width: 8),
+            Text('更新插画信息'),
+          ],
+        ),
+      ),
+      PopupMenuItem(
+        value: 'optimize_json',
+        child: Row(
+          children: [
+            Icon(Icons.storage, color: Colors.orange),
+            SizedBox(width: 8),
+            Text('优化数据库存储'),
+          ],
+        ),
+      ),
+    ];
+  }
+
+  List<PopupMenuEntry<String>> _buildDownloadControlMenuItems() {
+    return [
+      PopupMenuItem(
+        value: 'pause_all',
+        child: Row(
+          children: [
+            Icon(Icons.pause_circle_outline),
+            SizedBox(width: 8),
+            Text('暂停${I18n.of(context).all}'),
+          ],
+        ),
+      ),
+      PopupMenuItem(
+        value: 'resume_all',
+        child: Row(
+          children: [
+            Icon(Icons.play_circle_outline),
+            SizedBox(width: 8),
+            Text('${I18n.of(context).start}${I18n.of(context).all}'),
+          ],
+        ),
+      ),
+      PopupMenuItem(
+        value: 'cancel_all',
+        child: Row(
+          children: [
+            Icon(Icons.cancel, color: Colors.red),
+            SizedBox(width: 8),
+            Text(
+              '取消${I18n.of(context).all}',
+              style: TextStyle(color: Colors.red),
+            ),
+          ],
+        ),
+      ),
+    ];
+  }
+
+  // ============ Body 相关 ============
+
+  Widget _buildBody() {
+    if (_store.loading && _store.filteredIllusts.isEmpty) {
+      return Center(child: CircularProgressIndicator());
+    }
+
+    if (_store.filteredIllusts.isEmpty) {
+      return _buildEmptyView();
+    }
+
+    return _buildRefreshableContent();
+  }
+
   Widget _buildEmptyView() {
     return Center(
       child: Column(
@@ -391,6 +345,59 @@ class _DownloadedPageState extends State<DownloadedPage> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildRefreshableContent() {
+    return PixezEasyRefresh.builder(
+      controller: _easyRefreshController,
+      onRefresh: () async {
+        await _store.refresh();
+      },
+      onLoad: _store.loadMore,
+      header: PixezDefault.header(context),
+      footer: PixezDefault.footer(context),
+      childBuilder: (context, physics, scrollController) {
+        return CustomScrollView(
+          physics: physics,
+          controller: scrollController,
+          slivers: [
+            _buildSortHeader(),
+            _buildGridView(),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildSortHeader() {
+    return SliverPersistentHeader(
+      key: ValueKey('sort_header_${_store.sortType}_${_store.sortDesc}'),
+      delegate: SliverChipDelegate(
+        Container(
+          alignment: Alignment.center,
+          child: Stack(
+            children: [
+              Center(
+                child: SortGroup(
+                  key: ValueKey(_store.sortType),
+                  children: ['下载时间', '作品时间', '文件大小', '平均大小'],
+                  onChange: _store.onSortChanged,
+                  initIndex: _store.sortType.index,
+                ),
+              ),
+              Positioned(
+                right: 8,
+                top: 0,
+                bottom: 0,
+                child: Center(child: _buildSortOrderButton()),
+              ),
+            ],
+          ),
+        ),
+        height: 52,
+      ),
+      pinned: true,
     );
   }
 
@@ -430,7 +437,23 @@ class _DownloadedPageState extends State<DownloadedPage> {
             if (index >= filteredList.length) {
               return Center(child: CircularProgressIndicator());
             }
-            return _buildIllustCard(filteredList[index]);
+            return _DownloadedIllustCard(
+              illust: filteredList[index],
+              store: _store,
+              onTapPosition: (pos) => _tapPosition = pos,
+              onTap: () => _navigateToPictureList(filteredList[index]),
+              onLongPress: () => _showIllustOptions(filteredList[index]),
+              onSecondaryTap: () => _showContextMenu(
+                context,
+                filteredList[index],
+                _tapPosition,
+              ),
+              onOpenFolder: () => _openIllustFolder(filteredList[index]),
+              onRefreshData: () {
+                _store.loadData();
+                _store.loadStats();
+              },
+            );
           },
           childCount: filteredList.length + (_store.loadingMore ? 1 : 0),
         ),
@@ -438,8 +461,353 @@ class _DownloadedPageState extends State<DownloadedPage> {
     );
   }
 
-  Widget _buildIllustCard(DownloadedIllust illust) {
+  // ============ 导航与操作 ============
+
+  void _navigateToPictureList(DownloadedIllust illust) {
+    final iStores = _store.filteredIllusts.map((item) {
+      return IllustStore(item.illustId, item.toIllusts());
+    }).toList();
+
+    final currentIndex = _store.filteredIllusts.indexOf(illust);
+    final currentStore = iStores[currentIndex];
+
+    Leader.push(
+      context,
+      PictureListPage(
+        iStores: iStores,
+        store: currentStore,
+        lightingStore: null,
+        heroString: 'downloaded_illust_${illust.illustId}',
+      ),
+    );
+  }
+
+  Future<void> _openIllustFolder(DownloadedIllust illust) async {
+    final dirPath = p.join(
+      downloadStore.downloadPath,
+      illust.relativePath,
+    );
+    await OpenFile.open(dirPath);
+  }
+
+  // ============ 对话框 ============
+
+  void _showImportDialog() async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => ImportDialog(),
+    );
+    if (result == true) {
+      _store.loadData();
+      _store.loadStats();
+    }
+  }
+
+  void _showUpdateIllustInfoDialog() async {
+    List<DownloadedIllust> illustsToUpdate;
+
+    if (_store.filterUserId != null) {
+      illustsToUpdate = await downloadStore.getDownloadedByUser(
+        _store.filterUserId!,
+        limit: null,
+        offset: 0,
+      );
+    } else {
+      illustsToUpdate = List.from(_store.filteredIllusts);
+    }
+
+    if (illustsToUpdate.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('没有需要更新的作品')),
+      );
+      return;
+    }
+
+    await showDialog(
+      context: context,
+      builder: (context) => UpdateIllustInfoDialog(illusts: illustsToUpdate),
+    );
+
+    _store.loadData();
+    _store.loadStats();
+  }
+
+  Future<bool?> _showDeleteConfirmDialog(DownloadedIllust illust) {
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx2) {
+        return AlertDialog(
+          title: Text(I18n.of(context).delete),
+          content: Text('${illust.title}\n${I18n.of(context).delete}?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx2, false),
+              child: Text(I18n.of(context).cancel),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx2, true),
+              child: Text(
+                I18n.of(context).ok,
+                style: TextStyle(color: Colors.red),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _deleteIllust(DownloadedIllust illust) async {
+    final confirm = await _showDeleteConfirmDialog(illust);
+    if (confirm == true) {
+      downloadStore.cancelIllustDownload(illust.illustId);
+      await downloadStore.deleteDownloadedIllust(illust.illustId);
+      _store.loadData();
+      _store.loadStats();
+    }
+  }
+
+  // ============ 右键菜单 ============
+
+  void _showContextMenu(
+      BuildContext context, DownloadedIllust illust, Offset? tapPosition) {
+    final RenderBox overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox;
+
+    final localPosition =
+        tapPosition != null ? overlay.globalToLocal(tapPosition) : Offset.zero;
+
     final status = _store.illustDownloadStatus[illust.illustId];
+    final isDownloading = status == DownloadTaskStatus.downloading ||
+        status == DownloadTaskStatus.pending;
+    final isPaused = status == DownloadTaskStatus.paused;
+    final isFailed = status == DownloadTaskStatus.failed;
+
+    showMenu(
+      context: context,
+      position: RelativeRect.fromRect(
+        localPosition & Size(40, 40),
+        Offset.zero & overlay.size,
+      ),
+      items: [
+        _buildContextMenuItem(
+          icon: Icons.open_in_new,
+          label: I18n.of(context).detail,
+          onTap: () => _navigateToPictureList(illust),
+        ),
+        _buildContextMenuItem(
+          icon: Icons.folder_open,
+          label: I18n.of(context).save_path,
+          onTap: () => _openIllustFolder(illust),
+        ),
+        if (isDownloading)
+          _buildContextMenuItem(
+            icon: Icons.pause,
+            label: '暂停',
+            onTap: () => downloadStore.pauseIllustDownload(illust.illustId),
+          ),
+        if (isPaused || isFailed)
+          _buildContextMenuItem(
+            icon: Icons.play_arrow,
+            label: I18n.of(context).retry,
+            onTap: () => downloadStore.resumeIllustDownload(illust.illustId),
+          ),
+        _buildContextMenuItem(
+          icon: Icons.update,
+          label: '更新插画信息',
+          onTap: () async {
+            await showDialog(
+              context: context,
+              builder: (context) => UpdateIllustInfoDialog(
+                illusts: [illust],
+              ),
+            );
+            _store.loadData();
+          },
+        ),
+        _buildContextMenuItem(
+          icon: Icons.delete,
+          iconColor: Colors.red,
+          label: I18n.of(context).delete,
+          labelColor: Colors.red,
+          onTap: () => _deleteIllust(illust),
+        ),
+      ],
+    );
+  }
+
+  PopupMenuItem<void> _buildContextMenuItem({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    Color? iconColor,
+    Color? labelColor,
+  }) {
+    return PopupMenuItem(
+      child: Row(
+        children: [
+          Icon(icon, color: iconColor),
+          SizedBox(width: 8),
+          Text(label, style: labelColor != null ? TextStyle(color: labelColor) : null),
+        ],
+      ),
+      onTap: onTap,
+    );
+  }
+
+  // ============ 底部菜单 ============
+
+  void _showIllustOptions(DownloadedIllust illust) {
+    final status = _store.illustDownloadStatus[illust.illustId];
+    final isDownloading = status == DownloadTaskStatus.downloading ||
+        status == DownloadTaskStatus.pending;
+    final isPaused = status == DownloadTaskStatus.paused;
+    final isFailed = status == DownloadTaskStatus.failed;
+
+    showModalBottomSheet(
+      context: context,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildBottomSheetHeader(illust),
+              Divider(),
+              _buildBottomSheetItem(
+                context: ctx,
+                icon: Icons.open_in_new,
+                title: I18n.of(context).detail,
+                onTap: () {
+                  Navigator.pop(ctx);
+                  Leader.push(
+                    context,
+                    IllustLightingPage(
+                      id: illust.illustId,
+                      heroString: 'downloaded_illust_${illust.illustId}',
+                    ),
+                  );
+                },
+              ),
+              _buildBottomSheetItem(
+                context: ctx,
+                icon: Icons.folder_open,
+                title: I18n.of(context).save_path,
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  await _openIllustFolder(illust);
+                },
+              ),
+              if (isDownloading)
+                _buildBottomSheetItem(
+                  context: ctx,
+                  icon: Icons.pause,
+                  title: '暂停',
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    downloadStore.pauseIllustDownload(illust.illustId);
+                  },
+                ),
+              if (isPaused || isFailed)
+                _buildBottomSheetItem(
+                  context: ctx,
+                  icon: Icons.play_arrow,
+                  title: I18n.of(context).retry,
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    downloadStore.resumeIllustDownload(illust.illustId);
+                  },
+                ),
+              _buildBottomSheetItem(
+                context: ctx,
+                icon: Icons.update,
+                title: '更新插画信息',
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  await showDialog(
+                    context: context,
+                    builder: (context) => UpdateIllustInfoDialog(
+                      illusts: [illust],
+                    ),
+                  );
+                  _store.loadData();
+                  _store.loadStats();
+                },
+              ),
+              _buildBottomSheetItem(
+                context: ctx,
+                icon: Icons.delete,
+                iconColor: Colors.red,
+                title: I18n.of(context).delete,
+                titleColor: Colors.red,
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  await _deleteIllust(illust);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildBottomSheetHeader(DownloadedIllust illust) {
+    return ListTile(
+      leading: Icon(Icons.info_outline),
+      title: Text(illust.title),
+      subtitle: Text(illust.userName),
+    );
+  }
+
+  Widget _buildBottomSheetItem({
+    required BuildContext context,
+    required IconData icon,
+    required String title,
+    required VoidCallback onTap,
+    Color? iconColor,
+    Color? titleColor,
+  }) {
+    return ListTile(
+      leading: Icon(icon, color: iconColor),
+      title: Text(
+        title,
+        style: titleColor != null ? TextStyle(color: titleColor) : null,
+      ),
+      onTap: onTap,
+    );
+  }
+}
+
+// ============ 独立组件 ============
+
+/// 已下载插画卡片组件
+class _DownloadedIllustCard extends StatelessWidget {
+  final DownloadedIllust illust;
+  final DownloadedPageStore store;
+  final ValueChanged<Offset> onTapPosition;
+  final VoidCallback onTap;
+  final VoidCallback onLongPress;
+  final VoidCallback onSecondaryTap;
+  final VoidCallback onOpenFolder;
+  final VoidCallback onRefreshData;
+
+  const _DownloadedIllustCard({
+    required this.illust,
+    required this.store,
+    required this.onTapPosition,
+    required this.onTap,
+    required this.onLongPress,
+    required this.onSecondaryTap,
+    required this.onOpenFolder,
+    required this.onRefreshData,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final status = store.illustDownloadStatus[illust.illustId];
     final isDownloading = status == DownloadTaskStatus.downloading;
     final isPending = status == DownloadTaskStatus.pending;
     final isPaused = status == DownloadTaskStatus.paused;
@@ -448,33 +816,10 @@ class _DownloadedPageState extends State<DownloadedPage> {
     return Card(
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: () {
-          final iStores = _store.filteredIllusts.map((item) {
-            return IllustStore(item.illustId, item.toIllusts());
-          }).toList();
-
-          final currentIndex = _store.filteredIllusts.indexOf(illust);
-          final currentStore = iStores[currentIndex];
-
-          Leader.push(
-            context,
-            PictureListPage(
-              iStores: iStores,
-              store: currentStore,
-              lightingStore: null,
-              heroString: 'downloaded_illust_${illust.illustId}',
-            ),
-          );
-        },
-        onLongPress: () {
-          _showIllustOptions(illust);
-        },
-        onSecondaryTapDown: (details) {
-          _tapPosition = details.globalPosition;
-        },
-        onSecondaryTap: () {
-          _showContextMenu(context, illust, _tapPosition);
-        },
+        onTap: onTap,
+        onLongPress: onLongPress,
+        onSecondaryTapDown: (details) => onTapPosition(details.globalPosition),
+        onSecondaryTap: onSecondaryTap,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -482,165 +827,23 @@ class _DownloadedPageState extends State<DownloadedPage> {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  _buildThumbnail(illust),
-                  Positioned(
-                    top: 4,
-                    left: 4,
-                    child: Material(
-                      color: Colors.black54,
-                      borderRadius: BorderRadius.circular(20),
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(20),
-                        onTap: () async {
-                          final dirPath = p.join(
-                            downloadStore.downloadPath,
-                            illust.relativePath,
-                          );
-                          await OpenFile.open(dirPath);
-                        },
-                        child: Container(
-                          padding: EdgeInsets.all(6),
-                          child: Icon(
-                            Icons.folder_open,
-                            color: Colors.white,
-                            size: 18,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  if (isDownloading)
-                    Positioned.fill(
-                      child: Container(
-                        color: Colors.black38,
-                        child: Center(
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor:
-                                AlwaysStoppedAnimation<Color>(Colors.white),
-                          ),
-                        ),
-                      ),
-                    ),
-                  if (isPending)
-                    Positioned.fill(
-                      child: Container(
-                        color: Colors.black26,
-                        child: Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.hourglass_empty,
-                                color: Colors.white,
-                                size: 32,
-                              ),
-                              SizedBox(height: 4),
-                              Text(
-                                '等待下载',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  if (isPaused)
-                    Positioned(
-                      top: 4,
-                      right: 4,
-                      child: Container(
-                        padding:
-                            EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: Colors.orange,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          I18n.of(context).paused,
-                          style: TextStyle(color: Colors.white, fontSize: 10),
-                        ),
-                      ),
-                    ),
-                  if (isFailed)
-                    Positioned(
-                      top: 4,
-                      right: 4,
-                      child: Container(
-                        padding:
-                            EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: Colors.red,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          I18n.of(context).failed,
-                          style: TextStyle(color: Colors.white, fontSize: 10),
-                        ),
-                      ),
-                    ),
+                  _buildThumbnail(context),
+                  _buildFolderButton(context),
+                  if (isDownloading) _buildDownloadingOverlay(),
+                  if (isPending) _buildPendingOverlay(context),
+                  if (isPaused) _buildStatusBadge(context, I18n.of(context).paused, Colors.orange),
+                  if (isFailed) _buildStatusBadge(context, I18n.of(context).failed, Colors.red),
                 ],
               ),
             ),
-            Padding(
-              padding: EdgeInsets.all(8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    illust.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                  SizedBox(height: 2),
-                  Text(
-                    illust.userName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                  ),
-                  Row(
-                    children: [
-                      if (illust.pageCount > 1)
-                        Padding(
-                          padding: EdgeInsets.only(top: 2),
-                          child: _buildPageCountIndicator(
-                            illust,
-                            _store.fileSizes[illust.illustId],
-                          ),
-                        ),
-                      Spacer(),
-                      if (_store.fileSizes[illust.illustId] != null &&
-                          _store.fileSizes[illust.illustId]! > 0)
-                        Padding(
-                          padding: EdgeInsets.only(top: 2),
-                          child: Text(
-                            _store.fileSizes[illust.illustId]!.formatFileSize(),
-                            style:
-                                Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: Colors.grey[600],
-                                      fontSize: 11,
-                                    ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
+            _buildInfoSection(context),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildThumbnail(DownloadedIllust illust) {
+  Widget _buildThumbnail(BuildContext context) {
     final heroTag = 'downloaded_illust_${illust.illustId}';
 
     final imageUrls = illust.getImageUrls();
@@ -662,9 +865,144 @@ class _DownloadedPageState extends State<DownloadedPage> {
     );
   }
 
-  Widget _buildPageCountIndicator(DownloadedIllust illust, int? totalFileSize) {
+  Widget _buildFolderButton(BuildContext context) {
+    return Positioned(
+      top: 4,
+      left: 4,
+      child: Material(
+        color: Colors.black54,
+        borderRadius: BorderRadius.circular(20),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: onOpenFolder,
+          child: Container(
+            padding: EdgeInsets.all(6),
+            child: Icon(
+              Icons.folder_open,
+              color: Colors.white,
+              size: 18,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDownloadingOverlay() {
+    return Positioned.fill(
+      child: Container(
+        color: Colors.black38,
+        child: Center(
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPendingOverlay(BuildContext context) {
+    return Positioned.fill(
+      child: Container(
+        color: Colors.black26,
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.hourglass_empty,
+                color: Colors.white,
+                size: 32,
+              ),
+              SizedBox(height: 4),
+              Text(
+                '等待下载',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatusBadge(BuildContext context, String text, Color color) {
+    return Positioned(
+      top: 4,
+      right: 4,
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Text(
+          text,
+          style: TextStyle(color: Colors.white, fontSize: 10),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoSection(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.all(8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            illust.title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          SizedBox(height: 2),
+          Text(
+            illust.userName,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+          ),
+          _buildStatsRow(context),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatsRow(BuildContext context) {
+    final totalFileSize = store.fileSizes[illust.illustId];
+    return Row(
+      children: [
+        if (illust.pageCount > 1)
+          Padding(
+            padding: EdgeInsets.only(top: 2),
+            child: _buildPageCountIndicator(context, totalFileSize),
+          ),
+        Spacer(),
+        if (totalFileSize != null && totalFileSize > 0)
+          Padding(
+            padding: EdgeInsets.only(top: 2),
+            child: Text(
+              totalFileSize.formatFileSize(),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Colors.grey[600],
+                    fontSize: 11,
+                  ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildPageCountIndicator(BuildContext context, int? totalFileSize) {
     final downloadedCount =
-        _store.downloadedCounts[illust.illustId] ?? illust.pageCount;
+        store.downloadedCounts[illust.illustId] ?? illust.pageCount;
     final totalCount = illust.pageCount;
 
     String pageText;
@@ -709,330 +1047,9 @@ class _DownloadedPageState extends State<DownloadedPage> {
       );
     }
   }
-
-  void _showContextMenu(
-      BuildContext context, DownloadedIllust illust, Offset? tapPosition) {
-    final RenderBox overlay =
-        Overlay.of(context).context.findRenderObject() as RenderBox;
-
-    final localPosition =
-        tapPosition != null ? overlay.globalToLocal(tapPosition) : Offset.zero;
-
-    final status = _store.illustDownloadStatus[illust.illustId];
-    final isDownloading = status == DownloadTaskStatus.downloading ||
-        status == DownloadTaskStatus.pending;
-    final isPaused = status == DownloadTaskStatus.paused;
-    final isFailed = status == DownloadTaskStatus.failed;
-
-    showMenu(
-      context: context,
-      position: RelativeRect.fromRect(
-        localPosition & Size(40, 40),
-        Offset.zero & overlay.size,
-      ),
-      items: [
-        PopupMenuItem(
-          child: Row(
-            children: [
-              Icon(Icons.open_in_new),
-              SizedBox(width: 8),
-              Text(I18n.of(context).detail),
-            ],
-          ),
-          onTap: () {
-            final iStores = _store.filteredIllusts.map((item) {
-              return IllustStore(item.illustId, item.toIllusts());
-            }).toList();
-
-            final currentIndex = _store.filteredIllusts.indexOf(illust);
-            final currentStore = iStores[currentIndex];
-
-            Leader.push(
-              context,
-              PictureListPage(
-                iStores: iStores,
-                store: currentStore,
-                lightingStore: null,
-                heroString: 'downloaded_illust_${illust.illustId}',
-              ),
-            );
-          },
-        ),
-        PopupMenuItem(
-          child: Row(
-            children: [
-              Icon(Icons.folder_open),
-              SizedBox(width: 8),
-              Text(I18n.of(context).save_path),
-            ],
-          ),
-          onTap: () async {
-            final dirPath = p.join(
-              downloadStore.downloadPath,
-              illust.relativePath,
-            );
-            await OpenFile.open(dirPath);
-          },
-        ),
-        if (isDownloading)
-          PopupMenuItem(
-            child: Row(
-              children: [
-                Icon(Icons.pause),
-                SizedBox(width: 8),
-                Text('暂停'),
-              ],
-            ),
-            onTap: () {
-              downloadStore.pauseIllustDownload(illust.illustId);
-            },
-          ),
-        if (isPaused || isFailed)
-          PopupMenuItem(
-            child: Row(
-              children: [
-                Icon(Icons.play_arrow),
-                SizedBox(width: 8),
-                Text(I18n.of(context).retry),
-              ],
-            ),
-            onTap: () {
-              downloadStore.resumeIllustDownload(illust.illustId);
-            },
-          ),
-        PopupMenuItem(
-          child: Row(
-            children: [
-              Icon(Icons.update),
-              SizedBox(width: 8),
-              Text('更新插画信息'),
-            ],
-          ),
-          onTap: () async {
-            await showDialog(
-              context: context,
-              builder: (context) => UpdateIllustInfoDialog(
-                illusts: [illust],
-              ),
-            );
-            _store.loadData();
-          },
-        ),
-        PopupMenuItem(
-          child: Row(
-            children: [
-              Icon(Icons.delete, color: Colors.red),
-              SizedBox(width: 8),
-              Text(
-                I18n.of(context).delete,
-                style: TextStyle(color: Colors.red),
-              ),
-            ],
-          ),
-          onTap: () async {
-            final confirm = await showDialog<bool>(
-              context: context,
-              builder: (ctx2) {
-                return AlertDialog(
-                  title: Text(I18n.of(context).delete),
-                  content: Text('${illust.title}\n${I18n.of(context).delete}?'),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(ctx2, false),
-                      child: Text(I18n.of(context).cancel),
-                    ),
-                    TextButton(
-                      onPressed: () => Navigator.pop(ctx2, true),
-                      child: Text(
-                        I18n.of(context).ok,
-                        style: TextStyle(color: Colors.red),
-                      ),
-                    ),
-                  ],
-                );
-              },
-            );
-            if (confirm == true) {
-              downloadStore.cancelIllustDownload(illust.illustId);
-              await downloadStore.deleteDownloadedIllust(illust.illustId);
-              _store.loadData();
-              _store.loadStats();
-            }
-          },
-        ),
-      ],
-    );
-  }
-
-  void _showImportDialog() async {
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (context) => ImportDialog(),
-    );
-    if (result == true) {
-      _store.loadData();
-      _store.loadStats();
-    }
-  }
-
-  void _showUpdateIllustInfoDialog() async {
-    List<DownloadedIllust> illustsToUpdate;
-
-    if (_store.filterUserId != null) {
-      illustsToUpdate = await downloadStore.getDownloadedByUser(
-        _store.filterUserId!,
-        limit: null,
-        offset: 0,
-      );
-    } else {
-      illustsToUpdate = List.from(_store.filteredIllusts);
-    }
-
-    if (illustsToUpdate.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('没有需要更新的作品')),
-      );
-      return;
-    }
-
-    await showDialog(
-      context: context,
-      builder: (context) => UpdateIllustInfoDialog(illusts: illustsToUpdate),
-    );
-
-    _store.loadData();
-    _store.loadStats();
-  }
-
-  void _showIllustOptions(DownloadedIllust illust) {
-    final status = _store.illustDownloadStatus[illust.illustId];
-    final isDownloading = status == DownloadTaskStatus.downloading ||
-        status == DownloadTaskStatus.pending;
-    final isPaused = status == DownloadTaskStatus.paused;
-    final isFailed = status == DownloadTaskStatus.failed;
-
-    showModalBottomSheet(
-      context: context,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (ctx) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: Icon(Icons.info_outline),
-                title: Text(illust.title),
-                subtitle: Text(illust.userName),
-              ),
-              Divider(),
-              ListTile(
-                leading: Icon(Icons.open_in_new),
-                title: Text(I18n.of(context).detail),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  Leader.push(
-                    context,
-                    IllustLightingPage(
-                      id: illust.illustId,
-                      heroString: 'downloaded_illust_${illust.illustId}',
-                    ),
-                  );
-                },
-              ),
-              ListTile(
-                leading: Icon(Icons.folder_open),
-                title: Text(I18n.of(context).save_path),
-                onTap: () async {
-                  Navigator.pop(ctx);
-                  final dirPath = p.join(
-                    downloadStore.downloadPath,
-                    illust.relativePath,
-                  );
-                  await OpenFile.open(dirPath);
-                },
-              ),
-              if (isDownloading)
-                ListTile(
-                  leading: Icon(Icons.pause),
-                  title: Text('暂停'),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    downloadStore.pauseIllustDownload(illust.illustId);
-                  },
-                ),
-              if (isPaused || isFailed)
-                ListTile(
-                  leading: Icon(Icons.play_arrow),
-                  title: Text(I18n.of(context).retry),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    downloadStore.resumeIllustDownload(illust.illustId);
-                  },
-                ),
-              ListTile(
-                leading: Icon(Icons.update),
-                title: Text('更新插画信息'),
-                onTap: () async {
-                  Navigator.pop(ctx);
-                  await showDialog(
-                    context: context,
-                    builder: (context) => UpdateIllustInfoDialog(
-                      illusts: [illust],
-                    ),
-                  );
-                  _store.loadData();
-                  _store.loadStats();
-                },
-              ),
-              ListTile(
-                leading: Icon(Icons.delete, color: Colors.red),
-                title: Text(
-                  I18n.of(context).delete,
-                  style: TextStyle(color: Colors.red),
-                ),
-                onTap: () async {
-                  Navigator.pop(ctx);
-                  final confirm = await showDialog<bool>(
-                    context: context,
-                    builder: (ctx2) {
-                      return AlertDialog(
-                        title: Text(I18n.of(context).delete),
-                        content: Text(
-                            '${illust.title}\n${I18n.of(context).delete}?'),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(ctx2, false),
-                            child: Text(I18n.of(context).cancel),
-                          ),
-                          TextButton(
-                            onPressed: () => Navigator.pop(ctx2, true),
-                            child: Text(
-                              I18n.of(context).ok,
-                              style: TextStyle(color: Colors.red),
-                            ),
-                          ),
-                        ],
-                      );
-                    },
-                  );
-                  if (confirm == true) {
-                    downloadStore.cancelIllustDownload(illust.illustId);
-                    await downloadStore.deleteDownloadedIllust(illust.illustId);
-                    _store.loadData();
-                    _store.loadStats();
-                  }
-                },
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
 }
 
+/// SliverPersistentHeader 的委托类
 class SliverChipDelegate extends SliverPersistentHeaderDelegate {
   final Widget child;
   double height = 45;
