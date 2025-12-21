@@ -73,6 +73,7 @@ class _HelloPageState extends State<HelloPage> {
   late StreamSubscription _sub;
   late int index;
   late PageController _pageController;
+  bool? _lastWide;
   double? bottomNavigatorHeight = null;
   late List<Widget> _lists;
   late List<Widget> _wideLists;
@@ -154,6 +155,16 @@ class _HelloPageState extends State<HelloPage> {
     return LayoutBuilder(builder: (context, constraints) {
       final wide = constraints.maxWidth > constraints.maxHeight;
       final list = wide ? _wideLists : _lists;
+      if (_lastWide != null && _lastWide != wide) {
+        // 同步索引并更新 PageController 位置
+        index = index.clamp(0, list.length - 1);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (_pageController.hasClients) {
+            _pageController.jumpToPage(index);
+          }
+        });
+      }
+      _lastWide = wide;
       index = index.clamp(0, list.length - 1);
 
       // 更新 windowFrameController 的宽屏状态
@@ -344,6 +355,11 @@ class _HelloPageState extends State<HelloPage> {
           ],
           selectedIndex: index,
           onDestinationSelected: (value) {
+            // 切换 Tab 时清除 Navigator 栈
+            if (_contentNavigatorKey.currentState != null) {
+              _contentNavigatorKey.currentState!
+                  .popUntil((route) => route.isFirst);
+            }
             if (this.index == value) {
               topStore.setTop("${value + 1}00");
             }
@@ -360,6 +376,7 @@ class _HelloPageState extends State<HelloPage> {
   Widget _buildPageView(BuildContext context, bool isWideScreen) {
     final list = isWideScreen ? _wideLists : _lists;
     final pageView = PageView.builder(
+        key: const ValueKey('hello_page_view'),
         itemCount: list.length,
         controller: _pageController,
         onPageChanged: (index) {
@@ -371,41 +388,47 @@ class _HelloPageState extends State<HelloPage> {
           return list[index];
         });
 
-    // 在宽屏状态下，将 PageView 包裹在 Navigator 中
+    final Widget content;
     if (isWideScreen) {
-      return Shortcuts(
-        shortcuts: <ShortcutActivator, Intent>{
-          const SingleActivator(LogicalKeyboardKey.escape):
-              const _GoBackIntent(),
+      content = Navigator(
+        key: _contentNavigatorKey,
+        observers: [HeroController()],
+        onGenerateRoute: (settings) {
+          // 默认路由显示 PageView
+          if (settings.name == '/') {
+            return MaterialPageRoute(
+              builder: (context) => pageView,
+              settings: settings,
+            );
+          }
+          // 其他路由由 push 方法创建
+          return null;
         },
-        child: Actions(
-          actions: <Type, Action<Intent>>{
-            _GoBackIntent: CallbackAction<_GoBackIntent>(
-              onInvoke: (intent) =>
-                  Navigator.of(_contentNavigatorKey.currentContext!).maybePop(),
-            ),
-          },
-          child: Navigator(
-            key: _contentNavigatorKey,
-            observers: [HeroController()],
-            onGenerateRoute: (settings) {
-              // 默认路由显示 PageView
-              if (settings.name == '/') {
-                return MaterialPageRoute(
-                  builder: (context) => pageView,
-                  settings: settings,
-                );
-              }
-              // 其他路由由 push 方法创建
-              return null;
-            },
-            initialRoute: '/',
-          ),
-        ),
+        initialRoute: '/',
       );
     } else {
-      return pageView;
+      content = pageView;
     }
+
+    return Shortcuts(
+      shortcuts: <ShortcutActivator, Intent>{
+        const SingleActivator(LogicalKeyboardKey.escape): const _GoBackIntent(),
+      },
+      child: Actions(
+        actions: <Type, Action<Intent>>{
+          _GoBackIntent: CallbackAction<_GoBackIntent>(
+            onInvoke: (intent) {
+              if (isWideScreen) {
+                _contentNavigatorKey.currentState?.maybePop();
+              } else {
+                Navigator.of(context).maybePop();
+              }
+            },
+          ),
+        },
+        child: content,
+      ),
+    );
   }
 }
 
