@@ -29,6 +29,22 @@ const kImageExtensions = ['.webp', '.jpg', '.png', '.gif', '.jpeg'];
 
 // 下载的插画记录
 class DownloadedIllust {
+  /// Pixiv 图片服务器前缀
+  static const String _pxImgHost = 'https://i.pximg.net';
+
+  /// 占位符（用于替换 URL 前缀，确保压缩/解压完全匹配）
+  static const String _pxImgPlaceholder = r'$PX$';
+
+  /// 压缩 JSON 字符串，将 Pixiv 图片 URL 前缀替换为占位符
+  static String _compressPxImgUrl(String json) {
+    return json.replaceAll(_pxImgHost, _pxImgPlaceholder);
+  }
+
+  /// 解压缩 JSON 字符串，将占位符还原为 Pixiv 图片 URL 前缀
+  static String _decompressPxImgUrl(String json) {
+    return json.replaceAll(_pxImgPlaceholder, _pxImgHost);
+  }
+
   final int illustId;
   final int userId;
   final String userName;
@@ -79,7 +95,7 @@ class DownloadedIllust {
     if (imageUrlsJson.isEmpty) {
       return const ImageUrls();
     }
-    return ImageUrls.fromJson(TypeUtil.parseMap(imageUrlsJson));
+    return ImageUrls.fromJson(TypeUtil.parseMap(_decompressPxImgUrl(imageUrlsJson)));
   }
 
   factory DownloadedIllust.fromIllusts(Illusts illusts, String relativePath,
@@ -127,11 +143,13 @@ class DownloadedIllust {
       xRestrict: illusts.xRestrict,
       totalView: illusts.totalView,
       totalBookmarks: illusts.totalBookmarks,
-      tags: jsonEncode(illusts.tags.map((t) => t.toJson()).toList()),
+      tags: jsonEncode(
+          illusts.tags.map((t) => TypeUtil.shrinkMap(t.toJson())).toList()),
       relativePath: relativePath,
       downloadTime: downloadTime ?? DateTime.now().millisecondsSinceEpoch,
-      illustJson: jsonEncode(shrunkJson),
-      imageUrlsJson: jsonEncode(illusts.imageUrls.toJson()), // 提取 imageUrls 为独立字段
+      illustJson: _compressPxImgUrl(jsonEncode(shrunkJson)),
+      imageUrlsJson:
+          _compressPxImgUrl(jsonEncode(illusts.imageUrls.toJson())),
     );
   }
 
@@ -184,8 +202,8 @@ class DownloadedIllust {
   }
 
   Illusts toIllusts() {
-    // 使用 TypeUtil.parseMap 安全地将字符串转换为 Map
-    final json = TypeUtil.parseMap(_illustJson);
+    // 使用 TypeUtil.parseMap 安全地将字符串转换为 Map（先解压 URL 前缀）
+    final json = TypeUtil.parseMap(_decompressPxImgUrl(_illustJson));
 
     // 先从 illustJson 转换成 Illusts（即使 json 为空也能创建默认对象）
     final baseIllusts = Illusts.fromJson(json);
