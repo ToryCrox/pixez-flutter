@@ -13,15 +13,11 @@
  * this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-import 'dart:async';
-
-import 'package:bot_toast/bot_toast.dart';
-import 'package:collection/collection.dart';
 import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:open_file/open_file.dart';
 import 'package:path/path.dart' as p;
-import 'package:pixez/custom/log.dart';
 import 'package:pixez/er/leader.dart';
 import 'package:pixez/exts.dart';
 import 'package:pixez/i18n.dart';
@@ -31,6 +27,7 @@ import 'package:pixez/page/picture/illust_lighting_page.dart';
 import 'package:pixez/page/picture/illust_store.dart';
 import 'package:pixez/page/picture/picture_list_page.dart';
 import 'package:pixez/page/downloaded/downloaded_authors_page.dart';
+import 'package:pixez/page/downloaded/downloaded_page_store.dart';
 import 'package:pixez/page/downloaded/import_dialog.dart';
 import 'package:pixez/page/downloaded/optimize_json_dialog.dart';
 import 'package:pixez/page/downloaded/update_illust_info_dialog.dart';
@@ -38,27 +35,8 @@ import 'package:pixez/store/download_store.dart';
 import 'package:pixez/component/pixez_easy_refresh.dart';
 import 'package:pixez/component/pixez_default_header.dart';
 import 'package:pixez/component/sort_group.dart';
-import 'package:pixez/er/prefer.dart';
 
 import '../../component/pixiv_image.dart';
-
-enum DownloadFilter {
-  all,
-  downloading,
-  completed,
-  incomplete, // 未下载完整
-}
-
-enum IllustSortType {
-  downloadTime, // 下载时间
-  createDate, // 作品时间
-  fileSize, // 文件大小
-  averageFileSize, // 平均文件大小
-}
-
-// SharedPreferences 键名
-const String _DOWNLOADED_ILLUSTS_SORT_TYPE_KEY = 'downloaded_illusts_sort_type';
-const String _DOWNLOADED_ILLUSTS_SORT_DESC_KEY = 'downloaded_illusts_sort_desc';
 
 class DownloadedPage extends StatefulWidget {
   final int? initialUserId;
@@ -75,29 +53,9 @@ class DownloadedPage extends StatefulWidget {
 }
 
 class _DownloadedPageState extends State<DownloadedPage> {
-  List<DownloadedIllust> _illusts = [];
-  Map<int, int> _downloadedCounts = {};
-  Map<int, DownloadTaskStatus> _illustDownloadStatus = {};
-  Map<int, int> _fileSizes = {}; // 存储文件大小（字节）
-  bool _loading = true;
-  String? _searchKeyword;
-  int? _filterUserId;
-  String? _filterUserName;
-  DownloadFilter _downloadFilter = DownloadFilter.all;
+  late DownloadedPageStore _store;
   late EasyRefreshController _easyRefreshController;
   Offset? _tapPosition;
-  int _page = 0;
-  static const int _pageSize = 50;
-  bool _hasMore = true;
-  bool _loadingMore = false;
-  StreamSubscription<IllustDownloadStatus>? _downloadStatusSubscription;
-
-  // 排序相关
-  IllustSortType _sortType = IllustSortType.downloadTime;
-  bool _sortDesc = true; // true=倒序，false=正序
-
-  // 统计信息
-  Map<String, int>? _stats; // 插画数量、图片数量、文件大小
 
   @override
   void initState() {
@@ -106,700 +64,299 @@ class _DownloadedPageState extends State<DownloadedPage> {
       controlFinishLoad: true,
       controlFinishRefresh: true,
     );
-    // 如果传入了初始用户ID和用户名，则设置过滤条件
-    if (widget.initialUserId != null) {
-      _filterUserId = widget.initialUserId;
-      _filterUserName = widget.initialUserName;
-    }
-    _loadPersistedState();
-    _loadData();
-    _loadStats();
-    _downloadStatusSubscription = downloadStore.illustDownloadStatusStream
-        .listen(_onDownloadStatusChanged);
-  }
-
-  /// 加载持久化的状态
-  void _loadPersistedState() {
-    final sortTypeIndex = Prefer.getInt(_DOWNLOADED_ILLUSTS_SORT_TYPE_KEY);
-    if (sortTypeIndex != null &&
-        sortTypeIndex >= 0 &&
-        sortTypeIndex < IllustSortType.values.length) {
-      _sortType = IllustSortType.values[sortTypeIndex];
-    }
-
-    final sortDesc = Prefer.getBool(_DOWNLOADED_ILLUSTS_SORT_DESC_KEY);
-    if (sortDesc != null) {
-      _sortDesc = sortDesc;
-    }
-  }
-
-  /// 加载统计信息
-  /// 根据作者筛选：如果有作者筛选则统计该作者的所有作品，否则统计全部
-  Future<void> _loadStats() async {
-    if (!downloadStore.isInitialized) {
-      return;
-    }
-
-    try {
-      String filterType = 'all';
-      int? userId;
-
-      // 只根据作者筛选来决定统计范围
-      if (_filterUserId != null) {
-        filterType = 'user';
-        userId = _filterUserId;
-      }
-      // 没有作者筛选则统计全部（filterType = 'all'）
-
-      final stats = await downloadStore.getFilteredStats(
-        filterType: filterType,
-        userId: userId,
-        searchKeyword: null, // 统计时不考虑搜索关键词
-      );
-
-      if (mounted) {
-        setState(() {
-          _stats = stats;
-        });
-      }
-    } catch (e) {
-      // 忽略错误，不影响主功能
-    }
+    _store = DownloadedPageStore();
+    _store.easyRefreshController = _easyRefreshController;
+    _store.init(
+      initialUserId: widget.initialUserId,
+      initialUserName: widget.initialUserName,
+    );
   }
 
   @override
   void dispose() {
+    _store.dispose();
     _easyRefreshController.dispose();
-    _downloadStatusSubscription?.cancel();
     super.dispose();
-  }
-
-  void _onDownloadStatusChanged(IllustDownloadStatus status) {
-    if (mounted) {
-      setState(() {
-        // 如果是删除状态，从列表中移除
-        if (status.status == DownloadTaskStatus.deleted) {
-          _illusts.removeWhere((e) => e.illustId == status.illusts.illustId);
-          _illustDownloadStatus.remove(status.illusts.illustId);
-          _downloadedCounts.remove(status.illusts.illustId);
-          _fileSizes.remove(status.illusts.illustId);
-          return;
-        }
-
-        // 如果当前有作者过滤，检查新插画是否属于当前作者
-        if (_filterUserId != null && status.illusts.userId != _filterUserId) {
-          // 不属于当前作者，不添加到列表，但更新状态信息（如果已存在）
-          if (_illusts.any((e) => e.illustId == status.illusts.illustId)) {
-            _illustDownloadStatus[status.illusts.illustId] = status.status;
-            _downloadedCounts[status.illusts.illustId] = status.completedCount;
-          }
-          return;
-        }
-
-        if (_illusts.firstWhereOrNull(
-                (e) => e.illustId == status.illusts.illustId) ==
-            null) {
-          _illusts.insert(0, status.illusts);
-        }
-        _illustDownloadStatus[status.illusts.illustId] = status.status;
-        _downloadedCounts[status.illusts.illustId] = status.completedCount;
-        // 新策略：不需要预加载 _thumbnailPaths，直接使用 PixivImage + imageUrls.squareMedium
-        // 直接从 status 中获取文件大小，避免重复查询
-        if (status.fileSize > 0) {
-          _fileSizes[status.illusts.illustId] = status.fileSize;
-        }
-      });
-    }
-  }
-
-  Future<void> _loadMore() async {
-    if (_loadingMore || !_hasMore) {
-      _easyRefreshController.finishLoad(IndicatorResult.noMore);
-      return;
-    }
-
-    setState(() {
-      _loadingMore = true;
-    });
-
-    _page++;
-    final offset = _page * _pageSize;
-
-    try {
-      List<DownloadedIllust> moreIllusts;
-      final orderBy = _getSortBy();
-
-      if (_downloadFilter == DownloadFilter.incomplete) {
-        // 未下载完整过滤：查询数据库中所有未下载完整的作品
-        moreIllusts = await downloadStore.getIncompleteDownloaded(
-          limit: _pageSize,
-          offset: offset,
-          orderBy: orderBy,
-        );
-      } else if (_filterUserId != null) {
-        moreIllusts = await downloadStore.getDownloadedByUser(
-          _filterUserId!,
-          limit: _pageSize,
-          offset: offset,
-          orderBy: orderBy,
-        );
-      } else if (_searchKeyword != null && _searchKeyword!.isNotEmpty) {
-        moreIllusts = await downloadStore.searchDownloaded(
-          _searchKeyword!,
-          limit: _pageSize,
-          offset: offset,
-          orderBy: orderBy,
-        );
-      } else {
-        moreIllusts = await downloadStore.getAllDownloaded(
-          limit: _pageSize,
-          offset: offset,
-          orderBy: orderBy,
-        );
-      }
-
-      // 先添加到列表
-      if (mounted) {
-        setState(() {
-          _illusts.addAll(moreIllusts);
-          _loadingMore = false;
-          _hasMore = moreIllusts.length >= _pageSize;
-        });
-        _easyRefreshController.finishLoad(
-          _hasMore ? IndicatorResult.success : IndicatorResult.noMore,
-        );
-      }
-
-      // 并行加载关键信息（下载状态和页数）
-      final criticalFutures = moreIllusts.map((illust) async {
-        final downloadStatus =
-            await downloadStore.getIllustDownloadStatus(illust.illustId);
-        return MapEntry(illust.illustId, downloadStatus);
-      }).toList();
-
-      final criticalResults = await Future.wait(criticalFutures);
-
-      if (mounted) {
-        setState(() {
-          for (final entry in criticalResults) {
-            if (entry.value != null) {
-              _downloadedCounts[entry.key] = entry.value!.completedCount;
-              _illustDownloadStatus[entry.key] = entry.value!.status;
-              // 直接从 downloadStatus 中获取 fileSize，避免重复查询
-              if (entry.value!.fileSize > 0) {
-                _fileSizes[entry.key] = entry.value!.fileSize;
-              }
-            }
-          }
-        });
-      }
-
-      // 延迟加载非关键信息（仅缩略图）
-      _loadNonCriticalData(moreIllusts);
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _loadingMore = false;
-        });
-        _easyRefreshController.finishLoad(IndicatorResult.fail);
-      }
-    }
-  }
-
-  String? _getSortBy() {
-    switch (_sortType) {
-      case IllustSortType.downloadTime:
-        return '${DownloadedIllustColumns.downloadTime} ${_sortDesc ? 'DESC' : 'ASC'}';
-      case IllustSortType.createDate:
-        return '${DownloadedIllustColumns.createDate} ${_sortDesc ? 'DESC' : 'ASC'}';
-      case IllustSortType.fileSize:
-        // 文件大小排序在数据库中进行
-        return 'total_file_size ${_sortDesc ? 'DESC' : 'ASC'}';
-      case IllustSortType.averageFileSize:
-        // 平均文件大小排序在数据库中进行
-        return 'total_file_size / page_count ${_sortDesc ? 'DESC' : 'ASC'}';
-    }
-  }
-
-  Future<void> _loadData() async {
-    if (!downloadStore.isInitialized) {
-      setState(() {
-        _loading = false;
-      });
-      return;
-    }
-
-    setState(() {
-      _loading = true;
-      _page = 0;
-      _hasMore = true;
-    });
-
-    try {
-      List<DownloadedIllust> illusts;
-      final orderBy = _getSortBy();
-
-      final t1 = DateTime.now();
-      if (_downloadFilter == DownloadFilter.incomplete) {
-        // 未下载完整过滤：查询数据库中所有未下载完整的作品
-        illusts = await downloadStore.getIncompleteDownloaded(
-          limit: _pageSize,
-          offset: 0,
-          orderBy: orderBy,
-        );
-      } else if (_filterUserId != null) {
-        illusts = await downloadStore.getDownloadedByUser(
-          _filterUserId!,
-          limit: _pageSize,
-          offset: 0,
-          orderBy: orderBy,
-        );
-      } else if (_searchKeyword != null && _searchKeyword!.isNotEmpty) {
-        illusts = await downloadStore.searchDownloaded(
-          _searchKeyword!,
-          limit: _pageSize,
-          offset: 0,
-          orderBy: orderBy,
-        );
-      } else {
-        illusts = await downloadStore.getAllDownloaded(
-          limit: _pageSize,
-          offset: 0,
-          orderBy: orderBy,
-        );
-      }
-      final timeSpent = DateTime.now().difference(t1);
-      Log.i(() =>
-          'loadData cost ${timeSpent.inMilliseconds}ms, count ${illusts.length}');
-      if (timeSpent.inMilliseconds > 300) {
-        BotToast.showText(text: 'loadData cost ${timeSpent.inMilliseconds}ms');
-      }
-
-      // 先显示列表，不等待所有数据加载完成
-      if (mounted) {
-        setState(() {
-          _illusts = illusts;
-          _loading = false;
-          _hasMore = illusts.length >= _pageSize;
-        });
-      }
-
-      // 并行加载关键信息（下载状态和页数）
-      final criticalFutures = illusts.map((illust) async {
-        final downloadStatus =
-            await downloadStore.getIllustDownloadStatus(illust.illustId);
-        return MapEntry(illust.illustId, downloadStatus);
-      }).toList();
-
-      final criticalResults = await Future.wait(criticalFutures);
-      final counts = <int, int>{};
-      final statusMap = <int, DownloadTaskStatus>{};
-      final fileSizes = <int, int>{};
-
-      for (final entry in criticalResults) {
-        if (entry.value != null) {
-          counts[entry.key] = entry.value!.completedCount;
-          statusMap[entry.key] = entry.value!.status;
-          // 直接从 downloadStatus 中获取 fileSize，避免重复查询
-          if (entry.value!.fileSize > 0) {
-            fileSizes[entry.key] = entry.value!.fileSize;
-          }
-        }
-      }
-
-      if (mounted) {
-        setState(() {
-          _downloadedCounts = counts;
-          _illustDownloadStatus = statusMap;
-          _fileSizes = fileSizes;
-        });
-      }
-
-      // 延迟加载非关键信息（仅缩略图），分批加载避免阻塞
-      _loadNonCriticalData(illusts);
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _loading = false;
-        });
-      }
-    }
-  }
-
-  /// 延迟加载非关键数据（新策略已弃用）
-  /// 新策略直接使用 PixivImage + imageUrls.squareMedium，无需预加载路径
-  // ignore: unused_element
-  void _loadNonCriticalData(
-      List<DownloadedIllust> illusts) {} // ignore: unused_element
-
-  List<DownloadedIllust> get _filteredIllusts {
-    if (_downloadFilter == DownloadFilter.all) {
-      return _illusts;
-    }
-
-    // 未下载完整过滤：直接从数据库查询，不需要在应用层过滤
-    if (_downloadFilter == DownloadFilter.incomplete) {
-      return _illusts;
-    }
-
-    return _illusts.where((illust) {
-      final status = _illustDownloadStatus[illust.illustId];
-      final downloadedCount = _downloadedCounts[illust.illustId] ?? 0;
-      final isCompleted = downloadedCount >= illust.pageCount;
-
-      if (_downloadFilter == DownloadFilter.downloading) {
-        return !isCompleted ||
-            status == DownloadTaskStatus.downloading ||
-            status == DownloadTaskStatus.pending ||
-            status == DownloadTaskStatus.paused ||
-            status == DownloadTaskStatus.failed;
-      } else if (_downloadFilter == DownloadFilter.completed) {
-        return isCompleted &&
-            status != DownloadTaskStatus.downloading &&
-            status != DownloadTaskStatus.pending &&
-            status != DownloadTaskStatus.paused &&
-            status != DownloadTaskStatus.failed;
-      }
-      return true;
-    }).toList();
-  }
-
-  void _onSortChanged(int index) {
-    final newSortType = IllustSortType.values[index];
-    setState(() {
-      _sortType = newSortType;
-    });
-    // 持久化排序类型
-    Prefer.setInt(_DOWNLOADED_ILLUSTS_SORT_TYPE_KEY, newSortType.index);
-    _loadData();
-  }
-
-  void _onSortOrderChanged(bool desc) {
-    setState(() {
-      _sortDesc = desc;
-    });
-    // 持久化排序顺序
-    Prefer.setBool(_DOWNLOADED_ILLUSTS_SORT_DESC_KEY, desc);
-    _loadData();
-  }
-
-  void _pauseAll() {
-    for (final illust in _illusts) {
-      final status = _illustDownloadStatus[illust.illustId];
-      if (status == DownloadTaskStatus.downloading ||
-          status == DownloadTaskStatus.pending) {
-        downloadStore.pauseIllustDownload(illust.illustId);
-      }
-    }
-  }
-
-  void _resumeAll() {
-    for (final illust in _illusts) {
-      final status = _illustDownloadStatus[illust.illustId];
-      if (status == DownloadTaskStatus.paused ||
-          status == DownloadTaskStatus.failed) {
-        downloadStore.resumeIllustDownload(illust.illustId);
-      }
-    }
-  }
-
-  void _cancelAll() {
-    for (final illust in _illusts) {
-      final status = _illustDownloadStatus[illust.illustId];
-      if (status == DownloadTaskStatus.downloading ||
-          status == DownloadTaskStatus.pending) {
-        downloadStore.cancelIllustDownload(illust.illustId);
-      }
-    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: _buildAppBarTitle(),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.upload_file),
-            tooltip: '导入',
-            onPressed: () {
-              _showImportDialog();
-            },
-          ),
-          IconButton(
-            icon: Icon(Icons.people),
-            tooltip: '作者列表',
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => DownloadedAuthorsPage(),
-                ),
-              );
-            },
-          ),
-          PopupMenuButton<String>(
-            icon: Icon(Icons.more_vert),
-            onSelected: (value) {
-              switch (value) {
-                case 'filter_all':
-                  setState(() => _downloadFilter = DownloadFilter.all);
-                  _loadData();
-                  _loadStats();
-                  break;
-                case 'filter_downloading':
-                  setState(() => _downloadFilter = DownloadFilter.downloading);
-                  _loadData();
-                  _loadStats();
-                  break;
-                case 'filter_completed':
-                  setState(() => _downloadFilter = DownloadFilter.completed);
-                  _loadData();
-                  _loadStats();
-                  break;
-                case 'filter_incomplete':
-                  setState(() => _downloadFilter = DownloadFilter.incomplete);
-                  _loadData();
-                  _loadStats();
-                  break;
-                case 'update_info':
-                  _showUpdateIllustInfoDialog();
-                  break;
-                case 'pause_all':
-                  _pauseAll();
-                  break;
-                case 'resume_all':
-                  _resumeAll();
-                  break;
-                case 'cancel_all':
-                  _cancelAll();
-                  break;
-                case 'optimize_json':
-                  OptimizeJsonDialog.show(context, downloadStore);
-                  break;
-              }
-            },
-            itemBuilder: (context) => [
-              PopupMenuItem(
-                value: 'filter_all',
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.list,
-                      color: _downloadFilter == DownloadFilter.all
-                          ? Theme.of(context).colorScheme.primary
-                          : null,
-                    ),
-                    SizedBox(width: 8),
-                    Text(I18n.of(context).all),
-                    if (_downloadFilter == DownloadFilter.all)
-                      Padding(
-                        padding: const EdgeInsets.only(left: 8.0),
-                        child: Icon(Icons.check,
-                            size: 16,
-                            color: Theme.of(context).colorScheme.primary),
+    return Observer(
+      builder: (_) => Scaffold(
+        appBar: AppBar(
+          title: _buildAppBarTitle(),
+          actions: [
+            IconButton(
+              icon: Icon(Icons.upload_file),
+              tooltip: '导入',
+              onPressed: () {
+                _showImportDialog();
+              },
+            ),
+            IconButton(
+              icon: Icon(Icons.people),
+              tooltip: '作者列表',
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => DownloadedAuthorsPage(),
+                  ),
+                );
+              },
+            ),
+            PopupMenuButton<String>(
+              icon: Icon(Icons.more_vert),
+              onSelected: (value) {
+                switch (value) {
+                  case 'filter_all':
+                    _store.onFilterChanged(DownloadFilter.all);
+                    break;
+                  case 'filter_downloading':
+                    _store.onFilterChanged(DownloadFilter.downloading);
+                    break;
+                  case 'filter_completed':
+                    _store.onFilterChanged(DownloadFilter.completed);
+                    break;
+                  case 'filter_incomplete':
+                    _store.onFilterChanged(DownloadFilter.incomplete);
+                    break;
+                  case 'update_info':
+                    _showUpdateIllustInfoDialog();
+                    break;
+                  case 'pause_all':
+                    _store.pauseAll();
+                    break;
+                  case 'resume_all':
+                    _store.resumeAll();
+                    break;
+                  case 'cancel_all':
+                    _store.cancelAll();
+                    break;
+                  case 'optimize_json':
+                    OptimizeJsonDialog.show(context, downloadStore);
+                    break;
+                }
+              },
+              itemBuilder: (context) => [
+                PopupMenuItem(
+                  value: 'filter_all',
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.list,
+                        color: _store.downloadFilter == DownloadFilter.all
+                            ? Theme.of(context).colorScheme.primary
+                            : null,
                       ),
-                  ],
-                ),
-              ),
-              PopupMenuItem(
-                value: 'filter_downloading',
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.downloading,
-                      color: _downloadFilter == DownloadFilter.downloading
-                          ? Theme.of(context).colorScheme.primary
-                          : null,
-                    ),
-                    SizedBox(width: 8),
-                    Text(I18n.of(context).running),
-                    if (_downloadFilter == DownloadFilter.downloading)
-                      Padding(
-                        padding: const EdgeInsets.only(left: 8.0),
-                        child: Icon(Icons.check,
-                            size: 16,
-                            color: Theme.of(context).colorScheme.primary),
-                      ),
-                  ],
-                ),
-              ),
-              PopupMenuItem(
-                value: 'filter_completed',
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.check_circle_outline,
-                      color: _downloadFilter == DownloadFilter.completed
-                          ? Theme.of(context).colorScheme.primary
-                          : null,
-                    ),
-                    SizedBox(width: 8),
-                    Text(I18n.of(context).complete),
-                    if (_downloadFilter == DownloadFilter.completed)
-                      Padding(
-                        padding: const EdgeInsets.only(left: 8.0),
-                        child: Icon(Icons.check,
-                            size: 16,
-                            color: Theme.of(context).colorScheme.primary),
-                      ),
-                  ],
-                ),
-              ),
-              PopupMenuItem(
-                value: 'filter_incomplete',
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.warning_amber,
-                      color: _downloadFilter == DownloadFilter.incomplete
-                          ? Theme.of(context).colorScheme.primary
-                          : null,
-                    ),
-                    SizedBox(width: 8),
-                    Text('未下载完整'),
-                    if (_downloadFilter == DownloadFilter.incomplete)
-                      Padding(
-                        padding: const EdgeInsets.only(left: 8.0),
-                        child: Icon(Icons.check,
-                            size: 16,
-                            color: Theme.of(context).colorScheme.primary),
-                      ),
-                  ],
-                ),
-              ),
-              PopupMenuDivider(),
-              PopupMenuItem(
-                value: 'update_info',
-                child: Row(
-                  children: [
-                    Icon(Icons.update),
-                    SizedBox(width: 8),
-                    Text('更新插画信息'),
-                  ],
-                ),
-              ),
-              PopupMenuItem(
-                value: 'optimize_json',
-                child: Row(
-                  children: [
-                    Icon(Icons.storage, color: Colors.orange),
-                    SizedBox(width: 8),
-                    Text('优化数据库存储'),
-                  ],
-                ),
-              ),
-              PopupMenuDivider(),
-              PopupMenuItem(
-                value: 'pause_all',
-                child: Row(
-                  children: [
-                    Icon(Icons.pause_circle_outline),
-                    SizedBox(width: 8),
-                    Text('暂停${I18n.of(context).all}'),
-                  ],
-                ),
-              ),
-              PopupMenuItem(
-                value: 'resume_all',
-                child: Row(
-                  children: [
-                    Icon(Icons.play_circle_outline),
-                    SizedBox(width: 8),
-                    Text('${I18n.of(context).start}${I18n.of(context).all}'),
-                  ],
-                ),
-              ),
-              PopupMenuItem(
-                value: 'cancel_all',
-                child: Row(
-                  children: [
-                    Icon(Icons.cancel, color: Colors.red),
-                    SizedBox(width: 8),
-                    Text(
-                      '取消${I18n.of(context).all}',
-                      style: TextStyle(color: Colors.red),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-      body: _loading && _illusts.isEmpty
-          ? Center(child: CircularProgressIndicator())
-          : _filteredIllusts.isEmpty
-              ? _buildEmptyView()
-              : PixezEasyRefresh.builder(
-                  controller: _easyRefreshController,
-                  onRefresh: () async {
-                    await _loadData();
-                    await _loadStats();
-                    _easyRefreshController.finishRefresh();
-                  },
-                  onLoad: _loadMore,
-                  header: PixezDefault.header(context),
-                  footer: PixezDefault.footer(context),
-                  childBuilder: (context, physics, scrollController) {
-                    return CustomScrollView(
-                      physics: physics,
-                      controller: scrollController,
-                      slivers: [
-                        SliverPersistentHeader(
-                          key: ValueKey('sort_header_${_sortType}_$_sortDesc'),
-                          delegate: SliverChipDelegate(
-                            Container(
-                              alignment: Alignment.center,
-                              child: Stack(
-                                children: [
-                                  // 居中显示排序菜单
-                                  Center(
-                                    child: SortGroup(
-                                      key: ValueKey(_sortType),
-                                      children: [
-                                        '下载时间',
-                                        '作品时间',
-                                        '文件大小',
-                                        '平均大小',
-                                      ],
-                                      onChange: _onSortChanged,
-                                      initIndex: _sortType.index,
-                                    ),
-                                  ),
-                                  // 右侧显示正序/倒序按钮
-                                  Positioned(
-                                    right: 8,
-                                    top: 0,
-                                    bottom: 0,
-                                    child: Center(
-                                      child: _buildSortOrderButton(),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            height: 52,
-                          ),
-                          pinned: true,
+                      SizedBox(width: 8),
+                      Text(I18n.of(context).all),
+                      if (_store.downloadFilter == DownloadFilter.all)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 8.0),
+                          child: Icon(Icons.check,
+                              size: 16,
+                              color: Theme.of(context).colorScheme.primary),
                         ),
-                        _buildGridView(),
-                      ],
-                    );
-                  },
+                    ],
+                  ),
                 ),
+                PopupMenuItem(
+                  value: 'filter_downloading',
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.downloading,
+                        color: _store.downloadFilter == DownloadFilter.downloading
+                            ? Theme.of(context).colorScheme.primary
+                            : null,
+                      ),
+                      SizedBox(width: 8),
+                      Text(I18n.of(context).running),
+                      if (_store.downloadFilter == DownloadFilter.downloading)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 8.0),
+                          child: Icon(Icons.check,
+                              size: 16,
+                              color: Theme.of(context).colorScheme.primary),
+                        ),
+                    ],
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'filter_completed',
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.check_circle_outline,
+                        color: _store.downloadFilter == DownloadFilter.completed
+                            ? Theme.of(context).colorScheme.primary
+                            : null,
+                      ),
+                      SizedBox(width: 8),
+                      Text(I18n.of(context).complete),
+                      if (_store.downloadFilter == DownloadFilter.completed)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 8.0),
+                          child: Icon(Icons.check,
+                              size: 16,
+                              color: Theme.of(context).colorScheme.primary),
+                        ),
+                    ],
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'filter_incomplete',
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.warning_amber,
+                        color: _store.downloadFilter == DownloadFilter.incomplete
+                            ? Theme.of(context).colorScheme.primary
+                            : null,
+                      ),
+                      SizedBox(width: 8),
+                      Text('未下载完整'),
+                      if (_store.downloadFilter == DownloadFilter.incomplete)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 8.0),
+                          child: Icon(Icons.check,
+                              size: 16,
+                              color: Theme.of(context).colorScheme.primary),
+                        ),
+                    ],
+                  ),
+                ),
+                PopupMenuDivider(),
+                PopupMenuItem(
+                  value: 'update_info',
+                  child: Row(
+                    children: [
+                      Icon(Icons.update),
+                      SizedBox(width: 8),
+                      Text('更新插画信息'),
+                    ],
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'optimize_json',
+                  child: Row(
+                    children: [
+                      Icon(Icons.storage, color: Colors.orange),
+                      SizedBox(width: 8),
+                      Text('优化数据库存储'),
+                    ],
+                  ),
+                ),
+                PopupMenuDivider(),
+                PopupMenuItem(
+                  value: 'pause_all',
+                  child: Row(
+                    children: [
+                      Icon(Icons.pause_circle_outline),
+                      SizedBox(width: 8),
+                      Text('暂停${I18n.of(context).all}'),
+                    ],
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'resume_all',
+                  child: Row(
+                    children: [
+                      Icon(Icons.play_circle_outline),
+                      SizedBox(width: 8),
+                      Text('${I18n.of(context).start}${I18n.of(context).all}'),
+                    ],
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'cancel_all',
+                  child: Row(
+                    children: [
+                      Icon(Icons.cancel, color: Colors.red),
+                      SizedBox(width: 8),
+                      Text(
+                        '取消${I18n.of(context).all}',
+                        style: TextStyle(color: Colors.red),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        body: _store.loading && _store.filteredIllusts.isEmpty
+            ? Center(child: CircularProgressIndicator())
+            : _store.filteredIllusts.isEmpty
+                ? _buildEmptyView()
+                : PixezEasyRefresh.builder(
+                    controller: _easyRefreshController,
+                    onRefresh: () async {
+                      await _store.refresh();
+                    },
+                    onLoad: _store.loadMore,
+                    header: PixezDefault.header(context),
+                    footer: PixezDefault.footer(context),
+                    childBuilder: (context, physics, scrollController) {
+                      return CustomScrollView(
+                        physics: physics,
+                        controller: scrollController,
+                        slivers: [
+                          SliverPersistentHeader(
+                            key: ValueKey('sort_header_${_store.sortType}_${_store.sortDesc}'),
+                            delegate: SliverChipDelegate(
+                              Container(
+                                alignment: Alignment.center,
+                                child: Stack(
+                                  children: [
+                                    Center(
+                                      child: SortGroup(
+                                        key: ValueKey(_store.sortType),
+                                        children: [
+                                          '下载时间',
+                                          '作品时间',
+                                          '文件大小',
+                                          '平均大小',
+                                        ],
+                                        onChange: _store.onSortChanged,
+                                        initIndex: _store.sortType.index,
+                                      ),
+                                    ),
+                                    Positioned(
+                                      right: 8,
+                                      top: 0,
+                                      bottom: 0,
+                                      child: Center(
+                                        child: _buildSortOrderButton(),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              height: 52,
+                            ),
+                            pinned: true,
+                          ),
+                          _buildGridView(),
+                        ],
+                      );
+                    },
+                  ),
+      ),
     );
   }
 
   Widget _buildAppBarTitle() {
-    final title = _filterUserName ?? '已下载';
+    final title = _store.filterUserName ?? '已下载';
+    final stats = _store.stats;
 
-    if (_stats == null) {
+    if (stats == null) {
       return Text(title);
     }
 
-    final illustCount = _stats!['illust_count'] ?? 0;
-    final imageCount = _stats!['image_count'] ?? 0;
-    final fileSize = _stats!['file_size'] ?? 0;
+    final illustCount = stats['illust_count'] ?? 0;
+    final imageCount = stats['image_count'] ?? 0;
+    final fileSize = stats['file_size'] ?? 0;
 
     if (illustCount == 0 && imageCount == 0 && fileSize == 0) {
       return Text(title);
@@ -842,7 +399,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          _sortDesc ? '倒序' : '正序',
+          _store.sortDesc ? '倒序' : '正序',
           style: TextStyle(
             fontSize: 14,
             color: Theme.of(context).colorScheme.onSurface,
@@ -850,15 +407,15 @@ class _DownloadedPageState extends State<DownloadedPage> {
         ),
         SizedBox(width: 8),
         Switch(
-          value: _sortDesc,
-          onChanged: _onSortOrderChanged,
+          value: _store.sortDesc,
+          onChanged: _store.onSortOrderChanged,
         ),
       ],
     );
   }
 
   Widget _buildGridView() {
-    final filteredList = _filteredIllusts;
+    final filteredList = _store.filteredIllusts;
     return SliverPadding(
       padding: EdgeInsets.all(8),
       sliver: SliverGrid(
@@ -875,14 +432,14 @@ class _DownloadedPageState extends State<DownloadedPage> {
             }
             return _buildIllustCard(filteredList[index]);
           },
-          childCount: filteredList.length + (_loadingMore ? 1 : 0),
+          childCount: filteredList.length + (_store.loadingMore ? 1 : 0),
         ),
       ),
     );
   }
 
   Widget _buildIllustCard(DownloadedIllust illust) {
-    final status = _illustDownloadStatus[illust.illustId];
+    final status = _store.illustDownloadStatus[illust.illustId];
     final isDownloading = status == DownloadTaskStatus.downloading;
     final isPending = status == DownloadTaskStatus.pending;
     final isPaused = status == DownloadTaskStatus.paused;
@@ -892,13 +449,11 @@ class _DownloadedPageState extends State<DownloadedPage> {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () {
-          // 从当前筛选后的列表创建 IllustStore 列表以支持滑动切换
-          final iStores = _filteredIllusts.map((item) {
+          final iStores = _store.filteredIllusts.map((item) {
             return IllustStore(item.illustId, item.toIllusts());
           }).toList();
 
-          // 找到当前点击的 IllustStore
-          final currentIndex = _filteredIllusts.indexOf(illust);
+          final currentIndex = _store.filteredIllusts.indexOf(illust);
           final currentStore = iStores[currentIndex];
 
           Leader.push(
@@ -928,7 +483,6 @@ class _DownloadedPageState extends State<DownloadedPage> {
                 fit: StackFit.expand,
                 children: [
                   _buildThumbnail(illust),
-                  // 打开文件夹按钮
                   Positioned(
                     top: 4,
                     left: 4,
@@ -955,7 +509,6 @@ class _DownloadedPageState extends State<DownloadedPage> {
                       ),
                     ),
                   ),
-                  // 正在下载 - 显示进度条
                   if (isDownloading)
                     Positioned.fill(
                       child: Container(
@@ -969,7 +522,6 @@ class _DownloadedPageState extends State<DownloadedPage> {
                         ),
                       ),
                     ),
-                  // 等待下载 - 显示等待图标
                   if (isPending)
                     Positioned.fill(
                       child: Container(
@@ -996,7 +548,6 @@ class _DownloadedPageState extends State<DownloadedPage> {
                         ),
                       ),
                     ),
-                  // 暂停状态 - 右上角标签
                   if (isPaused)
                     Positioned(
                       top: 4,
@@ -1014,7 +565,6 @@ class _DownloadedPageState extends State<DownloadedPage> {
                         ),
                       ),
                     ),
-                  // 下载失败 - 右上角标签
                   if (isFailed)
                     Positioned(
                       top: 4,
@@ -1062,16 +612,16 @@ class _DownloadedPageState extends State<DownloadedPage> {
                           padding: EdgeInsets.only(top: 2),
                           child: _buildPageCountIndicator(
                             illust,
-                            _fileSizes[illust.illustId],
+                            _store.fileSizes[illust.illustId],
                           ),
                         ),
                       Spacer(),
-                      if (_fileSizes[illust.illustId] != null &&
-                          _fileSizes[illust.illustId]! > 0)
+                      if (_store.fileSizes[illust.illustId] != null &&
+                          _store.fileSizes[illust.illustId]! > 0)
                         Padding(
                           padding: EdgeInsets.only(top: 2),
                           child: Text(
-                            _fileSizes[illust.illustId]!.formatFileSize(),
+                            _store.fileSizes[illust.illustId]!.formatFileSize(),
                             style:
                                 Theme.of(context).textTheme.bodySmall?.copyWith(
                                       color: Colors.grey[600],
@@ -1093,8 +643,6 @@ class _DownloadedPageState extends State<DownloadedPage> {
   Widget _buildThumbnail(DownloadedIllust illust) {
     final heroTag = 'downloaded_illust_${illust.illustId}';
 
-    // 优化：直接使用 imageUrls 字段，无需解析 illustJson
-    // 对于旧数据（imageUrlsJson 为空），回退到解析 illustJson
     final imageUrls = illust.getImageUrls();
     String coverUrl = imageUrls.squareMedium;
     if (coverUrl.isEmpty) {
@@ -1105,7 +653,6 @@ class _DownloadedPageState extends State<DownloadedPage> {
     Widget imageWidget = PixivImage(
       coverUrl,
       fit: BoxFit.cover,
-      // 通过 header 传递 illustId，让 PixivCacheManager 识别封面请求
       httpHeaders: {'cover': '${illust.illustId}'},
     );
 
@@ -1117,7 +664,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
 
   Widget _buildPageCountIndicator(DownloadedIllust illust, int? totalFileSize) {
     final downloadedCount =
-        _downloadedCounts[illust.illustId] ?? illust.pageCount;
+        _store.downloadedCounts[illust.illustId] ?? illust.pageCount;
     final totalCount = illust.pageCount;
 
     String pageText;
@@ -1127,7 +674,6 @@ class _DownloadedPageState extends State<DownloadedPage> {
       pageText = '${totalCount}P';
     }
 
-    // 计算平均每页文件大小
     String? avgSizeText;
     if (totalFileSize != null && totalFileSize > 0 && totalCount > 0) {
       final avgSize = totalFileSize ~/ totalCount;
@@ -1169,11 +715,10 @@ class _DownloadedPageState extends State<DownloadedPage> {
     final RenderBox overlay =
         Overlay.of(context).context.findRenderObject() as RenderBox;
 
-    // 将全局坐标转换为相对于 Overlay 的本地坐标
     final localPosition =
         tapPosition != null ? overlay.globalToLocal(tapPosition) : Offset.zero;
 
-    final status = _illustDownloadStatus[illust.illustId];
+    final status = _store.illustDownloadStatus[illust.illustId];
     final isDownloading = status == DownloadTaskStatus.downloading ||
         status == DownloadTaskStatus.pending;
     final isPaused = status == DownloadTaskStatus.paused;
@@ -1195,13 +740,11 @@ class _DownloadedPageState extends State<DownloadedPage> {
             ],
           ),
           onTap: () {
-            // 从当前筛选后的列表创建 IllustStore 列表以支持滑动切换
-            final iStores = _filteredIllusts.map((item) {
+            final iStores = _store.filteredIllusts.map((item) {
               return IllustStore(item.illustId, item.toIllusts());
             }).toList();
 
-            // 找到当前点击的 IllustStore
-            final currentIndex = _filteredIllusts.indexOf(illust);
+            final currentIndex = _store.filteredIllusts.indexOf(illust);
             final currentStore = iStores[currentIndex];
 
             Leader.push(
@@ -1272,7 +815,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
                 illusts: [illust],
               ),
             );
-            _loadData();
+            _store.loadData();
           },
         ),
         PopupMenuItem(
@@ -1312,8 +855,8 @@ class _DownloadedPageState extends State<DownloadedPage> {
             if (confirm == true) {
               downloadStore.cancelIllustDownload(illust.illustId);
               await downloadStore.deleteDownloadedIllust(illust.illustId);
-              _loadData();
-              _loadStats();
+              _store.loadData();
+              _store.loadStats();
             }
           },
         ),
@@ -1326,27 +869,23 @@ class _DownloadedPageState extends State<DownloadedPage> {
       context: context,
       builder: (context) => ImportDialog(),
     );
-    // 如果导入成功，刷新数据
     if (result == true) {
-      _loadData();
-      _loadStats();
+      _store.loadData();
+      _store.loadStats();
     }
   }
 
   void _showUpdateIllustInfoDialog() async {
     List<DownloadedIllust> illustsToUpdate;
 
-    // 如果处于作者筛选条件下，获取所有作者的作品
-    if (_filterUserId != null) {
-      // 获取所有作者的作品（不限制数量）
+    if (_store.filterUserId != null) {
       illustsToUpdate = await downloadStore.getDownloadedByUser(
-        _filterUserId!,
+        _store.filterUserId!,
         limit: null,
         offset: 0,
       );
     } else {
-      // 否则更新当前页面加载的作品
-      illustsToUpdate = List.from(_illusts);
+      illustsToUpdate = List.from(_store.filteredIllusts);
     }
 
     if (illustsToUpdate.isEmpty) {
@@ -1361,13 +900,12 @@ class _DownloadedPageState extends State<DownloadedPage> {
       builder: (context) => UpdateIllustInfoDialog(illusts: illustsToUpdate),
     );
 
-    // 更新完成后刷新数据
-    _loadData();
-    _loadStats();
+    _store.loadData();
+    _store.loadStats();
   }
 
   void _showIllustOptions(DownloadedIllust illust) {
-    final status = _illustDownloadStatus[illust.illustId];
+    final status = _store.illustDownloadStatus[illust.illustId];
     final isDownloading = status == DownloadTaskStatus.downloading ||
         status == DownloadTaskStatus.pending;
     final isPaused = status == DownloadTaskStatus.paused;
@@ -1444,8 +982,8 @@ class _DownloadedPageState extends State<DownloadedPage> {
                       illusts: [illust],
                     ),
                   );
-                  _loadData();
-                  _loadStats();
+                  _store.loadData();
+                  _store.loadStats();
                 },
               ),
               ListTile(
@@ -1482,8 +1020,8 @@ class _DownloadedPageState extends State<DownloadedPage> {
                   if (confirm == true) {
                     downloadStore.cancelIllustDownload(illust.illustId);
                     await downloadStore.deleteDownloadedIllust(illust.illustId);
-                    _loadData();
-                    _loadStats();
+                    _store.loadData();
+                    _store.loadStats();
                   }
                 },
               ),
