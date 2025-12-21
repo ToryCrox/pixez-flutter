@@ -1283,6 +1283,23 @@ abstract class _DownloadStoreBase with Store {
       Log.d(
           '优化完成: 优化了 $optimizedCount 条记录，节省了 ${(savedBytes / 1024 / 1024).toStringAsFixed(2)} MB');
 
+      // 检查是否应该取消
+      if (shouldCancel != null && shouldCancel()) {
+        Log.d('优化已取消（在 URL 优化前）');
+        throw Exception('优化已取消');
+      }
+
+      // 优化 downloaded_images 表的 original_url 字段
+      Log.d('开始优化 downloaded_images 表的 original_url 字段...');
+      try {
+        final urlResult = await _dbProvider.optimizeImageOriginalUrls();
+        savedBytes += urlResult.savedBytes;
+        Log.d('original_url 优化完成: 优化了 ${urlResult.optimizedCount} 条记录，节省 ${urlResult.savedBytes} 字节');
+      } catch (e) {
+        Log.e('优化 original_url 失败: $e');
+        // 不影响整体结果，继续执行
+      }
+
       // 执行 VACUUM 回收数据库空间
       //if (optimizedCount > 0) {
       Log.d('开始执行 VACUUM 回收数据库空间...');

@@ -288,6 +288,28 @@ class LocalImageInfo {
 
 // 下载的图片记录
 class DownloadedImage {
+  /// Pixiv 原图 URL 前缀
+  static const String _pxImgOriginalPrefix = 'https://i.pximg.net/img-original/img';
+
+  /// 占位符（用于替换 URL 前缀，节约数据库空间）
+  static const String _pxImgPlaceholder = r'$PX_IMG$';
+
+  /// 压缩 URL，将 Pixiv 原图前缀替换为占位符
+  static String compressUrl(String url) {
+    if (url.startsWith(_pxImgOriginalPrefix)) {
+      return url.replaceFirst(_pxImgOriginalPrefix, _pxImgPlaceholder);
+    }
+    return url;
+  }
+
+  /// 解压缩 URL，将占位符还原为 Pixiv 原图前缀
+  static String decompressUrl(String url) {
+    if (url.startsWith(_pxImgPlaceholder)) {
+      return url.replaceFirst(_pxImgPlaceholder, _pxImgOriginalPrefix);
+    }
+    return url;
+  }
+
   final int illustId;
   final int part;
   final String fileName;
@@ -311,13 +333,15 @@ class DownloadedImage {
   });
 
   factory DownloadedImage.fromJson(Map<String, dynamic> json) {
+    // 从数据库读取时解压 URL
+    final compressedUrl = json[DownloadedImageColumns.originalUrl] as String? ?? '';
     return DownloadedImage(
       illustId: json[DownloadedImageColumns.illustId],
       part: json[DownloadedImageColumns.part],
       fileName: json[DownloadedImageColumns.fileName],
       extension: json[DownloadedImageColumns.extension],
       fileSize: json[DownloadedImageColumns.fileSize],
-      originalUrl: json[DownloadedImageColumns.originalUrl],
+      originalUrl: decompressUrl(compressedUrl),
       relativePath: json[DownloadedImageColumns.relativePath],
       width: json[DownloadedImageColumns.width],
       height: json[DownloadedImageColumns.height],
@@ -331,7 +355,8 @@ class DownloadedImage {
     data[DownloadedImageColumns.fileName] = fileName;
     data[DownloadedImageColumns.extension] = extension;
     data[DownloadedImageColumns.fileSize] = fileSize;
-    data[DownloadedImageColumns.originalUrl] = originalUrl;
+    // 写入数据库时压缩 URL
+    data[DownloadedImageColumns.originalUrl] = compressUrl(originalUrl);
     data[DownloadedImageColumns.relativePath] = relativePath;
     data[DownloadedImageColumns.width] = width;
     data[DownloadedImageColumns.height] = height;
@@ -1035,10 +1060,12 @@ class DownloadDatabaseProvider {
 
   /// 通过原始URL查询图片记录
   Future<DownloadedImage?> getImageByOriginalUrl(String originalUrl) async {
+    // 查询时需要使用压缩后的 URL 格式（与数据库存储格式一致）
+    final compressedUrl = DownloadedImage.compressUrl(originalUrl);
     List<Map<String, dynamic>> maps = await db.query(
       DownloadedImageColumns.tableName,
       where: '${DownloadedImageColumns.originalUrl} = ?',
-      whereArgs: [originalUrl],
+      whereArgs: [compressedUrl],
       limit: 1,
     );
     if (maps.isNotEmpty) {
@@ -1241,7 +1268,51 @@ class DownloadDatabaseProvider {
     return (count: 0, totalFileSize: 0);
   }
 
+  /// 优化 downloaded_images 表的 original_url 字段
+  /// 将完整 URL 前缀替换为占位符以节约存储空间
+  /// 返回 (优化记录数, 节省字节数)
+  Future<({int optimizedCount, int savedBytes})> optimizeImageOriginalUrls() async {
+    const prefix = 'https://i.pximg.net/img-original/img';
+    const placeholder = r'$PX_IMG$';
+
+    // 首先获取需要优化的记录数和总字符长度
+    final beforeStats = await db.rawQuery('''
+      SELECT 
+        COUNT(*) as count,
+        COALESCE(SUM(LENGTH(${DownloadedImageColumns.originalUrl})), 0) as total_length
+      FROM ${DownloadedImageColumns.tableName}
+      WHERE ${DownloadedImageColumns.originalUrl} LIKE '$prefix%'
+    ''');
+
+    final countToOptimize = beforeStats.first['count'] as int? ?? 0;
+
+    if (countToOptimize == 0) {
+      return (optimizedCount: 0, savedBytes: 0);
+    }
+
+    // 使用 SQL REPLACE 函数批量更新（效率最高）
+    await db.execute('''
+      UPDATE ${DownloadedImageColumns.tableName}
+      SET ${DownloadedImageColumns.originalUrl} = REPLACE(
+        ${DownloadedImageColumns.originalUrl}, 
+        '$prefix', 
+        '$placeholder'
+      )
+      WHERE ${DownloadedImageColumns.originalUrl} LIKE '$prefix%'
+    ''');
+
+    // 计算节省的字节数
+    // 每条记录节省：前缀长度 - 占位符长度 = 41 - 8 = 33 字节
+    final savedBytesPerRecord = prefix.length - placeholder.length;
+    final totalSavedBytes = countToOptimize * savedBytesPerRecord;
+
+    Log.d('optimizeImageOriginalUrls: 优化了 $countToOptimize 条记录，节省 $totalSavedBytes 字节');
+
+    return (optimizedCount: countToOptimize, savedBytes: totalSavedBytes);
+  }
+
   // ============ 路径工具 ============
+
 
   /// 生成作者目录名
   static String buildUserDirName(String userName, int userId) {
