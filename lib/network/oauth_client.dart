@@ -27,6 +27,7 @@ import 'package:pixez/constants.dart';
 import 'package:pixez/crypto_plugin.dart';
 import 'package:pixez/er/hoster.dart';
 import 'package:pixez/main.dart';
+import 'package:pixez/debug/mana_manager.dart';
 import 'package:rhttp/rhttp.dart' as r;
 
 final OAuthClient oAuthClient = OAuthClient();
@@ -94,7 +95,12 @@ class OAuthClient {
           "App-OS-Version": "Android 6.0",
           "App-Version": "5.0.166",
         },
-        contentType: Headers.formUrlEncodedContentType));
+          contentType: Headers.formUrlEncodedContentType));
+    // 添加 Mana Dio 拦截器（网络请求追踪）
+    final manaInterceptor = ManaManager.instance.dioInterceptor;
+    if (manaInterceptor != null) {
+      httpClient.interceptors.add(manaInterceptor);
+    }
     if (kDebugMode) {
       httpClient.interceptors.add(LogInterceptor(
           responseBody: true, responseHeader: true, requestBody: true));

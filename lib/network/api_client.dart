@@ -33,6 +33,7 @@ import 'package:pixez/models/illust_bookmark_tags_response.dart';
 import 'package:pixez/models/tags.dart';
 import 'package:pixez/models/ugoira_metadata_response.dart';
 import 'package:pixez/network/refresh_token_interceptor.dart';
+import 'package:pixez/debug/mana_manager.dart';
 import 'package:rhttp/rhttp.dart' as r;
 
 final ApiClient apiClient = ApiClient();
@@ -133,6 +134,11 @@ class ApiClient {
     }))
           ..interceptors.add(DioCacheInterceptor(options: options))
           ..interceptors.add(RefreshTokenInterceptor());
+    // 添加 Mana Dio 拦截器（网络请求追踪）
+    final manaInterceptor = ManaManager.instance.dioInterceptor;
+    if (manaInterceptor != null) {
+      httpClient.interceptors.add(manaInterceptor);
+    }
     if (kDebugMode) {
       httpClient.interceptors.add(LogInterceptor(
           responseBody: true, responseHeader: true, requestBody: true));

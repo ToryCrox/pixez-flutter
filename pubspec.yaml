@@ -16,7 +16,7 @@ publish_to: none
 version: 1.9.74+490
 
 environment:
-  sdk: ">=3.1.4"
+  sdk: ">=3.7.0"
 
 dependencies:
   flutter:
@@ -83,6 +83,10 @@ dependencies:
   collection: ^1.18.0
   image_size_getter: ^2.1.3
   scrollview_observer: ^1.23.0
+
+  # 开发调试工具
+  flutter_mana: ^1.2.0
+  flutter_mana_kits: ^1.2.0
 
 dependency_overrides:
   flutter_cache_manager:

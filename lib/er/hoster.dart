@@ -6,6 +6,7 @@ import 'package:pixez/er/lprinter.dart';
 import 'package:pixez/er/prefer.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/models/onezero_response.dart';
+import 'package:pixez/debug/mana_manager.dart';
 import 'package:rhttp/rhttp.dart' as r;
 
 class Hoster {
@@ -37,6 +38,11 @@ class Hoster {
 
   static Future<Dio> createDioClient() async {
     if (compatibleClient == null) {
+      // 添加 Mana Dio 拦截器（网络请求追踪）
+      final manaInterceptor = ManaManager.instance.dioInterceptor;
+      if (manaInterceptor != null && !httpClient.interceptors.any((i) => i == manaInterceptor)) {
+        httpClient.interceptors.add(manaInterceptor);
+      }
       return httpClient;
     }
     compatibleClient ??= await r.RhttpCompatibleClient.create(

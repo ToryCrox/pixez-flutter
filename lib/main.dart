@@ -50,6 +50,8 @@ import 'package:pixez/custom/image_cache_manager.dart';
 import 'package:rhttp/rhttp.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:window_manager/window_manager.dart';
+import 'package:flutter_mana/flutter_mana.dart';
+import 'package:pixez/debug/mana_manager.dart';
 
 final RouteObserver<ModalRoute<void>> routeObserver =
     RouteObserver<ModalRoute<void>>();
@@ -89,9 +91,15 @@ main(List<String> args) async {
     await initWindows(args);
   }
 
-  runApp(ProviderScope(
+  // 初始化 Mana 调试工具
+  ManaManager.instance.initialize();
+
+  final app = ProviderScope(
     child: MyApp(arguments: args),
-  ));
+  );
+
+  // 根据配置决定是否启用 ManaWidget
+  runApp(ManaManager.instance.isEnabled ? ManaWidget(child: app) : app);
 }
 
 class MyApp extends StatefulWidget {
