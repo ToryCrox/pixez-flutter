@@ -250,7 +250,7 @@ class PixivCacheManager extends CacheManager with ImageCacheManager {
     }
 
     // 3. 从下载目录中查询
-    if (downloadStore.isInitialized) {
+    if (downloadStore.isInitialized && DownloadedImage.isPixivOriginalUrl(url)) {
       try {
         final imageInfo = await downloadStore.getLocalImageInfoByUrl(url);
         if (imageInfo != null) {

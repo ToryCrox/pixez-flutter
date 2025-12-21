@@ -310,6 +310,11 @@ class DownloadedImage {
     return url;
   }
 
+  /// 判断是否为 Pixiv 原图 URL
+  static bool isPixivOriginalUrl(String url) {
+    return url.startsWith(_pxImgOriginalPrefix);
+  }
+
   final int illustId;
   final int part;
   final String fileName;
