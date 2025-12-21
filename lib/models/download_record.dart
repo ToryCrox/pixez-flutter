@@ -504,7 +504,8 @@ class DownloadedAuthor {
     return DownloadedAuthor(
       userId: json[DownloadedAuthorColumns.userId],
       userName: json[DownloadedAuthorColumns.userName],
-      profileImageUrl: json[DownloadedAuthorColumns.profileImageUrl],
+      profileImageUrl: DownloadedIllust._decompressPxImgUrl(
+          json[DownloadedAuthorColumns.profileImageUrl] ?? ''),
       illustCount: json[DownloadedAuthorColumns.illustCount] ?? 0,
       totalFileSize: json[DownloadedAuthorColumns.totalFileSize] ?? 0,
       lastDownloadTime: json[DownloadedAuthorColumns.lastDownloadTime] ?? 0,
@@ -517,7 +518,8 @@ class DownloadedAuthor {
     data[DownloadedAuthorColumns.userId] = userId;
     data[DownloadedAuthorColumns.userName] = userName;
     if (profileImageUrl != null) {
-      data[DownloadedAuthorColumns.profileImageUrl] = profileImageUrl;
+      data[DownloadedAuthorColumns.profileImageUrl] =
+          DownloadedIllust._compressPxImgUrl(profileImageUrl!);
     }
     data[DownloadedAuthorColumns.illustCount] = illustCount;
     data[DownloadedAuthorColumns.totalFileSize] = totalFileSize;
@@ -1440,8 +1442,8 @@ class DownloadDatabaseProvider {
         String? profileImageUrl;
         if (latestIllust.isNotEmpty) {
           try {
-            final illustJson = jsonDecode(latestIllust
-                .first[DownloadedIllustColumns.illustJson] as String);
+            final illustJsonStr = latestIllust.first[DownloadedIllustColumns.illustJson] as String;
+            final illustJson = jsonDecode(DownloadedIllust._decompressPxImgUrl(illustJsonStr));
             profileImageUrl =
                 illustJson['user']?['profile_image_urls']?['medium'];
           } catch (_) {}
@@ -1496,7 +1498,8 @@ class DownloadDatabaseProvider {
       {
         DownloadedAuthorColumns.userId: userId,
         DownloadedAuthorColumns.userName: userName,
-        DownloadedAuthorColumns.profileImageUrl: profileImageUrl,
+        DownloadedAuthorColumns.profileImageUrl:
+            DownloadedIllust._compressPxImgUrl(profileImageUrl ?? ''),
         DownloadedAuthorColumns.illustCount: illustCount,
         DownloadedAuthorColumns.totalFileSize: totalFileSize,
         DownloadedAuthorColumns.lastDownloadTime: lastDownloadTime,
@@ -1600,8 +1603,8 @@ class DownloadDatabaseProvider {
     String? profileImageUrl;
     if (latestIllust.isNotEmpty) {
       try {
-        final illustJson = jsonDecode(
-            latestIllust.first[DownloadedIllustColumns.illustJson] as String);
+        final illustJsonStr = latestIllust.first[DownloadedIllustColumns.illustJson] as String;
+        final illustJson = jsonDecode(DownloadedIllust._decompressPxImgUrl(illustJsonStr));
         userName = illustJson['user']?['name'] ??
             latestIllust.first[DownloadedIllustColumns.userName] as String;
         profileImageUrl = illustJson['user']?['profile_image_urls']?['medium'];
