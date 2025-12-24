@@ -25,6 +25,11 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
 
   flutter::DartProject project(L"data");
 
+  // TODO: Remove this when Flutter fixes the performance regression.
+  // This forces Flutter to use a separate thread for Dart.
+  // See: https://github.com/flutter/flutter/issues/178916
+  project.set_ui_thread_policy(flutter::UIThreadPolicy::RunOnSeparateThread);
+
   std::vector<std::string> command_line_arguments =
       GetCommandLineArguments();
 
