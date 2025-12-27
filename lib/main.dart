@@ -133,14 +133,16 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   late StreamSubscription<String> subscription;
 
   Future<void> _initDownloadStore() async {
-    // 获取下载目录 - 使用 DocumentPlugin 获取 Windows 设置的目录
-    String? downloadPath;
-    if (Platform.isWindows || Platform.isLinux) {
-      // Windows/Linux 使用 DocumentPlugin 设置的目录
+    // 获取下载目录 - 优先使用 userSetting.storePath
+    String? downloadPath = userSetting.storePath;
+    
+    // 如果 storePath 为空，尝试使用 DocumentPlugin 设置的目录（仅 Windows/Linux）
+    if ((downloadPath == null || downloadPath.isEmpty) && 
+        (Platform.isWindows || Platform.isLinux)) {
       downloadPath = await DocumentPlugin.getPath();
     }
 
-    // 如果没有设置目录，使用默认目录
+    // 如果仍然没有设置目录，使用默认目录
     if (downloadPath == null || downloadPath.isEmpty) {
       final docDir = await getApplicationDocumentsDirectory();
       downloadPath = '${docDir.path}/pixez/downloads';
