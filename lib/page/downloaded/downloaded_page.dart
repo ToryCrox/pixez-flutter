@@ -807,39 +807,43 @@ class _DownloadedIllustCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final status = store.illustDownloadStatus[illust.illustId];
-    final isDownloading = status == DownloadTaskStatus.downloading;
-    final isPending = status == DownloadTaskStatus.pending;
-    final isPaused = status == DownloadTaskStatus.paused;
-    final isFailed = status == DownloadTaskStatus.failed;
+    return Observer(
+      builder: (_) {
+        final status = store.illustDownloadStatus[illust.illustId];
+        final isDownloading = status == DownloadTaskStatus.downloading;
+        final isPending = status == DownloadTaskStatus.pending;
+        final isPaused = status == DownloadTaskStatus.paused;
+        final isFailed = status == DownloadTaskStatus.failed;
 
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        onLongPress: onLongPress,
-        onSecondaryTapDown: (details) => onTapPosition(details.globalPosition),
-        onSecondaryTap: onSecondaryTap,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Expanded(
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  _buildThumbnail(context),
-                  _buildFolderButton(context),
-                  if (isDownloading) _buildDownloadingOverlay(),
-                  if (isPending) _buildPendingOverlay(context),
-                  if (isPaused) _buildStatusBadge(context, I18n.of(context).paused, Colors.orange),
-                  if (isFailed) _buildStatusBadge(context, I18n.of(context).failed, Colors.red),
-                ],
-              ),
+        return Card(
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onTap,
+            onLongPress: onLongPress,
+            onSecondaryTapDown: (details) => onTapPosition(details.globalPosition),
+            onSecondaryTap: onSecondaryTap,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      _buildThumbnail(context),
+                      _buildFolderButton(context),
+                      if (isDownloading) _buildDownloadingOverlay(),
+                      if (isPending) _buildPendingOverlay(context),
+                      if (isPaused) _buildStatusBadge(context, I18n.of(context).paused, Colors.orange),
+                      if (isFailed) _buildStatusBadge(context, I18n.of(context).failed, Colors.red),
+                    ],
+                  ),
+                ),
+                _buildInfoSection(context),
+              ],
             ),
-            _buildInfoSection(context),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
