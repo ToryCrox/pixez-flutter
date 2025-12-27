@@ -158,11 +158,12 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
   int _totalToUpdate = 0; // 需要更新的总作品数
   UpdateResultType? _filterType;
   String? _errorMessage;
-  static const int _concurrentCount = 4; // 每个作品内并发扫描的图片数量
+  late int _concurrentCount; // 每个作品内并发扫描的图片数量（从 userSetting 读取）
 
   @override
   void initState() {
     super.initState();
+    _concurrentCount = userSetting.updateIllustConcurrentCount;
     _totalCount = widget.illusts.length;
     // 初始化时只创建作品列表，不扫描
     _updateInfos = widget.illusts.map((illust) {
@@ -687,6 +688,41 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
                   Text(
                     '更新插画信息',
                     style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  SizedBox(width: 16),
+                  // 并发数设置
+                  Text(
+                    '并发数:',
+                    style: TextStyle(fontSize: 14),
+                  ),
+                  SizedBox(width: 8),
+                  Container(
+                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey[400]!),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: DropdownButton<int>(
+                      value: _concurrentCount,
+                      underline: SizedBox(),
+                      isDense: true,
+                      items: List.generate(10, (index) => index + 1)
+                          .map((value) => DropdownMenuItem(
+                                value: value,
+                                child: Text('$value'),
+                              ))
+                          .toList(),
+                      onChanged: _isScanning || _isUpdating
+                          ? null
+                          : (value) {
+                              if (value != null) {
+                                setState(() {
+                                  _concurrentCount = value;
+                                });
+                                userSetting.setUpdateIllustConcurrentCount(value);
+                              }
+                            },
+                    ),
                   ),
                   Spacer(),
                   if (_isScanning || _isUpdating)

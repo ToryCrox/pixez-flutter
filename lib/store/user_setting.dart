@@ -89,6 +89,7 @@ abstract class _UserSetting with Store {
   static const String GRID_ASPECT_RATIO_KEY = "grid_aspect_ratio";
   static const String ILLUST_AUTO_SCROLL_SPEED_KEY = "illust_auto_scroll_speed";
   static const String ENABLE_MANA_IN_RELEASE_KEY = "enable_mana_in_release";
+  static const String UPDATE_ILLUST_CONCURRENT_COUNT_KEY = "update_illust_concurrent_count";
 
   @observable
   double dragStartX = 0;
@@ -202,6 +203,8 @@ abstract class _UserSetting with Store {
   double illustAutoScrollSpeed = 2.0;
   @observable
   bool enableManaInRelease = false;
+  @observable
+  int updateIllustConcurrentCount = 4;
 
   static const String intialFormat = "{illust_id}_p{part}";
 
@@ -221,6 +224,12 @@ abstract class _UserSetting with Store {
   setEnableManaInRelease(bool value) async {
     await prefs.setBool(ENABLE_MANA_IN_RELEASE_KEY, value);
     enableManaInRelease = value;
+  }
+
+  @action
+  setUpdateIllustConcurrentCount(int value) async {
+    await prefs.setInt(UPDATE_ILLUST_CONCURRENT_COUNT_KEY, value);
+    updateIllustConcurrentCount = value;
   }
 
   @action
@@ -495,6 +504,7 @@ abstract class _UserSetting with Store {
     illustAutoScrollSpeed =
         prefs.getDouble(ILLUST_AUTO_SCROLL_SPEED_KEY) ?? 2.0;
     enableManaInRelease = prefs.getBool(ENABLE_MANA_IN_RELEASE_KEY) ?? false;
+    updateIllustConcurrentCount = prefs.getInt(UPDATE_ILLUST_CONCURRENT_COUNT_KEY) ?? 4;
     if (Platform.isAndroid) {
       try {
         await SecurePlugin.configSecureWindow(nsfwMask);
