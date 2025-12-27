@@ -235,7 +235,7 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
       });
     }
 
-    final illust = widget.illusts[index];
+    final illust = _updateInfos[index].illust;
     final images =
         await downloadStore.dbProvider.getImagesByIllustId(illust.illustId);
 
@@ -386,7 +386,7 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
     });
 
     // 顺序扫描作品，每个作品内的图片会并发扫描
-    for (int i = 0; i < widget.illusts.length; i++) {
+    for (int i = 0; i < _updateInfos.length; i++) {
       if (!mounted) return;
 
       // 检查是否暂停，如果暂停则等待
