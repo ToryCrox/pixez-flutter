@@ -453,6 +453,87 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
     }
   }
 
+  // 删除损坏或丢失的图片文件和数据库记录
+  Future<({bool success, String? error})> _deleteBrokenImage(
+    ImageUpdateInfo imageUpdate,
+  ) async {
+    final image = imageUpdate.originalImage;
+
+    // 删除文件
+    try {
+      final scannedPath = imageUpdate.scannedFilePath;
+      if (scannedPath != null) {
+        final file = File(scannedPath);
+        if (await file.exists()) {
+          await file.delete();
+        }
+      }
+    } catch (e, stackTrace) {
+      final errorMsg = '删除文件失败 [${image.illustId}_p${image.part}]: $e';
+      Log.e(errorMsg, stackTrace: stackTrace);
+      // 文件删除失败但继续尝试删除数据库记录
+    }
+
+    // 删除数据库记录
+    try {
+      await downloadStore.dbProvider.deleteImage(
+        image.illustId,
+        image.part,
+      );
+      return (success: true, error: null);
+    } catch (e, stackTrace) {
+      final errorMsg = '删除数据库记录失败 [${image.illustId}_p${image.part}]: $e';
+      Log.e(errorMsg, stackTrace: stackTrace);
+      return (success: false, error: errorMsg);
+    }
+  }
+
+  // 更新单个图片记录到数据库
+  Future<bool> _updateImageRecord(ImageUpdateInfo imageUpdate) async {
+    final image = imageUpdate.originalImage;
+    final updateData = <String, dynamic>{};
+    bool needUpdate = false;
+
+    // 更新文件大小
+    if (imageUpdate.newFileSize != null &&
+        imageUpdate.newFileSize != image.fileSize) {
+      updateData[DownloadedImageColumns.fileSize] = imageUpdate.newFileSize;
+      needUpdate = true;
+    }
+
+    // 更新后缀名
+    if (imageUpdate.newExtension != null &&
+        imageUpdate.newExtension != image.extension) {
+      updateData[DownloadedImageColumns.extension] =
+          imageUpdate.newExtension;
+      needUpdate = true;
+    }
+
+    // 更新宽高
+    if (imageUpdate.newWidth != null && imageUpdate.newWidth != image.width) {
+      updateData[DownloadedImageColumns.width] = imageUpdate.newWidth;
+      needUpdate = true;
+    }
+
+    if (imageUpdate.newHeight != null &&
+        imageUpdate.newHeight != image.height) {
+      updateData[DownloadedImageColumns.height] = imageUpdate.newHeight;
+      needUpdate = true;
+    }
+
+    if (needUpdate && updateData.isNotEmpty) {
+      await downloadStore.dbProvider.db.update(
+        DownloadedImageColumns.tableName,
+        updateData,
+        where:
+            '${DownloadedImageColumns.illustId} = ? AND ${DownloadedImageColumns.part} = ?',
+        whereArgs: [image.illustId, image.part],
+      );
+      return true;
+    }
+    return false;
+  }
+
   Future<void> _performUpdate() async {
     // 计算需要更新的总作品数
     final toUpdateCount =
@@ -487,44 +568,17 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
 
         bool hasDeletedBroken = false; // 当前作品是否有删除损坏文件
 
+
         for (final imageUpdate in updateInfo.imageUpdates) {
           if (imageUpdate.isBroken || imageUpdate.isFileNotFound) {
-            // 删除损坏或不存在的图片文件和数据库记录
-            final image = imageUpdate.originalImage;
-
-            // 使用扫描阶段获取的文件路径删除文件
-            try {
-              final scannedPath = imageUpdate.scannedFilePath;
-              if (scannedPath != null) {
-                // 使用扫描阶段保存的文件路径
-                final file = File(scannedPath);
-                if (await file.exists()) {
-                  await file.delete();
-                }
-              }
-            } catch (e, stackTrace) {
-              // 记录删除文件时的错误
-              final errorMsg = '删除文件失败 [${image.illustId}_p${image.part}]: $e';
-              Log.e(errorMsg, stackTrace: stackTrace);
-              errors.add(errorMsg);
-            }
-
-            // 删除数据库记录
-            try {
-              await downloadStore.dbProvider.deleteImage(
-                image.illustId,
-                image.part,
-              );
+            // 使用辅助方法删除损坏或不存在的图片
+            final result = await _deleteBrokenImage(imageUpdate);
+            if (result.success) {
               deletedCount++;
               hasDeletedBroken = true;
-            } catch (e, stackTrace) {
-              // 记录删除数据库记录时的错误
-              final errorMsg =
-                  '删除数据库记录失败 [${image.illustId}_p${image.part}]: $e';
-              Log.e(errorMsg, stackTrace: stackTrace);
-              errors.add(errorMsg);
+            } else if (result.error != null) {
+              errors.add(result.error!);
             }
-
             continue;
           }
 
@@ -532,47 +586,8 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
             continue;
           }
 
-          final image = imageUpdate.originalImage;
-          bool needUpdate = false;
-          final updateData = <String, dynamic>{};
-
-          // 更新文件大小
-          if (imageUpdate.newFileSize != null &&
-              imageUpdate.newFileSize != image.fileSize) {
-            updateData[DownloadedImageColumns.fileSize] =
-                imageUpdate.newFileSize;
-            needUpdate = true;
-          }
-
-          // 更新后缀名
-          if (imageUpdate.newExtension != null &&
-              imageUpdate.newExtension != image.extension) {
-            updateData[DownloadedImageColumns.extension] =
-                imageUpdate.newExtension;
-            needUpdate = true;
-          }
-
-          // 更新宽高
-          if (imageUpdate.newWidth != null &&
-              imageUpdate.newWidth != image.width) {
-            updateData[DownloadedImageColumns.width] = imageUpdate.newWidth;
-            needUpdate = true;
-          }
-
-          if (imageUpdate.newHeight != null &&
-              imageUpdate.newHeight != image.height) {
-            updateData[DownloadedImageColumns.height] = imageUpdate.newHeight;
-            needUpdate = true;
-          }
-
-          if (needUpdate && updateData.isNotEmpty) {
-            await downloadStore.dbProvider.db.update(
-              DownloadedImageColumns.tableName,
-              updateData,
-              where:
-                  '${DownloadedImageColumns.illustId} = ? AND ${DownloadedImageColumns.part} = ?',
-              whereArgs: [image.illustId, image.part],
-            );
+          // 使用辅助方法更新图片记录
+          if (await _updateImageRecord(imageUpdate)) {
             updatedCount++;
           }
         }
@@ -684,6 +699,104 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
         .toList();
   }
 
+  // 构建标题栏
+  Widget _buildTitleBar() {
+    return Container(
+      padding: EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: Colors.grey[300]!)),
+      ),
+      child: Row(
+        children: [
+          Text('更新插画信息', style: Theme.of(context).textTheme.titleLarge),
+          SizedBox(width: 16),
+          // 并发数设置
+          Text('并发数:', style: TextStyle(fontSize: 14)),
+          SizedBox(width: 8),
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey[400]!),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: DropdownButton<int>(
+              value: _concurrentCount,
+              underline: SizedBox(),
+              isDense: true,
+              items: List.generate(10, (index) => index + 1)
+                  .map(
+                    (value) => DropdownMenuItem(
+                      value: value,
+                      child: Text('$value'),
+                    ),
+                  )
+                  .toList(),
+              onChanged: _isScanning || _isUpdating
+                  ? null
+                  : (value) {
+                      if (value != null) {
+                        setState(() {
+                          _concurrentCount = value;
+                        });
+                        userSetting.setUpdateIllustConcurrentCount(value);
+                      }
+                    },
+            ),
+          ),
+          Spacer(),
+          if (_isScanning || _isUpdating)
+            Padding(
+              padding: EdgeInsets.only(right: 8),
+              child: SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+          IconButton(
+            icon: Icon(Icons.close),
+            onPressed: _isUpdating ? null : _handleClose,
+            tooltip: '关闭',
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 构建筛选栏
+  Widget _buildFilterBar() {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: Colors.grey[300]!)),
+      ),
+      child: Row(
+        children: [
+          Text('筛选:', style: TextStyle(fontSize: 14)),
+          SizedBox(width: 8),
+          _buildFilterChip('全部', null),
+          SizedBox(width: 8),
+          _buildFilterChip('有变化', UpdateResultType.changed),
+          SizedBox(width: 8),
+          _buildFilterChip('损坏', UpdateResultType.broken),
+          SizedBox(width: 8),
+          _buildFilterChip('未完整', UpdateResultType.incomplete),
+          SizedBox(width: 8),
+          _buildFilterChip('无变化', UpdateResultType.unchanged),
+          Spacer(),
+          Text(
+            '总计: ${_updateInfos.length} | '
+            '有变化: ${_updateInfos.where((e) => e.hasChanges).length} | '
+            '损坏: ${_updateInfos.where((e) => e.hasBroken).length} | '
+            '未完整: ${_updateInfos.where((e) => e.isIncomplete).length} | '
+            '无变化: ${_updateInfos.where((e) => !e.hasChanges && !e.hasBroken).length}',
+            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Dialog(
@@ -692,103 +805,9 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
         height: MediaQuery.of(context).size.height * 0.8,
         child: Column(
           children: [
-            // 标题栏
-            Container(
-              padding: EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                border: Border(bottom: BorderSide(color: Colors.grey[300]!)),
-              ),
-              child: Row(
-                children: [
-                  Text('更新插画信息', style: Theme.of(context).textTheme.titleLarge),
-                  SizedBox(width: 16),
-                  // 并发数设置
-                  Text('并发数:', style: TextStyle(fontSize: 14)),
-                  SizedBox(width: 8),
-                  Container(
-                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey[400]!),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: DropdownButton<int>(
-                      value: _concurrentCount,
-                      underline: SizedBox(),
-                      isDense: true,
-                      items:
-                          List.generate(10, (index) => index + 1)
-                              .map(
-                                (value) => DropdownMenuItem(
-                                  value: value,
-                                  child: Text('$value'),
-                                ),
-                              )
-                              .toList(),
-                      onChanged:
-                          _isScanning || _isUpdating
-                              ? null
-                              : (value) {
-                                if (value != null) {
-                                  setState(() {
-                                    _concurrentCount = value;
-                                  });
-                                  userSetting.setUpdateIllustConcurrentCount(
-                                    value,
-                                  );
-                                }
-                              },
-                    ),
-                  ),
-                  Spacer(),
-                  if (_isScanning || _isUpdating)
-                    Padding(
-                      padding: EdgeInsets.only(right: 8),
-                      child: SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                    ),
-                  IconButton(
-                    icon: Icon(Icons.close),
-                    onPressed: _isUpdating ? null : _handleClose,
-                    tooltip: '关闭',
-                  ),
-                ],
-              ),
-            ),
+            _buildTitleBar(),
 
-            // 筛选栏
-            Container(
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                border: Border(bottom: BorderSide(color: Colors.grey[300]!)),
-              ),
-              child: Row(
-                children: [
-                  Text('筛选:', style: TextStyle(fontSize: 14)),
-                  SizedBox(width: 8),
-                  _buildFilterChip('全部', null),
-                  SizedBox(width: 8),
-                  _buildFilterChip('有变化', UpdateResultType.changed),
-                  SizedBox(width: 8),
-                  _buildFilterChip('损坏', UpdateResultType.broken),
-                  SizedBox(width: 8),
-                  _buildFilterChip('未完整', UpdateResultType.incomplete),
-                  SizedBox(width: 8),
-                  _buildFilterChip('无变化', UpdateResultType.unchanged),
-                  Spacer(),
-                  Text(
-                    '总计: ${_updateInfos.length} | '
-                    '有变化: ${_updateInfos.where((e) => e.hasChanges).length} | '
-                    '损坏: ${_updateInfos.where((e) => e.hasBroken).length} | '
-                    '未完整: ${_updateInfos.where((e) => e.isIncomplete).length} | '
-                    '无变化: ${_updateInfos.where((e) => !e.hasChanges && !e.hasBroken).length}',
-                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                  ),
-                ],
-              ),
-            ),
+            _buildFilterBar(),
 
             // 内容区域
             Expanded(
@@ -928,81 +947,277 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
     );
   }
 
-  Widget _buildIllustItem(UpdateIllustInfo info) {
-    final isChanged = info.hasChanges;
-    final isBroken = info.hasBroken;
-    final isIncomplete = info.isIncomplete;
-    // 只有当整个扫描过程在进行中，且该作品也在扫描中，且未暂停时，才认为是正在扫描
+  // 作品状态判断
+  ({
+    bool isScanning,
+    bool isPaused,
+    bool isWaiting,
+    bool isNotScanned,
+    bool hasChanges,
+    bool hasBroken,
+    bool isIncomplete,
+  }) _determineIllustStatus(UpdateIllustInfo info) {
     final isScanning = _isScanning && info.isScanning && !_isPaused;
-    // 如果扫描已暂停，且当前作品正在扫描中，显示为已暂停
     final isPaused = _isPaused && info.isScanning;
-    // 如果扫描已开始但当前作品还未扫描，显示为等待中
-    final isWaiting =
-        _isScanning &&
+    final isWaiting = _isScanning &&
         !info.isScanning &&
         info.imageUpdates.isEmpty &&
         !isPaused;
-    final isNotScanned =
-        !_isScanning &&
+    final isNotScanned = !_isScanning &&
         !isScanning &&
         info.imageUpdates.isEmpty &&
         _scannedCount == 0;
 
-    Color backgroundColor;
-    Color borderColor;
-    IconData leadingIcon;
-    Color iconColor;
-    String statusText;
+    return (
+      isScanning: isScanning,
+      isPaused: isPaused,
+      isWaiting: isWaiting,
+      isNotScanned: isNotScanned,
+      hasChanges: info.hasChanges,
+      hasBroken: info.hasBroken,
+      isIncomplete: info.isIncomplete,
+    );
+  }
 
-    if (isScanning) {
-      backgroundColor = Colors.blue[50]!;
-      borderColor = Colors.blue[400]!;
-      leadingIcon = Icons.autorenew; // 使用旋转刷新图标，更明显表示正在扫描
-      iconColor = Colors.blue[700]!;
-      statusText = '正在扫描...';
-    } else if (isPaused) {
-      backgroundColor = Colors.orange[50]!;
-      borderColor = Colors.orange[300]!;
-      leadingIcon = Icons.pause_circle; // 使用暂停图标
-      iconColor = Colors.orange[700]!;
-      statusText = '已暂停';
-    } else if (isWaiting) {
-      backgroundColor = Colors.amber[50]!;
-      borderColor = Colors.amber[300]!;
-      leadingIcon = Icons.queue; // 使用队列图标，更明显表示等待扫描
-      iconColor = Colors.amber[700]!;
-      statusText = '等待中';
-    } else if (isNotScanned) {
-      backgroundColor = Colors.grey[100]!;
-      borderColor = Colors.grey[400]!;
-      leadingIcon = Icons.pending;
-      iconColor = Colors.grey[600]!;
-      statusText = '未扫描';
-    } else if (isBroken) {
-      backgroundColor = Colors.red[50]!;
-      borderColor = Colors.red[400]!;
-      leadingIcon = Icons.error;
-      iconColor = Colors.red[700]!;
-      statusText = '已损坏';
-    } else if (isIncomplete) {
-      backgroundColor = Colors.purple[50]!;
-      borderColor = Colors.purple[400]!;
-      leadingIcon = Icons.incomplete_circle;
-      iconColor = Colors.purple[700]!;
-      statusText = '未下载完整';
-    } else if (isChanged) {
-      backgroundColor = Colors.orange[50]!;
-      borderColor = Colors.orange[400]!;
-      leadingIcon = Icons.update;
-      iconColor = Colors.orange[700]!;
-      statusText = '有变化';
+  // 根据状态获取样式配置
+  ({
+    Color backgroundColor,
+    Color borderColor,
+    IconData leadingIcon,
+    Color iconColor,
+    String statusText,
+  }) _getStyleConfig(
+    ({
+      bool isScanning,
+      bool isPaused,
+      bool isWaiting,
+      bool isNotScanned,
+      bool hasChanges,
+      bool hasBroken,
+      bool isIncomplete,
+    }) status,
+  ) {
+    if (status.isScanning) {
+      return (
+        backgroundColor: Colors.blue[50]!,
+        borderColor: Colors.blue[400]!,
+        leadingIcon: Icons.autorenew,
+        iconColor: Colors.blue[700]!,
+        statusText: '正在扫描...',
+      );
+    } else if (status.isPaused) {
+      return (
+        backgroundColor: Colors.orange[50]!,
+        borderColor: Colors.orange[300]!,
+        leadingIcon: Icons.pause_circle,
+        iconColor: Colors.orange[700]!,
+        statusText: '已暂停',
+      );
+    } else if (status.isWaiting) {
+      return (
+        backgroundColor: Colors.amber[50]!,
+        borderColor: Colors.amber[300]!,
+        leadingIcon: Icons.queue,
+        iconColor: Colors.amber[700]!,
+        statusText: '等待中',
+      );
+    } else if (status.isNotScanned) {
+      return (
+        backgroundColor: Colors.grey[100]!,
+        borderColor: Colors.grey[400]!,
+        leadingIcon: Icons.pending,
+        iconColor: Colors.grey[600]!,
+        statusText: '未扫描',
+      );
+    } else if (status.hasBroken) {
+      return (
+        backgroundColor: Colors.red[50]!,
+        borderColor: Colors.red[400]!,
+        leadingIcon: Icons.error,
+        iconColor: Colors.red[700]!,
+        statusText: '已损坏',
+      );
+    } else if (status.isIncomplete) {
+      return (
+        backgroundColor: Colors.purple[50]!,
+        borderColor: Colors.purple[400]!,
+        leadingIcon: Icons.incomplete_circle,
+        iconColor: Colors.purple[700]!,
+        statusText: '未下载完整',
+      );
+    } else if (status.hasChanges) {
+      return (
+        backgroundColor: Colors.orange[50]!,
+        borderColor: Colors.orange[400]!,
+        leadingIcon: Icons.update,
+        iconColor: Colors.orange[700]!,
+        statusText: '有变化',
+      );
     } else {
-      backgroundColor = Colors.green[100]!;
-      borderColor = Colors.green[300]!;
-      leadingIcon = Icons.check_circle;
-      iconColor = Colors.green[700]!;
-      statusText = '无变化';
+      return (
+        backgroundColor: Colors.green[100]!,
+        borderColor: Colors.green[300]!,
+        leadingIcon: Icons.check_circle,
+        iconColor: Colors.green[700]!,
+        statusText: '无变化',
+      );
     }
+  }
+
+  // 构建前导图标（带旋转动画）
+  Widget _buildLeadingIcon(
+    bool isScanning,
+    IconData icon,
+    Color iconColor,
+    UpdateIllustInfo info,
+  ) {
+    if (isScanning) {
+      return TweenAnimationBuilder<double>(
+        key: ValueKey('scanning_${info.illust.illustId}'),
+        tween: Tween(begin: 0.0, end: 1.0),
+        duration: Duration(seconds: 1),
+        curve: Curves.linear,
+        builder: (context, value, child) {
+          return Transform.rotate(
+            angle: value * 2 * 3.14159,
+            child: Icon(icon, color: iconColor, size: 28),
+          );
+        },
+        onEnd: () {
+          if (mounted && _isScanning && info.isScanning) {
+            setState(() {});
+          }
+        },
+      );
+    }
+    return Icon(icon, color: iconColor, size: 28);
+  }
+
+  // 构建状态标签（扫描中/等待中）
+  Widget? _buildStatusBadge(
+    bool isScanning,
+    bool isWaiting,
+    bool isNotScanned,
+    Color iconColor,
+    String statusText,
+  ) {
+    if (isScanning) {
+      return Padding(
+        padding: EdgeInsets.only(left: 8),
+        child: SizedBox(
+          width: 18,
+          height: 18,
+          child: CircularProgressIndicator(
+            strokeWidth: 2.5,
+            valueColor: AlwaysStoppedAnimation<Color>(iconColor),
+          ),
+        ),
+      );
+    } else if (isWaiting || isNotScanned) {
+      return Padding(
+        padding: EdgeInsets.only(left: 8),
+        child: Container(
+          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: iconColor.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(
+            statusText,
+            style: TextStyle(
+              fontSize: 12,
+              color: iconColor,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      );
+    }
+    return null;
+  }
+
+  // 构建操作按钮
+  List<Widget> _buildActionButtons(
+    bool isNotScanned,
+    UpdateIllustInfo info,
+    Color iconColor,
+  ) {
+    final actions = <Widget>[];
+
+    // 打开文件夹按钮
+    if (!isNotScanned) {
+      actions.add(
+        Padding(
+          padding: EdgeInsets.only(left: 8),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: () async {
+                final dirPath = p.join(
+                  downloadStore.downloadPath,
+                  info.illust.relativePath,
+                );
+                await OpenFile.open(dirPath);
+              },
+              child: Container(
+                padding: EdgeInsets.all(6),
+                child: Icon(
+                  Icons.folder_open,
+                  color: iconColor,
+                  size: 20,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // 打开插画详情页按钮
+    actions.add(
+      Padding(
+        padding: EdgeInsets.only(left: 8),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(20),
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) =>
+                      IllustLightingPage(id: info.illust.illustId),
+                ),
+              );
+            },
+            child: Container(
+              padding: EdgeInsets.all(6),
+              child: Icon(Icons.image, color: iconColor, size: 20),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    return actions;
+  }
+
+  Widget _buildIllustItem(UpdateIllustInfo info) {
+    // 获取作品状态和样式配置
+    final status = _determineIllustStatus(info);
+    final style = _getStyleConfig(status);
+
+    final isScanning = status.isScanning;
+    final isPaused = status.isPaused;
+    final isWaiting = status.isWaiting;
+    final isNotScanned = status.isNotScanned;
+    final isIncomplete = status.isIncomplete;
+
+    final backgroundColor = style.backgroundColor;
+    final borderColor = style.borderColor;
+    final leadingIcon = style.leadingIcon;
+    final iconColor = style.iconColor;
+    final statusText = style.statusText;
 
     return Container(
       margin: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -1012,8 +1227,8 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
         border: Border.all(
           color: borderColor,
           width:
-              isChanged ||
-                      isBroken ||
+              status.hasChanges ||
+                      status.hasBroken ||
                       isIncomplete ||
                       isScanning ||
                       isWaiting ||
@@ -1104,112 +1319,28 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
                 ],
               ),
             ),
-            if (isScanning)
-              Padding(
-                padding: EdgeInsets.only(left: 8),
-                child: SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2.5,
-                    valueColor: AlwaysStoppedAnimation<Color>(iconColor),
-                  ),
-                ),
-              )
-            else if (isWaiting || isNotScanned)
-              Padding(
-                padding: EdgeInsets.only(left: 8),
-                child: Container(
-                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: iconColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    statusText,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: iconColor,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ),
-            // 打开文件夹按钮
-            if (!isNotScanned)
-              Padding(
-                padding: EdgeInsets.only(left: 8),
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(20),
-                    onTap: () async {
-                      final dirPath = p.join(
-                        downloadStore.downloadPath,
-                        info.illust.relativePath,
-                      );
-                      await OpenFile.open(dirPath);
-                    },
-                    child: Container(
-                      padding: EdgeInsets.all(6),
-                      child: Icon(
-                        Icons.folder_open,
-                        color: iconColor,
-                        size: 20,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            // 打开插画详情页按钮
-            Padding(
-              padding: EdgeInsets.only(left: 8),
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(20),
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder:
-                            (context) =>
-                                IllustLightingPage(id: info.illust.illustId),
-                      ),
-                    );
-                  },
-                  child: Container(
-                    padding: EdgeInsets.all(6),
-                    child: Icon(Icons.image, color: iconColor, size: 20),
-                  ),
-                ),
-              ),
-            ),
+            // 状态标签
+            if (_buildStatusBadge(
+                  isScanning,
+                  isWaiting,
+                  isNotScanned,
+                  iconColor,
+                  statusText,
+                ) !=
+                null)
+              _buildStatusBadge(
+                isScanning,
+                isWaiting,
+                isNotScanned,
+                iconColor,
+                statusText,
+              )!,
+            // 操作按钮
+            ..._buildActionButtons(isNotScanned, info, iconColor),
           ],
         ),
         subtitle: null,
-        leading:
-            isScanning
-                ? TweenAnimationBuilder<double>(
-                  key: ValueKey(
-                    'scanning_${info.illust.illustId}',
-                  ), // 使用 key 确保动画正确重置
-                  tween: Tween(begin: 0.0, end: 1.0),
-                  duration: Duration(seconds: 1),
-                  curve: Curves.linear,
-                  builder: (context, value, child) {
-                    return Transform.rotate(
-                      angle: value * 2 * 3.14159, // 完整旋转一圈
-                      child: Icon(leadingIcon, color: iconColor, size: 28),
-                    );
-                  },
-                  onEnd: () {
-                    // 动画结束后重新开始，实现循环旋转
-                    if (mounted && _isScanning && info.isScanning) {
-                      setState(() {});
-                    }
-                  },
-                )
-                : Icon(leadingIcon, color: iconColor, size: 28),
+        leading: _buildLeadingIcon(isScanning, leadingIcon, iconColor, info),
         children:
             info.imageUpdates.isEmpty
                 ? [
