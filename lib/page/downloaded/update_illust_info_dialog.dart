@@ -67,9 +67,9 @@ class UpdateIllustInfo {
 
   void _updateFlags() {
     hasChanges = imageUpdates.any((e) => e.hasChange);
-    hasBroken = imageUpdates.any((e) => e.isBroken);
+    hasBroken = imageUpdates.any((e) => e.isBroken || e.isFileNotFound);
     // 检测是否未下载完整：比较 pageCount 和实际下载的图片数量
-    final downloadedCount = imageUpdates.where((e) => !e.isBroken).length;
+    final downloadedCount = imageUpdates.where((e) => !e.isBroken && !e.isFileNotFound).length;
     isIncomplete = downloadedCount < illust.pageCount;
   }
 
@@ -112,7 +112,8 @@ class ImageUpdateInfo {
   final String? newExtension;
   final int? newWidth;
   final int? newHeight;
-  final bool isBroken;
+  final bool isBroken; // 文件损坏（无法解析图片）
+  final bool isFileNotFound; // 文件不存在
   final String? scannedFilePath; // 扫描阶段获取的文件路径
   bool hasChange = false;
 
@@ -122,7 +123,8 @@ class ImageUpdateInfo {
     this.newExtension,
     this.newWidth,
     this.newHeight,
-    required this.isBroken,
+    this.isBroken = false,
+    this.isFileNotFound = false,
     this.scannedFilePath,
   }) {
     hasChange =
@@ -152,6 +154,8 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
   bool _isUpdating = false;
   int _scannedCount = 0;
   int _totalCount = 0;
+  int _updatingProgress = 0; // 当前更新进度（已更新的作品数）
+  int _totalToUpdate = 0; // 需要更新的总作品数
   UpdateResultType? _filterType;
   String? _errorMessage;
   static const int _concurrentCount = 4; // 每个作品内并发扫描的图片数量
@@ -176,10 +180,10 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
         .getLocalImagePath(image.illustId, image.part, update: false);
     String? foundExtension;
     if (actualPath == null) {
-      // 文件不存在，标记为损坏
+      // 文件不存在
       return ImageUpdateInfo(
         originalImage: image,
-        isBroken: true,
+        isFileNotFound: true,
         scannedFilePath: null, // 文件不存在，路径为 null
       );
     }
@@ -441,14 +445,20 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
   }
 
   Future<void> _performUpdate() async {
+    // 计算需要更新的总作品数
+    final toUpdateCount = _updateInfos.where((info) => 
+      !info.isScanning && (info.hasChanges || info.hasBroken)
+    ).length;
+    
     setState(() {
       _isUpdating = true;
       _errorMessage = null;
+      _updatingProgress = 0;
+      _totalToUpdate = toUpdateCount;
     });
 
     try {
       int updatedCount = 0;
-      int brokenCount = 0;
       int deletedCount = 0; // 已删除的损坏文件数量
       List<String> errors = []; // 收集错误信息
 
@@ -466,9 +476,8 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
         bool hasDeletedBroken = false; // 当前作品是否有删除损坏文件
 
         for (final imageUpdate in updateInfo.imageUpdates) {
-          if (imageUpdate.isBroken) {
-            brokenCount++;
-            // 删除损坏的图片文件和数据库记录
+          if (imageUpdate.isBroken || imageUpdate.isFileNotFound) {
+            // 删除损坏或不存在的图片文件和数据库记录
             final image = imageUpdate.originalImage;
 
             // 使用扫描阶段获取的文件路径删除文件
@@ -559,12 +568,32 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
           await downloadStore.dbProvider
               .updateAuthorStats(updateInfo.illust.userId);
         }
+        
+        // 更新进度
+        if (mounted) {
+          setState(() {
+            _updatingProgress++;
+          });
+        }
       }
 
       if (mounted) {
         setState(() {
           _isUpdating = false;
         });
+
+        // 统计文件不存在和图片损坏的数量
+        int fileNotFoundCount = 0;
+        int corruptedCount = 0;
+        for (final updateInfo in _updateInfos) {
+          for (final imageUpdate in updateInfo.imageUpdates) {
+            if (imageUpdate.isFileNotFound) {
+              fileNotFoundCount++;
+            } else if (imageUpdate.isBroken) {
+              corruptedCount++;
+            }
+          }
+        }
 
         // 显示更新结果
         showDialog(
@@ -578,7 +607,8 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
                 children: [
                   Text(
                     '已更新 $updatedCount 条记录\n'
-                    '损坏文件: $brokenCount 个\n'
+                    '文件不存在: $fileNotFoundCount 个\n'
+                    '图片损坏: $corruptedCount 个\n'
                     '已删除: $deletedCount 个',
                   ),
                   if (errors.isNotEmpty) ...[
@@ -757,7 +787,16 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
                         style: TextStyle(color: Colors.red, fontSize: 12),
                       ),
                     ),
-                  if (_isScanning) ...[
+                  if (_isUpdating) ...[
+                    // 显示更新进度
+                    Text('正在更新: $_updatingProgress / $_totalToUpdate'),
+                    SizedBox(width: 16),
+                    SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  ] else if (_isScanning) ...[
                     Text('扫描中: $_scannedCount / $_totalCount'),
                     SizedBox(width: 16),
                     if (_isPaused) ...[
@@ -1200,7 +1239,7 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
                             if (isIncomplete) ...[
                               SizedBox(height: 4),
                               Text(
-                                '下载进度: ${info.imageUpdates.where((e) => !e.isBroken).length} / ${info.illust.pageCount}',
+                                '下载进度: ${info.imageUpdates.where((e) => !e.isBroken && !e.isFileNotFound).length} / ${info.illust.pageCount}',
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: Colors.purple[700],
@@ -1263,15 +1302,20 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
           ),
           SizedBox(width: 8),
           Expanded(
-            child: imageUpdate.isBroken
+            child: imageUpdate.isFileNotFound
                 ? Text(
-                    '文件不存在或无法读取',
-                    style: TextStyle(color: Colors.red),
+                    '文件不存在',
+                    style: TextStyle(color: Colors.red[700], fontWeight: FontWeight.w500),
                   )
-                : changes.isEmpty
-                    ? Text('无变化', style: TextStyle(color: Colors.grey))
-                    : Text(changes.join(', '),
-                        style: TextStyle(color: Colors.black45)),
+                : imageUpdate.isBroken
+                    ? Text(
+                        '图片损坏（无法解析）',
+                        style: TextStyle(color: Colors.orange[700], fontWeight: FontWeight.w500),
+                      )
+                    : changes.isEmpty
+                        ? Text('无变化', style: TextStyle(color: Colors.grey))
+                        : Text(changes.join(', '),
+                            style: TextStyle(color: Colors.black45)),
           ),
         ],
       ),
