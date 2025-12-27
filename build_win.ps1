@@ -1,5 +1,8 @@
+$startTime = Get-Date
 # PowerShell script for building and copying Windows application
 # Usage: .\build_win.ps1
+
+$destinationDir = "E:\Program Files\PixEz"
 
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "Script started at $(Get-Date -Format 'yyyy/MM/dd HH:mm:ss')" -ForegroundColor Cyan
@@ -35,9 +38,7 @@ Write-Host "Waiting for file system to sync..." -ForegroundColor Gray
 Start-Sleep -Seconds 2
 
 # Define source and destination directories
-$sourceDir = "E:\Workspace\flutter\pixez_flutter\build\windows\x64\runner\Release"
-$destinationDir = "E:\Program Files\PixEz"
-
+$sourceDir = "./build/windows/x64/runner/Release"
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Yellow
 Write-Host "Preparing to copy files..." -ForegroundColor Yellow
@@ -96,7 +97,12 @@ try {
     exit 1
 }
 
+$endTime = Get-Date
+$duration = $endTime - $startTime
+$durationString = "{0:mm}分 {0:ss}秒" -f $duration
+
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "Script completed at $(Get-Date -Format 'yyyy/MM/dd HH:mm:ss')" -ForegroundColor Cyan
+Write-Host "Total time elapsed: $durationString" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 
