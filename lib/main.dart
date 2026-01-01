@@ -297,7 +297,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             if (Platform.isIOS) child = _buildMaskBuilder(context, child);
             child = botToastBuilder(context, child);
             I18n.context = context;
-            return WindowFrame(child);
+            if (Platform.isWindows) {
+              return WindowFrame(child);
+            }
+            return child;
           },
           themeMode: userSetting.themeMode,
           theme: ThemeData.light().copyWith(

@@ -14,4 +14,8 @@ class AppDelegate: FlutterAppDelegate {
             eventSink?(i.absoluteString)
         }
     }
+
+    override func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool {
+        return true
+    }
 }
