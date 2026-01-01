@@ -386,4 +386,28 @@ class MouseDragScrollBehavior extends MaterialScrollBehavior {
         PointerDeviceKind.stylus,
         PointerDeviceKind.trackpad,
       };
+
+  @override
+  ScrollPhysics getScrollPhysics(BuildContext context) {
+    if (Platform.isMacOS) {
+      return const MacOSScrollPhysics();
+    }
+    return super.getScrollPhysics(context);
+  }
+}
+
+/// macOS 专用的滚动物理效果，提升滚动速度
+class MacOSScrollPhysics extends ScrollPhysics {
+  const MacOSScrollPhysics({super.parent});
+
+  @override
+  MacOSScrollPhysics applyTo(ScrollPhysics? ancestor) {
+    return MacOSScrollPhysics(parent: buildParent(ancestor));
+  }
+
+  @override
+  double applyPhysicsToUserOffset(ScrollMetrics position, double offset) {
+    // macOS 上将滚动偏移量放大 3 倍，提升滚动速度
+    return super.applyPhysicsToUserOffset(position, offset * 3.0);
+  }
 }
