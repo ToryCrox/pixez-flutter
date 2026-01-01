@@ -1119,6 +1119,8 @@ class DownloadDatabaseProvider {
               height: image.height,
               fileSize: image.fileSize,
             ));
+      } else {
+        Log.w('未找到图片: ${image.illustId}-${image.part}, $_basePath, ${image.relativePath}, ${image.fileName}');
       }
       return null;
     });
@@ -1137,7 +1139,8 @@ class DownloadDatabaseProvider {
   /// 根据图片记录查找实际存在的文件路径（自动检测后缀名）
   Future<String?> _findImagePathForImage(DownloadedImage image,
       {bool update = true}) async {
-    final basePath = path.join(_basePath!, image.relativePath, image.fileName);
+    final basePath = path.join(_basePath!, image.relativePath.replaceAll('\\', '/'), 
+      image.fileName);
 
     // 首先尝试数据库中记录的后缀（最常见的情况）
     String fullPath = '$basePath${image.extension}';

@@ -18,6 +18,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:open_file/open_file.dart';
 import 'package:path/path.dart' as p;
+import 'package:pixez/custom/log.dart';
 import 'package:pixez/er/leader.dart';
 import 'package:pixez/exts.dart';
 import 'package:pixez/i18n.dart';
@@ -42,11 +43,8 @@ class DownloadedPage extends StatefulWidget {
   final int? initialUserId;
   final String? initialUserName;
 
-  const DownloadedPage({
-    Key? key,
-    this.initialUserId,
-    this.initialUserName,
-  }) : super(key: key);
+  const DownloadedPage({Key? key, this.initialUserId, this.initialUserName})
+    : super(key: key);
 
   @override
   State<DownloadedPage> createState() => _DownloadedPageState();
@@ -82,10 +80,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
   @override
   Widget build(BuildContext context) {
     return Observer(
-      builder: (_) => Scaffold(
-        appBar: _buildAppBar(),
-        body: _buildBody(),
-      ),
+      builder: (_) => Scaffold(appBar: _buildAppBar(), body: _buildBody()),
     );
   }
 
@@ -94,11 +89,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
       title: _buildAppBarTitle(),
-      actions: [
-        _buildImportButton(),
-        _buildAuthorsButton(),
-        _buildMoreMenu(),
-      ],
+      actions: [_buildImportButton(), _buildAuthorsButton(), _buildMoreMenu()],
     );
   }
 
@@ -148,9 +139,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
       tooltip: '作者列表',
       onPressed: () {
         Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (context) => DownloadedAuthorsPage(),
-          ),
+          MaterialPageRoute(builder: (context) => DownloadedAuthorsPage()),
         );
       },
     );
@@ -160,13 +149,14 @@ class _DownloadedPageState extends State<DownloadedPage> {
     return PopupMenuButton<String>(
       icon: Icon(Icons.more_vert),
       onSelected: _onMenuSelected,
-      itemBuilder: (context) => [
-        ..._buildFilterMenuItems(),
-        PopupMenuDivider(),
-        ..._buildActionMenuItems(),
-        PopupMenuDivider(),
-        ..._buildDownloadControlMenuItems(),
-      ],
+      itemBuilder:
+          (context) => [
+            ..._buildFilterMenuItems(),
+            PopupMenuDivider(),
+            ..._buildActionMenuItems(),
+            PopupMenuDivider(),
+            ..._buildDownloadControlMenuItems(),
+          ],
     );
   }
 
@@ -260,11 +250,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
       PopupMenuItem(
         value: 'update_info',
         child: Row(
-          children: [
-            Icon(Icons.update),
-            SizedBox(width: 8),
-            Text('更新插画信息'),
-          ],
+          children: [Icon(Icons.update), SizedBox(width: 8), Text('更新插画信息')],
         ),
       ),
       PopupMenuItem(
@@ -361,10 +347,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
         return CustomScrollView(
           physics: physics,
           controller: scrollController,
-          slivers: [
-            _buildSortHeader(),
-            _buildGridView(),
-          ],
+          slivers: [_buildSortHeader(), _buildGridView()],
         );
       },
     );
@@ -413,10 +396,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
           ),
         ),
         SizedBox(width: 8),
-        Switch(
-          value: _store.sortDesc,
-          onChanged: _store.onSortOrderChanged,
-        ),
+        Switch(value: _store.sortDesc, onChanged: _store.onSortOrderChanged),
       ],
     );
   }
@@ -432,31 +412,29 @@ class _DownloadedPageState extends State<DownloadedPage> {
           crossAxisSpacing: 8,
           mainAxisSpacing: 8,
         ),
-        delegate: SliverChildBuilderDelegate(
-          (context, index) {
-            if (index >= filteredList.length) {
-              return Center(child: CircularProgressIndicator());
-            }
-            return _DownloadedIllustCard(
-              illust: filteredList[index],
-              store: _store,
-              onTapPosition: (pos) => _tapPosition = pos,
-              onTap: () => _navigateToPictureList(filteredList[index]),
-              onLongPress: () => _showIllustOptions(filteredList[index]),
-              onSecondaryTap: () => _showContextMenu(
-                context,
-                filteredList[index],
-                _tapPosition,
-              ),
-              onOpenFolder: () => _openIllustFolder(filteredList[index]),
-              onRefreshData: () {
-                _store.loadData();
-                _store.loadStats();
-              },
-            );
-          },
-          childCount: filteredList.length + (_store.loadingMore ? 1 : 0),
-        ),
+        delegate: SliverChildBuilderDelegate((context, index) {
+          if (index >= filteredList.length) {
+            return Center(child: CircularProgressIndicator());
+          }
+          return _DownloadedIllustCard(
+            illust: filteredList[index],
+            store: _store,
+            onTapPosition: (pos) => _tapPosition = pos,
+            onTap: () => _navigateToPictureList(filteredList[index]),
+            onLongPress: () => _showIllustOptions(filteredList[index]),
+            onSecondaryTap:
+                () => _showContextMenu(
+                  context,
+                  filteredList[index],
+                  _tapPosition,
+                ),
+            onOpenFolder: () => _openIllustFolder(filteredList[index]),
+            onRefreshData: () {
+              _store.loadData();
+              _store.loadStats();
+            },
+          );
+        }, childCount: filteredList.length + (_store.loadingMore ? 1 : 0)),
       ),
     );
   }
@@ -464,9 +442,10 @@ class _DownloadedPageState extends State<DownloadedPage> {
   // ============ 导航与操作 ============
 
   void _navigateToPictureList(DownloadedIllust illust) {
-    final iStores = _store.filteredIllusts.map((item) {
-      return IllustStore(item.illustId, item.toIllusts());
-    }).toList();
+    final iStores =
+        _store.filteredIllusts.map((item) {
+          return IllustStore(item.illustId, item.toIllusts());
+        }).toList();
 
     final currentIndex = _store.filteredIllusts.indexOf(illust);
     final currentStore = iStores[currentIndex];
@@ -483,10 +462,10 @@ class _DownloadedPageState extends State<DownloadedPage> {
   }
 
   Future<void> _openIllustFolder(DownloadedIllust illust) async {
-    final dirPath = p.join(
-      downloadStore.downloadPath,
-      illust.relativePath,
-    );
+    // 替换反斜杠为正斜杠，修复 macOS 上的路径问题
+    final normalizedPath = illust.relativePath.replaceAll('\\', '/');
+    final dirPath = p.join(downloadStore.downloadPath, normalizedPath);
+    Log.d(() => 'open folder $dirPath');
     await OpenFile.open(dirPath);
   }
 
@@ -517,9 +496,9 @@ class _DownloadedPageState extends State<DownloadedPage> {
     }
 
     if (illustsToUpdate.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('没有需要更新的作品')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('没有需要更新的作品')));
       return;
     }
 
@@ -570,7 +549,10 @@ class _DownloadedPageState extends State<DownloadedPage> {
   // ============ 右键菜单 ============
 
   void _showContextMenu(
-      BuildContext context, DownloadedIllust illust, Offset? tapPosition) {
+    BuildContext context,
+    DownloadedIllust illust,
+    Offset? tapPosition,
+  ) {
     final RenderBox overlay =
         Overlay.of(context).context.findRenderObject() as RenderBox;
 
@@ -578,7 +560,8 @@ class _DownloadedPageState extends State<DownloadedPage> {
         tapPosition != null ? overlay.globalToLocal(tapPosition) : Offset.zero;
 
     final status = _store.illustDownloadStatus[illust.illustId];
-    final isDownloading = status == DownloadTaskStatus.downloading ||
+    final isDownloading =
+        status == DownloadTaskStatus.downloading ||
         status == DownloadTaskStatus.pending;
     final isPaused = status == DownloadTaskStatus.paused;
     final isFailed = status == DownloadTaskStatus.failed;
@@ -618,9 +601,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
           onTap: () async {
             await showDialog(
               context: context,
-              builder: (context) => UpdateIllustInfoDialog(
-                illusts: [illust],
-              ),
+              builder: (context) => UpdateIllustInfoDialog(illusts: [illust]),
             );
             _store.loadData();
           },
@@ -648,7 +629,10 @@ class _DownloadedPageState extends State<DownloadedPage> {
         children: [
           Icon(icon, color: iconColor),
           SizedBox(width: 8),
-          Text(label, style: labelColor != null ? TextStyle(color: labelColor) : null),
+          Text(
+            label,
+            style: labelColor != null ? TextStyle(color: labelColor) : null,
+          ),
         ],
       ),
       onTap: onTap,
@@ -659,7 +643,8 @@ class _DownloadedPageState extends State<DownloadedPage> {
 
   void _showIllustOptions(DownloadedIllust illust) {
     final status = _store.illustDownloadStatus[illust.illustId];
-    final isDownloading = status == DownloadTaskStatus.downloading ||
+    final isDownloading =
+        status == DownloadTaskStatus.downloading ||
         status == DownloadTaskStatus.pending;
     final isPaused = status == DownloadTaskStatus.paused;
     final isFailed = status == DownloadTaskStatus.failed;
@@ -728,9 +713,8 @@ class _DownloadedPageState extends State<DownloadedPage> {
                   Navigator.pop(ctx);
                   await showDialog(
                     context: context,
-                    builder: (context) => UpdateIllustInfoDialog(
-                      illusts: [illust],
-                    ),
+                    builder:
+                        (context) => UpdateIllustInfoDialog(illusts: [illust]),
                   );
                   _store.loadData();
                   _store.loadStats();
@@ -807,39 +791,53 @@ class _DownloadedIllustCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final status = store.illustDownloadStatus[illust.illustId];
-    final isDownloading = status == DownloadTaskStatus.downloading;
-    final isPending = status == DownloadTaskStatus.pending;
-    final isPaused = status == DownloadTaskStatus.paused;
-    final isFailed = status == DownloadTaskStatus.failed;
-
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        onLongPress: onLongPress,
-        onSecondaryTapDown: (details) => onTapPosition(details.globalPosition),
-        onSecondaryTap: onSecondaryTap,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Expanded(
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  _buildThumbnail(context),
-                  _buildFolderButton(context),
-                  if (isDownloading) _buildDownloadingOverlay(),
-                  if (isPending) _buildPendingOverlay(context),
-                  if (isPaused) _buildStatusBadge(context, I18n.of(context).paused, Colors.orange),
-                  if (isFailed) _buildStatusBadge(context, I18n.of(context).failed, Colors.red),
-                ],
-              ),
+    return Observer(
+      builder: (_) {
+        final status = store.illustDownloadStatus[illust.illustId];
+        final isDownloading = status == DownloadTaskStatus.downloading;
+        final isPending = status == DownloadTaskStatus.pending;
+        final isPaused = status == DownloadTaskStatus.paused;
+        final isFailed = status == DownloadTaskStatus.failed;
+        return Card(
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onTap,
+            onLongPress: onLongPress,
+            onSecondaryTapDown:
+                (details) => onTapPosition(details.globalPosition),
+            onSecondaryTap: onSecondaryTap,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      _buildThumbnail(context),
+                      _buildFolderButton(context),
+                      if (isDownloading) _buildDownloadingOverlay(),
+                      if (isPending) _buildPendingOverlay(context),
+                      if (isPaused)
+                        _buildStatusBadge(
+                          context,
+                          I18n.of(context).paused,
+                          Colors.orange,
+                        ),
+                      if (isFailed)
+                        _buildStatusBadge(
+                          context,
+                          I18n.of(context).failed,
+                          Colors.red,
+                        ),
+                    ],
+                  ),
+                ),
+                _buildInfoSection(context),
+              ],
             ),
-            _buildInfoSection(context),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -859,10 +857,7 @@ class _DownloadedIllustCard extends StatelessWidget {
       httpHeaders: {'cover': '${illust.illustId}'},
     );
 
-    return Hero(
-      tag: heroTag,
-      child: imageWidget,
-    );
+    return Hero(tag: heroTag, child: imageWidget);
   }
 
   Widget _buildFolderButton(BuildContext context) {
@@ -877,11 +872,7 @@ class _DownloadedIllustCard extends StatelessWidget {
           onTap: onOpenFolder,
           child: Container(
             padding: EdgeInsets.all(6),
-            child: Icon(
-              Icons.folder_open,
-              color: Colors.white,
-              size: 18,
-            ),
+            child: Icon(Icons.folder_open, color: Colors.white, size: 18),
           ),
         ),
       ),
@@ -910,19 +901,9 @@ class _DownloadedIllustCard extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                Icons.hourglass_empty,
-                color: Colors.white,
-                size: 32,
-              ),
+              Icon(Icons.hourglass_empty, color: Colors.white, size: 32),
               SizedBox(height: 4),
-              Text(
-                '等待下载',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                ),
-              ),
+              Text('等待下载', style: TextStyle(color: Colors.white, fontSize: 12)),
             ],
           ),
         ),
@@ -940,10 +921,7 @@ class _DownloadedIllustCard extends StatelessWidget {
           color: color,
           borderRadius: BorderRadius.circular(4),
         ),
-        child: Text(
-          text,
-          style: TextStyle(color: Colors.white, fontSize: 10),
-        ),
+        child: Text(text, style: TextStyle(color: Colors.white, fontSize: 10)),
       ),
     );
   }
@@ -966,8 +944,8 @@ class _DownloadedIllustCard extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.primary,
-                ),
+              color: Theme.of(context).colorScheme.primary,
+            ),
           ),
           _buildStatsRow(context),
         ],
@@ -991,9 +969,9 @@ class _DownloadedIllustCard extends StatelessWidget {
             child: Text(
               totalFileSize.formatFileSize(),
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.grey[600],
-                    fontSize: 11,
-                  ),
+                color: Colors.grey[600],
+                fontSize: 11,
+              ),
             ),
           ),
       ],
@@ -1025,16 +1003,16 @@ class _DownloadedIllustCard extends StatelessWidget {
           Text(
             pageText,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: downloadedCount < totalCount ? Colors.orange : null,
-                ),
+              color: downloadedCount < totalCount ? Colors.orange : null,
+            ),
           ),
           SizedBox(width: 4),
           Text(
             '· $avgSizeText/P',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Colors.grey[600],
-                  fontSize: 11,
-                ),
+              color: Colors.grey[600],
+              fontSize: 11,
+            ),
           ),
         ],
       );
@@ -1042,8 +1020,8 @@ class _DownloadedIllustCard extends StatelessWidget {
       return Text(
         pageText,
         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: downloadedCount < totalCount ? Colors.orange : null,
-            ),
+          color: downloadedCount < totalCount ? Colors.orange : null,
+        ),
       );
     }
   }
@@ -1064,7 +1042,10 @@ class SliverChipDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   Widget build(
-      BuildContext context, double shrinkOffset, bool overlapsContent) {
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
     return child;
   }
 

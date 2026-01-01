@@ -226,6 +226,28 @@ abstract class _DownloadStoreBase with Store {
     });
   }
 
+  /// 更新下载路径（用于运行时修改下载目录）
+  Future<void> updateDownloadPath(String newDownloadPath) async {
+    if (!_isInit) {
+      // 如果还没初始化，直接调用 init
+      await init(newDownloadPath, maxConcurrent: _maxConcurrent);
+      return;
+    }
+
+    // 更新下载路径
+    _downloadPath = path.join(newDownloadPath, 'download');
+    Log.d('DownloadStore updateDownloadPath: $_downloadPath');
+    
+    // 关闭旧的数据库连接
+    // 注意：这里不关闭数据库，因为可能有正在进行的下载任务
+    // 只是更新路径，新的下载任务会使用新路径
+    // 已下载的记录仍在旧数据库中
+    
+    // 重新打开数据库（使用新路径）
+    await _dbProvider.open(newDownloadPath);
+    await refreshCount();
+  }
+
   Future<void> _handleIllustDownloadStatus(int illustId) async {
     final illustDownloadStatus = await getIllustDownloadStatus(illustId);
     Log.d(() => 'handleIllustDownloadStatus $illustId: $illustDownloadStatus');

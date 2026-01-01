@@ -1,135 +1,139 @@
 import 'dart:io';
 
+import 'package:bot_toast/bot_toast.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_mobx/flutter_mobx.dart';
-import 'package:package_info_plus/package_info_plus.dart';
-import 'package:pixez/document_plugin.dart';
 import 'package:pixez/i18n.dart';
 import 'package:pixez/main.dart';
-import 'package:pixez/page/hello/setting/save_format_page.dart';
 
 class WindowsPlatformPage extends StatefulWidget {
   @override
   State<StatefulWidget> createState() {
-    if (Platform.isWindows) return _WindowsPlatformPageState();
+    if (Platform.isWindows || Platform.isMacOS) return _WindowsPlatformPageState();
     throw UnimplementedError();
   }
 }
 
 class _WindowsPlatformPageState extends State<WindowsPlatformPage> {
   String path = "";
+  bool isLoading = false;
 
   @override
   void initState() {
     super.initState();
-    initVoid();
+    _initPath();
   }
 
-  initVoid() async {
-    PackageInfo packageInfo = await PackageInfo.fromPlatform();
-    setState(() {
-      version = packageInfo.version;
-    });
-
-    String path = (await DocumentPlugin.getPath())!;
+  Future<void> _initPath() async {
+    final currentPath = userSetting.downloadPath;
     if (mounted) {
       setState(() {
-        this.path = path;
+        path = currentPath ?? "";
       });
     }
   }
 
-  String version = "";
-  bool singleFolder = false;
+  /// 选择下载路径并更新 downloadStore
+  Future<void> _chooseDownloadPath() async {
+    try {
+      setState(() {
+        isLoading = true;
+      });
+
+      // 使用 file_picker 选择目录
+      String? selectedPath = await FilePicker.platform.getDirectoryPath();
+      
+      if (selectedPath != null && selectedPath.isNotEmpty && selectedPath != path) {
+        // 保存到 UserSetting
+        await userSetting.setDownloadPath(selectedPath);
+        
+        // 更新 downloadStore 的下载路径（立即生效）
+        await downloadStore.updateDownloadPath(selectedPath);
+        
+        if (mounted) {
+          setState(() {
+            path = selectedPath;
+          });
+          BotToast.showText(text: '下载路径已更新');
+        }
+      }
+    } catch (e) {
+      BotToast.showText(text: '设置失败: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
+    }
+  }
+
+  /// 打开当前下载目录
+  Future<void> _openDownloadDirectory() async {
+    if (path.isEmpty) {
+      BotToast.showText(text: '下载路径未设置');
+      return;
+    }
+    
+    try {
+      final directory = Directory(path);
+      if (!await directory.exists()) {
+        await directory.create(recursive: true);
+      }
+      
+      // 使用系统命令打开文件夹
+      if (Platform.isWindows) {
+        await Process.run('explorer', [path]);
+      } else if (Platform.isMacOS) {
+        await Process.run('open', [path]);
+      }
+    } catch (e) {
+      BotToast.showText(text: '打开目录失败: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final platformName = Platform.isWindows ? "Windows" : "macOS";
+    final platformColor = Platform.isWindows ? Colors.blue : Colors.grey;
+    
     return AlertDialog(
       title: ListTile(
-        title: Text("Platform Setting"),
+        title: Text(I18n.ofContext().platform_special_setting),
         subtitle: Text(
-          "For Windows",
-          style: TextStyle(color: Colors.blue),
+          "For $platformName",
+          style: TextStyle(color: platformColor),
         ),
       ),
-      content: Observer(builder: (_) {
-        return SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              ListTile(
-                leading: Icon(Icons.folder),
-                title: Text(I18n.of(context).save_path),
-                subtitle: Text(path),
-                onTap: () async {
-                  await DocumentPlugin.choiceFolder();
-                  final path = await DocumentPlugin.getPath();
-                  if (mounted) {
-                    setState(() {
-                      this.path = path!;
-                    });
-                  }
-                },
-              ),
-              ListTile(
-                leading: Icon(Icons.format_align_left),
-                title: Text(I18n.of(context).save_format),
-                subtitle: Text(userSetting.fileNameEval == 1
-                    ? "Eval"
-                    : userSetting.format ?? ""),
-                onTap: () async {
-                  if (userSetting.fileNameEval == 1) {
-                    // TODO: 没有实现 JSEvalPlugin 所以这里不能用
-                    // await showDialog(
-                    //   context: context,
-                    //   builder: (context) => SaveEvalPage(),
-                    // );
-                  } else {
-                    final result = await Navigator.of(context).push(
-                      MaterialPageRoute(builder: (context) => SaveFormatPage()),
-                    );
-                    if (result is String) {
-                      userSetting.setFormat(result);
-                    }
-                  }
-                },
-              ),
-              Observer(
-                builder: (context) {
-                  return SwitchListTile(
-                    secondary: Icon(Icons.folder_shared),
-                    title: Text(I18n.of(context).separate_folder),
-                    subtitle: Text(I18n.of(context).separate_folder_message),
-                    value: userSetting.singleFolder,
-                    onChanged: (bool value) async {
-                      if (value) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('可能会造成保存等待时间过长')));
-                      }
-                      await userSetting.setSingleFolder(value);
-                    },
-                  );
-                },
-              ),
-              Observer(
-                builder: (context) {
-                  return SwitchListTile(
-                    secondary: Icon(Icons.folder_open),
-                    title: Text("Sanity Single Folder"),
-                    value: userSetting.overSanityLevelFolder,
-                    onChanged: (bool value) async {
-                      await userSetting.setOverSanityLevelFolder(value);
-                    },
-                  );
-                },
-              ),
-            ],
-          ),
-        );
-      }),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            ListTile(
+              leading: Icon(Icons.folder),
+              title: Text(I18n.ofContext().save_path),
+              subtitle: Text(path.isEmpty ? '未设置' : path),
+              trailing: isLoading 
+                ? SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : null,
+              onTap: isLoading ? null : _chooseDownloadPath,
+            ),
+            ListTile(
+              leading: Icon(Icons.folder_open),
+              title: Text('打开下载目录'),
+              enabled: path.isNotEmpty && !isLoading,
+              onTap: path.isEmpty || isLoading ? null : _openDownloadDirectory,
+            ),
+          ],
+        ),
+      ),
       actions: [
         TextButton(
-          child: Text(I18n.of(context).ok),
+          child: Text(I18n.ofContext().ok),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ],

@@ -26,7 +26,6 @@ import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pixez/custom/window_frame.dart';
-import 'package:pixez/document_plugin.dart';
 import 'package:pixez/er/fetcher.dart';
 
 import 'package:pixez/i18n.dart';
@@ -133,17 +132,15 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   late StreamSubscription<String> subscription;
 
   Future<void> _initDownloadStore() async {
-    // 获取下载目录 - 使用 DocumentPlugin 获取 Windows 设置的目录
-    String? downloadPath;
-    if (Platform.isWindows || Platform.isLinux) {
-      // Windows/Linux 使用 DocumentPlugin 设置的目录
-      downloadPath = await DocumentPlugin.getPath();
-    }
+    // 从 UserSetting 获取下载目录
+    String? downloadPath = userSetting.downloadPath;
 
-    // 如果没有设置目录，使用默认目录
+    // 如果没有设置目录，使用默认目录并保存
     if (downloadPath == null || downloadPath.isEmpty) {
       final docDir = await getApplicationDocumentsDirectory();
       downloadPath = '${docDir.path}/pixez/downloads';
+      // 保存默认路径到 UserSetting
+      await userSetting.setDownloadPath(downloadPath);
     }
 
     // 初始化 downloadStore
@@ -218,14 +215,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         setState(() {});
       }
     });
-    userSetting.askInit();
-    userSetting.init();
-    accountStore.fetch();
-    bookTagStore.init();
-    muteStore.init();
-    // 初始化图片缓存管理器，设置默认缓存大小为240MB
-    imageCacheManager.initialize();
-    _initDownloadStore();
+    
+    // 初始化异步操作
+    _initialize();
 
     super.initState();
     if (Platform.isIOS) WidgetsBinding.instance.addObserver(this);
@@ -233,6 +225,17 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     Future.delayed(Duration.zero, () {
       SingleInstancePlugin.argsParser(widget.arguments);
     });
+  }
+
+  Future<void> _initialize() async {
+    userSetting.askInit();
+    await userSetting.init(); // 等待 userSetting 初始化完成
+    accountStore.fetch();
+    bookTagStore.init();
+    muteStore.init();
+    // 初始化图片缓存管理器，设置默认缓存大小为240MB
+    imageCacheManager.initialize();
+    await _initDownloadStore(); // 确保在 userSetting.init 之后执行
   }
 
   Widget build(BuildContext context) {

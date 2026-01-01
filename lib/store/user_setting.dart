@@ -89,6 +89,7 @@ abstract class _UserSetting with Store {
   static const String GRID_ASPECT_RATIO_KEY = "grid_aspect_ratio";
   static const String ILLUST_AUTO_SCROLL_SPEED_KEY = "illust_auto_scroll_speed";
   static const String ENABLE_MANA_IN_RELEASE_KEY = "enable_mana_in_release";
+  static const String DOWNLOAD_PATH_KEY = "download_path";
 
   @observable
   double dragStartX = 0;
@@ -202,6 +203,8 @@ abstract class _UserSetting with Store {
   double illustAutoScrollSpeed = 2.0;
   @observable
   bool enableManaInRelease = false;
+  @observable
+  String? downloadPath;
 
   static const String intialFormat = "{illust_id}_p{part}";
 
@@ -495,6 +498,7 @@ abstract class _UserSetting with Store {
     illustAutoScrollSpeed =
         prefs.getDouble(ILLUST_AUTO_SCROLL_SPEED_KEY) ?? 2.0;
     enableManaInRelease = prefs.getBool(ENABLE_MANA_IN_RELEASE_KEY) ?? false;
+    downloadPath = prefs.getString(DOWNLOAD_PATH_KEY);
     if (Platform.isAndroid) {
       try {
         await SecurePlugin.configSecureWindow(nsfwMask);
@@ -680,6 +684,12 @@ abstract class _UserSetting with Store {
   Future<void> setLongPressSaveConfirm(bool value) async {
     await prefs.setBool(LONG_PRESS_SAVE_CONFIRM_KEY, value);
     longPressSaveConfirm = value;
+  }
+
+  @action
+  Future<void> setDownloadPath(String value) async {
+    await prefs.setString(DOWNLOAD_PATH_KEY, value);
+    downloadPath = value;
   }
 
   String illustToShareInfoText(Illusts illusts) {
