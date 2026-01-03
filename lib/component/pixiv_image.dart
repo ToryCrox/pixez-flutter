@@ -434,9 +434,8 @@ class _PixivImageState extends State<PixivImage> {
                   child: Text(":(")),
             ),
           ),
-          fadeOutDuration:
-              widget.fade ? const Duration(milliseconds: 300) : null,
-          fadeInDuration: Duration(milliseconds: 300),
+          fadeOutDuration: const Duration(milliseconds: 200),
+          fadeInDuration: Duration(milliseconds: 200),
           // memCacheWidth: width?.toInt(),
           // memCacheHeight: height?.toInt(),
           //imageUrl: 'file://${localInfo.path}',
