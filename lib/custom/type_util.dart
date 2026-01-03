@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:collection/collection.dart';
 
@@ -205,6 +206,35 @@ class TypeUtil {
       }
     });
     return newMap;
+  }
+
+  /// GZIP 压缩字符串 -> "GZIP:Base64String"
+  static String gzipEncodeString(String input) {
+    if (input.isEmpty) return input;
+    try {
+      final bytes = utf8.encode(input);
+      final compressed = gzip.encode(bytes);
+      final base64Str = base64Encode(compressed);
+      return 'GZIP:$base64Str';
+    } catch (e) {
+      return input;
+    }
+  }
+
+  /// GZIP 解压字符串 "GZIP:Base64String" -> 原始字符串
+  static String gzipDecodeString(String input) {
+    if (input.isEmpty) return input;
+    if (input.startsWith('GZIP:')) {
+      try {
+        final base64Str = input.substring(5); // 去掉 'GZIP:' 前缀
+        final compressedBytes = base64Decode(base64Str);
+        final bytes = gzip.decode(compressedBytes);
+        return utf8.decode(bytes);
+      } catch (e) {
+        return input;
+      }
+    }
+    return input;
   }
 }
 

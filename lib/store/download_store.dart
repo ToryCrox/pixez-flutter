@@ -232,19 +232,19 @@ abstract class _DownloadStoreBase with Store {
     if (!_isInit) {
       throw Exception('DownloadStore not initialized');
     }
-    
+
     // 1. 关闭当前数据库连接
     await _dbProvider.db.close();
     Log.d('DownloadStore: 已关闭旧数据库连接');
-    
+
     // 2. 更新路径
     _downloadPath = path.join(newDownloadPath, 'download');
     Log.d('DownloadStore: 更新下载路径到 $_downloadPath');
-    
+
     // 3. 重新打开数据库（新路径）
     await _dbProvider.open(newDownloadPath);
     Log.d('DownloadStore: 已重新打开数据库');
-    
+
     // 4. 刷新统计
     await refreshCount();
   }

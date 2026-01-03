@@ -53,6 +53,8 @@ import 'package:window_manager/window_manager.dart';
 import 'package:flutter_mana/flutter_mana.dart';
 import 'package:pixez/debug/mana_manager.dart';
 
+import 'custom/log.dart';
+
 final RouteObserver<ModalRoute<void>> routeObserver =
     RouteObserver<ModalRoute<void>>();
 final UserSetting userSetting = UserSetting();
@@ -135,12 +137,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   Future<void> _initDownloadStore() async {
     // 获取下载目录 - 优先使用 userSetting.storePath
     String? downloadPath = userSetting.storePath;
-    
-    // 如果 storePath 为空，尝试使用 DocumentPlugin 设置的目录（仅 Windows/Linux）
-    if ((downloadPath == null || downloadPath.isEmpty) && 
-        (Platform.isWindows || Platform.isLinux)) {
-      downloadPath = await DocumentPlugin.getPath();
-    }
+    Log.d("downloadPath: $downloadPath");
 
     // 如果仍然没有设置目录，使用默认目录
     if (downloadPath == null || downloadPath.isEmpty) {
@@ -220,14 +217,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         setState(() {});
       }
     });
-    userSetting.askInit();
-    userSetting.init();
-    accountStore.fetch();
-    bookTagStore.init();
-    muteStore.init();
-    // 初始化图片缓存管理器，设置默认缓存大小为240MB
-    imageCacheManager.initialize();
-    _initDownloadStore();
+
+    // 初始化异步操作
+    _initialize();
 
     super.initState();
     if (Platform.isIOS) WidgetsBinding.instance.addObserver(this);
@@ -235,6 +227,17 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     Future.delayed(Duration.zero, () {
       SingleInstancePlugin.argsParser(widget.arguments);
     });
+  }
+
+  Future<void> _initialize() async {
+    userSetting.askInit();
+    await userSetting.init(); // 等待 userSetting 初始化完成
+    accountStore.fetch();
+    bookTagStore.init();
+    muteStore.init();
+    // 初始化图片缓存管理器，设置默认缓存大小为240MB
+    imageCacheManager.initialize();
+    await _initDownloadStore(); // 确保在 userSetting.init 之后执行
   }
 
   Widget build(BuildContext context) {
@@ -299,7 +302,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             if (Platform.isIOS) child = _buildMaskBuilder(context, child);
             child = botToastBuilder(context, child);
             I18n.context = context;
-            return WindowFrame(child);
+            if (Platform.isWindows) {
+              return WindowFrame(child);
+            }
+            return child;
           },
           themeMode: userSetting.themeMode,
           theme: ThemeData.light().copyWith(

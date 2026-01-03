@@ -271,10 +271,10 @@ abstract class _IllustStoreBase with Store {
             originalIllusts != null) {
           if (illusts!.hasDataChanged(originalIllusts)) {
             Log.d('已下载的 illust:${id} 数据有变化，更新数据库');
-            Log.d(() => {
-                  'illusts': illusts!.toJson(),
-                  'originalIllusts': originalIllusts!.toJson(),
-                });
+            // Log.d(() => {
+            //       'illusts': illusts!.toJson(),
+            //       'originalIllusts': originalIllusts!.toJson(),
+            //     });
             await downloadStore.updateDownloadedIllust(illusts!);
           } else {
             Log.d('已下载的 illust:${id} 数据未变化，无需更新');

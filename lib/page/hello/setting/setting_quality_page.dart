@@ -89,14 +89,14 @@ class _SettingQualityPageState extends State<SettingQualityPage>
                       MaterialPageRoute(builder: (context) => PlatformPage()));
                 },
               ),
-            if (Platform.isWindows)
+            if (Platform.isWindows || Platform.isMacOS)
               ListTile(
                 leading: Icon(Icons.window),
                 trailing: const Icon(Icons.arrow_right),
                 title: Text(I18n.of(context).platform_special_setting),
                 subtitle: Text(
-                  "For Windows",
-                  style: TextStyle(color: Colors.blue),
+                  Platform.isWindows ? "For Windows" : "For macOS",
+                  style: TextStyle(color: Platform.isWindows ? Colors.blue : Colors.grey),
                 ),
                 onTap: () {
                   showDialog(
