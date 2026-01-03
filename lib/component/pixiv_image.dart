@@ -32,6 +32,7 @@ import 'package:path/path.dart' as path;
 
 import 'package:pixez/er/hoster.dart';
 import 'package:pixez/main.dart';
+import 'package:pixez/network/network_speed_interceptor.dart';
 import 'package:rhttp/rhttp.dart' as r;
 
 import '../custom/log.dart';
@@ -328,6 +329,8 @@ class PixivImage extends StatefulWidget {
                   },
                 )));
     dio.httpClientAdapter = ConversionLayerAdapter(client);
+    // 添加网络速度监控拦截器
+    dio.interceptors.add(NetworkSpeedInterceptor());
     PixivCacheManager.initialize(dio);
   }
 }

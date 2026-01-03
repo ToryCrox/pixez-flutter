@@ -65,7 +65,13 @@ class NetworkSpeedInterceptor extends Interceptor {
     });
 
     if (response.data != null) {
-      size += response.data.toString().length;
+      // 处理二进制数据（如图片）
+      if (response.data is List<int>) {
+        size += (response.data as List<int>).length;
+      } else {
+        // 处理其他数据类型（JSON 等）
+        size += response.data.toString().length;
+      }
     }
 
     return size;
