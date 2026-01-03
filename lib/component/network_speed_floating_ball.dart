@@ -76,7 +76,38 @@ class _FloatingNetworkSpeedBallState extends State<FloatingNetworkSpeedBall> {
 
     // 使用默认位置（左下角）
     double displayY = _y > 0 ? _y : screenSize.height - 120;
-    double displayX = _x > 0 ? _x : 16.0;
+
+    // 特殊值：-1.0 表示右贴边（会在运行时计算）
+    const double snappedRightValue = -1.0;
+    const double snappedLeftValue = 8.0;
+
+    // 计算实际显示位置
+    double displayX;
+    if (_x < 0) {
+      // 右贴边，根据当前窗口宽度计算
+      displayX = screenSize.width - 88;
+    } else {
+      displayX = _x > 0 ? _x : snappedLeftValue;
+    }
+
+    // 当窗口大小变化时调整位置
+    if (!_isDragging) {
+      // 确保在屏幕范围内
+      displayX = displayX.clamp(snappedLeftValue, screenSize.width - 88.0);
+      displayY = displayY.clamp(0.0, screenSize.height - 80.0);
+
+      // 如果位置改变了，更新保存的位置
+      // 注意：右贴边时保持特殊值 -1.0，不更新为实际坐标
+      if (_x >= 0 && (displayX != _x || displayY != _y)) {
+        _x = displayX;
+        _y = displayY;
+        _savePosition();
+      } else if (_y != displayY) {
+        // 右贴边时，只需要更新 Y 坐标
+        _y = displayY;
+        _savePosition();
+      }
+    }
 
     return Positioned(
       left: displayX,
@@ -87,6 +118,10 @@ class _FloatingNetworkSpeedBallState extends State<FloatingNetworkSpeedBall> {
           onPanStart: (_) {
             setState(() {
               _isDragging = true;
+              // 如果是右贴边（特殊值 -1.0），先转换为实际坐标
+              if (_x < 0) {
+                _x = screenSize.width - 88;
+              }
             });
           },
           onPanUpdate: (details) {
@@ -103,9 +138,11 @@ class _FloatingNetworkSpeedBallState extends State<FloatingNetworkSpeedBall> {
               _isDragging = false;
               final centerX = _x + 40;
               if (centerX < screenSize.width / 2) {
+                // 左贴边
                 _x = 8.0;
               } else {
-                _x = screenSize.width - 88;
+                // 右贴边，保存特殊值 -1.0
+                _x = -1.0;
               }
               _savePosition();
             });
