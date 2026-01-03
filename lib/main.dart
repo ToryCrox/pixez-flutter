@@ -389,9 +389,9 @@ class MouseDragScrollBehavior extends MaterialScrollBehavior {
 
   @override
   ScrollPhysics getScrollPhysics(BuildContext context) {
-    if (Platform.isMacOS) {
-      return const MacOSScrollPhysics();
-    }
+    // if (Platform.isMacOS) {
+    //   return const MacOSScrollPhysics();
+    // }
     return super.getScrollPhysics(context);
   }
 }

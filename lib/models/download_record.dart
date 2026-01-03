@@ -162,7 +162,8 @@ class DownloadedIllust {
           TypeUtil.parseString(json[DownloadedIllustColumns.relativePath]),
       downloadTime:
           TypeUtil.parseInt(json[DownloadedIllustColumns.downloadTime]),
-      illustJson: TypeUtil.parseString(json[DownloadedIllustColumns.illustJson]),
+      illustJson: TypeUtil.gzipDecodeString(
+          TypeUtil.parseString(json[DownloadedIllustColumns.illustJson])),
       imageUrlsJson: TypeUtil.parseString(
           json[DownloadedIllustColumns.imageUrlsJson]), // 兼容旧数据
     );
@@ -187,7 +188,8 @@ class DownloadedIllust {
     data[DownloadedIllustColumns.tags] = tags;
     data[DownloadedIllustColumns.relativePath] = relativePath;
     data[DownloadedIllustColumns.downloadTime] = downloadTime;
-    data[DownloadedIllustColumns.illustJson] = illustJson;
+    data[DownloadedIllustColumns.illustJson] =
+        TypeUtil.gzipEncodeString(illustJson);
     data[DownloadedIllustColumns.imageUrlsJson] = imageUrlsJson;
     return data;
   }
