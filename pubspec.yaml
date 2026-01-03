@@ -88,6 +88,8 @@ dependencies:
   flutter_mana: ^1.2.0
   flutter_mana_kits: ^1.2.0
 
+  sqlite3: any
+
 dependency_overrides:
   flutter_cache_manager:
     git:
@@ -164,3 +166,8 @@ msix_config:
   install_certificate: false
   store: false
   publisher: CN=Notsfsssf, C=CN
+
+hooks:
+  user_defines:
+    sqlite3:
+      source: sqlite3
