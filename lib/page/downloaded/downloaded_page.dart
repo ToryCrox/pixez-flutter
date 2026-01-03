@@ -453,6 +453,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
                 _store.loadData();
                 _store.loadStats();
               },
+              onAuthorTap: () => _navigateToAuthorDownloadedPage(filteredList[index]),
             );
           },
           childCount: filteredList.length + (_store.loadingMore ? 1 : 0),
@@ -478,6 +479,17 @@ class _DownloadedPageState extends State<DownloadedPage> {
         store: currentStore,
         lightingStore: null,
         heroString: 'downloaded_illust_${illust.illustId}',
+      ),
+    );
+  }
+
+  void _navigateToAuthorDownloadedPage(DownloadedIllust illust) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => DownloadedPage(
+          initialUserId: illust.userId,
+          initialUserName: illust.userName,
+        ),
       ),
     );
   }
@@ -793,6 +805,7 @@ class _DownloadedIllustCard extends StatelessWidget {
   final VoidCallback onSecondaryTap;
   final VoidCallback onOpenFolder;
   final VoidCallback onRefreshData;
+  final VoidCallback? onAuthorTap;
 
   const _DownloadedIllustCard({
     required this.illust,
@@ -803,6 +816,7 @@ class _DownloadedIllustCard extends StatelessWidget {
     required this.onSecondaryTap,
     required this.onOpenFolder,
     required this.onRefreshData,
+    this.onAuthorTap,
   });
 
   @override
@@ -965,13 +979,42 @@ class _DownloadedIllustCard extends StatelessWidget {
             style: Theme.of(context).textTheme.bodyMedium,
           ),
           SizedBox(height: 2),
-          Text(
-            illust.userName,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.primary,
-                ),
+          Row(
+            children: [
+              Expanded(
+                child: onAuthorTap != null
+                    ? InkWell(
+                        onTap: onAuthorTap,
+                        borderRadius: BorderRadius.circular(4),
+                        child: Text(
+                          illust.userName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: Theme.of(context).colorScheme.primary,
+                                decoration: TextDecoration.underline,
+                                decorationColor: Theme.of(context).colorScheme.primary,
+                              ),
+                        ),
+                      )
+                    : Text(
+                        illust.userName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                      ),
+              ),
+              Text(
+                illust.createDate.toShortDate(),
+                maxLines: 1,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Colors.grey[600],
+                      fontSize: 11,
+                    ),
+              ),
+            ],
           ),
           _buildStatsRow(context),
         ],

@@ -56,6 +56,15 @@ extension TimeExts on String {
     }
   }
 
+  String toShortDate() {
+    try {
+      var formatter = new DateFormat('yyyy-MM-dd');
+      return formatter.format(DateTime.parse(this).toLocal());
+    } catch (e) {
+      return this;
+    }
+  }
+
   String toTranslateText() {
     return this
         .replaceAll("</br>", "\n")
