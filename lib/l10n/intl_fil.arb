@@ -332,6 +332,9 @@
   "news_follow_title": "Sinusundan",
   "user_page_info_title": "Impormasyon ng user",
   "input_regexp_hint": "Maglagay ng mga keyword o pangalan tulad ng",
+  "open_in_browser": "Buksan sa browser",
   "network_speed_ball": "Network speed ball",
-  "network_speed_ball_subtitle": "Show real-time network upload/download speed"
+  "network_speed_ball_subtitle": "Show real-time network upload/download speed",
+  "enable_mana": "Enable Developer Tools",
+  "enable_mana_subtitle": "Enable Mana debugging tools (requires restart)"
 }

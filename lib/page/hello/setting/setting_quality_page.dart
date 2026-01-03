@@ -17,9 +17,11 @@
 import 'dart:io';
 
 import 'package:bot_toast/bot_toast.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:pixez/constants.dart';
+import 'package:pixez/debug/mana_manager.dart';
 import 'package:pixez/er/leader.dart';
 import 'package:pixez/er/prefer.dart';
 import 'package:pixez/i18n.dart';
@@ -128,6 +130,17 @@ class _SettingQualityPageState extends State<SettingQualityPage>
                 );
               }),
             ),
+            if (kReleaseMode)
+              SwitchListTile(
+                value: userSetting.enableManaInRelease,
+                title: Text(I18n.of(context).enable_mana),
+                subtitle: Text(I18n.of(context).enable_mana_subtitle),
+                onChanged: (value) async {
+                  await userSetting.setEnableManaInRelease(value);
+                  ManaManager.instance.setEnableInRelease(value);
+                  BotToast.showText(text: I18n.of(context).need_to_restart_app);
+                },
+              ),
             ListTile(
               leading: const Icon(Icons.info_outline),
               title: Text(I18n.of(context).share_info_format),

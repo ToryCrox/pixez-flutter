@@ -332,6 +332,9 @@
   "news_follow_title": "フォロー中",
   "user_page_info_title": "ユーザー情報",
   "input_regexp_hint": "タグ名または正規表現を入力",
+  "open_in_browser": "ブラウザで開く",
   "network_speed_ball": "ネット速度表示",
-  "network_speed_ball_subtitle": "ネットワークのアップロード/ダウンロード速度をリアルタイム表示"
+  "network_speed_ball_subtitle": "ネットワークのアップロード/ダウンロード速度をリアルタイム表示",
+  "enable_mana": "開発者ツールを有効化",
+  "enable_mana_subtitle": "Manaデバッグツールを有効化（アプリ再起動が必要）"
 }

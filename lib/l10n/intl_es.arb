@@ -323,6 +323,9 @@
   "news_follow_title": "Siguiente",
   "user_page_info_title": "Información de usuario",
   "input_regexp_hint": "Ingrese el nombre de la etiqueta o expresión regular",
+  "open_in_browser": "Abrir en el navegador",
   "network_speed_ball": "Indicador de velocidad de red",
-  "network_speed_ball_subtitle": "Mostrar velocidad de carga/descarga en tiempo real"
+  "network_speed_ball_subtitle": "Mostrar velocidad de carga/descarga en tiempo real",
+  "enable_mana": "Herramientas de desarrollador",
+  "enable_mana_subtitle": "Habilitar herramientas de depuración Mana (requiere reinicio)"
 }

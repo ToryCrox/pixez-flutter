@@ -333,6 +333,10 @@
   "start_follow": "开始关注",
   "news_follow_title": "已关注",
   "user_page_info_title": "详情",
+  "input_regexp_hint": "输入标签名或正则表达式",
+  "open_in_browser": "在浏览器中打开",
   "network_speed_ball": "网速悬浮球",
-  "network_speed_ball_subtitle": "实时显示网络上传/下载速度"
+  "network_speed_ball_subtitle": "实时显示网络上传/下载速度",
+  "enable_mana": "启用开发者工具",
+  "enable_mana_subtitle": "启用 Mana 调试工具（需要重启应用）"
 }

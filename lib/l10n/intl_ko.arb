@@ -332,6 +332,9 @@
   "news_follow_title": "팔로우 중",
   "user_page_info_title": "유저 정보",
   "input_regexp_hint": "태그 이름 또는 정규식을 입력하세요",
+  "open_in_browser": "브라우저에서 열기",
   "network_speed_ball": "네트워크 속도 표시",
-  "network_speed_ball_subtitle": "네트워크 업로드/다운로드 속도를 실시간으로 표시"
+  "network_speed_ball_subtitle": "네트워크 업로드/다운로드 속도를 실시간으로 표시",
+  "enable_mana": "개발자 도구 사용",
+  "enable_mana_subtitle": "Mana 디버깅 도구 사용 (앱 재시작 필요)"
 }

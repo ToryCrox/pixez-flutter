@@ -336,5 +336,7 @@
   "input_regexp_hint": "Enter tag name or regular expression",
   "open_in_browser": "Open in browser",
   "network_speed_ball": "Network speed ball",
-  "network_speed_ball_subtitle": "Show real-time network upload/download speed"
+  "network_speed_ball_subtitle": "Show real-time network upload/download speed",
+  "enable_mana": "Enable Developer Tools",
+  "enable_mana_subtitle": "Enable Mana debugging tools (requires restart)"
 }

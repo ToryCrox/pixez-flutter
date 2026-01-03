@@ -332,6 +332,9 @@
   "news_follow_title": "Mengikuti",
   "user_page_info_title": "Informasi pengguna",
   "input_regexp_hint": "Masukkan nama tag atau ekspresi reguler",
+  "open_in_browser": "Buka di browser",
   "network_speed_ball": "Bola kecepatan jaringan",
-  "network_speed_ball_subtitle": "Tampilkan kecepatan unggah/unduh jaringan secara real-time"
+  "network_speed_ball_subtitle": "Tampilkan kecepatan unggah/unduh jaringan secara real-time",
+  "enable_mana": "Aktifkan Alat Pengembang",
+  "enable_mana_subtitle": "Aktifkan alat debugging Mana (memerlukan restart)"
 }

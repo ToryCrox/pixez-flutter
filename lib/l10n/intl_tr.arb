@@ -332,6 +332,9 @@
    "news_follow_title": "Takip et",
   "user_page_info_title": "Kullanıcı bilgileri",
   "input_regexp_hint": "Etiket adı veya düzenli ifade girin",
+  "open_in_browser": "Tarayıcıda aç",
   "network_speed_ball": "Ağ hızı göstergesi",
-  "network_speed_ball_subtitle": "Ağ yükleme/indirme hızını gerçek zamanlı olarak göster"
+  "network_speed_ball_subtitle": "Ağ yükleme/indirme hızını gerçek zamanlı olarak göster",
+  "enable_mana": "Geliştirici Araçları",
+  "enable_mana_subtitle": "Mana hata ayıklama araçlarını etkinleştir (yeniden başlatma gerekli)"
 }
