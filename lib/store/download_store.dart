@@ -1242,7 +1242,28 @@ abstract class _DownloadStoreBase with Store {
     int savedBytes = 0;
 
     try {
-      // 获取所有插画记录
+      // 先获取所有插画的ID和原始illustJson（直接从数据库查询，不经过fromJson处理）
+      final rawData = await _dbProvider.db.query(
+        DownloadedIllustColumns.tableName,
+        columns: [
+          DownloadedIllustColumns.illustId,
+          DownloadedIllustColumns.illustJson,
+        ],
+      );
+      
+      // 创建一个Map，存储每个illustId对应的原始illustJson长度（数据库中实际存储的blob大小）
+      final originalSizes = <int, int>{};
+      for (final row in rawData) {
+        final illustId = row[DownloadedIllustColumns.illustId] as int;
+        final rawIllustJson = row[DownloadedIllustColumns.illustJson];
+        // 计算原始存储的大小（可能是blob或string）
+        final size = rawIllustJson is String 
+            ? rawIllustJson.length 
+            : (rawIllustJson as List<int>).length;
+        originalSizes[illustId] = size;
+      }
+
+      // 获取所有插画记录（经过fromJson处理）
       final allIllusts = await _dbProvider.getAllIllusts();
       final total = allIllusts.length;
 
@@ -1279,9 +1300,12 @@ abstract class _DownloadStoreBase with Store {
               downloadTime: existingIllust.downloadTime,
             );
 
-            // 计算节省的字节数
-            final oldSize = existingIllust.illustJson.length;
-            final newSize = optimizedIllust.illustJson.length;
+            // 计算节省的字节数（比较数据库中原始存储大小和新的压缩数据大小）
+            // 获取原始数据库中的存储大小
+            final oldSize = originalSizes[existingIllust.illustId] ?? 0;
+            // 新数据通过toJson()压缩后的大小
+            final newCompressedJson = optimizedIllust.toJson()[DownloadedIllustColumns.illustJson] as String;
+            final newSize = newCompressedJson.length;
             final saved = oldSize - newSize;
 
             // 如果节省了空间，或者 imageUrlsJson 字段为空（需要迁移），则更新
