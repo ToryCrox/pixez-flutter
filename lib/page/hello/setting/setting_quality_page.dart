@@ -116,6 +116,19 @@ class _SettingQualityPageState extends State<SettingQualityPage>
                   )),
             ),
             ListTile(
+              leading: const Icon(Icons.speed),
+              title: Text(I18n.of(context).network_speed_ball),
+              subtitle: Text(I18n.of(context).network_speed_ball_subtitle),
+              trailing: Observer(builder: (context) {
+                return Switch(
+                  value: userSetting.showNetworkSpeedBall,
+                  onChanged: (value) {
+                    userSetting.setShowNetworkSpeedBall(value);
+                  },
+                );
+              }),
+            ),
+            ListTile(
               leading: const Icon(Icons.info_outline),
               title: Text(I18n.of(context).share_info_format),
               trailing: const Icon(Icons.arrow_right),

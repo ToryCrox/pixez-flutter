@@ -14,6 +14,7 @@
  *
  */
 import 'dart:async';
+import 'dart:ffi';
 import 'dart:io';
 
 import 'package:flutter/gestures.dart';
@@ -52,6 +53,8 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:flutter_mana/flutter_mana.dart';
 import 'package:pixez/debug/mana_manager.dart';
+import 'package:pixez/component/network_speed_floating_ball.dart';
+import 'package:pixez/monitor/network_speed_monitor.dart';
 
 import 'custom/log.dart';
 
@@ -96,9 +99,7 @@ main(List<String> args) async {
   // 初始化 Mana 调试工具
   ManaManager.instance.initialize();
 
-  final app = ProviderScope(
-    child: MyApp(arguments: args),
-  );
+  final app = ProviderScope(child: MyApp(arguments: args));
 
   // 根据配置决定是否启用 ManaWidget
   runApp(ManaManager.instance.isEnabled ? ManaWidget(child: app) : app);
@@ -108,6 +109,7 @@ class MyApp extends StatefulWidget {
   final List<String> arguments;
 
   const MyApp({super.key, required this.arguments});
+
   @override
   _MyAppState createState() => _MyAppState();
 }
@@ -192,14 +194,16 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     }
 
     // 用户确认了部分任务,添加到下载队列
-    final tasksToDownload = pendingTasks
-        .where((t) => selectedTaskKeys.contains(t.taskKey))
-        .toList();
+    final tasksToDownload =
+        pendingTasks
+            .where((t) => selectedTaskKeys.contains(t.taskKey))
+            .toList();
 
     // 清除未选中的任务
-    final tasksToRemove = pendingTasks
-        .where((t) => !selectedTaskKeys.contains(t.taskKey))
-        .toList();
+    final tasksToRemove =
+        pendingTasks
+            .where((t) => !selectedTaskKeys.contains(t.taskKey))
+            .toList();
     if (tasksToRemove.isNotEmpty) {
       await downloadStore.addPausedTasks(tasksToRemove);
     }
@@ -246,112 +250,136 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   Widget _buildMaterial(BuildContext context) {
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-      systemNavigationBarColor: Colors.transparent,
-      systemNavigationBarDividerColor: Colors.transparent,
-      statusBarColor: Colors.transparent,
-    ));
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        systemNavigationBarColor: Colors.transparent,
+        systemNavigationBarDividerColor: Colors.transparent,
+        statusBarColor: Colors.transparent,
+      ),
+    );
     final botToastBuilder = BotToastInit();
     return DynamicColorBuilder(
-        builder: (ColorScheme? lightDynamic, ColorScheme? darkDynamic) {
-      return Observer(builder: (context) {
-        ColorScheme lightColorScheme;
-        ColorScheme darkColorScheme;
-        if (userSetting.useDynamicColor &&
-            lightDynamic != null &&
-            darkDynamic != null) {
-          lightColorScheme = lightDynamic.harmonized();
-          darkColorScheme = darkDynamic.harmonized();
-        } else {
-          Color primary = userSetting.seedColor;
-          lightColorScheme = ColorScheme.fromSeed(
-            seedColor: primary,
-          );
-          darkColorScheme = ColorScheme.fromSeed(
-            seedColor: primary,
-            brightness: Brightness.dark,
-          );
-        }
-        final brightness =
-            SchedulerBinding.instance.platformDispatcher.platformBrightness;
-        if (userSetting.themeInitState != 1) {
-          return MaterialApp(
-            home: Container(
-              color:
-                  brightness == Brightness.dark ? Colors.black : Colors.white,
-              child: Center(child: CircularProgressIndicator()),
-            ),
-          );
-        }
-        return MaterialApp(
-          navigatorObservers: [BotToastNavigatorObserver(), routeObserver],
-          locale: userSetting.locale,
-          navigatorKey: globalNavigatorKey,
-          scrollBehavior: MouseDragScrollBehavior(),
-          home: Builder(builder: (context) {
-            return AnnotatedRegion<SystemUiOverlayStyle>(
-                value: SystemUiOverlayStyle(
-                  systemNavigationBarColor: Colors.transparent,
-                  systemNavigationBarDividerColor: Colors.transparent,
-                  statusBarColor: Colors.transparent,
-                ),
-                child: SplashPage());
-          }),
-          title: 'PixEz',
-          builder: (context, child) {
-            if (Platform.isIOS) child = _buildMaskBuilder(context, child);
-            child = botToastBuilder(context, child);
-            I18n.context = context;
-            if (Platform.isWindows) {
-              return WindowFrame(child);
+      builder: (ColorScheme? lightDynamic, ColorScheme? darkDynamic) {
+        return Observer(
+          builder: (context) {
+            ColorScheme lightColorScheme;
+            ColorScheme darkColorScheme;
+            if (userSetting.useDynamicColor &&
+                lightDynamic != null &&
+                darkDynamic != null) {
+              lightColorScheme = lightDynamic.harmonized();
+              darkColorScheme = darkDynamic.harmonized();
+            } else {
+              Color primary = userSetting.seedColor;
+              lightColorScheme = ColorScheme.fromSeed(seedColor: primary);
+              darkColorScheme = ColorScheme.fromSeed(
+                seedColor: primary,
+                brightness: Brightness.dark,
+              );
             }
-            return child;
-          },
-          themeMode: userSetting.themeMode,
-          theme: ThemeData.light().copyWith(
-              primaryColor: lightColorScheme.primary,
-              colorScheme: lightColorScheme,
-              scaffoldBackgroundColor: lightColorScheme.surface,
-              cardColor: lightColorScheme.surfaceContainer,
-              chipTheme: ChipThemeData(
-                backgroundColor: lightColorScheme.surface,
+            final brightness =
+                SchedulerBinding.instance.platformDispatcher.platformBrightness;
+            if (userSetting.themeInitState != 1) {
+              return MaterialApp(
+                home: Container(
+                  color:
+                      brightness == Brightness.dark
+                          ? Colors.black
+                          : Colors.white,
+                  child: Center(child: CircularProgressIndicator()),
+                ),
+              );
+            }
+            return MaterialApp(
+              navigatorObservers: [BotToastNavigatorObserver(), routeObserver],
+              locale: userSetting.locale,
+              navigatorKey: globalNavigatorKey,
+              scrollBehavior: MouseDragScrollBehavior(),
+              home: Builder(
+                builder: (context) {
+                  return AnnotatedRegion<SystemUiOverlayStyle>(
+                    value: SystemUiOverlayStyle(
+                      systemNavigationBarColor: Colors.transparent,
+                      systemNavigationBarDividerColor: Colors.transparent,
+                      statusBarColor: Colors.transparent,
+                    ),
+                    child: SplashPage(),
+                  );
+                },
               ),
-              canvasColor: lightColorScheme.surfaceContainer,
-              dialogTheme: DialogThemeData(
-                  backgroundColor: lightColorScheme.surfaceContainer)),
-          darkTheme: ThemeData.dark().copyWith(
-              scaffoldBackgroundColor:
-                  userSetting.isAMOLED ? Colors.black : null,
-              // tabBarTheme: TabBarTheme(dividerColor: Colors.transparent),
-              tabBarTheme: TabBarThemeData(dividerColor: Colors.transparent),
-              colorScheme: darkColorScheme),
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
+              title: 'PixEz',
+              builder: (context, child) {
+                if (Platform.isIOS) child = _buildMaskBuilder(context, child);
+                child = botToastBuilder(context, child);
+                I18n.context = context;
+                child = Stack(
+                  alignment: Alignment.topLeft,
+                  clipBehavior: Clip.none,
+                  children: [
+                    child,
+                    Observer(
+                      builder: (context) => userSetting.showNetworkSpeedBall
+                            ? FloatingNetworkSpeedBall()
+                            : const SizedBox(),
+                    ),
+                  ],
+                );
+
+                if (Platform.isWindows) {
+                  return WindowFrame(child);
+                }
+                return child;
+              },
+              themeMode: userSetting.themeMode,
+              theme: ThemeData.light().copyWith(
+                primaryColor: lightColorScheme.primary,
+                colorScheme: lightColorScheme,
+                scaffoldBackgroundColor: lightColorScheme.surface,
+                cardColor: lightColorScheme.surfaceContainer,
+                chipTheme: ChipThemeData(
+                  backgroundColor: lightColorScheme.surface,
+                ),
+                canvasColor: lightColorScheme.surfaceContainer,
+                dialogTheme: DialogThemeData(
+                  backgroundColor: lightColorScheme.surfaceContainer,
+                ),
+              ),
+              darkTheme: ThemeData.dark().copyWith(
+                scaffoldBackgroundColor:
+                    userSetting.isAMOLED ? Colors.black : null,
+                // tabBarTheme: TabBarTheme(dividerColor: Colors.transparent),
+                tabBarTheme: TabBarThemeData(dividerColor: Colors.transparent),
+                colorScheme: darkColorScheme,
+              ),
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+            );
+          },
         );
-      });
-    });
+      },
+    );
   }
 
   _buildMaskBuilder(BuildContext context, Widget? widget) {
     if (userSetting.nsfwMask) {
-      final needShowMask = (Platform.isAndroid
-          ? (_appState == AppLifecycleState.paused ||
-              _appState == AppLifecycleState.paused)
-          : _appState == AppLifecycleState.inactive);
+      final needShowMask =
+          (Platform.isAndroid
+              ? (_appState == AppLifecycleState.paused ||
+                  _appState == AppLifecycleState.paused)
+              : _appState == AppLifecycleState.inactive);
       return Stack(
         children: [
           widget ?? Container(),
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 500),
-            child: needShowMask
-                ? Container(
-                    color: Theme.of(context).canvasColor,
-                    child: Center(
-                      child: Icon(Icons.privacy_tip_outlined),
-                    ),
-                  )
-                : null,
-          )
+            child:
+                needShowMask
+                    ? Container(
+                      color: Theme.of(context).canvasColor,
+                      child: Center(child: Icon(Icons.privacy_tip_outlined)),
+                    )
+                    : null,
+          ),
         ],
       );
     } else {
@@ -383,9 +411,9 @@ Future<void> initWindows(List<String> args) async {
 class MouseDragScrollBehavior extends MaterialScrollBehavior {
   @override
   Set<PointerDeviceKind> get dragDevices => {
-        PointerDeviceKind.touch,
-        PointerDeviceKind.mouse,
-        PointerDeviceKind.stylus,
-        PointerDeviceKind.trackpad,
-      };
+    PointerDeviceKind.touch,
+    PointerDeviceKind.mouse,
+    PointerDeviceKind.stylus,
+    PointerDeviceKind.trackpad,
+  };
 }

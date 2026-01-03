@@ -91,6 +91,9 @@ abstract class _UserSetting with Store {
   static const String ILLUST_AUTO_SCROLL_SPEED_KEY = "illust_auto_scroll_speed";
   static const String ENABLE_MANA_IN_RELEASE_KEY = "enable_mana_in_release";
   static const String UPDATE_ILLUST_CONCURRENT_COUNT_KEY = "update_illust_concurrent_count";
+  static const String SHOW_NETWORK_SPEED_BALL_KEY = "show_network_speed_ball";
+  static const String NETWORK_SPEED_BALL_X_KEY = "network_speed_ball_x";
+  static const String NETWORK_SPEED_BALL_Y_KEY = "network_speed_ball_y";
 
   @observable
   double dragStartX = 0;
@@ -208,6 +211,12 @@ abstract class _UserSetting with Store {
   bool enableManaInRelease = false;
   @observable
   int updateIllustConcurrentCount = 4;
+  @observable
+  bool showNetworkSpeedBall = false;
+  @observable
+  double networkSpeedBallX = 16.0;
+  @observable
+  double networkSpeedBallY = 0.0;
 
   static const String intialFormat = "{illust_id}_p{part}";
 
@@ -233,6 +242,20 @@ abstract class _UserSetting with Store {
   setUpdateIllustConcurrentCount(int value) async {
     await prefs.setInt(UPDATE_ILLUST_CONCURRENT_COUNT_KEY, value);
     updateIllustConcurrentCount = value;
+  }
+
+  @action
+  setShowNetworkSpeedBall(bool value) async {
+    await prefs.setBool(SHOW_NETWORK_SPEED_BALL_KEY, value);
+    showNetworkSpeedBall = value;
+  }
+
+  @action
+  setNetworkSpeedBallPosition(double x, double y) async {
+    networkSpeedBallX = x;
+    networkSpeedBallY = y;
+    await prefs.setDouble(NETWORK_SPEED_BALL_X_KEY, x);
+    await prefs.setDouble(NETWORK_SPEED_BALL_Y_KEY, y);
   }
 
   @action
@@ -524,6 +547,9 @@ abstract class _UserSetting with Store {
         prefs.getDouble(ILLUST_AUTO_SCROLL_SPEED_KEY) ?? 2.0;
     enableManaInRelease = prefs.getBool(ENABLE_MANA_IN_RELEASE_KEY) ?? false;
     updateIllustConcurrentCount = prefs.getInt(UPDATE_ILLUST_CONCURRENT_COUNT_KEY) ?? 4;
+    showNetworkSpeedBall = prefs.getBool(SHOW_NETWORK_SPEED_BALL_KEY) ?? false;
+    networkSpeedBallX = prefs.getDouble(NETWORK_SPEED_BALL_X_KEY) ?? 16.0;
+    networkSpeedBallY = prefs.getDouble(NETWORK_SPEED_BALL_Y_KEY) ?? 0.0;
     if (Platform.isAndroid) {
       try {
         await SecurePlugin.configSecureWindow(nsfwMask);

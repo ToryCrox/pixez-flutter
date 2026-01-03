@@ -331,5 +331,7 @@
   "start_follow": "開始關注",
   "news_follow_title": "已關注",
   "user_page_info_title": "資訊",
-  "input_regexp_hint": "輸入標籤名或正則表達式"
+  "input_regexp_hint": "輸入標籤名或正則表達式",
+  "network_speed_ball": "網速懸浮球",
+  "network_speed_ball_subtitle": "即時顯示網路上傳/下載速度"
 }

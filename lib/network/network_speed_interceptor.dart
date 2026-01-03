@@ -1,0 +1,73 @@
+/*
+ * Copyright (C) 2020. by perol_notsf, All rights reserved
+ *
+ * This program is free software: you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * this program. If not, see <http://www.gnu.org/licenses/>.
+ *
+ */
+
+import 'package:dio/dio.dart';
+import 'package:pixez/monitor/network_speed_monitor.dart';
+
+class NetworkSpeedInterceptor extends Interceptor {
+  final NetworkSpeedMonitor _monitor = NetworkSpeedMonitor();
+
+  @override
+  void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
+    final uploadBytes = _calculateRequestSize(options);
+    if (uploadBytes > 0) {
+      _monitor.recordUpload(uploadBytes);
+    }
+    handler.next(options);
+  }
+
+  @override
+  void onResponse(Response response, ResponseInterceptorHandler handler) {
+    final downloadBytes = _calculateResponseSize(response);
+    if (downloadBytes > 0) {
+      _monitor.recordDownload(downloadBytes);
+    }
+    handler.next(response);
+  }
+
+  @override
+  void onError(DioException err, ErrorInterceptorHandler handler) {
+    handler.next(err);
+  }
+
+  int _calculateRequestSize(RequestOptions options) {
+    int size = 0;
+
+    options.headers.forEach((key, value) {
+      size += key.length + (value?.toString().length ?? 0);
+    });
+
+    if (options.data != null) {
+      size += options.data.toString().length;
+    }
+
+    return size;
+  }
+
+  int _calculateResponseSize(Response response) {
+    int size = 0;
+
+    response.headers.forEach((key, values) {
+      size += key.length + values.join(',').length;
+    });
+
+    if (response.data != null) {
+      size += response.data.toString().length;
+    }
+
+    return size;
+  }
+}

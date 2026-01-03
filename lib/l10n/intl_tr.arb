@@ -331,5 +331,7 @@
   "start_follow": "Takip etmeye başla",
    "news_follow_title": "Takip et",
   "user_page_info_title": "Kullanıcı bilgileri",
-  "input_regexp_hint": "Etiket adı veya düzenli ifade girin"
+  "input_regexp_hint": "Etiket adı veya düzenli ifade girin",
+  "network_speed_ball": "Ağ hızı göstergesi",
+  "network_speed_ball_subtitle": "Ağ yükleme/indirme hızını gerçek zamanlı olarak göster"
 }

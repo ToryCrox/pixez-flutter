@@ -322,5 +322,7 @@
   "start_follow": "Start follow",
   "news_follow_title": "Siguiente",
   "user_page_info_title": "Información de usuario",
-  "input_regexp_hint": "Ingrese el nombre de la etiqueta o expresión regular"
+  "input_regexp_hint": "Ingrese el nombre de la etiqueta o expresión regular",
+  "network_speed_ball": "Indicador de velocidad de red",
+  "network_speed_ball_subtitle": "Mostrar velocidad de carga/descarga en tiempo real"
 }
