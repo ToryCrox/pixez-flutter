@@ -135,8 +135,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   late StreamSubscription<String> subscription;
 
   Future<void> _initDownloadStore() async {
-    // 获取下载目录 - 优先使用 userSetting.storePath
-    String? downloadPath = userSetting.storePath;
+    // 获取下载目录 - 优先使用 userSetting.downloadPath
+    String? downloadPath = userSetting.downloadPath;
     Log.d("downloadPath: $downloadPath");
 
     // 如果仍然没有设置目录，使用默认目录

@@ -51,6 +51,7 @@ abstract class _UserSetting with Store {
   static const String IS_AMOLED_KEY = "is_amoled";
   static const String IS_TOPMODE_KEY = "is_top_mode";
   static const String STORE_PATH_KEY = "save_store";
+  static const String DOWNLOAD_PATH_KEY = "download_path";
   static const String PICTURE_SOURCE_KEY = "picture_source";
   static const String ISHELPLESSWAY_KEY = "is_helplessway";
   static const String THEME_MODE_KEY = "theme_mode";
@@ -127,6 +128,8 @@ abstract class _UserSetting with Store {
   bool isTopMode = false;
   @observable
   String? storePath = null;
+  @observable
+  String? downloadPath = null;
   @observable
   bool isBangs = false;
   @observable
@@ -305,6 +308,12 @@ abstract class _UserSetting with Store {
   }
 
   @action
+  setDownloadPath(String path) async {
+    await prefs.setString(DOWNLOAD_PATH_KEY, path);
+    downloadPath = path;
+  }
+
+  @action
   setFollowAfterStar(bool value) async {
     await prefs.setBool(IS_FOLLOW_AFTER_STAR, value);
     followAfterStar = value;
@@ -460,9 +469,19 @@ abstract class _UserSetting with Store {
     fetcher.start(pictureSource!);
   }
 
+
   @action
   Future<void> init() async {
     prefs = await Prefer.getInstance();
+    
+    // logic to migrate storePath to downloadPath if downloadPath is not set
+    storePath = prefs.getString(STORE_PATH_KEY);
+    downloadPath = prefs.getString(DOWNLOAD_PATH_KEY);
+    if (downloadPath == null && storePath != null) {
+      downloadPath = storePath;
+      await prefs.setString(DOWNLOAD_PATH_KEY, downloadPath!);
+    }
+
     zoomQuality = prefs.getInt(ZOOM_QUALITY_KEY) ?? 0;
     feedPreviewQuality = prefs.getInt(FEED_PREVIEW_QUALITY) ?? 0;
     singleFolder = prefs.getBool(SINGLE_FOLDER_KEY) ?? false;

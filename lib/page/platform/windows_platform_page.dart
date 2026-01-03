@@ -3,7 +3,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:bot_toast/bot_toast.dart';
-import 'package:pixez/document_plugin.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:pixez/main.dart';
 
 class WindowsPlatformPage extends StatefulWidget {
@@ -35,12 +35,12 @@ class _WindowsPlatformPageState extends State<WindowsPlatformPage> {
   }
 
   Future<void> _initPath() async {
-    // 优先从 userSetting.storePath 读取
-    String? path = userSetting.storePath;
+    // 优先从 userSetting.downloadPath 读取
+    String? path = userSetting.downloadPath;
     
-    // 如果 storePath 为空，尝试从 DocumentPlugin 获取
+    // 如果 downloadPath 为空，尝试从 defaults 获取
     if (path == null || path.isEmpty) {
-      path = await DocumentPlugin.getPath();
+       path = userSetting.storePath;
     }
     
     if (mounted && path != null && path.isNotEmpty) {
@@ -117,8 +117,7 @@ class _WindowsPlatformPageState extends State<WindowsPlatformPage> {
   /// 打开目录选择器
   Future<void> _chooseFolder() async {
     try {
-      await DocumentPlugin.choiceFolder();
-      final path = await DocumentPlugin.getPath();
+      String? path = await FilePicker.platform.getDirectoryPath();
       
       if (mounted && path != null && path.isNotEmpty) {
         _pathController.text = path;
@@ -142,7 +141,7 @@ class _WindowsPlatformPageState extends State<WindowsPlatformPage> {
     }
 
     // 检查是否修改了路径
-    final currentPath = userSetting.storePath ?? '';
+    final currentPath = userSetting.downloadPath ?? '';
     if (currentPath.isNotEmpty && currentPath != path) {
       // 路径发生变化，提示用户需要手动迁移数据
       final confirm = await showDialog<bool>(
@@ -175,7 +174,7 @@ class _WindowsPlatformPageState extends State<WindowsPlatformPage> {
 
     try {
       // 1. 保存到 userSetting
-      await userSetting.setStorePath(path);
+      await userSetting.setDownloadPath(path);
       
       // 2. 更新 downloadStore 的下载路径和数据库
       await downloadStore.updateDownloadPath(path);
