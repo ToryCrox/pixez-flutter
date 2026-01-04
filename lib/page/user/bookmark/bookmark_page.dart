@@ -360,7 +360,6 @@ class _BookMarkNestedPageState extends State<BookMarkNestedPage> {
         store: _store.iStores[index],
         iStores: _store.iStores,
         layoutMode: IllustCardLayoutMode.waterfall,
-        showDownloadButton: false,
       );
     }, childCount: _store.iStores.length);
   }
@@ -375,7 +374,6 @@ class _BookMarkNestedPageState extends State<BookMarkNestedPage> {
         store: _store.iStores[index],
         iStores: _store.iStores,
         layoutMode: IllustCardLayoutMode.grid,
-        showDownloadButton: true,
       );
     }, childCount: _store.iStores.length);
   }

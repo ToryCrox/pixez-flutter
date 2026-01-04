@@ -52,7 +52,6 @@ class IllustCard extends StatefulWidget {
   final bool needToBan;
   final LightingStore lightingStore;
   final IllustCardLayoutMode layoutMode;
-  final bool showDownloadButton;
 
   IllustCard({
     required this.store,
@@ -60,7 +59,6 @@ class IllustCard extends StatefulWidget {
     this.iStores,
     this.needToBan = false,
     this.layoutMode = IllustCardLayoutMode.waterfall,
-    this.showDownloadButton = false,
   });
 
   @override
@@ -426,140 +424,80 @@ class _IllustCardState extends State<IllustCard> {
   }
 
   Widget _buildBottom(BuildContext context) {
-    // 根据是否显示下载按钮调整右侧 padding
-    final rightPadding = widget.showDownloadButton ? 72.0 : 36.0;
-
-    return Container(
-      child: Stack(
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 8.0, vertical: 4),
+      child: Row(
         children: <Widget>[
-          Padding(
-            padding: EdgeInsets.only(
-                left: 8.0, right: rightPadding, top: 4, bottom: 4),
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(
-                children: [
-                  DownloadStatusIndicator(
-                    illustId: store.illusts!.id,
-                    pageCount: store.illusts!.pageCount,
-                    size: 14,
-                  ),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: Text(
-                      store.illusts!.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.clip,
-                      style: Theme.of(context).textTheme.bodyMedium,
-                      strutStyle: StrutStyle(forceStrutHeight: true, leading: 0),
-                    ),
-                  ),
-                ],
-              ),
-              Text(
-                store.illusts!.user.name,
-                maxLines: 1,
-                overflow: TextOverflow.clip,
-                style: Theme.of(context).textTheme.bodySmall,
-                strutStyle: StrutStyle(forceStrutHeight: true, leading: 0),
-              )
-            ]),
-          ),
-          Align(
-            alignment: Alignment.centerRight,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (widget.showDownloadButton)
-                  _buildDownloadButton(context),
-                if (widget.showDownloadButton) SizedBox(width: 4),
-                GestureDetector(
-                  child: Observer(builder: (_) {
-                    return StarIcon(
-                      state: store.state,
-                    );
-                  }),
-                  onTap: () async {
-                    if (userSetting.saveAfterStar && (store.state == 0)) {
-                      saveStore.saveImage(store.illusts!);
-                    }
-                    store.star(
-                        restrict:
-                            userSetting.defaultPrivateLike ? "private" : "public");
-                    if (userSetting.followAfterStar) {
-                      bool success = await store.followAfterStar();
-                      if (success) {
-                        BotToast.showText(
-                            text:
-                                "${store.illusts!.user.name} ${I18n.of(context).followed}");
-                      }
-                    }
-                  },
-                  onLongPress: () async {
-                    final result = await showModalBottomSheet(
-                      context: context,
-                      clipBehavior: Clip.hardEdge,
-                      shape: RoundedRectangleBorder(
-                        borderRadius:
-                            BorderRadius.vertical(top: Radius.circular(16)),
-                      ),
-                      constraints: BoxConstraints.expand(
-                          height: MediaQuery.of(context).size.height * .618),
-                      isScrollControlled: true,
-                      builder: (_) => TagForIllustPage(id: store.illusts!.id),
-                    );
-                    if (result?.isNotEmpty ?? false) {
-                      LPrinter.d(result);
-                      String restrict = result['restrict'];
-                      List<String>? tags = result['tags'];
-                      store.star(restrict: restrict, tags: tags, force: true);
-                    }
-                  },
+                Text(
+                  store.illusts!.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                  strutStyle: StrutStyle(forceStrutHeight: true, leading: 0),
+                ),
+                Text(
+                  store.illusts!.user.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall,
+                  strutStyle: StrutStyle(forceStrutHeight: true, leading: 0),
                 ),
               ],
             ),
-          )
+          ),
+          InkWell(
+            child: Observer(builder: (_) {
+              return StarIcon(
+                state: store.state,
+              );
+            }),
+            onTap: () async {
+              if (userSetting.saveAfterStar && (store.state == 0)) {
+                saveStore.saveImage(store.illusts!);
+              }
+              store.star(
+                  restrict:
+                      userSetting.defaultPrivateLike ? "private" : "public");
+              if (userSetting.followAfterStar) {
+                bool success = await store.followAfterStar();
+                if (success) {
+                  BotToast.showText(
+                      text:
+                          "${store.illusts!.user.name} ${I18n.of(context).followed}");
+                }
+              }
+            },
+            onLongPress: () async {
+              final result = await showModalBottomSheet(
+                context: context,
+                clipBehavior: Clip.hardEdge,
+                shape: RoundedRectangleBorder(
+                  borderRadius:
+                      BorderRadius.vertical(top: Radius.circular(16)),
+                ),
+                constraints: BoxConstraints.expand(
+                    height: MediaQuery.of(context).size.height * .618),
+                isScrollControlled: true,
+                builder: (_) => TagForIllustPage(id: store.illusts!.id),
+              );
+              if (result?.isNotEmpty ?? false) {
+                LPrinter.d(result);
+                String restrict = result['restrict'];
+                List<String>? tags = result['tags'];
+                store.star(restrict: restrict, tags: tags, force: true);
+              }
+            },
+          ),
+          IllustDownloadButton(
+            illusts: store.illusts!,
+            iconSize: 20,
+          ),
         ],
       ),
-    );
-  }
-
-  Widget _buildDownloadButton(BuildContext context) {
-    return Observer(
-      builder: (_) {
-        // 检查是否有该作品的任务正在下载
-        final isDownloading = downloadStore.downloadingTasks.values
-            .any((task) => task.illusts.id == store.illusts!.id);
-
-        return GestureDetector(
-          onTap: () async {
-            // 检查是否已下载
-            final isDownloaded =
-                await downloadStore.isIllustDownloaded(store.illusts!.id);
-            if (isDownloaded) {
-              BotToast.showText(text: '已下载');
-              return;
-            }
-            if (isDownloading) {
-              BotToast.showText(text: '下载中...');
-              return;
-            }
-            await saveStore.saveImage(store.illusts!);
-            if (userSetting.starAfterSave && (store.state == 0)) {
-              store.star(
-                  restrict: userSetting.defaultPrivateLike ? "private" : "public");
-            }
-          },
-          child: Container(
-            padding: EdgeInsets.all(4),
-            child: Icon(
-              isDownloading ? Icons.downloading : Icons.download,
-              size: 20,
-              color: Theme.of(context).colorScheme.primary,
-            ),
-          ),
-        );
-      },
     );
   }
 

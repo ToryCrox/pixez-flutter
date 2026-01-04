@@ -131,18 +131,17 @@ class _LocalOrPhotoViewImageState extends State<LocalOrPhotoViewImage> {
   @override
   Widget build(BuildContext context) {
     if (_loading || _imageProvider == null) {
-      return Center(
-        child: CircularProgressIndicator(),
-      );
+      return Center(child: CircularProgressIndicator());
     }
 
     return PhotoView(
       imageProvider: _imageProvider,
       filterQuality: FilterQuality.high,
       initialScale: widget.initialScale ?? PhotoViewComputedScale.contained,
-      heroAttributes: widget.heroTag != null
-          ? PhotoViewHeroAttributes(tag: widget.heroTag!)
-          : null,
+      heroAttributes:
+          widget.heroTag != null
+              ? PhotoViewHeroAttributes(tag: widget.heroTag!)
+              : null,
       loadingBuilder: widget.loadingBuilder,
     );
   }
@@ -178,8 +177,9 @@ class _DownloadStatusIndicatorState extends State<DownloadStatusIndicator> {
   @override
   void initState() {
     super.initState();
-    _subscription =
-        downloadStore.illustDownloadStatusStream.listen(_onProgressUpdate);
+    _subscription = downloadStore.illustDownloadStatusStream.listen(
+      _onProgressUpdate,
+    );
     _checkStatus();
   }
 
@@ -308,11 +308,7 @@ class _DownloadStatusIndicatorState extends State<DownloadStatusIndicator> {
   }
 
   Widget _buildPendingIndicator() {
-    return Icon(
-      Icons.schedule,
-      size: widget.size,
-      color: Colors.grey,
-    );
+    return Icon(Icons.schedule, size: widget.size, color: Colors.grey);
   }
 
   Widget _buildDownloadingIndicator() {
@@ -325,7 +321,8 @@ class _DownloadStatusIndicatorState extends State<DownloadStatusIndicator> {
           CircularProgressIndicator(
             //value: _currentProgress > 0 ? _currentProgress : null,
             strokeWidth: 2,
-            color: widget.downloadingColor ??
+            color:
+                widget.downloadingColor ??
                 Theme.of(context).colorScheme.primary,
           ),
         ],
@@ -334,19 +331,11 @@ class _DownloadStatusIndicatorState extends State<DownloadStatusIndicator> {
   }
 
   Widget _buildFailedIcon() {
-    return Icon(
-      Icons.error,
-      size: widget.size,
-      color: Colors.red,
-    );
+    return Icon(Icons.error, size: widget.size, color: Colors.red);
   }
 
   Widget _buildPausedIcon() {
-    return Icon(
-      Icons.pause,
-      size: widget.size,
-      color: Colors.grey,
-    );
+    return Icon(Icons.pause, size: widget.size, color: Colors.grey);
   }
 }
 
@@ -379,8 +368,9 @@ class _IllustDownloadButtonState extends State<IllustDownloadButton> {
   @override
   void initState() {
     super.initState();
-    _subscription =
-        downloadStore.illustDownloadStatusStream.listen(_onProgressUpdate);
+    _subscription = downloadStore.illustDownloadStatusStream.listen(
+      _onProgressUpdate,
+    );
     _checkStatus();
   }
 
@@ -434,7 +424,8 @@ class _IllustDownloadButtonState extends State<IllustDownloadButton> {
     final status = _status;
     final taskStatus = status?.status;
     final fileSize = status?.fileSize ?? 0;
-    final showFileSize = taskStatus != null && taskStatus != DownloadTaskStatus.deleted;
+    final showFileSize =
+        taskStatus != null && taskStatus != DownloadTaskStatus.deleted;
 
     Widget iconWidget = _buildIcon();
 
@@ -450,47 +441,35 @@ class _IllustDownloadButtonState extends State<IllustDownloadButton> {
             SizedBox(height: 2),
             Text(
               fileSize.formatFileSize(),
-              style: TextStyle(
-                fontSize: 10,
-                color: Colors.green.shade300,
-              ),
+              style: TextStyle(fontSize: 10, color: Colors.green.shade300),
             ),
           ],
         );
       }
-      return FloatingActionButton(
-        onPressed: _showDownloadDialog,
-        child: child,
-      );
+      return FloatingActionButton(onPressed: _showDownloadDialog, child: child);
     }
 
-    if (showFileSize) {
-      return InkWell(
+    return SizedBox(
+      width: 40,
+      height: 40,
+      child: InkWell(
         onTap: _showDownloadDialog,
         borderRadius: BorderRadius.circular(4),
-        child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              iconWidget,
-              SizedBox(width: 6),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            iconWidget,
+            if (showFileSize) SizedBox(height: 2),
+            if (showFileSize)
               Text(
                 fileSize.formatFileSize(),
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Theme.of(context).colorScheme.onSurface,
-                ),
+                maxLines: 1,
+                style: TextStyle(fontSize: 9, height: 1.0, color: Colors.green),
               ),
-            ],
-          ),
+          ],
         ),
-      );
-    }
-
-    return IconButton(
-      icon: iconWidget,
-      onPressed: _showDownloadDialog,
+      ),
     );
   }
 
@@ -508,17 +487,19 @@ class _IllustDownloadButtonState extends State<IllustDownloadButton> {
           return Icon(
             Icons.download_done,
             size: widget.iconSize,
-            color: widget.asFloatingActionButton
-                ? Colors.green.shade300
-                : Colors.green,
+            color:
+                widget.asFloatingActionButton
+                    ? Colors.green.shade300
+                    : Colors.green,
           );
         }
         return Icon(
           Icons.download,
           size: widget.iconSize,
-          color: widget.asFloatingActionButton
-              ? Colors.green.shade300
-              : Colors.green,
+          color:
+              widget.asFloatingActionButton
+                  ? Colors.green.shade300
+                  : Colors.green,
         );
       case DownloadTaskStatus.downloading:
         return SizedBox(
@@ -526,9 +507,10 @@ class _IllustDownloadButtonState extends State<IllustDownloadButton> {
           height: widget.iconSize,
           child: CircularProgressIndicator(
             strokeWidth: 2,
-            color: widget.asFloatingActionButton
-                ? Theme.of(context).colorScheme.onPrimary
-                : Theme.of(context).colorScheme.primary,
+            color:
+                widget.asFloatingActionButton
+                    ? Theme.of(context).colorScheme.onPrimary
+                    : Theme.of(context).colorScheme.primary,
           ),
         );
       case DownloadTaskStatus.pending:
@@ -557,9 +539,11 @@ class _IllustDownloadButtonState extends State<IllustDownloadButton> {
 
   Future<void> _showDownloadDialog() async {
     final status = _status;
-    final isDownloaded = status?.status == DownloadTaskStatus.completed &&
+    final isDownloaded =
+        status?.status == DownloadTaskStatus.completed &&
         status?.isAllDownloaded == true;
-    final isDownloading = status?.status == DownloadTaskStatus.downloading ||
+    final isDownloading =
+        status?.status == DownloadTaskStatus.downloading ||
         status?.status == DownloadTaskStatus.pending;
 
     // 如果未下载且未在下载中，直接下载而不显示弹框
@@ -572,8 +556,11 @@ class _IllustDownloadButtonState extends State<IllustDownloadButton> {
       context: context,
       builder: (ctx) {
         return AlertDialog(
-          title: Text(widget.illusts.title,
-              maxLines: 2, overflow: TextOverflow.ellipsis),
+          title: Text(
+            widget.illusts.title,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -598,12 +585,13 @@ class _IllustDownloadButtonState extends State<IllustDownloadButton> {
                 ListTile(
                   leading: Icon(Icons.check_circle, color: Colors.green),
                   title: Text('已下载'),
-                  subtitle: status?.fileSize != null && status!.fileSize > 0
-                      ? Text(
-                          status.fileSize.formatFileSize(),
-                          style: TextStyle(fontSize: 12, color: Colors.grey),
-                        )
-                      : null,
+                  subtitle:
+                      status?.fileSize != null && status!.fileSize > 0
+                          ? Text(
+                            status.fileSize.formatFileSize(),
+                            style: TextStyle(fontSize: 12, color: Colors.grey),
+                          )
+                          : null,
                 ),
                 ListTile(
                   leading: Icon(Icons.info_outline),
@@ -625,10 +613,7 @@ class _IllustDownloadButtonState extends State<IllustDownloadButton> {
             ],
           ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Text('关闭'),
-            ),
+            TextButton(onPressed: () => Navigator.pop(ctx), child: Text('关闭')),
           ],
         );
       },
@@ -662,7 +647,8 @@ class _IllustDownloadButtonState extends State<IllustDownloadButton> {
     }
 
     try {
-      final DownloadedIllust? downloadedIllust = await downloadStore.getDownloadedIllust(widget.illusts.id);
+      final DownloadedIllust? downloadedIllust = await downloadStore
+          .getDownloadedIllust(widget.illusts.id);
       if (downloadedIllust == null) {
         BotToast.showText(text: '未找到下载记录');
         return;
@@ -672,9 +658,7 @@ class _IllustDownloadButtonState extends State<IllustDownloadButton> {
 
       await showDialog(
         context: context,
-        builder: (ctx) => UpdateIllustInfoDialog(
-          illusts: [downloadedIllust],
-        ),
+        builder: (ctx) => UpdateIllustInfoDialog(illusts: [downloadedIllust]),
       );
     } catch (e) {
       Log.e('Failed to open update info dialog: $e');
