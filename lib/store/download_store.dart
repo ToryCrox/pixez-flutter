@@ -1463,23 +1463,18 @@ abstract class _DownloadStoreBase with Store {
     final illust = await _dbProvider.getIllustByIllustId(illustId);
     if (illust == null) return;
 
-    // 获取所有图片记录
-    final images = await _dbProvider.getImagesByIllustId(illustId);
+    // 获取所有图片信息（包含完整路径）
+    final imageInfos = await _dbProvider.getLocalImageInfosByIllustId(illustId);
 
     // 删除文件
-    for (final image in images) {
-      final filePath = path.join(
-        _downloadPath!,
-        image.relativePath,
-        image.getFullFileName(),
-      );
+    for (final imageInfo in imageInfos.values) {
       try {
-        final file = File(filePath);
+        final file = File(imageInfo.path);
         if (await file.exists()) {
           await file.delete();
         }
       } catch (e, s) {
-        Log.e('删除文件失败: $filePath', stackTrace: s);
+        Log.e('删除文件失败: ${imageInfo.path}', stackTrace: s);
       }
     }
 

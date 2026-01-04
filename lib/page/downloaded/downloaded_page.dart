@@ -574,7 +574,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
     if (confirm == true) {
       downloadStore.cancelIllustDownload(illust.illustId);
       await downloadStore.deleteDownloadedIllust(illust.illustId);
-      _store.loadData();
+      // 不需要 loadData()，DownloadedPageStore 会通过事件监听自动更新内存数据
       _store.loadStats();
     }
   }
