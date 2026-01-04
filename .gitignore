@@ -87,3 +87,6 @@ msic
 # FVM Version Cache
 .fvm/
 /lib/src/generated/
+
+# Claude Code local settings
+.claude/
