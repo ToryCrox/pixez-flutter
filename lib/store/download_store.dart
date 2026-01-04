@@ -186,12 +186,10 @@ abstract class _DownloadStoreBase with Store {
     _processQueue();
   }
 
-  // 下载目录
-  String? _downloadPath;
+  // 下载目录由 DownloadDatabaseProvider.basePath 管理，此处不再重复存储
+  String get downloadPath => _dbProvider.basePath;
 
-  String get downloadPath => _downloadPath ?? '';
-
-  bool get isInitialized => _downloadPath != null;
+  bool get isInitialized => _dbProvider.basePath.isNotEmpty;
 
   @observable
   int totalDownloaded = 0;
@@ -205,11 +203,9 @@ abstract class _DownloadStoreBase with Store {
   Future<void> init(String downloadPath, {int maxConcurrent = 3}) async {
     if (_isInit) return;
     _isInit = true;
-    // downloadPath 是数据库所在目录，下载文件应该在 downloadPath/download
-    _downloadPath = path.join(downloadPath, 'download');
     _maxConcurrent = maxConcurrent;
-    Log.d('DownloadStore downloadPath: $_downloadPath');
     await _dbProvider.open(downloadPath);
+    Log.d('DownloadStore downloadPath: ${_dbProvider.basePath}');
     await refreshCount();
     progressStream.listen((e) {
       _downloadProgressIllustIdBuffer.add(e.illusts.id);
@@ -237,15 +233,10 @@ abstract class _DownloadStoreBase with Store {
     await _dbProvider.db.close();
     Log.d('DownloadStore: 已关闭旧数据库连接');
 
-    // 2. 更新路径
-    _downloadPath = path.join(newDownloadPath, 'download');
-    Log.d('DownloadStore: 更新下载路径到 $_downloadPath');
-
-    // 3. 重新打开数据库（新路径）
+    // 2. 重新打开数据库（新路径）
     await _dbProvider.open(newDownloadPath);
-    Log.d('DownloadStore: 已重新打开数据库');
-
-    // 4. 刷新统计
+    Log.d('DownloadStore: 更新下载路径到 ${_dbProvider.basePath}');
+    // 3. 刷新统计
     await refreshCount();
   }
 
@@ -322,10 +313,10 @@ abstract class _DownloadStoreBase with Store {
 
   /// 获取封面缓存路径（集中存储格式）
   /// 路径格式：databasePath/covers/{illustId}.jpg
-  /// databasePath 是 _downloadPath 的上一级目录
+  /// databasePath 是 basePath 的上一级目录
   String getCoverCachePath(int illustId) {
-    // _downloadPath = databasePath/download，所以取上一级
-    final dbDir = path.dirname(_downloadPath!);
+    // basePath = databasePath/download，所以取上一级
+    final dbDir = path.dirname(_dbProvider.basePath);
     return path.join(dbDir, 'covers', '$illustId.jpg');
   }
 
@@ -1554,6 +1545,19 @@ abstract class _DownloadStoreBase with Store {
       return null;
     }
     return _dbProvider.getIllustAbsolutePath(illust.relativePath);
+  }
+
+  /// 获取作者的下载目录路径
+  /// 路径格式：downloadPath/[userName][userId]
+  String? getAuthorDirectoryPath(DownloadedAuthor author) {
+    if (!isInitialized) {
+      return null;
+    }
+    final userDirName = DownloadDatabaseProvider.buildUserDirName(
+      author.userName,
+      author.userId,
+    );
+    return path.join(_dbProvider.basePath, userDirName);
   }
 
 

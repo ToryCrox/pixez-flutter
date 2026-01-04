@@ -18,7 +18,6 @@ import 'dart:io';
 import 'package:bot_toast/bot_toast.dart';
 import 'package:flutter/material.dart';
 import 'package:open_file/open_file.dart';
-import 'package:path/path.dart' as path;
 import 'package:pixez/component/painter_avatar.dart';
 import 'package:pixez/component/pixiv_image.dart';
 import 'package:pixez/exts.dart';
@@ -268,12 +267,12 @@ class _DownloadedAuthorCardState extends State<DownloadedAuthorCard> {
       return;
     }
     try {
-      // 构建作者目录路径：downloadPath/[userName][userId]
-      final userDirName = DownloadDatabaseProvider.buildUserDirName(
-        widget.author.userName,
-        widget.author.userId,
-      );
-      final dirPath = path.join(downloadStore.downloadPath, userDirName);
+      final dirPath = downloadStore.getAuthorDirectoryPath(widget.author);
+      
+      if (dirPath == null) {
+        BotToast.showText(text: '无法获取下载目录');
+        return;
+      }
 
       final directory = Directory(dirPath);
       if (await directory.exists()) {
