@@ -1569,7 +1569,7 @@ class DownloadDatabaseProvider {
   /// 插入或更新作者信息
   Future<void> upsertAuthor(
     int userId,
-    String userName,
+    String? userName,
     String? profileImageUrl,
     int illustCount,
     int totalFileSize,
@@ -1579,9 +1579,10 @@ class DownloadDatabaseProvider {
       DownloadedAuthorColumns.tableName,
       {
         DownloadedAuthorColumns.userId: userId,
-        DownloadedAuthorColumns.userName: userName,
-        DownloadedAuthorColumns.profileImageUrl:
-            PixivUrlUtil.compressPxUrl(profileImageUrl ?? ''),
+        if (userName != null) DownloadedAuthorColumns.userName: userName,
+        if (profileImageUrl != null)
+          DownloadedAuthorColumns.profileImageUrl:
+              PixivUrlUtil.compressPxUrl(profileImageUrl),
         DownloadedAuthorColumns.illustCount: illustCount,
         DownloadedAuthorColumns.totalFileSize: totalFileSize,
         DownloadedAuthorColumns.lastDownloadTime: lastDownloadTime,
@@ -1681,21 +1682,19 @@ class DownloadDatabaseProvider {
       limit: 1,
     );
 
-    String userName = '';
+    String? userName;
     String? profileImageUrl;
     if (latestIllust.isNotEmpty) {
       try {
-        final illustJsonStr =
-            latestIllust.first[DownloadedIllustColumns.illustJson] as String;
-        final illustJson = PixivUrlUtil.decompressPxUrl(illustJsonStr);
-        final illustMap = TypeUtil.parseMap(illustJson);
-        userName = illustMap['user']?['name'] ??
-            TypeUtil.parseString(
-                latestIllust.first[DownloadedIllustColumns.userName]);
-        profileImageUrl = illustMap['user']?['profile_image_urls']?['medium'];
-      } catch (_) {
-        userName =
-            latestIllust.first[DownloadedIllustColumns.userName] as String;
+        // 使用 fromJson 获取 DownloadedIllust 对象
+        final downloadedIllust = DownloadedIllust.fromJson(latestIllust.first);
+        // 转换为 Illusts 对象以获取完整的用户信息
+        final illusts = downloadedIllust.toIllusts();
+        userName = illusts.user.name;
+        profileImageUrl = illusts.user.profileImageUrls.medium;
+      } catch (e) {
+        // 异常时回退到表字段
+        Log.e('获取作者信息失败: $e');
       }
     }
 
