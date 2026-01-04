@@ -35,20 +35,32 @@ import 'package:pixez/page/picture/illust_store.dart';
 import 'package:pixez/page/picture/picture_list_page.dart';
 import 'package:pixez/page/picture/tag_for_illust_page.dart';
 import 'package:pixez/page/series/illust_series_page.dart';
-import 'package:pixez/page/hello/hello_page.dart';
 import 'package:open_file/open_file.dart';
+
+/// 插画卡片布局模式
+enum IllustCardLayoutMode {
+  /// 瀑布流模式（使用 AspectRatio 保持图片宽高比）
+  waterfall,
+
+  /// 网格模式（使用 Expanded 填充固定空间）
+  grid,
+}
 
 class IllustCard extends StatefulWidget {
   final IllustStore store;
   final List<IllustStore>? iStores;
   final bool needToBan;
   final LightingStore lightingStore;
+  final IllustCardLayoutMode layoutMode;
+  final bool showDownloadButton;
 
   IllustCard({
     required this.store,
     required this.lightingStore,
     this.iStores,
     this.needToBan = false,
+    this.layoutMode = IllustCardLayoutMode.waterfall,
+    this.showDownloadButton = false,
   });
 
   @override
@@ -164,87 +176,121 @@ class _IllustCardState extends State<IllustCard> {
     return Text('');
   }
 
-  Widget _buildPic(String tag, bool tooLong) {
-    return tooLong
-        ? NullHero(
-            tag: tag,
-            child: PixivImage(store.illusts!.imageUrls.squareMedium,
-                fit: BoxFit.fitWidth),
-          )
-        : NullHero(
-            tag: tag,
-            child:
-                PixivImage(store.illusts!.feedPreviewUrl, fit: BoxFit.fitWidth),
-          );
+  Widget _buildPic(String tag) {
+    // 瀑布流模式：根据长宽比选择不同 URL
+    // 网格模式：固定使用 squareMedium
+    final bool useFeedPreview = widget.layoutMode == IllustCardLayoutMode.waterfall &&
+        store.illusts!.height.toDouble() / store.illusts!.width.toDouble() <= 3;
+
+    final imageUrl = useFeedPreview
+        ? store.illusts!.feedPreviewUrl
+        : store.illusts!.imageUrls.squareMedium;
+
+    final fit = widget.layoutMode == IllustCardLayoutMode.waterfall
+        ? BoxFit.fitWidth
+        : BoxFit.cover;
+
+    return NullHero(
+      tag: tag,
+      child: PixivImage(
+        imageUrl,
+        fit: fit,
+        // 网格模式添加 header 优化缓存
+        httpHeaders: widget.layoutMode == IllustCardLayoutMode.grid
+            ? {'cover': '${store.illusts!.id}'}
+            : null,
+      ),
+    );
   }
 
   Widget _buildInkWell(BuildContext context) {
-    var tooLong =
-        store.illusts!.height.toDouble() / store.illusts!.width.toDouble() > 3;
-    var radio = (tooLong)
-        ? 1.0
-        : store.illusts!.width.toDouble() / store.illusts!.height.toDouble();
+    // 构建图片区域
+    Widget imageArea;
+    if (widget.layoutMode == IllustCardLayoutMode.waterfall) {
+      // 瀑布流模式：使用 AspectRatio
+      var tooLong =
+          store.illusts!.height.toDouble() / store.illusts!.width.toDouble() > 3;
+      var radio =
+          (tooLong) ? 1.0 : store.illusts!.width.toDouble() / store.illusts!.height.toDouble();
+      imageArea = AspectRatio(
+        aspectRatio: radio,
+        child: Stack(
+          children: [
+            Positioned.fill(child: _buildPic(tag)),
+            _buildBadges(),
+          ],
+        ),
+      );
+    } else {
+      // 网格模式：使用 Expanded
+      imageArea = Expanded(
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            _buildPic(tag),
+            _buildBadges(),
+          ],
+        ),
+      );
+    }
+
     return Card(
-        margin: EdgeInsets.all(8.0),
-        clipBehavior: Clip.antiAlias,
-        color: Theme.of(context).colorScheme.surface,
-        child: _buildAnimationWraper(
-          context,
-          Column(
-            children: <Widget>[
-              AspectRatio(
-                  aspectRatio: radio,
-                  child: Stack(
-                    children: [
-                      Positioned.fill(child: _buildPic(tag, tooLong)),
-                      Positioned(
-                          top: 5.0,
-                          right: 5.0,
-                          child: Row(
-                            children: [
-                              if (userSetting.feedAIBadge &&
-                                  store.illusts!.illustAIType == 2)
-                                _buildAIBadge(),
-                              _buildVisibility()
-                            ],
-                          )),
-                      // Positioned(
-                      //   top: 0,
-                      //   left: 0,
-                      //   child: CustomPaint(
-                      //     size: Size(36, 36),
-                      //     painter: TrianglePainter(),
-                      //   ),
-                      // ),
-                    ],
-                  )),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildBottom(context),
-                  if (store.illusts?.series != null) ...[
-                    GestureDetector(
-                      onTap: () {
-                        Navigator.of(context).push(MaterialPageRoute(
-                            builder: (_) => IllustSeriesPage(
-                                  id: store.illusts!.series!.id,
-                                )));
-                      },
-                      behavior: HitTestBehavior.opaque,
-                      child: Container(
-                          margin: EdgeInsets.only(left: 8, bottom: 4),
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            '${store.illusts?.series?.title ?? ''}',
-                            style: Theme.of(context).textTheme.bodySmall,
-                          )),
-                    )
-                  ]
-                ],
+      margin: EdgeInsets.all(8.0),
+      clipBehavior: Clip.antiAlias,
+      color: Theme.of(context).colorScheme.surface,
+      child: _buildAnimationWraper(
+        context,
+        Column(
+          children: <Widget>[
+            imageArea,
+            _buildFooter(context),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 构建徽章区域（AI徽章 + 页数/类型徽章）
+  Widget _buildBadges() {
+    return Positioned(
+      top: 5.0,
+      right: 5.0,
+      child: Row(
+        children: [
+          if (userSetting.feedAIBadge && store.illusts!.illustAIType == 2)
+            _buildAIBadge(),
+          _buildVisibility(),
+        ],
+      ),
+    );
+  }
+
+  /// 构建底部区域（信息 + 系列作品链接）
+  Widget _buildFooter(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildBottom(context),
+        if (store.illusts?.series != null)
+          GestureDetector(
+            onTap: () {
+              Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => IllustSeriesPage(
+                        id: store.illusts!.series!.id,
+                      )));
+            },
+            behavior: HitTestBehavior.opaque,
+            child: Container(
+              margin: EdgeInsets.only(left: 8, bottom: 4),
+              alignment: Alignment.centerLeft,
+              child: Text(
+                '${store.illusts?.series?.title ?? ''}',
+                style: Theme.of(context).textTheme.bodySmall,
               ),
-            ],
+            ),
           ),
-        ));
+      ],
+    );
   }
 
   Widget _buildAIBadge() {
@@ -312,17 +358,19 @@ class _IllustCardState extends State<IllustCard> {
     if (store.illusts == null) return;
 
     final isDirectoryExists = await downloadStore.isIllustDirectoryExists(store.illusts!);
-    
+
     if (!isDirectoryExists) return;
 
     final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+
+    // 将全局坐标转换为相对于 Overlay 的本地坐标
+    final localPosition = overlay.globalToLocal(_tapPosition);
+
     final result = await showMenu(
       context: context,
-      position: RelativeRect.fromLTRB(
-        _tapPosition.dx,
-        _tapPosition.dy,
-        overlay.size.width - _tapPosition.dx,
-        overlay.size.height - _tapPosition.dy,
+      position: RelativeRect.fromRect(
+        localPosition & Size(40, 40),
+        Offset.zero & overlay.size,
       ),
       items: [
         PopupMenuItem(
@@ -378,12 +426,15 @@ class _IllustCardState extends State<IllustCard> {
   }
 
   Widget _buildBottom(BuildContext context) {
+    // 根据是否显示下载按钮调整右侧 padding
+    final rightPadding = widget.showDownloadButton ? 72.0 : 36.0;
+
     return Container(
       child: Stack(
         children: <Widget>[
           Padding(
-            padding: const EdgeInsets.only(
-                left: 8.0, right: 36.0, top: 4, bottom: 4),
+            padding: EdgeInsets.only(
+                left: 8.0, right: rightPadding, top: 4, bottom: 4),
             child:
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(
@@ -416,52 +467,99 @@ class _IllustCardState extends State<IllustCard> {
           ),
           Align(
             alignment: Alignment.centerRight,
-            child: GestureDetector(
-              child: Observer(builder: (_) {
-                return StarIcon(
-                  state: store.state,
-                );
-              }),
-              onTap: () async {
-                if (userSetting.saveAfterStar && (store.state == 0)) {
-                  saveStore.saveImage(store.illusts!);
-                }
-                store.star(
-                    restrict:
-                        userSetting.defaultPrivateLike ? "private" : "public");
-                if (userSetting.followAfterStar) {
-                  bool success = await store.followAfterStar();
-                  if (success) {
-                    BotToast.showText(
-                        text:
-                            "${store.illusts!.user.name} ${I18n.of(context).followed}");
-                  }
-                }
-              },
-              onLongPress: () async {
-                final result = await showModalBottomSheet(
-                  context: context,
-                  clipBehavior: Clip.hardEdge,
-                  shape: RoundedRectangleBorder(
-                    borderRadius:
-                        BorderRadius.vertical(top: Radius.circular(16)),
-                  ),
-                  constraints: BoxConstraints.expand(
-                      height: MediaQuery.of(context).size.height * .618),
-                  isScrollControlled: true,
-                  builder: (_) => TagForIllustPage(id: store.illusts!.id),
-                );
-                if (result?.isNotEmpty ?? false) {
-                  LPrinter.d(result);
-                  String restrict = result['restrict'];
-                  List<String>? tags = result['tags'];
-                  store.star(restrict: restrict, tags: tags, force: true);
-                }
-              },
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (widget.showDownloadButton)
+                  _buildDownloadButton(context),
+                if (widget.showDownloadButton) SizedBox(width: 4),
+                GestureDetector(
+                  child: Observer(builder: (_) {
+                    return StarIcon(
+                      state: store.state,
+                    );
+                  }),
+                  onTap: () async {
+                    if (userSetting.saveAfterStar && (store.state == 0)) {
+                      saveStore.saveImage(store.illusts!);
+                    }
+                    store.star(
+                        restrict:
+                            userSetting.defaultPrivateLike ? "private" : "public");
+                    if (userSetting.followAfterStar) {
+                      bool success = await store.followAfterStar();
+                      if (success) {
+                        BotToast.showText(
+                            text:
+                                "${store.illusts!.user.name} ${I18n.of(context).followed}");
+                      }
+                    }
+                  },
+                  onLongPress: () async {
+                    final result = await showModalBottomSheet(
+                      context: context,
+                      clipBehavior: Clip.hardEdge,
+                      shape: RoundedRectangleBorder(
+                        borderRadius:
+                            BorderRadius.vertical(top: Radius.circular(16)),
+                      ),
+                      constraints: BoxConstraints.expand(
+                          height: MediaQuery.of(context).size.height * .618),
+                      isScrollControlled: true,
+                      builder: (_) => TagForIllustPage(id: store.illusts!.id),
+                    );
+                    if (result?.isNotEmpty ?? false) {
+                      LPrinter.d(result);
+                      String restrict = result['restrict'];
+                      List<String>? tags = result['tags'];
+                      store.star(restrict: restrict, tags: tags, force: true);
+                    }
+                  },
+                ),
+              ],
             ),
           )
         ],
       ),
+    );
+  }
+
+  Widget _buildDownloadButton(BuildContext context) {
+    return Observer(
+      builder: (_) {
+        // 检查是否有该作品的任务正在下载
+        final isDownloading = downloadStore.downloadingTasks.values
+            .any((task) => task.illusts.id == store.illusts!.id);
+
+        return GestureDetector(
+          onTap: () async {
+            // 检查是否已下载
+            final isDownloaded =
+                await downloadStore.isIllustDownloaded(store.illusts!.id);
+            if (isDownloaded) {
+              BotToast.showText(text: '已下载');
+              return;
+            }
+            if (isDownloading) {
+              BotToast.showText(text: '下载中...');
+              return;
+            }
+            await saveStore.saveImage(store.illusts!);
+            if (userSetting.starAfterSave && (store.state == 0)) {
+              store.star(
+                  restrict: userSetting.defaultPrivateLike ? "private" : "public");
+            }
+          },
+          child: Container(
+            padding: EdgeInsets.all(4),
+            child: Icon(
+              isDownloading ? Icons.downloading : Icons.download,
+              size: 20,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+          ),
+        );
+      },
     );
   }
 

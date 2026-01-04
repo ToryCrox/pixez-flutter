@@ -23,7 +23,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:pixez/component/illust_card.dart';
-import 'package:pixez/component/illust_card_grid.dart';
 import 'package:pixez/component/pixez_default_header.dart';
 import 'package:pixez/component/pixez_easy_refresh.dart';
 import 'package:pixez/component/sort_group.dart';
@@ -240,6 +239,8 @@ class _WorksPageState extends State<WorksPage> {
         lightingStore: _store,
         store: _store.iStores[index],
         iStores: _store.iStores,
+        layoutMode: IllustCardLayoutMode.waterfall,
+        showDownloadButton: false,
       );
     }, childCount: _store.iStores.length);
   }
@@ -249,10 +250,12 @@ class _WorksPageState extends State<WorksPage> {
     _store.iStores
         .removeWhere((element) => element.illusts!.hateByUser(ai: false));
     return SliverChildBuilderDelegate((BuildContext context, int index) {
-      return IllustCardGrid(
+      return IllustCard(
         lightingStore: _store,
         store: _store.iStores[index],
         iStores: _store.iStores,
+        layoutMode: IllustCardLayoutMode.grid,
+        showDownloadButton: true,
       );
     }, childCount: _store.iStores.length);
   }

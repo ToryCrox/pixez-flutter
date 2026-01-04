@@ -21,7 +21,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:mobx/mobx.dart';
 import 'package:pixez/component/illust_card.dart';
-import 'package:pixez/component/illust_card_grid.dart';
 import 'package:pixez/component/pixez_default_header.dart';
 import 'package:pixez/exts.dart';
 import 'package:pixez/i18n.dart';
@@ -304,6 +303,8 @@ class _LightingListState extends State<LightingList> {
         lightingStore: _store,
         store: _store.iStores[index],
         iStores: _store.iStores,
+        layoutMode: IllustCardLayoutMode.waterfall,
+        showDownloadButton: false,
       );
     }, childCount: _store.iStores.length);
   }
@@ -313,10 +314,12 @@ class _LightingListState extends State<LightingList> {
     _store.iStores
         .removeWhere((element) => element.illusts!.hateByUser(ai: _ai));
     return SliverChildBuilderDelegate((BuildContext context, int index) {
-      return IllustCardGrid(
+      return IllustCard(
         lightingStore: _store,
         store: _store.iStores[index],
         iStores: _store.iStores,
+        layoutMode: IllustCardLayoutMode.grid,
+        showDownloadButton: true,
       );
     }, childCount: _store.iStores.length);
   }
@@ -353,14 +356,18 @@ class _LightingListState extends State<LightingList> {
       store: _store.iStores[index],
       lightingStore: _store,
       iStores: _store.iStores,
+      layoutMode: IllustCardLayoutMode.waterfall,
+      showDownloadButton: false,
     );
   }
 
   Widget _buildGridItem(int index) {
-    return IllustCardGrid(
+    return IllustCard(
       store: _store.iStores[index],
       lightingStore: _store,
       iStores: _store.iStores,
+      layoutMode: IllustCardLayoutMode.grid,
+      showDownloadButton: true,
     );
   }
 
