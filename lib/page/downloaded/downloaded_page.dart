@@ -495,11 +495,10 @@ class _DownloadedPageState extends State<DownloadedPage> {
   }
 
   Future<void> _openIllustFolder(DownloadedIllust illust) async {
-    final dirPath = p.join(
-      downloadStore.downloadPath,
-      illust.relativePath,
-    );
-    await OpenFile.open(dirPath);
+    final dirPath = downloadStore.getIllustDirectoryPath(illust);
+    if (dirPath != null) {
+      await OpenFile.open(dirPath);
+    }
   }
 
   // ============ 对话框 ============

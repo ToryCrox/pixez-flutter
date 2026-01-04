@@ -726,7 +726,7 @@ abstract class _DownloadStoreBase with Store {
     final relativePath = DownloadDatabaseProvider.buildRelativePath(illusts);
     final fileName = DownloadDatabaseProvider.buildFileName(illusts.id, part);
     final extension = path.extension(task.url);
-    return path.join(_downloadPath!, relativePath, '$fileName$extension');
+    return _dbProvider.getAbsolutePath(relativePath, '$fileName$extension');
   }
 
   Future<String?> _tryFindExistingImageFile(DownloadTask task) async {
@@ -735,7 +735,7 @@ abstract class _DownloadStoreBase with Store {
     final fileName =
         DownloadDatabaseProvider.buildFileName(task.illusts.id, task.part);
     for (final ext in kImageExtensions) {
-      final fullPath = path.join(_downloadPath!, relativePath, '$fileName$ext');
+      final fullPath = _dbProvider.getAbsolutePath(relativePath, '$fileName$ext');
       if (await File(fullPath).exists()) {
         return fullPath;
       }
@@ -1479,7 +1479,7 @@ abstract class _DownloadStoreBase with Store {
     }
 
     // 尝试删除空目录
-    final illustDir = path.join(_downloadPath!, illust.relativePath);
+    final illustDir = _dbProvider.getIllustAbsolutePath(illust.relativePath);
     try {
       final dir = Directory(illustDir);
       if (await dir.exists()) {
@@ -1538,14 +1538,24 @@ abstract class _DownloadStoreBase with Store {
     return totalSize;
   }
 
-  /// 获取插画的下载目录路径
+
+  /// 获取插画的下载目录路径（从 Illusts 对象构建）
   String? getIllustDownloadDirectory(Illusts illusts) {
     if (!isInitialized) {
       return null;
     }
     final relativePath = DownloadDatabaseProvider.buildRelativePath(illusts);
-    return path.join(_downloadPath!, relativePath);
+    return _dbProvider.getIllustAbsolutePath(relativePath);
   }
+
+  /// 获取已下载插画的目录绝对路径（从 DownloadedIllust 对象）
+  String? getIllustDirectoryPath(DownloadedIllust illust) {
+    if (!isInitialized) {
+      return null;
+    }
+    return _dbProvider.getIllustAbsolutePath(illust.relativePath);
+  }
+
 
   /// 检查插画的下载目录是否存在
   Future<bool> isIllustDirectoryExists(Illusts illusts) async {

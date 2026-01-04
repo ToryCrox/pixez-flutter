@@ -1154,11 +1154,10 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
             child: InkWell(
               borderRadius: BorderRadius.circular(20),
               onTap: () async {
-                final dirPath = p.join(
-                  downloadStore.downloadPath,
-                  info.illust.relativePath,
-                );
-                await OpenFile.open(dirPath);
+                final dirPath = downloadStore.getIllustDirectoryPath(info.illust);
+                if (dirPath != null) {
+                  await OpenFile.open(dirPath);
+                }
               },
               child: Container(
                 padding: EdgeInsets.all(6),

@@ -403,8 +403,8 @@ class _ImportDialogState extends State<ImportDialog> {
         // 构建目标路径
         final relativePath =
             DownloadDatabaseProvider.buildRelativePath(illusts);
-        final targetDir =
-            Directory(p.join(downloadStore.downloadPath, relativePath));
+        final targetDir = Directory(
+            downloadStore.dbProvider.getIllustAbsolutePath(relativePath));
         if (!await targetDir.exists()) {
           await targetDir.create(recursive: true);
         }

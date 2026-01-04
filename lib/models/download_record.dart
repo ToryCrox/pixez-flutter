@@ -1229,8 +1229,10 @@ class DownloadDatabaseProvider {
   /// 根据图片记录查找实际存在的文件路径（自动检测后缀名）
   Future<String?> _findImagePathForImage(DownloadedImage image,
       {bool update = true}) async {
-    final basePath = path.join(_basePath!, image.relativePath.replaceAll('\\', '/'), 
-      image.fileName);
+    final basePath = getAbsolutePath(
+      image.relativePath.replaceAll('\\', '/'), 
+      image.fileName
+    );
 
     // 首先尝试数据库中记录的后缀（最常见的情况）
     String fullPath = '$basePath${image.extension}';
@@ -1443,14 +1445,27 @@ class DownloadDatabaseProvider {
     return path.join(userDir, illustDir);
   }
 
+  /// 根据相对路径获取插画目录的绝对路径
+  String getIllustAbsolutePath(String relativePath) {
+    return path.join(_basePath!, relativePath);
+  }
+
+  /// 通用方法：根据相对路径和可选的文件名获取完整的绝对路径
+  /// 如果提供了 fileName，返回 basePath/relativePath/fileName
+  /// 如果未提供 fileName，返回 basePath/relativePath
+  String getAbsolutePath(String relativePath, [String? fileName]) {
+    if (fileName != null) {
+      return path.join(_basePath!, relativePath, fileName);
+    }
+    return path.join(_basePath!, relativePath);
+  }
+
   /// 获取图片的完整文件路径
   Future<String?> getImageFullPath(int illustId, int part) async {
     final image = await getImage(illustId, part);
     if (image == null) return null;
 
-    final fullPath =
-        path.join(_basePath!, image.relativePath, image.getFullFileName());
-    return fullPath;
+    return getAbsolutePath(image.relativePath, image.getFullFileName());
   }
 
   /// 尝试找到图片文件（自动检测后缀名）
