@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'dart:math';
 
 import 'package:bot_toast/bot_toast.dart';
@@ -6,21 +5,14 @@ import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:open_file/open_file.dart';
-import 'package:pixez/component/local_or_cached_image.dart';
-import 'package:pixez/component/null_hero.dart';
+import 'package:pixez/component/illust_card.dart';
 import 'package:pixez/component/pixez_default_header.dart';
 import 'package:pixez/component/pixiv_image.dart';
-import 'package:pixez/component/star_icon.dart';
 import 'package:pixez/constants.dart';
 import 'package:pixez/er/leader.dart';
-import 'package:pixez/er/prefer.dart';
 import 'package:pixez/i18n.dart';
 import 'package:pixez/main.dart';
-import 'package:pixez/models/illust.dart';
-import 'package:pixez/page/picture/illust_lighting_page.dart';
 import 'package:pixez/page/picture/illust_store.dart';
 import 'package:pixez/page/series/illust_series_notifier.dart';
 import 'package:pixez/page/user/users_page.dart';
@@ -292,7 +284,14 @@ class _IllustSeriesPageState extends ConsumerState<IllustSeriesPage> {
   }
 
   Widget _buildItem(IllustStore illust, bool isWaterfallFlow) {
-    return IllustSeriesItem(illust: illust, isWaterfallFlow: isWaterfallFlow);
+    return IllustCard(
+      store: illust,
+      lightingStore: null,
+      layoutMode: isWaterfallFlow
+          ? IllustCardLayoutMode.waterfall
+          : IllustCardLayoutMode.grid,
+      showSeriesLink: false,
+    );
   }
 
   SliverWaterfallFlowDelegate _buildGridDelegate(BuildContext context) {
@@ -425,259 +424,6 @@ class _IllustSeriesPageState extends ConsumerState<IllustSeriesPage> {
               '已添加 $successCount 个下载任务${failCount > 0 ? '，失败 $failCount 个' : ''}');
     } else if (failCount > 0) {
       BotToast.showText(text: '下载失败');
-    }
-  }
-}
-
-class IllustSeriesItem extends StatefulHookConsumerWidget {
-  final IllustStore illust;
-  final bool isWaterfallFlow;
-
-  const IllustSeriesItem(
-      {super.key, required this.illust, this.isWaterfallFlow = true});
-
-  @override
-  ConsumerState<ConsumerStatefulWidget> createState() => _State();
-}
-
-class _State extends ConsumerState<IllustSeriesItem> {
-  late IllustStore illustStore = widget.illust;
-  late Illusts illust = illustStore.illusts!;
-  Offset _tapPosition = Offset.zero;
-
-  Widget _buildImageStack() {
-    final imageWidget = widget.isWaterfallFlow
-        ? PixivImage(
-            illust.imageUrls.large,
-            fit: BoxFit.fitWidth,
-            width: double.infinity,
-          )
-        : PixivImage(
-            illust.imageUrls.squareMedium,
-            fit: BoxFit.cover,
-            // 通过 header 传递 illustId，让 PixivCacheManager 识别封面请求
-            httpHeaders: {'cover': '${illust.id}'},
-          );
-
-    final stackChildren = [
-      NullHero(
-        tag: "illust_series_${illust.id}",
-        child: imageWidget,
-      ),
-      if (illust.metaPages.isNotEmpty)
-        Positioned(
-          top: 0,
-          right: 0,
-          child: Padding(
-            padding: EdgeInsets.all(4.0),
-            child: Container(
-              decoration: BoxDecoration(
-                  color: Colors.black26,
-                  borderRadius: BorderRadius.all(Radius.circular(4.0))),
-              child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(vertical: 2.0, horizontal: 2.0),
-                child: Text(
-                  illust.metaPages.length.toString(),
-                  style: TextStyle(color: Colors.white),
-                ),
-              ),
-            ),
-          ),
-        )
-    ];
-
-    final stack = widget.isWaterfallFlow
-        ? Stack(children: stackChildren)
-        : Stack(fit: StackFit.expand, children: stackChildren);
-
-    final clipRRect = ClipRRect(
-      borderRadius: BorderRadius.circular(12),
-      child: stack,
-    );
-
-    return widget.isWaterfallFlow ? clipRRect : Expanded(child: clipRRect);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onSecondaryTapDown: (details) {
-        _tapPosition = details.globalPosition;
-      },
-      onSecondaryTap: () {
-        _showContextMenu(context);
-      },
-      onLongPress: () {
-        _buildLongPressToSaveHint();
-      },
-      onTap: () {
-        Leader.push(
-            context,
-            IllustLightingPage(
-                id: illust.id,
-                store: IllustStore(illust.id, illust),
-                heroString: "illust_series_${illust.id}"));
-      },
-      borderRadius: BorderRadius.circular(12),
-      child: Column(
-        children: [
-          _buildImageStack(),
-          SizedBox(
-            height: 2,
-          ),
-          Container(
-              alignment: Alignment.centerLeft,
-              child: Row(
-                children: [
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: Text.rich(
-                      TextSpan(
-                        children: [
-                          WidgetSpan(
-                            child: DownloadStatusIndicator(
-                              illustId: illust.id,
-                              pageCount: illust.pageCount,
-                              size: 14,
-                            ),
-                          ),
-                          TextSpan(
-                            text: illust.title,
-                            style: Theme.of(context).textTheme.bodyMedium,
-                          ),
-                        ],
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: () async {
-                      illustStore.star(
-                          restrict: userSetting.defaultPrivateLike
-                              ? "private"
-                              : "public");
-                    },
-                    child: Observer(builder: (context) {
-                      return StarIcon(
-                        state: illustStore.state,
-                      );
-                    }),
-                  ),
-                ],
-              ))
-        ],
-      ),
-    );
-  }
-
-  _buildLongPressToSaveHint() async {
-    if (Platform.isIOS) {
-      final firstLongPress = await Prefer.getBool("first_long_press") ?? true;
-      if (firstLongPress) {
-        await Prefer.setBool("first_long_press", false);
-        await showDialog(
-            context: context,
-            builder: (context) {
-              return AlertDialog(
-                title: Text('长按保存'),
-                content: Text('长按卡片将会保存插画到相册'),
-                actions: <Widget>[
-                  TextButton(
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                      },
-                      child: Text(I18n.of(context).ok))
-                ],
-              );
-            });
-      }
-    }
-    _onLongPressSave();
-  }
-
-  _onLongPressSave() async {
-    if (userSetting.longPressSaveConfirm) {
-      final result = await showDialog(
-          context: context,
-          builder: (context) {
-            return AlertDialog(
-              title: Text(I18n.of(context).save),
-              content: Text(illust.title),
-              actions: <Widget>[
-                TextButton(
-                  child: Text(I18n.of(context).cancel),
-                  onPressed: () {
-                    Navigator.of(context).pop(false);
-                  },
-                ),
-                TextButton(
-                  child: Text(I18n.of(context).ok),
-                  onPressed: () {
-                    Navigator.of(context).pop(true);
-                  },
-                ),
-              ],
-            );
-          });
-      if (!result) {
-        return;
-      }
-    }
-    saveStore.saveImage(illust);
-    if (userSetting.starAfterSave && (illustStore.state == 0)) {
-      illustStore.star(
-          restrict: userSetting.defaultPrivateLike ? "private" : "public");
-    }
-  }
-
-  Future<void> _showContextMenu(BuildContext context) async {
-    final isDirectoryExists =
-        await downloadStore.isIllustDirectoryExists(illust);
-
-    if (!isDirectoryExists) return;
-
-    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
-    final result = await showMenu(
-      context: context,
-      position: RelativeRect.fromLTRB(
-        _tapPosition.dx,
-        _tapPosition.dy,
-        overlay.size.width - _tapPosition.dx,
-        overlay.size.height - _tapPosition.dy,
-      ),
-      items: [
-        PopupMenuItem(
-          value: 'open_directory',
-          child: Row(
-            children: [
-              Icon(Icons.folder_open, size: 20),
-              SizedBox(width: 8),
-              Text('打开下载目录'),
-            ],
-          ),
-        ),
-      ],
-    );
-
-    if (result == 'open_directory') {
-      await _openDownloadDirectory();
-    }
-  }
-
-  Future<void> _openDownloadDirectory() async {
-    if (!downloadStore.isInitialized) {
-      BotToast.showText(text: '下载功能未初始化');
-      return;
-    }
-    try {
-      final dirPath = downloadStore.getIllustDownloadDirectory(illust);
-      if (dirPath != null) {
-        await OpenFile.open(dirPath);
-      }
-    } catch (e) {
-      BotToast.showText(text: '打开文件夹失败: $e');
     }
   }
 }

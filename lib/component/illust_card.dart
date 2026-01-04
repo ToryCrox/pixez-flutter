@@ -50,15 +50,17 @@ class IllustCard extends StatefulWidget {
   final IllustStore store;
   final List<IllustStore>? iStores;
   final bool needToBan;
-  final LightingStore lightingStore;
+  final LightingStore? lightingStore;
   final IllustCardLayoutMode layoutMode;
+  final bool showSeriesLink;
 
   IllustCard({
     required this.store,
-    required this.lightingStore,
+    this.lightingStore,
     this.iStores,
     this.needToBan = false,
     this.layoutMode = IllustCardLayoutMode.waterfall,
+    this.showSeriesLink = true,
   });
 
   @override
@@ -69,7 +71,7 @@ class _IllustCardState extends State<IllustCard> {
   late IllustStore store;
   late List<IllustStore>? iStores;
   late String tag;
-  late LightingStore _lightingStore;
+  LightingStore? _lightingStore;
   Offset _tapPosition = Offset.zero;
 
   @override
@@ -269,7 +271,7 @@ class _IllustCardState extends State<IllustCard> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildBottom(context),
-        if (store.illusts?.series != null)
+        if (widget.showSeriesLink && store.illusts?.series != null)
           GestureDetector(
             onTap: () {
               Navigator.of(context).push(MaterialPageRoute(
