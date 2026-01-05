@@ -194,6 +194,7 @@ extension IllustsExtension on Illusts {
 class Illusts {
   int id;
   String title;
+  /// illust | manga | ugoira
   String type;
   @JsonKey(name: 'image_urls')
   ImageUrls imageUrls;
