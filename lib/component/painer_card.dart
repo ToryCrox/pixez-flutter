@@ -49,7 +49,7 @@ class _PainterCardState extends State<PainterCard> {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: () async {
-        await Navigator.of(context, rootNavigator: true)
+        await Navigator.of(context)
             .push(MaterialPageRoute(builder: (BuildContext context) {
           if (isNovel) {
             return NovelUsersPage(
