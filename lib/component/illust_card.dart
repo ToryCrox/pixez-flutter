@@ -218,6 +218,7 @@ class _IllustCardState extends State<IllustCard> {
           children: [
             Positioned.fill(child: _buildPic(tag)),
             _buildBadges(),
+            _buildTimeStamp(),
           ],
         ),
       );
@@ -229,6 +230,7 @@ class _IllustCardState extends State<IllustCard> {
           children: [
             _buildPic(tag),
             _buildBadges(),
+            _buildTimeStamp(),
           ],
         ),
       );
@@ -525,6 +527,41 @@ class _IllustCardState extends State<IllustCard> {
         ),
       ),
     );
+  }
+
+  /// 构建时间戳显示（左下角）
+  Widget _buildTimeStamp() {
+    return Positioned(
+      left: 5.0,
+      bottom: 5.0,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.black.withOpacity(0.6),
+          borderRadius: BorderRadius.all(Radius.circular(4.0)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 2.0, horizontal: 4.0),
+          child: Text(
+            _formatCreateDate(store.illusts!.createDate),
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 10,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 格式化创建日期
+  String _formatCreateDate(String createDate) {
+    if (createDate.isEmpty) return '';
+    try {
+      final dateTime = DateTime.parse(createDate);
+      return '${dateTime.year}-${dateTime.month.toString().padLeft(2, '0')}-${dateTime.day.toString().padLeft(2, '0')}';
+    } catch (e) {
+      return createDate;
+    }
   }
 }
 
