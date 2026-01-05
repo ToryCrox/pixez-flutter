@@ -128,7 +128,7 @@ class _SettingPageState extends State<SettingPage> {
                             padding: const EdgeInsets.all(8.0),
                             child: InkWell(
                               onTap: () {
-                                Navigator.of(context, rootNavigator: true)
+                                Navigator.of(context)
                                     .push(MaterialPageRoute(builder: (_) {
                                   return AccountSelectPage();
                                 }));

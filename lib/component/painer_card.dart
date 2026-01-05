@@ -143,7 +143,7 @@ class _PainterCardState extends State<PainterCard> {
               url: _user.user.profileImageUrls.medium,
               id: _user.user.id,
               onTap: () {
-                Navigator.of(context, rootNavigator: true)
+                Navigator.of(context)
                     .push(MaterialPageRoute(builder: (BuildContext context) {
                   if (isNovel) {
                     return NovelUsersPage(

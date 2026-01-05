@@ -153,7 +153,7 @@ class _SearchPageState extends State<SearchPage>
                   Icons.search,
                 ),
                 onPressed: () {
-                  Navigator.of(context, rootNavigator: true).push(
+                  Navigator.of(context).push(
                       MaterialPageRoute(
                           builder: (context) => SearchSuggestionPage()));
                 },
@@ -347,7 +347,7 @@ class _SearchPageState extends State<SearchPage>
                         );
                       },
                       onLongPress: () {
-                        Navigator.of(context, rootNavigator: true)
+                        Navigator.of(context)
                             .push(MaterialPageRoute(builder: (_) {
                           return IllustLightingPage(id: tags[index].illust.id);
                         }));

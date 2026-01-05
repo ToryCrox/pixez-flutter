@@ -29,13 +29,13 @@ class PainterList extends StatefulWidget {
   final Widget? header;
   final String? cacheKey;
 
-  const PainterList(
-      {Key? key,
-      required this.futureGet,
-      this.isNovel = false,
-      this.header,
-      this.cacheKey})
-      : super(key: key);
+  const PainterList({
+    Key? key,
+    required this.futureGet,
+    this.isNovel = false,
+    this.header,
+    this.cacheKey,
+  }) : super(key: key);
 
   @override
   _PainterListState createState() => _PainterListState();
@@ -50,10 +50,14 @@ class _PainterListState extends State<PainterList> {
   void initState() {
     _scrollController = ScrollController();
     _easyRefreshController = EasyRefreshController(
-        controlFinishLoad: true, controlFinishRefresh: true);
+      controlFinishLoad: true,
+      controlFinishRefresh: true,
+    );
     _painterListStore = PainterListStore(
-        _easyRefreshController, widget.futureGet,
-        cacheKey: widget.cacheKey);
+      _easyRefreshController,
+      widget.futureGet,
+      cacheKey: widget.cacheKey,
+    );
     super.initState();
     _painterListStore.fetch();
   }
@@ -80,39 +84,38 @@ class _PainterListState extends State<PainterList> {
 
   @override
   Widget build(BuildContext context) {
-    return Observer(builder: (_) {
-      return EasyRefresh(
-        controller: _easyRefreshController,
-        header: PixezDefault.header(context),
-        onLoad: () => _painterListStore.next(),
-        onRefresh: () => _painterListStore.fetch(),
-        child: _painterListStore.users.isNotEmpty
-            ? CustomScrollView(
-                controller: _scrollController,
-                slivers: [
-                  if (widget.header != null)
-                    SliverToBoxAdapter(
-                      child: widget.header!,
-                    ),
-                  _buildList(),
-                ],
-              )
-            : Container(),
-      );
-    });
+    return Observer(
+      builder: (_) {
+        return EasyRefresh(
+          controller: _easyRefreshController,
+          header: PixezDefault.header(context),
+          onLoad: () => _painterListStore.next(),
+          onRefresh: () => _painterListStore.fetch(),
+          child:
+              _painterListStore.users.isNotEmpty
+                  ? CustomScrollView(
+                    controller: _scrollController,
+                    slivers: [
+                      if (widget.header != null)
+                        SliverToBoxAdapter(child: widget.header!),
+                      _buildList(),
+                    ],
+                  )
+                  : Container(),
+        );
+      },
+    );
   }
 
   Widget _buildList() {
     return SliverWaterfallFlow(
       delegate: SliverChildBuilderDelegate((context, index) {
         final data = _painterListStore.users[index];
-        return PainterCard(
-          user: data,
-          isNovel: widget.isNovel,
-        );
+        return PainterCard(user: data, isNovel: widget.isNovel);
       }, childCount: _painterListStore.users.length),
       gridDelegate: SliverWaterfallFlowDelegateWithMaxCrossAxisExtent(
-          maxCrossAxisExtent: 600),
+        maxCrossAxisExtent: 600,
+      ),
     );
   }
 }
