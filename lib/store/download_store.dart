@@ -207,6 +207,7 @@ abstract class _DownloadStoreBase with Store {
     await _dbProvider.open(downloadPath);
     Log.d('DownloadStore downloadPath: ${_dbProvider.basePath}');
     await refreshCount();
+    
     progressStream.listen((e) {
       _downloadProgressIllustIdBuffer.add(e.illusts.id);
       if (_debounceTimer?.isActive ?? false) return;
@@ -1487,8 +1488,7 @@ abstract class _DownloadStoreBase with Store {
     final userId = illust.userId;
     await _dbProvider.deleteIllustByIllustId(illustId);
 
-    // 更新作者表统计信息，如果作者没有插画则删除
-    await _dbProvider.updateAuthorStats(userId);
+    // 更新或删除作者记录（根据是否还有插画）
     await _dbProvider.deleteAuthorIfEmpty(userId);
 
     // 通知删除状态

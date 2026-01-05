@@ -1721,19 +1721,26 @@ class DownloadDatabaseProvider {
     );
   }
 
-  /// 如果作者没有插画则删除
+  /// 更新作者统计信息，如果作者没有插画则删除作者记录
+  /// 这个方法应该在删除插画后调用，用于维护作者表的正确状态
   Future<void> deleteAuthorIfEmpty(int userId) async {
     final count = await db.rawQuery('''
       SELECT COUNT(*) as count 
       FROM ${DownloadedIllustColumns.tableName} 
       WHERE ${DownloadedIllustColumns.userId} = ?
     ''', [userId]);
-    if ((count.first['count'] as int? ?? 0) == 0) {
+    final illustCount = count.first['count'] as int? ?? 0;
+    
+    if (illustCount == 0) {
+      // 没有插画，删除作者记录
       await db.delete(
         DownloadedAuthorColumns.tableName,
         where: '${DownloadedAuthorColumns.userId} = ?',
         whereArgs: [userId],
       );
+    } else {
+      // 还有插画，更新统计信息
+      await updateAuthorStats(userId);
     }
   }
 
