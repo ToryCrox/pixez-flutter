@@ -27,6 +27,8 @@ import 'package:pixez/models/ugoira_metadata_response.dart';
 import 'package:pixez/network/api_client.dart';
 import 'package:pixez/saf_plugin.dart';
 
+import 'package:pixez/store/download_store.dart';
+
 part 'ugoira_store.g.dart';
 
 enum UgoiraStatus { pre, progress, play }
@@ -50,9 +52,8 @@ abstract class _UgoiraStoreBase with Store {
 
   export() async {
     try {
-      Directory tempDir = await getTemporaryDirectory();
-      String tempPath = tempDir.path;
-      String fullPath = "$tempPath/${id}.zip";
+      // ZIP 文件已在统一的下载目录中
+      String fullPath = downloadStore.getUgoiraZipPath(id);
       File fullPathFile = File(fullPath);
       if (fullPathFile.existsSync()) {
         final data = fullPathFile.readAsBytesSync();
@@ -82,9 +83,7 @@ abstract class _UgoiraStoreBase with Store {
 
   @action
   unZip() async {
-    Directory tempDir = await getTemporaryDirectory();
-    String tempPath = tempDir.path;
-    String fullPath = "$tempPath/${id}.zip";
+    String fullPath = downloadStore.getUgoiraZipPath(id);
     File fullPathFile = File(fullPath);
     try {
       // Read the Zip file from disk.
@@ -98,22 +97,23 @@ abstract class _UgoiraStoreBase with Store {
         final filename = file.name;
         if (file.isFile) {
           final data = file.content as List<int>;
-          File('$tempPath/$id/' + filename)
+          File('${downloadStore.getUgoiraExtractPath(id)}/' + filename)
             ..createSync(recursive: true)
             ..writeAsBytesSync(data);
         } else {
-          Directory('$tempPath/$id/' + filename)..create(recursive: true);
+          Directory('${downloadStore.getUgoiraExtractPath(id)}/' + filename)..create(recursive: true);
         }
       }
-      Directory zipDirectory = Directory('$tempPath/$id/');
+      Directory zipDirectory = Directory(downloadStore.getUgoiraExtractPath(id));
       var listSync = zipDirectory.listSync();
       listSync.sort((l, r) => l.path.compareTo(r.path));
       drawPool = listSync;
       status = UgoiraStatus.play;
     } catch (e) {
       if (fullPathFile.existsSync()) fullPathFile.deleteSync();
-      if (Directory('$tempPath/$id/').existsSync()) {
-        Directory('$tempPath/$id/').deleteSync(recursive: true);
+      final extractPath = downloadStore.getUgoiraExtractPath(id);
+      if (Directory(extractPath).existsSync()) {
+        Directory(extractPath).deleteSync(recursive: true);
       }
       status = UgoiraStatus.pre;
     }
@@ -122,10 +122,10 @@ abstract class _UgoiraStoreBase with Store {
   @action
   downloadAndUnzip() async {
     status = UgoiraStatus.progress;
-    Directory tempDir = await getTemporaryDirectory();
-    String tempPath = tempDir.path;
-    String fullPath = "$tempPath/$id.zip";
-    File fullPathFile = File(fullPath);
+    // 确保 Ugoira 目录存在
+    final zipPath = downloadStore.getUgoiraZipPath(id);
+    Directory(File(zipPath).parent.path).createSync(recursive: true);
+    File fullPathFile = File(zipPath);
     try {
       ugoiraMetadataResponse = await apiClient.getUgoiraMetadata(id);
       String zipUrl =
@@ -137,7 +137,7 @@ abstract class _UgoiraStoreBase with Store {
         if (!userSetting.disableBypassSni) {
           dio.httpClientAdapter = await ApiClient.createCompatibleClient();
         }
-        dio.download(zipUrl, fullPath,
+        dio.download(zipUrl, zipPath,
             onReceiveProgress: (int count, int total) {
           this.count = count;
           this.total = total;
@@ -150,8 +150,9 @@ abstract class _UgoiraStoreBase with Store {
       }
     } catch (e) {
       if (fullPathFile.existsSync()) fullPathFile.deleteSync();
-      if (Directory('$tempPath/$id/').existsSync()) {
-        Directory('$tempPath/$id/').deleteSync(recursive: true);
+      final extractPath = downloadStore.getUgoiraExtractPath(id);
+      if (Directory(extractPath).existsSync()) {
+        Directory(extractPath).deleteSync(recursive: true);
       }
       status = UgoiraStatus.pre;
     }

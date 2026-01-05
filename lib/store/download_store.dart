@@ -189,6 +189,23 @@ abstract class _DownloadStoreBase with Store {
   // 下载目录由 DownloadDatabaseProvider.basePath 管理，此处不再重复存储
   String get downloadPath => _dbProvider.basePath;
 
+  /// Ugoira 专用下载目录路径（私有）
+  String get _ugoiraPath {
+    if (!isInitialized) return '';
+    // basePath = downloadPath/download，取父目录后拼接 ugoira
+    return path.join(path.dirname(_dbProvider.basePath), 'ugoira');
+  }
+
+  /// 获取 Ugoira ZIP 文件路径
+  String getUgoiraZipPath(int illustId) {
+    return path.join(_ugoiraPath, '$illustId.zip');
+  }
+
+  /// 获取 Ugoira 解压目录路径
+  String getUgoiraExtractPath(int illustId) {
+    return path.join(_ugoiraPath, '$illustId');
+  }
+
   bool get isInitialized => _dbProvider.basePath.isNotEmpty;
 
   @observable
