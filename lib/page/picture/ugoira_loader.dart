@@ -14,6 +14,8 @@
  *
  */
 
+import 'dart:math';
+
 import 'package:bot_toast/bot_toast.dart';
 import 'package:flutter/material.dart' hide Image;
 import 'package:flutter/services.dart';
@@ -50,7 +52,8 @@ class _UgoiraLoaderState extends State<UgoiraLoader> {
 
   @override
   Widget build(BuildContext context) {
-    final maxWidth = MediaQuery.of(context).size.width;
+    final mediaSize = MediaQuery.sizeOf(context);
+    final maxWidth = min(mediaSize.width, mediaSize.height);
     return Observer(
       builder: (_) {
         double height =
@@ -148,9 +151,10 @@ class _UgoiraLoaderState extends State<UgoiraLoader> {
         }
         if (_store.status == UgoiraStatus.progress)
           return Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: <Widget>[
               PixivImage(
-                widget.illusts.imageUrls.medium,
+                widget.illusts.imageUrls.large,
                 height: height,
                 width: maxWidth,
                 placeWidget: Container(height: height),
@@ -168,9 +172,10 @@ class _UgoiraLoaderState extends State<UgoiraLoader> {
           height: height + 72.0,
           width: maxWidth,
           child: Stack(
+            alignment: AlignmentGeometry.topCenter,
             children: <Widget>[
               PixivImage(
-                widget.illusts.imageUrls.medium,
+                widget.illusts.imageUrls.large,
                 height: height,
                 width: maxWidth,
                 placeWidget: Container(height: height),
