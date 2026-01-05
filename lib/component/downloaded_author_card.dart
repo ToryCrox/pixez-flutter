@@ -31,12 +31,14 @@ class DownloadedAuthorCard extends StatefulWidget {
   final DownloadedAuthor author;
   final List<DownloadedIllust> illusts;
   final bool showLatestPublished;
+  final VoidCallback? onRefresh;
 
   const DownloadedAuthorCard({
     Key? key,
     required this.author,
     required this.illusts,
     required this.showLatestPublished,
+    this.onRefresh,
   }) : super(key: key);
 
   @override
@@ -249,6 +251,13 @@ class _DownloadedAuthorCardState extends State<DownloadedAuthorCard> {
               ),
             ),
             IconButton(
+              icon: Icon(Icons.refresh),
+              iconSize: 20,
+              color: Theme.of(context).iconTheme.color,
+              tooltip: '更新作者信息',
+              onPressed: () => _updateAuthorStats(context),
+            ),
+            IconButton(
               icon: Icon(Icons.folder_open),
               iconSize: 20,
               color: Theme.of(context).iconTheme.color,
@@ -259,6 +268,28 @@ class _DownloadedAuthorCardState extends State<DownloadedAuthorCard> {
         ),
       ),
     );
+  }
+
+
+  Future<void> _updateAuthorStats(BuildContext context) async {
+    if (!downloadStore.isInitialized) {
+      BotToast.showText(text: '下载功能未初始化');
+      return;
+    }
+    try {
+      BotToast.showText(text: '正在更新作者信息...');
+      await downloadStore.dbProvider.updateAuthorStats(widget.author.userId);
+      
+      // 重新加载本地统计数据
+      await _loadImageStats();
+      
+      // 通知父组件刷新整个卡片（包括头像等基本信息）
+      widget.onRefresh?.call();
+      
+      BotToast.showText(text: '更新完成');
+    } catch (e) {
+      BotToast.showText(text: '更新作者信息失败: $e');
+    }
   }
 
   Future<void> _openAuthorDownloadDirectory(BuildContext context) async {

@@ -163,7 +163,8 @@ abstract class _DownloadedAuthorsPageStoreBase with Store {
 
       // 预加载所有作者的插画数据
       _preloadAuthorIllusts(authors);
-    } catch (e) {
+    } catch (e, stack) {
+      Log.e(() => '[DB] Failed to load authors data: $e\n$stack');
       _loading = false;
     }
   }
@@ -220,6 +221,29 @@ abstract class _DownloadedAuthorsPageStoreBase with Store {
   }
 
   @action
+  Future<void> refreshSingleAuthor(int userId) async {
+    if (!downloadStore.isInitialized) return;
+
+    try {
+      // 从数据库重新获取作者信息
+      final updatedAuthor = await downloadStore.dbProvider.getAuthorByUserId(userId);
+      if (updatedAuthor == null) return;
+
+      // 在列表中找到并替换对应的作者
+      final index = _authors.indexWhere((author) => author.userId == userId);
+      if (index != -1) {
+        _authors[index] = updatedAuthor;
+      }
+
+      // 重新加载该作者的插画数据
+      _authorIllustsMap.remove(userId);
+      _preloadAuthorIllusts([updatedAuthor]);
+    } catch (e, stack) {
+      Log.e(() => '[DB] Failed to refresh author $userId: $e\n$stack');
+    }
+  }
+
+  @action
   void toggleDisplayMode(bool value) {
     _showLatestPublished = value;
     // 持久化显示模式
@@ -250,8 +274,8 @@ abstract class _DownloadedAuthorsPageStoreBase with Store {
               latestPublishedIllusts,
             ];
           });
-        } catch (e) {
-          // 忽略单个作者加载失败
+        } catch (e, stack) {
+          Log.e(() => '[DB] Failed to preload illusts for author ${author.userId}: $e\n$stack');
         }
       }
     });

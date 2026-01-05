@@ -269,6 +269,7 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
                   author: author,
                   illusts: displayIllusts,
                   showLatestPublished: _store.showLatestPublished,
+                  onRefresh: () => _store.refreshSingleAuthor(author.userId),
                 );
               },
             );
