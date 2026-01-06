@@ -1231,8 +1231,9 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
             onTap: () {
               Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (context) =>
-                      IllustLightingPage(id: info.illust.illustId),
+                  builder: (context) => Scaffold(
+                    body: IllustLightingPage(id: info.illust.illustId),
+                  ),
                 ),
               );
             },

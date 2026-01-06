@@ -104,6 +104,12 @@ abstract class _IllustStoreBase with Store {
       large: localUrl,
     );
 
+    // 对于动图，只修复 imageUrls，不修改 metaPages/metaSinglePage
+    // 因为动图的 pageCount 是帧数，而 localImageInfos 只包含预览图
+    if (data.isUgoira) {
+      return data.copyWith(imageUrls: fixedImageUrls);
+    }
+
     // 修复 metaSinglePage（单页插画）
     MetaSinglePage? fixedMetaSinglePage;
     final pageCount = localImageInfos.length;

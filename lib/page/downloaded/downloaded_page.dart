@@ -541,6 +541,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
 
     await showDialog(
       context: context,
+      useRootNavigator: false, // 使用当前 Navigator 而不是根 Navigator
       builder: (context) => UpdateIllustInfoDialog(illusts: illustsToUpdate),
     );
 

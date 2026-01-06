@@ -29,6 +29,8 @@ import 'package:pixez/saf_plugin.dart';
 import 'package:pixez/store/download_store.dart';
 import 'package:pixez/utils/ugoira_downloader.dart';
 
+import '../../custom/log.dart';
+
 part 'ugoira_store.g.dart';
 
 enum UgoiraStatus { pre, progress, play }
@@ -195,7 +197,7 @@ abstract class _UgoiraStoreBase with Store {
       final metadata = downloadedIllust.getUgoiraMetadata();
       if (metadata == null || metadata.frames.isEmpty) {
         // 元数据损坏，回退到下载流程
-        LPrinter.d('动图 $id 元数据为空，回退到下载流程');
+        Log.w('动图 $id 元数据为空，回退到下载流程');
         await _fetchAndUnzip();
         return;
       }
@@ -204,12 +206,12 @@ abstract class _UgoiraStoreBase with Store {
 
       // 使用 dbProvider 的方法获取动图帧目录
       final frameDirPath = downloadStore.dbProvider.getUgoiraFrameDirPath(downloadedIllust.relativePath);
-      LPrinter.d('动图 $id 帧目录路径: $frameDirPath, relativePath: ${downloadedIllust.relativePath}');
+      Log.d('动图 $id 帧目录路径: $frameDirPath, relativePath: ${downloadedIllust.relativePath}');
       final frameDir = Directory(frameDirPath);
 
       if (!await frameDir.exists()) {
         // 目录不存在，回退到下载流程
-        LPrinter.d('动图 $id 帧目录不存在: ${frameDir.path}，回退到下载流程');
+        Log.d('动图 $id 帧目录不存在: ${frameDir.path}，回退到下载流程');
         await _fetchAndUnzip();
         return;
       }
@@ -218,7 +220,7 @@ abstract class _UgoiraStoreBase with Store {
       final entities = await frameDir.list().toList();
       final frameFiles = <File>[];
 
-      LPrinter.d('动图 $id 扫描帧目录，找到 ${entities.length} 个文件');
+      Log.d('动图 $id 扫描帧目录，找到 ${entities.length} 个文件');
 
       // 支持的图片文件扩展名
       const supportedExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp'];
@@ -233,11 +235,11 @@ abstract class _UgoiraStoreBase with Store {
         }
       }
 
-      LPrinter.d('动图 $id 过滤后有 ${frameFiles.length} 个图片文件');
+      Log.d('动图 $id 过滤后有 ${frameFiles.length} 个图片文件');
 
       if (frameFiles.isEmpty) {
         // 帧文件不存在，回退到下载流程
-        LPrinter.d('动图 $id 没有找到帧文件，回退到下载流程');
+        Log.d('动图 $id 没有找到帧文件，回退到下载流程');
         await _fetchAndUnzip();
         return;
       }
@@ -247,13 +249,13 @@ abstract class _UgoiraStoreBase with Store {
 
       // 验证文件数量（仅警告，不阻塞播放）
       if (frameFiles.length != metadata.frames.length) {
-        LPrinter.d(
+        Log.d(
           '动图 $id 帧文件数量不匹配: 期望 ${metadata.frames.length}, 实际 ${frameFiles.length}'
         );
         // 继续播放，让用户体验实际可用的帧
       }
 
-      LPrinter.d('动图 $id 成功加载 ${frameFiles.length} 个帧文件');
+      Log.d('动图 $id 成功加载 ${frameFiles.length} 个帧文件');
       drawPool = frameFiles;
       status = UgoiraStatus.play;
     } catch (e) {

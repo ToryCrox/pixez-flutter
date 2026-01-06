@@ -243,6 +243,7 @@ class DownloadedIllust {
     }
 
     // 使用 copyWith 从表字段赋值，避免硬编码 map 字段
+    // metaPages 和 metaSinglePage 从 baseIllusts 保留（它们已经保存在 illustJson 中）
     return baseIllusts.copyWith(
       id: illustId,
       title: title,

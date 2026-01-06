@@ -24,13 +24,13 @@ import 'package:share_plus/share_plus.dart';
 class IllustDetailContent extends StatefulWidget {
   final Illusts illusts;
   final UserStore? userStore;
-  final IllustStore? illustStore;
+  final IllustStore illustStore;
   final VoidCallback loadAbout;
   const IllustDetailContent({
     super.key,
     required this.illusts,
     this.userStore,
-    this.illustStore,
+    required this.illustStore,
     required this.loadAbout,
   });
 
@@ -66,7 +66,8 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
   @override
   void didUpdateWidget(covariant IllustDetailContent oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.illusts.caption.isNotEmpty &&
+    // 检查是否需要更新 _illusts
+    if (widget.illusts.id != oldWidget.illusts.id ||
         widget.illusts.caption != oldWidget.illusts.caption) {
       setState(() {
         _illusts = widget.illusts;
