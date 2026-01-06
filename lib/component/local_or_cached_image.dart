@@ -593,6 +593,17 @@ class _IllustDownloadButtonState extends State<IllustDownloadButton> {
                           )
                           : null,
                 ),
+                // 动图转换选项（仅限动图类型）
+                if (widget.illusts.type == 'ugoira')
+                  ListTile(
+                    leading: Icon(Icons.movie_creation, color: Colors.blue),
+                    title: Text('转换为动图 (WebP)'),
+                    subtitle: Text('将序列帧合成为单个动图文件', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      _convertToWebP();
+                    },
+                  ),
                 ListTile(
                   leading: Icon(Icons.info_outline),
                   title: Text('更新信息'),
@@ -663,6 +674,30 @@ class _IllustDownloadButtonState extends State<IllustDownloadButton> {
     } catch (e) {
       Log.e('Failed to open update info dialog: $e');
       BotToast.showText(text: '打开更新信息对话框失败: $e');
+    }
+  }
+
+  /// 将动图序列帧转换为WebP
+  Future<void> _convertToWebP() async {
+    if (!downloadStore.isInitialized) {
+      BotToast.showText(text: '下载功能未初始化');
+      return;
+    }
+
+    BotToast.showText(text: '开始转换动图...');
+
+    try {
+      final result = await downloadStore.convertUgoiraToWebP(widget.illusts.id);
+      if (result != null) {
+        BotToast.showText(text: '转换完成！');
+        // 刷新状态
+        await _checkStatus();
+      } else {
+        BotToast.showText(text: '转换失败，请检查日志');
+      }
+    } catch (e) {
+      Log.e('转换动图失败: $e');
+      BotToast.showText(text: '转换失败: $e');
     }
   }
 

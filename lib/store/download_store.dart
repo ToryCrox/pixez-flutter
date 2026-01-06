@@ -36,6 +36,7 @@ import 'package:pixez/models/illust.dart';
 import 'package:pixez/models/ugoira_metadata_response.dart';
 import 'package:pixez/network/api_client.dart';
 import 'package:pixez/utils/ugoira_downloader.dart';
+import 'package:pixez/utils/webp_encoder.dart';
 
 part 'download_store.g.dart';
 
@@ -199,27 +200,8 @@ abstract class _DownloadStoreBase with Store {
     _processQueue();
   }
 
-  // 下载目录由 DownloadDatabaseProvider.basePath 管理，此处不再重复存储
-  String get downloadPath => _dbProvider.basePath;
 
-  /// Ugoira 专用下载目录路径（私有）
-  String get _ugoiraPath {
-    if (!isInitialized) return '';
-    // basePath = downloadPath/download，取父目录后拼接 ugoira
-    return path.join(path.dirname(_dbProvider.basePath), 'ugoira');
-  }
-
-  /// 获取 Ugoira ZIP 文件路径
-  String getUgoiraZipPath(int illustId) {
-    return path.join(_ugoiraPath, '$illustId.zip');
-  }
-
-  /// 获取 Ugoira 解压目录路径
-  String getUgoiraExtractPath(int illustId) {
-    return path.join(_ugoiraPath, '$illustId');
-  }
-
-  bool get isInitialized => _dbProvider.basePath.isNotEmpty;
+  bool get isInitialized => _dbProvider.downloadPath.isNotEmpty;
 
   @observable
   int totalDownloaded = 0;
@@ -235,7 +217,7 @@ abstract class _DownloadStoreBase with Store {
     _isInit = true;
     _maxConcurrent = maxConcurrent;
     await _dbProvider.open(downloadPath);
-    Log.d('DownloadStore downloadPath: ${_dbProvider.basePath}');
+    Log.d('DownloadStore downloadPath: ${_dbProvider.downloadPath}');
     await refreshCount();
     
     progressStream.listen((e) {
@@ -266,7 +248,7 @@ abstract class _DownloadStoreBase with Store {
 
     // 2. 重新打开数据库（新路径）
     await _dbProvider.open(newDownloadPath);
-    Log.d('DownloadStore: 更新下载路径到 ${_dbProvider.basePath}');
+    Log.d('DownloadStore: 更新下载路径到 ${_dbProvider.downloadPath}');
     // 3. 刷新统计
     await refreshCount();
   }
@@ -346,9 +328,7 @@ abstract class _DownloadStoreBase with Store {
   /// 路径格式：databasePath/covers/{illustId}.jpg
   /// databasePath 是 basePath 的上一级目录
   String getCoverCachePath(int illustId) {
-    // basePath = databasePath/download，所以取上一级
-    final dbDir = path.dirname(_dbProvider.basePath);
-    return path.join(dbDir, 'covers', '$illustId.jpg');
+    return path.join(_dbProvider.coverPath, '$illustId.jpg');
   }
 
   /// 获取本地图片信息（包含宽高）
@@ -368,7 +348,7 @@ abstract class _DownloadStoreBase with Store {
     String filePath,
     int currentFileSize,
   ) async {
-    final size = await _getImageSize(filePath);
+    final size = await getImageSize(filePath);
     if (size != null && size.width > 0 && size.height > 0) {
       await _dbProvider.updateImageFileSizeAndDimensions(
         illustId,
@@ -401,7 +381,7 @@ abstract class _DownloadStoreBase with Store {
     final filePath = await _dbProvider.findImagePath(illustId, part);
     if (filePath == null) return null;
 
-    final size = await _getImageSize(filePath);
+    final size = await getImageSize(filePath);
     if (size != null && size.width > 0 && size.height > 0) {
       await _dbProvider.updateImageDimensions(
         illustId,
@@ -428,7 +408,7 @@ abstract class _DownloadStoreBase with Store {
           await _dbProvider.findImagePath(image.illustId, image.part);
       if (filePath == null) continue;
 
-      final size = await _getImageSize(filePath);
+      final size = await getImageSize(filePath);
       if (size != null && size.width > 0 && size.height > 0) {
         await _dbProvider.updateImageDimensions(
           image.illustId,
@@ -1140,7 +1120,6 @@ abstract class _DownloadStoreBase with Store {
     // 创建 Ugoira 下载器
     final downloader = UgoiraDownloader(
       apiClient: apiClient,
-      downloadPath: downloadPath,
     );
 
     try {
@@ -1258,7 +1237,7 @@ abstract class _DownloadStoreBase with Store {
 
     if (frameFiles.isNotEmpty) {
       try {
-        final firstFrameSize = await _getImageSize(frameFiles[0].path);
+        final firstFrameSize = await getImageSize(frameFiles[0].path);
         if (firstFrameSize != null) {
           frameWidth = firstFrameSize.width.toInt();
           frameHeight = firstFrameSize.height.toInt();
@@ -1641,7 +1620,7 @@ abstract class _DownloadStoreBase with Store {
     int? imageWidth;
     int? imageHeight;
     try {
-      final size = await _getImageSize(filePath);
+      final size = await getImageSize(filePath);
       if (size != null) {
         imageWidth = size.width.toInt();
         imageHeight = size.height.toInt();
@@ -1669,7 +1648,7 @@ abstract class _DownloadStoreBase with Store {
   }
 
   /// 使用 image_size_getter 解析图片宽高
-  Future<Size?> _getImageSize(String filePath) async {
+  Future<Size?> getImageSize(String filePath) async {
     try {
       final file = File(filePath);
       if (!await file.exists()) return null;
@@ -1725,6 +1704,16 @@ abstract class _DownloadStoreBase with Store {
     // 尝试删除空目录
     final illustDir = _dbProvider.getIllustAbsolutePath(illust.relativePath);
     try {
+      // 首先删除WebP动图文件（如果存在）
+      final webpPath = await getUgoiraWebPPath(illustId);
+      if (webpPath != null) {
+        final webpFile = File(webpPath);
+        if (await webpFile.exists()) {
+          await webpFile.delete();
+          Log.d('删除WebP动图文件: $webpPath');
+        }
+      }
+      
       final dir = Directory(illustDir);
       if (await dir.exists()) {
         final contents = await dir.list().toList();
@@ -1809,7 +1798,7 @@ abstract class _DownloadStoreBase with Store {
       author.userName,
       author.userId,
     );
-    return path.join(_dbProvider.basePath, userDirName);
+    return path.join(_dbProvider.downloadPath, userDirName);
   }
 
 
@@ -1852,4 +1841,142 @@ abstract class _DownloadStoreBase with Store {
 
   Future<LocalImageInfo?> getLocalImageInfoByUrl(String url) =>
       _dbProvider.getLocalImageInfoByUrl(url);
+
+  // ============ 动图转换 ============
+
+  /// 将已下载的动图序列帧转换为WebP动图
+  /// 
+  /// 转换流程：
+  /// 1. 检查是否为动图且已下载序列帧
+  /// 2. 调用WebPEncoder进行转换
+  /// 3. 删除序列帧文件和数据库记录（保留part=0预览图）
+  /// 4. 添加WebP动图记录（part=-1）
+  /// 
+  /// 返回转换后的WebP文件路径，失败返回null
+  Future<String?> convertUgoiraToWebP(int illustId, {int quality = 80}) async {
+    // 检查平台支持
+    if (!WebPEncoder.isSupported) {
+      Log.e('convertUgoiraToWebP: 当前平台不支持WebP转换');
+      return null;
+    }
+
+    // 1. 获取插画信息
+    final illust = await _dbProvider.getIllustByIllustId(illustId);
+    if (illust == null) {
+      Log.e('convertUgoiraToWebP: 未找到插画记录 $illustId');
+      return null;
+    }
+
+    if (!illust.isUgoira) {
+      Log.e('convertUgoiraToWebP: 不是动图类型 $illustId');
+      return null;
+    }
+
+    // 2. 检查是否已有WebP动图（part=-1）
+    final existingWebP = await _dbProvider.getImage(illustId, -1);
+    if (existingWebP != null) {
+      final webpPath = await _dbProvider.findImagePath(illustId, -1);
+      if (webpPath != null && await File(webpPath).exists()) {
+        Log.d('convertUgoiraToWebP: 已存在WebP动图 $webpPath');
+        return webpPath;
+      }
+    }
+
+    // 3. 获取元数据和帧延迟
+    final metadata = illust.getUgoiraMetadata();
+    if (metadata == null || metadata.frames.isEmpty) {
+      Log.e('convertUgoiraToWebP: 无法获取动图元数据 $illustId, ${illust.ugoiraMetadataJson}');
+      return null;
+    }
+
+    final delays = metadata.frames.map((f) => f.delay).toList();
+
+    // 4. 获取序列帧目录
+    final frameDir = Directory(_dbProvider.getUgoiraFrameDirPath(illust.relativePath));
+    if (!await frameDir.exists()) {
+      Log.e('convertUgoiraToWebP: 序列帧目录不存在 ${frameDir.path}');
+      return null;
+    }
+
+    // 5. 构建输出路径
+    final outputPath = path.join(
+      _dbProvider.getIllustAbsolutePath(illust.relativePath),
+      '$illustId.webp',
+    );
+
+    // 6. 调用WebPEncoder进行转换
+    Log.d('convertUgoiraToWebP: 开始转换 $illustId');
+    final result = await WebPEncoder.encodeFromDirectory(
+      framesDir: frameDir.path,
+      delays: delays,
+      outputPath: outputPath,
+      quality: quality,
+    );
+
+    if (result == null) {
+      Log.e('convertUgoiraToWebP: 转换失败 $illustId');
+      return null;
+    }
+
+    // 7. 获取WebP文件信息，尺寸从第一帧获取
+    final webpFile = File(result);
+    final webpFileSize = await webpFile.length();
+    
+    // 从第一帧图片获取尺寸（动图所有帧尺寸相同）
+    // 获取WebP尺寸
+    final size = await getImageSize(result);
+    final webpWidth = size?.width.toInt();
+    final webpHeight = size?.height.toInt();
+    if (size != null) {
+      Log.d('convertUgoiraToWebP: WebP尺寸 ${webpWidth}x$webpHeight');
+    }
+
+    // 8. 使用dbProvider进行数据库操作
+    await _dbProvider.replaceUgoiraFramesWithWebP(
+      illustId: illustId,
+      relativePath: illust.relativePath,
+      fileSize: webpFileSize.toInt(),
+      width: webpWidth,
+      height: webpHeight,
+    );
+
+    // 9. 删除序列帧文件（保留目录，因为可能还有其他文件）
+    try {
+      final entities = await frameDir.list().toList();
+      for (final entity in entities) {
+        if (entity is File) {
+          await entity.delete();
+        }
+      }
+      // 尝试删除空目录
+      if ((await frameDir.list().toList()).isEmpty) {
+        await frameDir.delete();
+      }
+    } catch (e) {
+      Log.w('convertUgoiraToWebP: 清理序列帧文件失败: $e');
+    }
+
+    Log.d('convertUgoiraToWebP: 转换完成 $illustId -> $result');
+
+    // 10. 通知状态更新
+    await notifyIllustDownloadStatus(illustId);
+
+    return result;
+  }
+
+  /// 检查动图是否已转换为WebP
+  Future<bool> hasUgoiraWebP(int illustId) async {
+    final webpImage = await _dbProvider.getImage(illustId, -1);
+    if (webpImage == null) return false;
+    
+    final webpPath = await _dbProvider.findImagePath(illustId, -1);
+    return webpPath != null && await File(webpPath).exists();
+  }
+
+  /// 获取动图WebP文件路径（如果存在）
+  Future<String?> getUgoiraWebPPath(int illustId) async {
+    final hasWebP = await hasUgoiraWebP(illustId);
+    if (!hasWebP) return null;
+    return await _dbProvider.findImagePath(illustId, -1);
+  }
 }

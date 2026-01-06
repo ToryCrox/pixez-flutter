@@ -94,7 +94,7 @@ class PixivCacheManager extends CacheManager with ImageCacheManager {
 
     // 1. 本地封面缓存存在则直接返回
     if (await io.File(coverPath).exists()) {
-      Log.d(() => '加载本地封面缓存: $illustId, url: $url');
+      Log.d(() => '加载本地封面缓存: $illustId, url: $url, $coverPath');
       return _fileInfoFromIoFile(coverPath, url);
     }
 

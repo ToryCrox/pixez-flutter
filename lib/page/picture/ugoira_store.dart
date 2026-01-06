@@ -91,76 +91,31 @@ abstract class _UgoiraStoreBase with Store {
   @observable
   int total = 1;
 
+  /// WebP动图文件路径（如果已转换）
+  @observable
+  String? webpPath;
+
+  /// WebP动图宽度
+  @observable
+  int? webpWidth;
+
+  /// WebP动图高度
+  @observable
+  int? webpHeight;
+
+  /// 是否正在使用WebP播放
+  bool get isPlayingWebP => webpPath != null && webpPath!.isNotEmpty;
+
   List<FileSystemEntity> drawPool = [];
   UgoiraMetadataResponse? ugoiraMetadataResponse;
 
   export() async {
-    try {
-      // ZIP 文件已在统一的下载目录中
-      String fullPath = downloadStore.getUgoiraZipPath(id);
-      File fullPathFile = File(fullPath);
-      if (fullPathFile.existsSync()) {
-        final data = fullPathFile.readAsBytesSync();
-        if (Platform.isAndroid) {
-          try {
-            String? uriString =
-                await SAFPlugin.createFile("${id}.zip", "application/zip");
-            uriString!;
-            await SAFPlugin.writeUri(uriString, data);
-            BotToast.showText(text: "export success");
-            return;
-          } catch (e) {}
-        }
-        Directory? directory = await getExternalStorageDirectory();
-        Directory zipFolder = Directory("${directory!.path}/ugoira_zip/");
-        if (!zipFolder.existsSync()) {
-          zipFolder.createSync(recursive: true);
-        }
-        File targetFile = File("${zipFolder.path}/${id}.zip");
-        fullPathFile.copySync(targetFile.path);
-        BotToast.showText(text: "export ${targetFile.path} success");
-      }
-    } catch (e) {
-      LPrinter.d(e);
-    }
+
   }
 
   @action
   unZip() async {
-    String fullPath = downloadStore.getUgoiraZipPath(id);
-    File fullPathFile = File(fullPath);
-    try {
-      // Read the Zip file from disk.
-      final bytes = fullPathFile.readAsBytesSync();
 
-      // Decode the Zip file
-      final archive = ZipDecoder().decodeBytes(bytes);
-
-      // Extract the contents of the Zip archive to disk.
-      for (final file in archive) {
-        final filename = file.name;
-        if (file.isFile) {
-          final data = file.content as List<int>;
-          File('${downloadStore.getUgoiraExtractPath(id)}/' + filename)
-            ..createSync(recursive: true)
-            ..writeAsBytesSync(data);
-        } else {
-          Directory('${downloadStore.getUgoiraExtractPath(id)}/' + filename)..create(recursive: true);
-        }
-      }
-      Directory zipDirectory = Directory(downloadStore.getUgoiraExtractPath(id));
-      var listSync = zipDirectory.listSync();
-      listSync.sort((l, r) => l.path.compareTo(r.path));
-      drawPool = listSync;
-      status = UgoiraStatus.play;
-    } catch (e) {
-      if (fullPathFile.existsSync()) fullPathFile.deleteSync();
-      final extractPath = downloadStore.getUgoiraExtractPath(id);
-      if (Directory(extractPath).existsSync()) {
-        Directory(extractPath).deleteSync(recursive: true);
-      }
-      status = UgoiraStatus.pre;
-    }
   }
 
   @action
@@ -203,6 +158,22 @@ abstract class _UgoiraStoreBase with Store {
       }
 
       ugoiraMetadataResponse = UgoiraMetadataResponse(ugoiraMetadata: metadata);
+
+      // 优先检测是否存在WebP动图（part=-1）
+      final webpImage = await downloadStore.dbProvider.getWebPImage(id);
+      if (webpImage != null) {
+        final existingWebPPath = await downloadStore.getUgoiraWebPPath(id);
+        if (existingWebPPath != null && await File(existingWebPPath).exists()) {
+          Log.d('动图 $id 发现已转换的WebP文件: $existingWebPPath');
+          webpPath = existingWebPPath;
+          webpWidth = webpImage.width;
+          webpHeight = webpImage.height;
+          status = UgoiraStatus.play;
+          return;
+        }
+      }
+
+      // WebP不存在，使用序列帧播放
 
       // 使用 dbProvider 的方法获取动图帧目录
       final frameDirPath = downloadStore.dbProvider.getUgoiraFrameDirPath(downloadedIllust.relativePath);
@@ -270,12 +241,12 @@ abstract class _UgoiraStoreBase with Store {
   Future<void> _fetchAndUnzip() async {
     final downloader = UgoiraDownloader(
       apiClient: apiClient,
-      downloadPath: downloadStore.downloadPath,
     );
 
     try {
       // 使用统一的下载方法获取元数据和帧文件
       final result = await downloader.fetchMetadataAndExtractFrames(id);
+      Log.d(() => '动图 $id 下载元数据和解压序列帧成功: ${result.metadata}, ${result.frameFiles}');
       ugoiraMetadataResponse = result.metadata;
       drawPool = result.frameFiles;
       status = UgoiraStatus.play;

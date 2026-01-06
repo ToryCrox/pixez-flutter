@@ -19,6 +19,7 @@ import 'package:archive/archive.dart';
 import 'package:path/path.dart' as path;
 import 'package:pixez/component/pixiv_image.dart';
 import 'package:pixez/er/hoster.dart';
+import 'package:pixez/main.dart';
 import 'package:pixez/models/ugoira_metadata_response.dart';
 import 'package:pixez/network/api_client.dart';
 
@@ -33,6 +34,13 @@ class UgoiraDownloadResult {
     required this.metadata,
     required this.frameFiles,
   });
+
+  @override
+  String toString() {
+    return 'UgoiraDownloadResult{metadata: $metadata, frameFiles: $frameFiles}';
+  }
+
+
 }
 
 /// Ugoira 下载工具类
@@ -40,11 +48,9 @@ class UgoiraDownloadResult {
 /// 提供动图下载、解压的公共方法，供 download_store 和 ugoira_store 共用
 class UgoiraDownloader {
   final ApiClient apiClient;
-  final String downloadPath;
 
   UgoiraDownloader({
     required this.apiClient,
-    required this.downloadPath,
   });
 
   /// 获取动图元数据、下载并解压序列帧
@@ -116,7 +122,7 @@ class UgoiraDownloader {
 
   /// 获取临时解压目录路径
   String getTempExtractPath(int illustId) {
-    return path.join(downloadPath, 'ugoira', '$illustId');
+    return path.join(downloadStore.dbProvider.ugoiraTempPath, '$illustId');
   }
 
   /// 检查临时解压目录是否存在

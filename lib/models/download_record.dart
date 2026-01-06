@@ -540,15 +540,25 @@ class DownloadedAuthor {
 // 数据库Provider
 class DownloadDatabaseProvider {
   late Database db;
+  /// 下载目录
+  String? _downloadPath;
   String? _basePath;
+  String? _coverPath;
+  String? _ugoiraTempPath;
 
-  String get basePath => _basePath ?? '';
+  String get downloadPath => _downloadPath ?? '';
 
-  Future<void> open(String downloadPath) async {
-    // downloadPath 是数据库所在目录，数据库文件在 downloadPath/download.db
-    // _basePath 应该指向下载文件的基础目录，即 downloadPath/download
-    _basePath = path.join(downloadPath, 'download');
-    String dbPath = path.join(downloadPath, 'download.db');
+  String get coverPath => _coverPath ?? '';
+
+  String get ugoiraTempPath => _ugoiraTempPath ?? '';
+
+  Future<void> open(String basePath) async {
+    /// 创建下载目录
+    _basePath = basePath;
+    _downloadPath = path.join(basePath, 'download');
+    _coverPath = path.join(basePath, 'covers');
+    _ugoiraTempPath = path.join(basePath, 'ugoira');
+    String dbPath = path.join(basePath, 'download.db');
 
     try {
       // macOS: 检查并请求外部存储访问权限
@@ -594,7 +604,7 @@ class DownloadDatabaseProvider {
       }
 
       // 确保下载目录存在
-      final downloadDir = Directory(_basePath!);
+      final downloadDir = Directory(_downloadPath!);
       if (!await downloadDir.exists()) {
         await downloadDir.create(recursive: true);
       }
@@ -1264,7 +1274,7 @@ class DownloadDatabaseProvider {
               fileSize: image.fileSize,
             ));
       } else {
-        Log.w('未找到图片: ${image.illustId}-${image.part}, $_basePath, ${image.relativePath}, ${image.fileName}');
+        Log.w('未找到图片: ${image.illustId}-${image.part}, $_downloadPath, ${image.relativePath}, ${image.fileName}');
       }
       return null;
     });
@@ -1502,7 +1512,7 @@ class DownloadDatabaseProvider {
 
   /// 根据相对路径获取插画目录的绝对路径
   String getIllustAbsolutePath(String relativePath) {
-    return path.join(_basePath!, relativePath);
+    return path.join(_downloadPath!, relativePath);
   }
 
   /// 通用方法：根据相对路径和可选的文件名获取完整的绝对路径
@@ -1510,9 +1520,9 @@ class DownloadDatabaseProvider {
   /// 如果未提供 fileName，返回 basePath/relativePath
   String getAbsolutePath(String relativePath, [String? fileName]) {
     if (fileName != null) {
-      return path.join(_basePath!, relativePath, fileName);
+      return path.join(_downloadPath!, relativePath, fileName);
     }
-    return path.join(_basePath!, relativePath);
+    return path.join(_downloadPath!, relativePath);
   }
 
   /// 获取动图帧目录的绝对路径
@@ -2092,5 +2102,69 @@ class DownloadDatabaseProvider {
       Log.e('执行 VACUUM 失败: $e');
       rethrow;
     }
+  }
+
+  // ============ WebP 动图相关操作 ============
+
+  /// 将动图序列帧记录替换为WebP动图记录
+  /// 
+  /// 在事务中执行：
+  /// 1. 删除 part > 0 的序列帧记录（保留 part=0 预览图）
+  /// 2. 插入 part=-1 的 WebP 动图记录
+  /// 
+  /// [illustId]: 插画ID
+  /// [relativePath]: 相对路径
+  /// [fileSize]: WebP文件大小
+  /// [width]: WebP动图宽度（可选）
+  /// [height]: WebP动图高度（可选）
+  Future<void> replaceUgoiraFramesWithWebP({
+    required int illustId,
+    required String relativePath,
+    required int fileSize,
+    int? width,
+    int? height,
+  }) async {
+    await db.transaction((txn) async {
+      // 1. 删除序列帧记录（保留 part=0 的预览图）
+      await txn.delete(
+        DownloadedImageColumns.tableName,
+        where: '${DownloadedImageColumns.illustId} = ? AND ${DownloadedImageColumns.part} > 0',
+        whereArgs: [illustId],
+      );
+
+      // 2. 插入WebP动图记录（part=-1）
+      await txn.insert(
+        DownloadedImageColumns.tableName,
+        DownloadedImage(
+          illustId: illustId,
+          part: -1, // WebP动图标识
+          fileName: '$illustId',
+          extension: '.webp',
+          fileSize: fileSize,
+          originalUrl: '', // 本地生成，无原始URL
+          relativePath: relativePath,
+          width: width,
+          height: height,
+        ).toJson(),
+      );
+    });
+  }
+
+  /// 更新动图WebP的宽高信息
+  Future<void> updateWebPDimensions(int illustId, int width, int height) async {
+    await db.update(
+      DownloadedImageColumns.tableName,
+      {
+        DownloadedImageColumns.width: width,
+        DownloadedImageColumns.height: height,
+      },
+      where: '${DownloadedImageColumns.illustId} = ? AND ${DownloadedImageColumns.part} = ?',
+      whereArgs: [illustId, -1],
+    );
+  }
+
+  /// 获取WebP动图记录（part=-1）
+  Future<DownloadedImage?> getWebPImage(int illustId) async {
+    return await getImage(illustId, -1);
   }
 }

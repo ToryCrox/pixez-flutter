@@ -22,6 +22,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:pixez/component/pixiv_image.dart';
 import 'package:pixez/component/ugoira_painter.dart';
+import 'package:pixez/component/webp_animated_widget.dart';
 import 'package:pixez/i18n.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/models/download_record.dart';
@@ -87,6 +88,22 @@ class _UgoiraLoaderState extends State<UgoiraLoader> {
             (widget.illusts.height.toDouble() /
                 widget.illusts.width.toDouble());
         if (_store.status == UgoiraStatus.play) {
+          // 优先使用WebP动图播放
+          if (_store.isPlayingWebP && _store.webpPath != null) {
+            return WebpAnimatedWidget(
+              webpPath: _store.webpPath!,
+              illustId: widget.id,
+              maxSize: Size(maxWidth, maxHeight),
+              initialWidth: _store.webpWidth,
+              initialHeight: _store.webpHeight,
+              onDimensionsChanged: (width, height) {
+                // 异步更新数据库中的宽高信息
+                downloadStore.dbProvider.updateWebPDimensions(widget.id, width, height);
+              },
+            );
+          }
+
+          // 使用序列帧播放
           return InkWell(
             onLongPress: () async {
               if (isEncoding) return;
