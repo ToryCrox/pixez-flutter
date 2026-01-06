@@ -224,14 +224,34 @@ class _UgoiraLoaderState extends State<UgoiraLoader> {
                 placeWidget: Container(height: height),
               ),
             ),
-            GestureDetector(
+            InkWell(
               onTap: () {
                 _store.downloadAndUnzip();
               },
+              borderRadius: BorderRadius.circular(28),
               child: Container(
-                height: 72.0,
-                width: 72.0,
-                child: Icon(Icons.play_arrow),
+                height: 56.0,
+                width: 56.0,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primary.withOpacity(0.9),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: Theme.of(context).colorScheme.onPrimary.withOpacity(0.3),
+                    width: 2,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Theme.of(context).colorScheme.primary.withOpacity(0.4),
+                      blurRadius: 12,
+                      offset: Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Icon(
+                  Icons.play_arrow,
+                  color: Theme.of(context).colorScheme.onPrimary,
+                  size: 32,
+                ),
               ),
             ),
           ],
