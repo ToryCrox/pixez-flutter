@@ -749,13 +749,7 @@ abstract class _DownloadStoreBase with Store {
   Future<void> downloadUgoira(Illusts illusts) async {
     final illustId = illusts.id;
 
-    // 检查是否已下载
-    if (await _dbProvider.isIllustDownloaded(illustId)) {
-      BotToast.showText(text: '动图已下载');
-      return;
-    }
-
-    // 检查任务是否已存在
+    // 先检查任务是否已存在（优先检查，避免重复创建任务）
     final taskKey = '${illusts.id}_0';
     if (downloadingTasks.containsKey(taskKey)) {
       final existingTask = downloadingTasks[taskKey]!;
@@ -764,6 +758,21 @@ abstract class _DownloadStoreBase with Store {
         return;
       }
     }
+
+    // 检查是否已真正下载完成（有图片记录）
+    // 注意：不能只检查 DownloadedIllust 记录，因为记录会在下载开始时插入
+    // 需要检查是否有实际的图片文件记录
+    if (await _dbProvider.isIllustDownloaded(illustId)) {
+      final hasImages = await _dbProvider.getDownloadedImageCount(illustId);
+      if (hasImages > 0) {
+        // 有图片记录，说明已下载完成
+        BotToast.showText(text: '动图已下载');
+        return;
+      }
+    }
+
+    // 先插入作品记录到数据库（与普通图片下载保持一致）
+    await _insertIllustIfNotExists(illusts);
 
     // 创建动图下载任务（part=0 表示整个动图）
     final task = DownloadTask(
@@ -1021,23 +1030,25 @@ abstract class _DownloadStoreBase with Store {
   }
 
   Future<void> _addDownloadTask(DownloadTask task) async {
-    // 获取下载URL
-    String url;
-    if (task.illusts.pageCount == 1) {
-      url = task.illusts.metaSinglePage!.originalImageUrl!;
-    } else {
-      url = task.illusts.metaPages[task.part].imageUrls!.original;
-    }
+    if (!task.illusts.isUgoira) {
+      // 获取下载URL
+      String url;
+      if (task.illusts.pageCount == 1) {
+        url = task.illusts.metaSinglePage!.originalImageUrl!;
+      } else {
+        url = task.illusts.metaPages[task.part].imageUrls!.original;
+      }
 
-    // 检查目标文件是否已存在
-    final targetPath = await _tryFindExistingImageFile(task);
+      // 检查目标文件是否已存在
+      final targetPath = await _tryFindExistingImageFile(task);
 
-    if (targetPath != null) {
-      // 文件已存在，直接记录到数据库
-      await _recordDownload(task.illusts, task.part, url, targetPath);
-      task.status = DownloadTaskStatus.completed;
-      _notifyProgress(task);
-      return;
+      if (targetPath != null) {
+        // 文件已存在，直接记录到数据库
+        await _recordDownload(task.illusts, task.part, url, targetPath);
+        task.status = DownloadTaskStatus.completed;
+        _notifyProgress(task);
+        return;
+      }
     }
 
     downloadingTasks[task.taskKey] = task;
@@ -1134,9 +1145,15 @@ abstract class _DownloadStoreBase with Store {
 
     try {
       // 0. 再次检查是否已下载（防止并发下载）
+      // 检查是否有图片记录，而不是只检查 DownloadedIllust 记录
+      // 因为 DownloadedIllust 记录会在下载开始时插入
       if (await _dbProvider.isIllustDownloaded(illustId)) {
-        await _onDownloadSuccess(task, '');
-        return;
+        final hasImages = await _dbProvider.getDownloadedImageCount(illustId);
+        if (hasImages > 0) {
+          // 有图片记录，说明已真正下载完成
+          await _onDownloadSuccess(task, '');
+          return;
+        }
       }
 
       // 1. 使用统一的下载方法获取元数据和帧文件
