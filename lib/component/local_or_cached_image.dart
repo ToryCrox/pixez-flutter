@@ -30,6 +30,7 @@ import 'package:pixez/models/download_record.dart';
 import 'package:pixez/models/illust.dart';
 import 'package:pixez/page/downloaded/update_illust_info_dialog.dart';
 import 'package:pixez/store/download_store.dart';
+import 'package:pixez/utils/ugoira_downloader.dart';
 
 /// 用于PhotoView的本地或网络图片Provider
 class LocalOrCachedImageProvider {
@@ -604,6 +605,28 @@ class _IllustDownloadButtonState extends State<IllustDownloadButton> {
                       _convertToWebP();
                     },
                   ),
+                // 测试高清下载选项（仅限动图类型）
+                if (widget.illusts.type == 'ugoira')
+                  ListTile(
+                    leading: Icon(Icons.science, color: Colors.orange),
+                    title: Text('测试高清ZIP下载'),
+                    subtitle: Text('方案一: 尝试下载 1920x1080 ZIP', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      _testOriginalDownload();
+                    },
+                  ),
+                // 测试逐帧下载选项（仅限动图类型）
+                if (widget.illusts.type == 'ugoira')
+                  ListTile(
+                    leading: Icon(Icons.burst_mode, color: Colors.purple),
+                    title: Text('测试逐帧下载'),
+                    subtitle: Text('方案二: 逐帧下载原始图片', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      _testOriginalFramesDownload();
+                    },
+                  ),
                 ListTile(
                   leading: Icon(Icons.info_outline),
                   title: Text('更新信息'),
@@ -698,6 +721,80 @@ class _IllustDownloadButtonState extends State<IllustDownloadButton> {
     } catch (e) {
       Log.e('转换动图失败: $e');
       BotToast.showText(text: '转换失败: $e');
+    }
+  }
+
+  /// 测试高清动图下载
+  Future<void> _testOriginalDownload() async {
+    BotToast.showText(text: '开始测试高清下载...');
+
+    try {
+      final result = await ugoiraDownloader.testDownloadOriginalUgoira(
+        widget.illusts.id,
+      );
+
+      // 显示结果对话框
+      if (!mounted) return;
+      await showDialog(
+        context: context,
+        builder: (ctx) {
+          return AlertDialog(
+            title: Text('测试结果'),
+            content: SingleChildScrollView(
+              child: SelectableText(
+                result,
+                style: TextStyle(fontFamily: 'monospace', fontSize: 12),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: Text('关闭'),
+              ),
+            ],
+          );
+        },
+      );
+    } catch (e) {
+      Log.e('测试高清下载失败: $e');
+      BotToast.showText(text: '测试失败: $e');
+    }
+  }
+
+  /// 测试逐帧下载原始图片（方案二）
+  Future<void> _testOriginalFramesDownload() async {
+    BotToast.showText(text: '开始测试逐帧下载...');
+
+    try {
+      final result = await ugoiraDownloader.testDownloadOriginalFrames(
+        widget.illusts.id,
+      );
+
+      // 显示结果对话框
+      if (!mounted) return;
+      await showDialog(
+        context: context,
+        builder: (ctx) {
+          return AlertDialog(
+            title: Text('逐帧下载测试结果'),
+            content: SingleChildScrollView(
+              child: SelectableText(
+                result,
+                style: TextStyle(fontFamily: 'monospace', fontSize: 12),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: Text('关闭'),
+              ),
+            ],
+          );
+        },
+      );
+    } catch (e) {
+      Log.e('测试逐帧下载失败: $e');
+      BotToast.showText(text: '测试失败: $e');
     }
   }
 
