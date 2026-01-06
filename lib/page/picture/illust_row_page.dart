@@ -789,6 +789,7 @@ class _IllustRowPageState extends State<IllustRowPage>
             child: UgoiraLoader(
               id: widget.id,
               illusts: data,
+              illustStore: _illustStore,
             ),
           ),
         ),

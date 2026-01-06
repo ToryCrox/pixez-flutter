@@ -20,6 +20,7 @@ import 'package:pixez/custom/pixiv_url_util.dart';
 import 'package:pixez/custom/type_util.dart';
 import 'package:pixez/exts.dart';
 import 'package:pixez/models/illust.dart';
+import 'package:pixez/models/ugoira_metadata_response.dart';
 import 'package:pixez/platform/macos_file_access.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
@@ -50,9 +51,13 @@ class DownloadedIllust {
   final int downloadTime; // 下载时间戳
   final String _illustJson; // 完整Illusts JSON（私有）
   final String imageUrlsJson; // imageUrls 的 JSON 字符串
+  final String ugoiraMetadataJson; // UgoiraMetadata 的 JSON 字符串
 
   // Getter 用于数据库序列化
   String get illustJson => _illustJson;
+
+  /// 判断是否为动图
+  bool get isUgoira => type == 'ugoira';
 
   DownloadedIllust({
     required this.illustId,
@@ -74,6 +79,7 @@ class DownloadedIllust {
     required this.downloadTime,
     required String illustJson,
     this.imageUrlsJson = '',
+    this.ugoiraMetadataJson = '',
   }) : _illustJson = illustJson;
 
   /// 从 imageUrlsJson 解析 ImageUrls 对象
@@ -85,8 +91,29 @@ class DownloadedIllust {
         TypeUtil.parseMap(PixivUrlUtil.decompressPxUrl(imageUrlsJson)));
   }
 
-  factory DownloadedIllust.fromIllusts(Illusts illusts, String relativePath,
-      {int? downloadTime}) {
+  /// 解析 UgoiraMetadata
+  UgoiraMetadata? getUgoiraMetadata() {
+    if (!isUgoira || ugoiraMetadataJson.isEmpty) return null;
+    try {
+      final json = TypeUtil.parseMap(PixivUrlUtil.decompressPxUrl(ugoiraMetadataJson));
+      return UgoiraMetadata.fromJson(json);
+    } catch (e) {
+      Log.e('解析 UgoiraMetadata 失败: $e');
+      return null;
+    }
+  }
+
+  /// 获取 frames 列表
+  List<Frame>? getUgoiraFrames() {
+    return getUgoiraMetadata()?.frames;
+  }
+
+  factory DownloadedIllust.fromIllusts(
+    Illusts illusts,
+    String relativePath, {
+    int? downloadTime,
+    String? ugoiraMetadataJson,
+  }) {
     // 使用 copyWith 将需要移除的字段设置为空/默认值
     final optimizedIllusts = illusts.copyWith(
       id: 0,
@@ -137,6 +164,7 @@ class DownloadedIllust {
       illustJson: PixivUrlUtil.compressPxUrl(TypeUtil.parseJsonString(shrunkJson)),
       imageUrlsJson: PixivUrlUtil.compressPxUrl(
           TypeUtil.parseJsonString(illusts.imageUrls.toJson())),
+      ugoiraMetadataJson: ugoiraMetadataJson ?? '',
     );
   }
 
@@ -166,6 +194,8 @@ class DownloadedIllust {
           TypeUtil.parseString(json[DownloadedIllustColumns.illustJson])),
       imageUrlsJson: TypeUtil.parseString(
           json[DownloadedIllustColumns.imageUrlsJson]), // 兼容旧数据
+      ugoiraMetadataJson: TypeUtil.parseString(
+          json[DownloadedIllustColumns.ugoiraMetadataJson]), // 兼容旧数据
     );
   }
 
@@ -191,6 +221,7 @@ class DownloadedIllust {
     data[DownloadedIllustColumns.illustJson] =
         TypeUtil.gzipEncodeString(illustJson);
     data[DownloadedIllustColumns.imageUrlsJson] = imageUrlsJson;
+    data[DownloadedIllustColumns.ugoiraMetadataJson] = ugoiraMetadataJson;
     return data;
   }
 
@@ -373,6 +404,7 @@ class DownloadedIllustColumns {
   static const String downloadTime = 'download_time';
   static const String illustJson = 'illust_json';
   static const String imageUrlsJson = 'image_urls_json'; // 新增：imageUrls JSON
+  static const String ugoiraMetadataJson = 'ugoira_metadata_json'; // 新增：UgoiraMetadata JSON
 }
 
 class DownloadedImageColumns {
@@ -597,7 +629,7 @@ class DownloadDatabaseProvider {
 
       db = await openDatabase(
         dbPath,
-        version: 6,
+        version: 7,
         onCreate: (Database db, int version) async {
           await db.execute('''
           CREATE TABLE ${DownloadedIllustColumns.tableName} (
@@ -620,7 +652,8 @@ class DownloadDatabaseProvider {
             ${DownloadedIllustColumns.relativePath} TEXT NOT NULL,
             ${DownloadedIllustColumns.downloadTime} INTEGER NOT NULL,
             ${DownloadedIllustColumns.illustJson} TEXT NOT NULL,
-            ${DownloadedIllustColumns.imageUrlsJson} TEXT NOT NULL DEFAULT ''
+            ${DownloadedIllustColumns.imageUrlsJson} TEXT NOT NULL DEFAULT '',
+            ${DownloadedIllustColumns.ugoiraMetadataJson} TEXT NOT NULL DEFAULT ''
           )
         ''');
 
@@ -754,6 +787,13 @@ class DownloadDatabaseProvider {
           ''');
           await db.execute('''
             CREATE INDEX IF NOT EXISTS idx_author_illust_count ON ${DownloadedAuthorColumns.tableName}(${DownloadedAuthorColumns.illustCount})
+          ''');
+        }
+        if (oldVersion < 7) {
+          // 添加 ugoira_metadata_json 列用于存储动图元数据
+          await db.execute('''
+            ALTER TABLE ${DownloadedIllustColumns.tableName}
+            ADD COLUMN ${DownloadedIllustColumns.ugoiraMetadataJson} TEXT NOT NULL DEFAULT ''
           ''');
         }
       },
@@ -1190,15 +1230,28 @@ class DownloadDatabaseProvider {
 
   /// 批量获取插画的所有图片信息及其完整路径（自动检测后缀名）
   /// 返回 Map<part, LocalImageInfo>
+  ///
+  /// 注意：对于动图(ugoira)类型，只返回预览图(part=0)，不返回帧文件
+  /// 帧文件仅用于文件大小统计和动图播放，不应作为独立页面显示
   Future<Map<int, LocalImageInfo>> getLocalImageInfosByIllustId(
       int illustId) async {
     final t1 = DateTime.now();
     final images = await getImagesByIllustId(illustId);
+
+    // 检查是否为动图类型
+    final illust = await getIllustByIllustId(illustId);
+    final isUgoira = illust?.isUgoira;
+
+    // 对于动图，只处理预览图(part=0)，过滤掉所有帧文件(part>=1)
+    final filteredImages = isUgoira == true
+        ? images.where((img) => img.part == 0).toList()
+        : images;
+
     Log.d(
-        'getLocalImageInfosByIllustId: ${images.length} images, ${DateTime.now().difference(t1).inMilliseconds}ms');
+        'getLocalImageInfosByIllustId: ${images.length} total images, ${filteredImages.length} filtered (isUgoira: $isUgoira), ${DateTime.now().difference(t1).inMilliseconds}ms');
 
     // 并行处理所有图片，大幅提升性能
-    final futures = images.map((image) async {
+    final futures = filteredImages.map((image) async {
       final foundPath = await _findImagePathForImage(image);
       if (foundPath != null) {
         return MapEntry(
@@ -1458,6 +1511,11 @@ class DownloadDatabaseProvider {
       return path.join(_basePath!, relativePath, fileName);
     }
     return path.join(_basePath!, relativePath);
+  }
+
+  /// 获取动图帧目录的绝对路径
+  String getUgoiraFrameDirPath(String relativePath) {
+    return getAbsolutePath(relativePath, 'ugoira');
   }
 
   /// 获取图片的完整文件路径

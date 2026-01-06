@@ -288,6 +288,9 @@ class Illusts {
     this.totalComments,
   });
 
+  /// 判断是否为动图
+  bool get isUgoira => type == 'ugoira';
+
   bool get isEmpty =>
       id == 0 &&
       title.isEmpty &&

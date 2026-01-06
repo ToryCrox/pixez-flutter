@@ -28,9 +28,14 @@ import 'package:mobx/mobx.dart';
 import 'package:path/path.dart' as path hide context;
 import 'package:pixez/component/pixiv_image.dart';
 import 'package:pixez/custom/log.dart';
+import 'package:pixez/custom/pixiv_url_util.dart';
+import 'package:pixez/custom/type_util.dart';
 import 'package:pixez/er/hoster.dart';
 import 'package:pixez/models/download_record.dart';
 import 'package:pixez/models/illust.dart';
+import 'package:pixez/models/ugoira_metadata_response.dart';
+import 'package:pixez/network/api_client.dart';
+import 'package:pixez/utils/ugoira_downloader.dart';
 
 part 'download_store.g.dart';
 
@@ -703,8 +708,10 @@ abstract class _DownloadStoreBase with Store {
     if (!isInitialized) {
       throw Exception('DownloadStore not initialized');
     }
+
+    // 动图下载分流
     if (illusts.type == 'ugoira') {
-      BotToast.showText(text: '暂时不支持动图下载！');
+      await downloadUgoira(illusts);
       return;
     }
 
@@ -727,6 +734,39 @@ abstract class _DownloadStoreBase with Store {
       _downloadTaskBuffer.clear();
       addDownloadTasks(list);
     });
+  }
+
+  /// 下载动图
+  @action
+  Future<void> downloadUgoira(Illusts illusts) async {
+    final illustId = illusts.id;
+
+    // 检查是否已下载
+    if (await _dbProvider.isIllustDownloaded(illustId)) {
+      BotToast.showText(text: '动图已下载');
+      return;
+    }
+
+    // 检查任务是否已存在
+    final taskKey = '${illusts.id}_0';
+    if (downloadingTasks.containsKey(taskKey)) {
+      final existingTask = downloadingTasks[taskKey]!;
+      if (!existingTask.isCanRetry) {
+        BotToast.showText(text: '动图已在下载队列中');
+        return;
+      }
+    }
+
+    // 创建动图下载任务（part=0 表示整个动图）
+    final task = DownloadTask(
+      illusts: illusts,
+      part: 0,
+      url: '', // 稍后从元数据获取
+      status: DownloadTaskStatus.pending,
+      createTime: DateTime.now().millisecondsSinceEpoch,
+    );
+
+    await _addDownloadTask(task);
   }
 
   String _getDownloadTaskFileName(DownloadTask task) {
@@ -1022,45 +1062,195 @@ abstract class _DownloadStoreBase with Store {
     _notifyProgress(task);
 
     try {
-      final targetPath = _getDownloadTaskFileName(task);
-      final targetFile = File(targetPath);
-      final targetDir = targetFile.parent;
-
-      // 确保目标目录存在
-      if (!await targetDir.exists()) {
-        try {
-          await targetDir.create(recursive: true);
-        } catch (e) {
-          // 如果目录创建失败，可能是路径中包含非法字符
-          Log.e('创建目录失败: ${targetDir.path}, 错误: $e');
-          throw Exception(
-              '无法创建目录: ${targetDir.path}。可能包含Windows不支持的字符（如emoji）。请检查路径设置。');
-        }
+      // 判断是否为动图任务
+      if (task.illusts.type == 'ugoira') {
+        await _downloadUgoiraTask(task);
+      } else {
+        await _downloadNormalImage(task);
       }
-
-      // 1. 尝试从缓存获取
-      final cached = await pixivCacheManager.getFileFromCache(task.url);
-      if (cached != null && await cached.file.exists()) {
-        // 从缓存复制到目标目录
-        await cached.file.copy(targetPath);
-        await _onDownloadSuccess(task, targetPath);
-        return;
-      }
-
-      // 2. 使用pixivCacheManager下载
-      final fileInfo = await pixivCacheManager.downloadFile(
-        task.url,
-        authHeaders: Hoster.header(url: task.url),
-      );
-
-      // 3. 复制到目标目录
-      await fileInfo.file.copy(targetPath);
-
-      // 5. 清理任务
-      await _onDownloadSuccess(task, targetPath);
     } catch (e) {
       _onDownloadFailed(task, e.toString());
     }
+  }
+
+  /// 下载普通图片
+  Future<void> _downloadNormalImage(DownloadTask task) async {
+    final targetPath = _getDownloadTaskFileName(task);
+    final targetFile = File(targetPath);
+    final targetDir = targetFile.parent;
+
+    // 确保目标目录存在
+    if (!await targetDir.exists()) {
+      try {
+        await targetDir.create(recursive: true);
+      } catch (e) {
+        // 如果目录创建失败，可能是路径中包含非法字符
+        Log.e('创建目录失败: ${targetDir.path}, 错误: $e');
+        throw Exception(
+            '无法创建目录: ${targetDir.path}。可能包含Windows不支持的字符（如emoji）。请检查路径设置。');
+      }
+    }
+
+    // 1. 尝试从缓存获取
+    final cached = await pixivCacheManager.getFileFromCache(task.url);
+    if (cached != null && await cached.file.exists()) {
+      // 从缓存复制到目标目录
+      await cached.file.copy(targetPath);
+      await _onDownloadSuccess(task, targetPath);
+      return;
+    }
+
+    // 2. 使用pixivCacheManager下载
+    final fileInfo = await pixivCacheManager.downloadFile(
+      task.url,
+      authHeaders: Hoster.header(url: task.url),
+    );
+
+    // 3. 复制到目标目录
+    await fileInfo.file.copy(targetPath);
+
+    // 4. 清理任务
+    await _onDownloadSuccess(task, targetPath);
+  }
+
+  /// 下载动图任务
+  Future<void> _downloadUgoiraTask(DownloadTask task) async {
+    final illusts = task.illusts;
+    final illustId = illusts.id;
+
+    // 创建 Ugoira 下载器
+    final downloader = UgoiraDownloader(
+      apiClient: apiClient,
+      downloadPath: downloadPath,
+    );
+
+    try {
+      // 0. 再次检查是否已下载（防止并发下载）
+      if (await _dbProvider.isIllustDownloaded(illustId)) {
+        await _onDownloadSuccess(task, '');
+        return;
+      }
+
+      // 1. 使用统一的下载方法获取元数据和帧文件
+      final result = await downloader.fetchMetadataAndExtractFrames(illustId);
+      final metadata = result.metadata;
+      final tempFrameFiles = result.frameFiles;
+
+      // 2. 移动帧图片到目标目录
+      final relativePath = DownloadDatabaseProvider.buildRelativePath(illusts);
+      final targetDir = Directory(_dbProvider.getUgoiraFrameDirPath(relativePath));
+      if (!await targetDir.exists()) {
+        await targetDir.create(recursive: true);
+      }
+
+      for (final frameFile in tempFrameFiles) {
+        final destPath = path.join(targetDir.path, path.basename(frameFile.path));
+        await frameFile.copy(destPath);
+      }
+
+      // 3. 下载预览图
+      final previewUrl = illusts.metaSinglePage?.originalImageUrl ??
+                         illusts.imageUrls.large;
+      final previewFileName = DownloadDatabaseProvider.buildFileName(illustId, 0);
+      final previewExtension = path.extension(previewUrl);
+      final previewPath = _dbProvider.getAbsolutePath(
+        relativePath,
+        '$previewFileName$previewExtension'
+      );
+
+      final previewFile = await pixivCacheManager.getSingleFile(
+        previewUrl,
+        headers: Hoster.header(url: previewUrl),
+      );
+      await previewFile.copy(previewPath);
+
+      // 4. 保存数据库记录（传递帧文件列表）
+      await _recordUgoiraDownload(
+        illusts,
+        metadata,
+        tempFrameFiles,
+        previewPath,
+        previewUrl,
+      );
+
+      // 5. 清理临时解压目录（ZIP 由 pixivCacheManager 管理）
+      await downloader.cleanupTempExtractDir(illustId);
+
+      // 6. 完成下载
+      await _onDownloadSuccess(task, previewPath);
+    } catch (e) {
+      // 失败时清理临时解压目录
+      try {
+        await downloader.cleanupTempExtractDir(illustId);
+      } catch (_) {}
+      rethrow;
+    }
+  }
+
+  /// 记录动图下载到数据库
+  Future<void> _recordUgoiraDownload(
+    Illusts illusts,
+    UgoiraMetadataResponse metadata,
+    List<File> frameFiles,
+    String previewPath,
+    String previewUrl,
+  ) async {
+    final relativePath = DownloadDatabaseProvider.buildRelativePath(illusts);
+
+    // 1. 插入插画记录（包含完整 UgoiraMetadata）
+    final metadataJson = PixivUrlUtil.compressPxUrl(
+      TypeUtil.parseJsonString(metadata.ugoiraMetadata.toJson())
+    );
+
+    final downloadedIllust = DownloadedIllust.fromIllusts(
+      illusts,
+      relativePath,
+      ugoiraMetadataJson: metadataJson,
+    );
+
+    await _dbProvider.insertIllust(downloadedIllust);
+
+    // 2. 插入预览图记录（part=0）
+    final previewFile = File(previewPath);
+    final previewFileSize = await previewFile.length();
+
+    final downloadedImage = DownloadedImage(
+      illustId: illusts.id,
+      part: 0,
+      fileName: DownloadDatabaseProvider.buildFileName(illusts.id, 0),
+      extension: path.extension(previewPath),
+      fileSize: previewFileSize,
+      originalUrl: previewUrl,
+      relativePath: relativePath,
+    );
+
+    await _dbProvider.insertImage(downloadedImage);
+
+    // 3. 插入动图帧记录（part=1, 2, 3...）
+    for (int i = 0; i < frameFiles.length; i++) {
+      final frameFile = frameFiles[i];
+
+      if (await frameFile.exists()) {
+        final fileSize = await frameFile.length();
+        final fileName = path.basename(frameFile.path);
+        final extension = path.extension(frameFile.path);
+
+        final downloadedFrame = DownloadedImage(
+          illustId: illusts.id,
+          part: i + 1, // part 从 1 开始（0 是预览图）
+          fileName: fileName,
+          extension: extension,
+          fileSize: fileSize,
+          originalUrl: '', // 帧文件没有原始 URL
+          relativePath: relativePath,
+        );
+
+        await _dbProvider.insertImage(downloadedFrame);
+      }
+    }
+
+    // 4. 更新作者统计
+    await _dbProvider.updateAuthorStats(illusts.user.id);
   }
 
   Future<void> _onDownloadSuccess(DownloadTask task, String targetPath) async {

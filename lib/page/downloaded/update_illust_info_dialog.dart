@@ -68,10 +68,28 @@ class UpdateIllustInfo {
   void _updateFlags() {
     hasChanges = imageUpdates.any((e) => e.hasChange);
     hasBroken = imageUpdates.any((e) => e.isBroken || e.isFileNotFound);
-    // 检测是否未下载完整：比较 pageCount 和实际下载的图片数量
-    final downloadedCount =
-        imageUpdates.where((e) => !e.isBroken && !e.isFileNotFound).length;
-    isIncomplete = downloadedCount < illust.pageCount;
+
+    // 检测是否未下载完整
+    final isUgoira = illust.isUgoira;
+    if (isUgoira) {
+      // 动图特殊处理：检查预览图(part=0)和帧文件(part>=1)
+      final hasPreview = imageUpdates.any((e) =>
+          e.originalImage.part == 0 && !e.isBroken && !e.isFileNotFound);
+      final frameCount = imageUpdates.where((e) =>
+          e.originalImage.part >= 1 && !e.isBroken && !e.isFileNotFound).length;
+
+      // 获取元数据中的帧数
+      final metadata = illust.getUgoiraMetadata();
+      final expectedFrames = metadata?.frames.length ?? 0;
+
+      // 动图完整：有预览图 且 帧数符合预期
+      isIncomplete = !hasPreview || (expectedFrames > 0 && frameCount < expectedFrames);
+    } else {
+      // 普通插画：比较 pageCount 和实际下载的图片数量
+      final downloadedCount =
+          imageUpdates.where((e) => !e.isBroken && !e.isFileNotFound).length;
+      isIncomplete = downloadedCount < illust.pageCount;
+    }
   }
 
   void updateImageUpdates(List<ImageUpdateInfo> updates) {
@@ -268,8 +286,8 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
         setState(() {
           _updateInfos[index].isScanning = true;
           _updateInfos[index].updateScanProgress(0, 0);
-          // 如果 pageCount > 0 但没有下载的图片，标记为未下载完整
-          _updateInfos[index].isIncomplete = illust.pageCount > 0;
+          // 没有图片记录时标记为未下载完整（动图和普通插画都适用）
+          _updateInfos[index].isIncomplete = true;
           _scannedCount++;
         });
       }
@@ -320,9 +338,7 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
         _scannedCount++;
         _updateInfos[index].isScanning = false;
         _updateInfos[index].updateImageUpdates(imageUpdates);
-        // 检测是否未下载完整
-        final downloadedCount = imageUpdates.where((e) => !e.isBroken).length;
-        _updateInfos[index].isIncomplete = downloadedCount < illust.pageCount;
+        // isIncomplete 已在 updateImageUpdates -> _updateFlags() 中自动计算
       });
     }
   }
@@ -1201,6 +1217,52 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
     return actions;
   }
 
+  /// 获取页数/帧数显示文本
+  /// 对于动图显示"50帧"，对于普通插画显示"10P"
+  String _getPageCountText(DownloadedIllust illust) {
+    if (illust.isUgoira) {
+      // 动图：获取帧数
+      final metadata = illust.getUgoiraMetadata();
+      final frameCount = metadata?.frames.length ?? 0;
+      return '$frameCount帧';
+    } else {
+      // 普通插画
+      return '${illust.pageCount}P';
+    }
+  }
+
+  /// 获取未完整状态的显示文本
+  /// 对于动图显示"(x/50帧)"，对于普通插画显示"(x/10P)"
+  String _getIncompleteText(UpdateIllustInfo info) {
+    if (info.illust.isUgoira) {
+      // 动图：统计帧文件数量(part>=1)
+      final frameCount = info.imageUpdates
+          .where((e) => e.originalImage.part >= 1 && !e.isBroken && !e.isFileNotFound)
+          .length;
+      final metadata = info.illust.getUgoiraMetadata();
+      final expectedFrames = metadata?.frames.length ?? 0;
+      return '($frameCount/$expectedFrames帧)';
+    } else {
+      // 普通插画
+      final downloadedCount = info.imageUpdates
+          .where((e) => !e.isBroken && !e.isFileNotFound)
+          .length;
+      return '($downloadedCount/${info.illust.pageCount})';
+    }
+  }
+
+  /// 获取扫描进度的显示文本
+  /// 对于动图需要过滤帧文件，对于普通插画显示全部
+  String _getScanProgressText(UpdateIllustInfo info) {
+    if (info.illust.isUgoira) {
+      // 动图：显示所有文件的扫描进度（包含预览图和帧文件）
+      return '(${info.scannedImageCount}/${info.totalImageCount}文件)';
+    } else {
+      // 普通插画
+      return '(${info.scannedImageCount}/${info.totalImageCount})';
+    }
+  }
+
   Widget _buildIllustItem(UpdateIllustInfo info) {
     // 获取作品状态和样式配置
     final status = _determineIllustStatus(info);
@@ -1257,13 +1319,13 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
                   Row(
                     children: [
                       Text(
-                        '${info.illust.userName} | ${info.illust.pageCount}P',
+                        '${info.illust.userName} | ${_getPageCountText(info.illust)}',
                         style: TextStyle(fontSize: 13, color: Colors.black45),
                       ),
                       if (isScanning && info.totalImageCount > 0) ...[
                         SizedBox(width: 8),
                         Text(
-                          '(${info.scannedImageCount}/${info.totalImageCount})',
+                          _getScanProgressText(info),
                           style: TextStyle(
                             fontSize: 12,
                             color: Colors.blue[700],
@@ -1274,7 +1336,7 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
                       if (!isScanning && !isNotScanned && isIncomplete) ...[
                         SizedBox(width: 8),
                         Text(
-                          '(${info.imageUpdates.where((e) => !e.isBroken).length}/${info.illust.pageCount})',
+                          _getIncompleteText(info),
                           style: TextStyle(
                             fontSize: 12,
                             color: Colors.purple[700],
@@ -1421,7 +1483,7 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
                               if (isIncomplete) ...[
                                 SizedBox(height: 4),
                                 Text(
-                                  '下载进度: ${info.imageUpdates.where((e) => !e.isBroken && !e.isFileNotFound).length} / ${info.illust.pageCount}',
+                                  '下载进度: ${_getIncompleteText(info)}',
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: Colors.purple[700],

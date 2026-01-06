@@ -13,6 +13,9 @@
  * this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+import 'dart:io';
+
+import 'package:bot_toast/bot_toast.dart';
 import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
@@ -23,6 +26,8 @@ import 'package:pixez/exts.dart';
 import 'package:pixez/i18n.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/models/download_record.dart';
+import 'package:pixez/models/ugoira_metadata_response.dart';
+import 'package:pixez/component/ugoira_painter.dart';
 import 'package:pixez/page/picture/illust_lighting_page.dart';
 import 'package:pixez/page/picture/illust_store.dart';
 import 'package:pixez/page/picture/picture_list_page.dart';
@@ -464,7 +469,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
 
   // ============ 导航与操作 ============
 
-  void _navigateToPictureList(DownloadedIllust illust) {
+  void _navigateToPictureList(DownloadedIllust illust) async {
     final iStores = _store.filteredIllusts.map((item) {
       return IllustStore(item.illustId, item.toIllusts());
     }).toList();
@@ -844,6 +849,7 @@ class _DownloadedIllustCard extends StatelessWidget {
                     children: [
                       _buildThumbnail(context),
                       _buildFolderButton(context),
+                      if (illust.isUgoira) _buildUgoiraBadge(context),
                       if (isDownloading) _buildDownloadingOverlay(),
                       if (isPending) _buildPendingOverlay(context),
                       if (isPaused) _buildStatusBadge(context, I18n.of(context).paused, Colors.orange),
@@ -899,6 +905,28 @@ class _DownloadedIllustCard extends StatelessWidget {
               color: Colors.white,
               size: 18,
             ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUgoiraBadge(BuildContext context) {
+    return Positioned(
+      top: 4,
+      right: 4,
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: Colors.orange,
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Text(
+          '动图',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 10,
+            fontWeight: FontWeight.bold,
           ),
         ),
       ),
@@ -1023,12 +1051,15 @@ class _DownloadedIllustCard extends StatelessWidget {
 
   Widget _buildStatsRow(BuildContext context) {
     final totalFileSize = store.fileSizes[illust.illustId];
+    final isUgoira = illust.isUgoira;
+
     return Row(
       children: [
-        if (illust.pageCount > 1)
+        // 动图或多页插画都显示页数/帧数信息
+        if (isUgoira || illust.pageCount > 1)
           Padding(
             padding: EdgeInsets.only(top: 2),
-            child: _buildPageCountIndicator(context, totalFileSize),
+            child: _buildPageCountIndicator(context, totalFileSize, isUgoira),
           ),
         Spacer(),
         if (totalFileSize != null && totalFileSize > 0)
@@ -1046,7 +1077,13 @@ class _DownloadedIllustCard extends StatelessWidget {
     );
   }
 
-  Widget _buildPageCountIndicator(BuildContext context, int? totalFileSize) {
+  Widget _buildPageCountIndicator(BuildContext context, int? totalFileSize, bool isUgoira) {
+    if (isUgoira) {
+      // 动图特殊处理：显示帧数
+      return _buildUgoiraFrameIndicator(context, totalFileSize);
+    }
+
+    // 普通插画：显示页数
     final downloadedCount =
         store.downloadedCounts[illust.illustId] ?? illust.pageCount;
     final totalCount = illust.pageCount;
@@ -1089,6 +1126,60 @@ class _DownloadedIllustCard extends StatelessWidget {
         pageText,
         style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: downloadedCount < totalCount ? Colors.orange : null,
+            ),
+      );
+    }
+  }
+
+  /// 构建动图帧数指示器
+  Widget _buildUgoiraFrameIndicator(BuildContext context, int? totalFileSize) {
+    final downloadedCount = store.downloadedCounts[illust.illustId] ?? 1;
+
+    // 动图的 downloadedCount 包含预览图(part=0)和所有帧(part=1,2,3...)
+    // 实际帧数 = downloadedCount - 1（如果下载完整的话）
+    final frameCount = downloadedCount > 0 ? downloadedCount - 1 : 0;
+
+    String frameText;
+    if (frameCount > 0) {
+      frameText = '${frameCount}帧';
+    } else {
+      frameText = '动图';
+    }
+
+    // 计算平均每帧大小
+    String? avgSizeText;
+    if (totalFileSize != null && totalFileSize > 0 && frameCount > 0) {
+      final avgSize = totalFileSize ~/ frameCount;
+      avgSizeText = avgSize.formatFileSize();
+    }
+
+    if (avgSizeText != null) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            frameText,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Colors.orange,
+                  fontWeight: FontWeight.w500,
+                ),
+          ),
+          SizedBox(width: 4),
+          Text(
+            '· $avgSizeText/帧',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Colors.grey[600],
+                  fontSize: 11,
+                ),
+          ),
+        ],
+      );
+    } else {
+      return Text(
+        frameText,
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Colors.orange,
+              fontWeight: FontWeight.w500,
             ),
       );
     }

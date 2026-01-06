@@ -552,6 +552,7 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
             child: UgoiraLoader(
               id: widget.id,
               illusts: data,
+              illustStore: _illustStore,
             ),
           ),
         ),
