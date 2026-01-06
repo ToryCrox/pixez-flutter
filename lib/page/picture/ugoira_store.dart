@@ -153,6 +153,7 @@ abstract class _UgoiraStoreBase with Store {
       if (metadata == null || metadata.frames.isEmpty) {
         // 元数据损坏，回退到下载流程
         Log.w('动图 $id 元数据为空，回退到下载流程');
+        BotToast.showText(text: '动图 $id 元数据为空，回退到下载流程');
         await _fetchAndUnzip();
         return;
       }
