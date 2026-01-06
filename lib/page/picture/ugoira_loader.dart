@@ -179,6 +179,7 @@ class _UgoiraLoaderState extends State<UgoiraLoader> {
                 localImageInfo: _getPreviewImageInfo(),
                 height: height,
                 width: maxWidth,
+                fit: BoxFit.contain,
                 placeWidget: Container(height: height),
               ),
               LinearProgressIndicator(
@@ -194,12 +195,15 @@ class _UgoiraLoaderState extends State<UgoiraLoader> {
           crossAxisAlignment: CrossAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            PixivImage(
-              widget.illusts.imageUrls.large,
-              localImageInfo: _getPreviewImageInfo(),
-              height: height - 72,
-              width: maxWidth,
-              placeWidget: Container(height: height),
+            Flexible(
+              child: PixivImage(
+                widget.illusts.imageUrls.large,
+                localImageInfo: _getPreviewImageInfo(),
+                height: height - 72,
+                width: maxWidth,
+                fit: BoxFit.contain,
+                placeWidget: Container(height: height),
+              ),
             ),
             GestureDetector(
               onTap: () {
