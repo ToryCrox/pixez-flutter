@@ -28,6 +28,8 @@ import 'package:pixez/network/api_client.dart';
 import 'package:pixez/saf_plugin.dart';
 import 'package:pixez/store/download_store.dart';
 import 'package:pixez/utils/ugoira_downloader.dart';
+import 'package:pixez/custom/pixiv_url_util.dart';
+import 'package:pixez/custom/type_util.dart';
 
 import '../../custom/log.dart';
 
@@ -149,13 +151,27 @@ abstract class _UgoiraStoreBase with Store {
       }
 
       // 解析 UgoiraMetadata
-      final metadata = downloadedIllust.getUgoiraMetadata();
+      var metadata = downloadedIllust.getUgoiraMetadata();
       if (metadata == null || metadata.frames.isEmpty) {
-        // 元数据损坏，回退到下载流程
-        Log.w('动图 $id 元数据为空，回退到下载流程');
-        BotToast.showText(text: '动图 $id 元数据为空，回退到下载流程');
-        await _fetchAndUnzip();
-        return;
+        // 元数据损坏，尝试从网络获取并更新到数据库
+        Log.w('动图 $id 元数据为空，尝试从网络获取');
+        try {
+          final response = await ugoiraDownloader.fetchMetadata(id);
+          metadata = response.ugoiraMetadata;
+          
+          // 更新到数据库
+          final metadataJson = PixivUrlUtil.compressPxUrl(
+            TypeUtil.parseJsonString(metadata.toJson())
+          );
+          await downloadStore.dbProvider.updateUgoiraMetadata(id, metadataJson);
+          Log.d('动图 $id 元数据已从网络获取并更新到数据库');
+        } catch (e) {
+          // 获取失败，回退到下载流程
+          Log.e('动图 $id 获取元数据失败: $e，回退到下载流程');
+          BotToast.showText(text: '动图 $id 元数据获取失败，回退到下载流程');
+          await _fetchAndUnzip();
+          return;
+        }
       }
 
       ugoiraMetadataResponse = UgoiraMetadataResponse(ugoiraMetadata: metadata);
@@ -240,13 +256,10 @@ abstract class _UgoiraStoreBase with Store {
   /// 获取元数据并解压序列帧（用于在线播放）
   @action
   Future<void> _fetchAndUnzip() async {
-    final downloader = UgoiraDownloader(
-      apiClient: apiClient,
-    );
 
     try {
       // 使用统一的下载方法获取元数据和帧文件
-      final result = await downloader.fetchMetadataAndExtractFrames(id);
+      final result = await ugoiraDownloader.fetchMetadataAndExtractFrames(id);
       Log.d(() => '动图 $id 下载元数据和解压序列帧成功: ${result.metadata}, ${result.frameFiles}');
       ugoiraMetadataResponse = result.metadata;
       drawPool = result.frameFiles;
@@ -254,7 +267,7 @@ abstract class _UgoiraStoreBase with Store {
     } catch (e) {
       LPrinter.d('下载动图失败: $e');
       // 清理临时解压目录（ZIP 由 pixivCacheManager 管理）
-      await downloader.cleanupTempExtractDir(id);
+      await ugoiraDownloader.cleanupTempExtractDir(id);
       status = UgoiraStatus.pre;
     }
   }

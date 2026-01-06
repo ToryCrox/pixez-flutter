@@ -1118,9 +1118,7 @@ abstract class _DownloadStoreBase with Store {
     final illustId = illusts.id;
 
     // 创建 Ugoira 下载器
-    final downloader = UgoiraDownloader(
-      apiClient: apiClient,
-    );
+    final downloader = ugoiraDownloader;
 
     try {
       // 0. 再次检查是否已下载（防止并发下载）
@@ -1438,6 +1436,7 @@ abstract class _DownloadStoreBase with Store {
         illusts,
         existingIllust.relativePath,
         downloadTime: existingIllust.downloadTime,
+        ugoiraMetadataJson: existingIllust.ugoiraMetadataJson,
       );
 
       await _dbProvider.updateIllust(updatedIllust);
@@ -1521,6 +1520,7 @@ abstract class _DownloadStoreBase with Store {
               illusts,
               existingIllust.relativePath,
               downloadTime: existingIllust.downloadTime,
+              ugoiraMetadataJson: existingIllust.ugoiraMetadataJson,
             );
 
             // 计算节省的字节数（比较数据库中原始存储大小和新的压缩数据大小）

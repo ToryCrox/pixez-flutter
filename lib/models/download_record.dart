@@ -865,6 +865,16 @@ class DownloadDatabaseProvider {
     );
   }
 
+  /// 更新动图元数据（用于修复损坏或丢失的元数据）
+  Future<int> updateUgoiraMetadata(int illustId, String ugoiraMetadataJson) async {
+    return await db.update(
+      DownloadedIllustColumns.tableName,
+      {DownloadedIllustColumns.ugoiraMetadataJson: ugoiraMetadataJson},
+      where: '${DownloadedIllustColumns.illustId} = ?',
+      whereArgs: [illustId],
+    );
+  }
+
   Future<bool> isIllustDownloaded(int illustId) async {
     final result = await getIllustByIllustId(illustId);
     return result != null;

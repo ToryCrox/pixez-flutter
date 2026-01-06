@@ -43,15 +43,14 @@ class UgoiraDownloadResult {
 
 }
 
+final ugoiraDownloader = UgoiraDownloader._();
+
 /// Ugoira 下载工具类
 ///
 /// 提供动图下载、解压的公共方法，供 download_store 和 ugoira_store 共用
 class UgoiraDownloader {
-  final ApiClient apiClient;
 
-  UgoiraDownloader({
-    required this.apiClient,
-  });
+  UgoiraDownloader._();
 
   /// 获取动图元数据、下载并解压序列帧
   ///

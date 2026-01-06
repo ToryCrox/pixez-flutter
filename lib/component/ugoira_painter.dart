@@ -174,12 +174,14 @@ class _UgoiraWidgetState extends State<UgoiraWidget> with RouteAware {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        SizedBox(
-          width: displaySize.width,
-          height: displaySize.height,
-          child: image != null
-              ? CustomPaint(painter: UgoiraPainter(image!), size: displaySize)
-              : Container(),
+        Flexible(
+          child: SizedBox(
+            width: displaySize.width,
+            height: displaySize.height,
+            child: image != null
+                ? CustomPaint(painter: UgoiraPainter(image!), size: displaySize)
+                : Container(),
+          ),
         ),
         _buildZoomControlBar(),
       ],
