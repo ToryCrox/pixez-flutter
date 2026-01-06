@@ -33,12 +33,14 @@ class UgoiraLoader extends StatefulWidget {
   final int id;
   final Illusts illusts;
   final IllustStore? illustStore; // 可选的 IllustStore，用于获取本地预览图
+  final Size? constraintSize; // 外部传入的约束尺寸
 
   const UgoiraLoader({
     Key? key,
     required this.id,
     required this.illusts,
     this.illustStore,
+    this.constraintSize,
   }) : super(key: key);
 
   @override
@@ -73,7 +75,11 @@ class _UgoiraLoaderState extends State<UgoiraLoader> {
   @override
   Widget build(BuildContext context) {
     final mediaSize = MediaQuery.sizeOf(context);
-    final maxWidth = min(mediaSize.width, mediaSize.height);
+    // 使用外部传入的约束尺寸，如果没有则使用媒体查询计算
+    final maxWidth = widget.constraintSize?.width ??
+        min(mediaSize.width, mediaSize.height);
+    final maxHeight = widget.constraintSize?.height ?? double.infinity;
+
     return Observer(
       builder: (_) {
         double height =
@@ -159,7 +165,7 @@ class _UgoiraLoaderState extends State<UgoiraLoader> {
                       .first
                       .delay,
               ugoiraMetadataResponse: _store.ugoiraMetadataResponse!,
-              maxSize: Size(maxWidth, double.infinity),
+              maxSize: Size(maxWidth, maxHeight),
               drawPools: _store.drawPool,
             ),
           );
@@ -191,7 +197,7 @@ class _UgoiraLoaderState extends State<UgoiraLoader> {
             PixivImage(
               widget.illusts.imageUrls.large,
               localImageInfo: _getPreviewImageInfo(),
-              height: height,
+              height: height - 72,
               width: maxWidth,
               placeWidget: Container(height: height),
             ),

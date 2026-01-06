@@ -367,20 +367,41 @@ class _IllustRowPageState extends State<IllustRowPage>
                         // 检测快速滑动
                         _checkFlingGesture();
                       },
-                      child: ListViewObserver(
-                        controller: _observerController,
-                        onObserve: _onObserve,
-                        child: CustomScrollView(
-                          controller: _photoScrollController,
-                          slivers: [
-                            ..._buildPhotoList(data, centerType, height),
-                            SliverToBoxAdapter(
-                                child: Container(
-                              height: MediaQuery.of(context).padding.bottom,
-                            ))
-                          ],
-                        ),
-                      ),
+                      child: data.type == "ugoira"
+                          ? // 动图：直接居中显示，不使用 CustomScrollView
+                          LayoutBuilder(
+                            builder: (context, constraints) {
+                              return Center(
+                                child: NullHero(
+                                  tag: widget.heroString,
+                                  child: UgoiraLoader(
+                                    id: widget.id,
+                                    illusts: data,
+                                    illustStore: _illustStore,
+                                    constraintSize: Size(
+                                      constraints.maxWidth,
+                                      constraints.maxHeight,
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          )
+                          : // 普通图片：使用 CustomScrollView
+                          ListViewObserver(
+                            controller: _observerController,
+                            onObserve: _onObserve,
+                            child: CustomScrollView(
+                              controller: _photoScrollController,
+                              slivers: [
+                                ..._buildPhotoList(data, centerType, height),
+                                SliverToBoxAdapter(
+                                    child: Container(
+                                  height: MediaQuery.of(context).padding.bottom,
+                                ))
+                              ],
+                            ),
+                          ),
                     ),
                   ),
                 ),
@@ -782,17 +803,7 @@ class _IllustRowPageState extends State<IllustRowPage>
 
   List<Widget> _buildPhotoList(Illusts data, bool centerType, double height) {
     return [
-      if (data.type == "ugoira")
-        SliverToBoxAdapter(
-          child: NullHero(
-            tag: widget.heroString,
-            child: UgoiraLoader(
-              id: widget.id,
-              illusts: data,
-              illustStore: _illustStore,
-            ),
-          ),
-        ),
+      // 动图已经在上一层单独处理，这里只处理普通图片
       if (data.type != "ugoira")
         data.pageCount == 1
             ? (centerType
