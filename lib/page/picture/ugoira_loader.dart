@@ -174,13 +174,15 @@ class _UgoiraLoaderState extends State<UgoiraLoader> {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: <Widget>[
-              PixivImage(
-                widget.illusts.imageUrls.large,
-                localImageInfo: _getPreviewImageInfo(),
-                height: height,
-                width: maxWidth,
-                fit: BoxFit.contain,
-                placeWidget: Container(height: height),
+              Flexible(
+                child: PixivImage(
+                  widget.illusts.imageUrls.large,
+                  localImageInfo: _getPreviewImageInfo(),
+                  height: height,
+                  width: maxWidth,
+                  fit: BoxFit.contain,
+                  placeWidget: Container(height: height),
+                ),
               ),
               LinearProgressIndicator(
                 backgroundColor: Theme.of(context).cardColor,
