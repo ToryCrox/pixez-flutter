@@ -24,6 +24,7 @@ import 'package:pixez/component/pixiv_image.dart';
 import 'package:pixez/component/ugoira_painter.dart';
 import 'package:pixez/i18n.dart';
 import 'package:pixez/main.dart';
+import 'package:pixez/models/download_record.dart';
 import 'package:pixez/models/illust.dart';
 import 'package:pixez/page/picture/illust_store.dart';
 import 'package:pixez/page/picture/ugoira_store.dart';
@@ -55,20 +56,15 @@ class _UgoiraLoaderState extends State<UgoiraLoader> {
 
   /// 获取预览图 URL
   /// 优先使用本地预览图（如果已下载），否则使用网络图片
-  String _getPreviewImageUrl() {
+  LocalImageInfo? _getPreviewImageInfo() {
     // 如果有 IllustStore 且有本地预览图，使用本地路径
     // 直接访问 localImageInfos 以确保 MobX Observer 能追踪变化
     if (widget.illustStore != null &&
         widget.illustStore!.localImageInfos.containsKey(0)) {
-      final localImageInfo = widget.illustStore!.localImageInfos[0];
-      if (localImageInfo != null) {
-        // 将文件路径转换为 file:// URL，正确处理 Windows 路径和特殊字符
-        final uri = Uri.file(localImageInfo.path);
-        return uri.toString();
-      }
+      return widget.illustStore!.localImageInfos[0];
     }
     // 否则使用网络图片
-    return widget.illusts.imageUrls.large;
+    return null;
   }
 
   bool isEncoding = false;
@@ -173,7 +169,8 @@ class _UgoiraLoaderState extends State<UgoiraLoader> {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: <Widget>[
               PixivImage(
-                _getPreviewImageUrl(),
+                widget.illusts.imageUrls.large,
+                localImageInfo: _getPreviewImageInfo(),
                 height: height,
                 width: maxWidth,
                 placeWidget: Container(height: height),
@@ -194,7 +191,8 @@ class _UgoiraLoaderState extends State<UgoiraLoader> {
             alignment: AlignmentGeometry.topCenter,
             children: <Widget>[
               PixivImage(
-                _getPreviewImageUrl(),
+                widget.illusts.imageUrls.large,
+                localImageInfo: _getPreviewImageInfo(),
                 height: height,
                 width: maxWidth,
                 placeWidget: Container(height: height),
