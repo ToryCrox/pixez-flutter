@@ -138,7 +138,15 @@ class IllustDownloadStatus {
     this.fileSize = 0,
   });
 
-  bool get isAllDownloaded => totalCount > 0 && totalCount == completedCount;
+  bool get isAllDownloaded {
+    // 对于动图，只要状态是 completed 且有至少一条记录就认为下载完成
+    // 因为动图的 pageCount 是帧数，而数据库中只存储预览图和帧文件记录，数量可能不匹配
+    if (illusts.isUgoira) {
+      return status == DownloadTaskStatus.completed && completedCount > 0;
+    }
+    // 对于普通插画，检查是否所有页面都已下载
+    return totalCount > 0 && totalCount == completedCount;
+  }
 
   @override
   String toString() {
