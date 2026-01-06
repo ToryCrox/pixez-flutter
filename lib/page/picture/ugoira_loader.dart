@@ -163,12 +163,7 @@ class _UgoiraLoaderState extends State<UgoiraLoader> {
                       .first
                       .delay,
               ugoiraMetadataResponse: _store.ugoiraMetadataResponse!,
-              size: Size(
-                maxWidth,
-                (widget.illusts.height.toDouble() /
-                        widget.illusts.width.toDouble()) *
-                    maxWidth,
-              ),
+              maxSize: Size(maxWidth, double.infinity),
               drawPools: _store.drawPool,
             ),
           );
