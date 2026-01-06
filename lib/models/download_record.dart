@@ -1282,8 +1282,9 @@ class DownloadDatabaseProvider {
   /// 根据图片记录查找实际存在的文件路径（自动检测后缀名）
   Future<String?> _findImagePathForImage(DownloadedImage image,
       {bool update = true}) async {
+    // 使用标准的相对路径和文件名构建路径（对动图帧文件也适用，因为 relativePath 已包含 ugoira 子目录）
     final basePath = getAbsolutePath(
-      image.relativePath.replaceAll('\\', '/'), 
+      image.relativePath.replaceAll('\\', '/'),
       image.fileName
     );
 

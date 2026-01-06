@@ -70,6 +70,7 @@ class UpdateIllustInfo {
     hasBroken = imageUpdates.any((e) => e.isBroken || e.isFileNotFound);
 
     // 检测是否未下载完整
+
     final isUgoira = illust.isUgoira;
     if (isUgoira) {
       // 动图特殊处理：检查预览图(part=0)和帧文件(part>=1)
@@ -194,7 +195,12 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
   }
 
   /// 扫描单张图片
-  Future<ImageUpdateInfo> _scanSingleImage(DownloadedImage image) async {
+  /// [knownWidth] 和 [knownHeight] 是已知的宽高，如果提供则跳过解析
+  Future<ImageUpdateInfo> _scanSingleImage(
+    DownloadedImage image, {
+    int? knownWidth,
+    int? knownHeight,
+  }) async {
     final actualPath = await downloadStore.getLocalImagePath(
       image.illustId,
       image.part,
@@ -223,20 +229,23 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
       // 忽略错误
     }
 
-    // 获取图片宽高
-    int? newWidth;
-    int? newHeight;
+    // 获取图片宽高（如果没有提供已知宽高）
+    int? newWidth = knownWidth;
+    int? newHeight = knownHeight;
     bool isBroken = false;
-    try {
-      final size = await compute(_parseImageSizeSync, actualPath);
-      if (size != null) {
-        newWidth = size.width.toInt();
-        newHeight = size.height.toInt();
-      } else {
+
+    if (knownWidth == null && knownHeight == null) {
+      try {
+        final size = await compute(_parseImageSizeSync, actualPath);
+        if (size != null) {
+          newWidth = size.width.toInt();
+          newHeight = size.height.toInt();
+        } else {
+          isBroken = true;
+        }
+      } catch (e) {
         isBroken = true;
       }
-    } catch (e) {
-      isBroken = true;
     }
 
     return ImageUpdateInfo(
@@ -295,12 +304,12 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
     }
 
     // 批次并发扫描图片
+    int batchCount = illust.isUgoira ? 1 : _concurrentCount;
+    int? knownWidth;
+    int? knownHeight;
     final imageUpdates = <ImageUpdateInfo>[];
-    for (
-      int batchStart = 0;
-      batchStart < images.length;
-      batchStart += _concurrentCount
-    ) {
+
+    for (int batchStart = 0; batchStart < images.length;) {
       if (!mounted) return;
 
       // 检查是否暂停，如果暂停则等待
@@ -310,26 +319,48 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
       if (!mounted) return;
 
       // 计算当前批次的结束索引
-      final batchEnd = (batchStart + _concurrentCount).clamp(0, images.length);
+      final batchEnd = (batchStart + batchCount).clamp(0, images.length);
 
       // 创建当前批次的扫描任务
       final futures = <Future<ImageUpdateInfo>>[];
       for (int j = batchStart; j < batchEnd; j++) {
-        futures.add(_scanSingleImage(images[j]));
+        final image = images[j];
+        // 动图：仅对帧图片(part>=1)使用已知宽高，预览图(part=0)正常扫描
+        final useKnownSize = illust.isUgoira && image.part >= 1 && knownWidth != null && knownHeight != null;
+        futures.add(_scanSingleImage(
+          image,
+          knownWidth: useKnownSize ? knownWidth : null,
+          knownHeight: useKnownSize ? knownHeight : null,
+        ));
       }
 
       // 并发执行当前批次的所有扫描任务
       final batchResults = await Future.wait(futures);
       imageUpdates.addAll(batchResults);
 
+      // 动图：从第一批结果中获取第一帧(part=1)宽高，之后恢复用户设置的并发数
+      if (illust.isUgoira && knownWidth == null && batchResults.isNotEmpty) {
+        final firstFrameResult = batchResults.firstWhere(
+          (r) => r.originalImage.part == 1,
+          orElse: () => batchResults.first,
+        );
+        // 只有当扫描的是帧图片时才提取宽高
+        if (firstFrameResult.originalImage.part >= 1) {
+          knownWidth = firstFrameResult.newWidth ?? firstFrameResult.originalImage.width;
+          knownHeight = firstFrameResult.newHeight ?? firstFrameResult.originalImage.height;
+          batchCount = _concurrentCount;
+        }
+      }
+
       // 实时更新扫描进度
       if (mounted) {
         setState(() {
           _updateInfos[index].updateScanProgress(images.length, batchEnd);
-          // 实时更新已扫描的图片信息
           _updateInfos[index].updateImageUpdates(List.from(imageUpdates));
         });
       }
+
+      batchStart = batchEnd;
     }
 
     // 更新当前作品的扫描结果

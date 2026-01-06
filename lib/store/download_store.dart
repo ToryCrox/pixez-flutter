@@ -1227,22 +1227,42 @@ abstract class _DownloadStoreBase with Store {
     await _dbProvider.insertImage(downloadedImage);
 
     // 3. 插入动图帧记录（part=1, 2, 3...）
+    // 只读取第一帧的宽高，因为所有帧图片尺寸相同
+    int? frameWidth;
+    int? frameHeight;
+
+    if (frameFiles.isNotEmpty) {
+      try {
+        final firstFrameSize = await _getImageSize(frameFiles[0].path);
+        if (firstFrameSize != null) {
+          frameWidth = firstFrameSize.width.toInt();
+          frameHeight = firstFrameSize.height.toInt();
+        }
+      } catch (e) {
+        Log.e('解析动图帧图片宽高失败: ${illusts.id}, $e');
+      }
+    }
+
     for (int i = 0; i < frameFiles.length; i++) {
       final frameFile = frameFiles[i];
 
       if (await frameFile.exists()) {
         final fileSize = await frameFile.length();
-        final fileName = path.basename(frameFile.path);
+        final fileNameWithoutExtension = path.basenameWithoutExtension(frameFile.path);
         final extension = path.extension(frameFile.path);
+
+        final frameRelativePath = path.join(relativePath, 'ugoira'); // 帧文件在 ugoira 子目录中
 
         final downloadedFrame = DownloadedImage(
           illustId: illusts.id,
           part: i + 1, // part 从 1 开始（0 是预览图）
-          fileName: fileName,
+          fileName: fileNameWithoutExtension,
           extension: extension,
           fileSize: fileSize,
           originalUrl: '', // 帧文件没有原始 URL
-          relativePath: relativePath,
+          relativePath: frameRelativePath,
+          width: frameWidth,
+          height: frameHeight,
         );
 
         await _dbProvider.insertImage(downloadedFrame);
