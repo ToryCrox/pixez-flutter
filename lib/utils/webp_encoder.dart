@@ -99,9 +99,13 @@ class WebPEncoder {
       }
 
       // 构建命令参数
-      // img2webp格式: img2webp -o output.webp -q 80 -loop 0 -d delay1 frame1.png -d delay2 frame2.png ...
+      // img2webp格式: img2webp -o output.webp -mixed -m 6 -q 80 -loop 0 -d delay1 frame1.png -d delay2 frame2.png ...
+      // -mixed: 自动选择每帧最佳压缩方式（有损/无损）
+      // -m 6: 使用最高压缩方法，速度较慢但压缩率最高
       final arguments = <String>[
         '-o', outputPath,
+        '-mixed',
+        '-m', '4',
         '-q', quality.toString(),
         '-loop', loop.toString(),
       ];
