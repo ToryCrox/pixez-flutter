@@ -184,34 +184,28 @@ class _UgoiraLoaderState extends State<UgoiraLoader> {
               ),
             ],
           );
-        return Container(
-          height: height + 72.0,
-          width: maxWidth,
-          child: Stack(
-            alignment: AlignmentGeometry.topCenter,
-            children: <Widget>[
-              PixivImage(
-                widget.illusts.imageUrls.large,
-                localImageInfo: _getPreviewImageInfo(),
-                height: height,
-                width: maxWidth,
-                placeWidget: Container(height: height),
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            PixivImage(
+              widget.illusts.imageUrls.large,
+              localImageInfo: _getPreviewImageInfo(),
+              height: height,
+              width: maxWidth,
+              placeWidget: Container(height: height),
+            ),
+            GestureDetector(
+              onTap: () {
+                _store.downloadAndUnzip();
+              },
+              child: Container(
+                height: 72.0,
+                width: 72.0,
+                child: Icon(Icons.play_arrow),
               ),
-              Align(
-                alignment: Alignment.bottomCenter,
-                child: GestureDetector(
-                  onTap: () {
-                    _store.downloadAndUnzip();
-                  },
-                  child: Container(
-                    height: 72.0,
-                    width: 72.0,
-                    child: Icon(Icons.play_arrow),
-                  ),
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         );
       },
     );
