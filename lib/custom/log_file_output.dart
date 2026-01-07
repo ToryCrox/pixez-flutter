@@ -117,16 +117,10 @@ class LogFileOutput extends LogOutput {
   String _formatMessage(OutputEvent event) {
     final time = DateFormat('HH:mm:ss.SSS').format(event.origin.time);
     final level = event.level.name.toUpperCase();
-    final message = event.origin.message;
+    final message = _stringifyMessage(event.origin.message);
 
     final buffer = StringBuffer();
-    buffer.write('[$time] [$level] ');
-
-    if (message is Function) {
-      buffer.write(message());
-    } else {
-      buffer.write(message?.toString() ?? '');
-    }
+    buffer.write('[$time] [$level] $message');
 
     if (event.origin.error != null) {
       buffer.write('\nError: ${event.origin.error}');
@@ -137,6 +131,20 @@ class LogFileOutput extends LogOutput {
     }
 
     return buffer.toString();
+  }
+
+  String _stringifyMessage(dynamic message) {
+    final finalMessage = message is Function ? message() : message;
+    if (finalMessage is Map || finalMessage is Iterable) {
+      const encoder = JsonEncoder.withIndent('  ', _toEncodableFallback);
+      return encoder.convert(finalMessage);
+    } else {
+      return finalMessage.toString();
+    }
+  }
+
+  static Object _toEncodableFallback(dynamic object) {
+    return object.toString();
   }
 
   @override
