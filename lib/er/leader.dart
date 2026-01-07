@@ -40,8 +40,8 @@ class Leader {
   static Future<void> pushUntilHome(BuildContext context) async {
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(
-        builder: (context) =>
-            Platform.isAndroid ? AndroidHelloPage() : HelloPage(),
+        builder:
+            (context) => Platform.isAndroid ? AndroidHelloPage() : HelloPage(),
       ),
       (route) => false,
     );
@@ -69,23 +69,34 @@ class Leader {
       }
     }
     if (link.host == "script" && link.scheme == "pixez") {
-      Navigator.of(context).push(MaterialPageRoute(builder: (context) {
-        return SaveEvalPage(
-          eval: link.queryParameters["code"] != null
-              ? String.fromCharCodes(
-                  base64Decode(link.queryParameters["code"]!))
-              : null,
-        );
-      }));
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) {
+            return SaveEvalPage(
+              eval:
+                  link.queryParameters["code"] != null
+                      ? String.fromCharCodes(
+                        base64Decode(link.queryParameters["code"]!),
+                      )
+                      : null,
+            );
+          },
+        ),
+      );
       return true;
     }
     if (link.host == "i.pximg.net") {
       final id = int.tryParse(
-          link.pathSegments.last.split(".").first.split("_").first);
+        link.pathSegments.last.split(".").first.split("_").first,
+      );
       if (id != null) {
-        Navigator.of(context).push(MaterialPageRoute(builder: (context) {
-          return IllustLightingPage(id: id);
-        }));
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) {
+              return IllustLightingPage(id: id);
+            },
+          ),
+        );
         return true;
       }
     }
@@ -108,10 +119,12 @@ class Leader {
     }
     if (link.host.contains("pixivision.net")) {
       Leader.push(
-          context,
-          SoupPage(
-              url: link.toString().replaceAll("pixez://", "https://"),
-              spotlight: null));
+        context,
+        SoupPage(
+          url: link.toString().replaceAll("pixez://", "https://"),
+          spotlight: null,
+        ),
+      );
       return true;
     }
     if (link.scheme == "pixiv") {
@@ -127,18 +140,19 @@ class Leader {
           AccountProvider accountProvider = new AccountProvider();
           await accountProvider.open();
           var accountPersist = AccountPersist(
-              userId: user.id,
-              userImage: user.profileImageUrls.px170x170,
-              accessToken: accountResponse.accessToken,
-              refreshToken: accountResponse.refreshToken,
-              deviceToken: "",
-              passWord: "no more",
-              name: user.name,
-              account: user.account,
-              mailAddress: user.mailAddress,
-              isPremium: user.isPremium ? 1 : 0,
-              xRestrict: user.xRestrict,
-              isMailAuthorized: user.isMailAuthorized ? 1 : 0);
+            userId: user.id,
+            userImage: user.profileImageUrls.px170x170,
+            accessToken: accountResponse.accessToken,
+            refreshToken: accountResponse.refreshToken,
+            deviceToken: "",
+            passWord: "no more",
+            name: user.name,
+            account: user.account,
+            mailAddress: user.mailAddress,
+            isPremium: user.isPremium ? 1 : 0,
+            xRestrict: user.xRestrict,
+            isMailAuthorized: user.isMailAuthorized ? 1 : 0,
+          );
           await accountProvider.insert(accountPersist);
           await accountStore.fetch();
           BotToast.showText(text: "Login Success");
@@ -165,33 +179,38 @@ class Leader {
       var idSource = link.pathSegments.last;
       try {
         int id = int.parse(idSource);
-        Navigator.of(context, rootNavigator: true)
-            .push(MaterialPageRoute(builder: (context) {
-          return IllustLightingPage(
-            id: id,
-          );
-        }));
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) {
+              return IllustLightingPage(id: id);
+            },
+          ),
+        );
       } catch (e) {}
       return true;
     } else if (link.host.contains('user')) {
       var idSource = link.pathSegments.last;
       try {
         int id = int.parse(idSource);
-        Navigator.of(context, rootNavigator: true)
-            .push(MaterialPageRoute(builder: (context) {
-          return UsersPage(
-            id: id,
-          );
-        }));
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) {
+              return UsersPage(id: id);
+            },
+          ),
+        );
       } catch (e) {}
       return true;
     } else if (link.host.contains("novel")) {
       try {
         int id = int.parse(link.pathSegments.last);
-        Navigator.of(context, rootNavigator: true)
-            .push(MaterialPageRoute(builder: (context) {
-          return NovelViewerPage(id: id);
-        }));
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) {
+              return NovelViewerPage(id: id);
+            },
+          ),
+        );
         return true;
       } catch (e) {
         LPrinter.d(e);
@@ -203,10 +222,13 @@ class Leader {
         if (index != -1) {
           try {
             int id = int.parse(paths[index + 1]);
-            Navigator.of(context, rootNavigator: true)
-                .push(MaterialPageRoute(builder: (context) {
-              return IllustLightingPage(id: id);
-            }));
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) {
+                  return IllustLightingPage(id: id);
+                },
+              ),
+            );
             return true;
           } catch (e) {
             LPrinter.d(e);
@@ -219,10 +241,10 @@ class Leader {
         if (index != -1) {
           try {
             int id = int.parse(paths[index + 1]);
-            Navigator.of(context, rootNavigator: true).push(MaterialPageRoute(
-                builder: (context) => UsersPage(
-                      id: id,
-                    )));
+            Navigator.of(
+              context,
+              rootNavigator: true,
+            ).push(MaterialPageRoute(builder: (context) => UsersPage(id: id)));
             return true;
           } catch (e) {
             print(e);
@@ -240,20 +262,21 @@ class Leader {
         try {
           var id = link.queryParameters['id'];
           if (!link.path.contains("novel"))
-            Navigator.of(context, rootNavigator: true)
-                .push(MaterialPageRoute(builder: (context) {
-              return UsersPage(
-                id: int.parse(id!),
-              );
-            }));
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) {
+                  return UsersPage(id: int.parse(id!));
+                },
+              ),
+            );
           else
-            Navigator.of(context, rootNavigator: true)
-                .push(MaterialPageRoute(builder: (context) {
-              return NovelViewerPage(
-                id: int.parse(id!),
-                novelStore: null,
-              );
-            }));
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) {
+                  return NovelViewerPage(id: int.parse(id!), novelStore: null);
+                },
+              ),
+            );
           return true;
         } catch (e) {}
       }
@@ -268,23 +291,25 @@ class Leader {
         } else if (i == "u") {
           try {
             int id = int.parse(link.pathSegments[link.pathSegments.length - 1]);
-            Navigator.of(context, rootNavigator: true)
-                .push(MaterialPageRoute(builder: (context) {
-              return UsersPage(
-                id: id,
-              );
-            }));
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) {
+                  return UsersPage(id: id);
+                },
+              ),
+            );
             return true;
           } catch (e) {}
         } else if (i == "tags") {
           try {
             String tag = link.pathSegments[link.pathSegments.length - 1];
-            Navigator.of(context, rootNavigator: true)
-                .push(MaterialPageRoute(builder: (context) {
-              return ResultPage(
-                word: tag,
-              );
-            }));
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) {
+                  return ResultPage(word: tag);
+                },
+              ),
+            );
             return true;
           } catch (e) {}
         }
@@ -293,19 +318,23 @@ class Leader {
     return false;
   }
 
-  static Future<dynamic> pushWithScaffold(context, Widget widget,
-      {Widget? icon, Widget? title}) {
+  static Future<dynamic> pushWithScaffold(
+    context,
+    Widget widget, {
+    Widget? icon,
+    Widget? title,
+  }) {
     // 检查是否在宽屏状态下，如果是，使用右侧的 Navigator
     final wideScreenNavigator = WideScreenNavigator.of(context);
-    final navigator = wideScreenNavigator?.isWideScreen == true &&
-            wideScreenNavigator?.contentNavigatorKey?.currentState != null
-        ? wideScreenNavigator!.contentNavigatorKey!.currentState!
-        : Navigator.of(context);
+    final navigator =
+        wideScreenNavigator?.isWideScreen == true &&
+                wideScreenNavigator?.contentNavigatorKey?.currentState != null
+            ? wideScreenNavigator!.contentNavigatorKey!.currentState!
+            : Navigator.of(context);
 
-    return navigator.push(MaterialPageRoute(
-        builder: (context) => Scaffold(
-              body: widget,
-            )));
+    return navigator.push(
+      MaterialPageRoute(builder: (context) => Scaffold(body: widget)),
+    );
   }
 
   static Future<dynamic> push(
@@ -315,9 +344,8 @@ class Leader {
     Widget? title,
     bool forceSkipWrap = false,
   }) {
-    return Navigator.of(context).push(MaterialPageRoute(
-        builder: (context) => Scaffold(
-              body: widget,
-            )));
+    return Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (context) => Scaffold(body: widget)));
   }
 }
