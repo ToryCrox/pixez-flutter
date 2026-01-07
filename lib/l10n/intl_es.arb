@@ -328,5 +328,12 @@
   "network_speed_ball": "Indicador de velocidad de red",
   "network_speed_ball_subtitle": "Mostrar velocidad de carga/descarga en tiempo real",
   "enable_mana": "Herramientas de desarrollador",
-  "enable_mana_subtitle": "Habilitar herramientas de depuración Mana (requiere reinicio)"
+  "enable_mana_subtitle": "Habilitar herramientas de depuración Mana (requiere reinicio)",
+  "log_viewer": "Log Viewer",
+  "log_open_folder": "Open Log Folder",
+  "log_directory": "Log Directory",
+  "log_filter_info": "Info",
+  "log_filter_warning": "Warning",
+  "log_filter_error": "Error",
+  "log_empty": "No logs yet"
 }

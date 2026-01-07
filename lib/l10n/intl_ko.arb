@@ -337,5 +337,12 @@
   "network_speed_ball": "네트워크 속도 표시",
   "network_speed_ball_subtitle": "네트워크 업로드/다운로드 속도를 실시간으로 표시",
   "enable_mana": "개발자 도구 사용",
-  "enable_mana_subtitle": "Mana 디버깅 도구 사용 (앱 재시작 필요)"
+  "enable_mana_subtitle": "Mana 디버깅 도구 사용 (앱 재시작 필요)",
+  "log_viewer": "Log Viewer",
+  "log_open_folder": "Open Log Folder",
+  "log_directory": "Log Directory",
+  "log_filter_info": "Info",
+  "log_filter_warning": "Warning",
+  "log_filter_error": "Error",
+  "log_empty": "No logs yet"
 }

@@ -337,5 +337,12 @@
   "network_speed_ball": "網速懸浮球",
   "network_speed_ball_subtitle": "即時顯示網路上傳/下載速度",
   "enable_mana": "啟用開發者工具",
-  "enable_mana_subtitle": "啟用 Mana 除錯工具（需要重新啟動應用程式）"
+  "enable_mana_subtitle": "啟用 Mana 除錯工具（需要重新啟動應用程式）",
+  "log_viewer": "Log Viewer",
+  "log_open_folder": "Open Log Folder",
+  "log_directory": "Log Directory",
+  "log_filter_info": "Info",
+  "log_filter_warning": "Warning",
+  "log_filter_error": "Error",
+  "log_empty": "No logs yet"
 }

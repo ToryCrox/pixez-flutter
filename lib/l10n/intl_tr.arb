@@ -337,5 +337,12 @@
   "network_speed_ball": "Ağ hızı göstergesi",
   "network_speed_ball_subtitle": "Ağ yükleme/indirme hızını gerçek zamanlı olarak göster",
   "enable_mana": "Geliştirici Araçları",
-  "enable_mana_subtitle": "Mana hata ayıklama araçlarını etkinleştir (yeniden başlatma gerekli)"
+  "enable_mana_subtitle": "Mana hata ayıklama araçlarını etkinleştir (yeniden başlatma gerekli)",
+  "log_viewer": "Log Viewer",
+  "log_open_folder": "Open Log Folder",
+  "log_directory": "Log Directory",
+  "log_filter_info": "Info",
+  "log_filter_warning": "Warning",
+  "log_filter_error": "Error",
+  "log_empty": "No logs yet"
 }

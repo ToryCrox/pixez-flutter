@@ -2,9 +2,9 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:logger/logger.dart';
-import 'package:path_provider/path_provider.dart';
 
 import 'logger_pretty_printer.dart';
+import 'log_file_output.dart';
 
 final excludePaths = [
   'package:pixez/custom/log.dart',
@@ -13,18 +13,15 @@ final excludeMethods = <String>[];
 final logMemoryOut = MemoryOutput(
   bufferSize: 500,
 );
+final logFileOutput = LogFileOutput();
 final logFilter = ProductionFilter();
 final logger = Logger(
   level: kReleaseMode ? Level.info : Level.trace,
   filter: logFilter,
   output: MultiOutput([
     if (kDebugMode) ConsoleOutput(),
-    // if (!kDebugMode)
-    //   MAdvancedFileOutput(
-    //     path: '${App.dataPath}/logger',
-    //     overrideExisting: false,
-    //   ),
     logMemoryOut,
+    logFileOutput,
   ]),
   printer: LoggerPrettyPrinter(
       methodCount: 1,

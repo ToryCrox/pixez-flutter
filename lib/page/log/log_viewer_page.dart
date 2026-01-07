@@ -1,0 +1,387 @@
+import 'dart:io';
+
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:intl/intl.dart';
+import 'package:logger/logger.dart';
+import 'package:open_file/open_file.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:pixez/custom/log.dart';
+import 'package:pixez/i18n.dart';
+
+import 'log_store.dart';
+
+/// 日志查看页面
+class LogViewerPage extends ConsumerStatefulWidget {
+  const LogViewerPage({super.key});
+
+  @override
+  ConsumerState<LogViewerPage> createState() => _LogViewerPageState();
+}
+
+class _LogViewerPageState extends ConsumerState<LogViewerPage> {
+  final ScrollController _scrollController = ScrollController();
+  bool _isUserScrolling = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    // 检测用户是否在手动滚动
+    final position = _scrollController.position;
+    if (position.userScrollDirection != ScrollDirection.idle) {
+      setState(() {
+        _isUserScrolling = true;
+      });
+    }
+
+    // 如果滚动到底部，重置用户滚动状态
+    if (_isAtBottom) {
+      setState(() {
+        _isUserScrolling = false;
+      });
+    }
+  }
+
+  bool get _isAtBottom {
+    if (!_scrollController.hasClients) return false;
+    return _scrollController.offset >=
+        _scrollController.position.maxScrollExtent - 100;
+  }
+
+  void _scrollToBottom() {
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    }
+  }
+
+  Future<void> _openLogFolder() async {
+    try {
+      final docDir = await getApplicationDocumentsDirectory();
+      final logPath = '${docDir.path}/pixez/logs';
+
+      if (Platform.isWindows || Platform.isLinux) {
+        await OpenFile.open(logPath);
+      } else {
+        // macOS/iOS: 显示路径提示
+        if (!mounted) return;
+        await showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text(I18n.of(context).log_directory ?? '日志目录'),
+            content: SelectableText(logPath),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Clipboard.setData(ClipboardData(text: logPath));
+                  Navigator.of(context).pop();
+                },
+                child: Text(I18n.of(context).copy ?? '复制'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: Text(I18n.of(context).ok ?? '确定'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      Log.e(() => "Failed to open log folder", error: e);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final state = ref.watch(logViewerProvider);
+    final filteredLogs = ref.watch(logViewerProvider.notifier).getFilteredLogs();
+
+    // 自动滚动到底部
+    if (state.autoScroll && !_isUserScrolling) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _isAtBottom == false) {
+          _scrollToBottom();
+        }
+      });
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(I18n.of(context).log_viewer ?? '日志查看'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.folder_open),
+            tooltip: I18n.of(context).log_open_folder ?? '打开日志目录',
+            onPressed: _openLogFolder,
+          ),
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: I18n.of(context).refresh ?? '刷新',
+            onPressed: () => ref.read(logViewerProvider.notifier).refresh(),
+          ),
+          IconButton(
+            icon: Icon(
+              state.autoScroll ? Icons.arrow_downward : Icons.vertical_align_center,
+            ),
+            tooltip: state.autoScroll ? '停止自动滚动' : '启用自动滚动',
+            onPressed: () =>
+                ref.read(logViewerProvider.notifier).toggleAutoScroll(),
+          ),
+        ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(60),
+          child: _buildFilterChips(state, ref),
+        ),
+      ),
+      body: filteredLogs.isEmpty
+          ? _buildEmptyState()
+          : _buildLogList(filteredLogs, state),
+    );
+  }
+
+  Widget _buildFilterChips(LogViewerState state, WidgetRef ref) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Wrap(
+        spacing: 8,
+        children: [
+          _buildLevelChip(
+            Level.info,
+            I18n.of(context).log_filter_info ?? '信息',
+            Colors.blue,
+            state.filterLevels.contains(Level.info),
+            (selected) =>
+                ref.read(logViewerProvider.notifier).toggleLevel(Level.info),
+          ),
+          _buildLevelChip(
+            Level.warning,
+            I18n.of(context).log_filter_warning ?? '警告',
+            Colors.orange,
+            state.filterLevels.contains(Level.warning),
+            (selected) =>
+                ref.read(logViewerProvider.notifier).toggleLevel(Level.warning),
+          ),
+          _buildLevelChip(
+            Level.error,
+            I18n.of(context).log_filter_error ?? '错误',
+            Colors.red,
+            state.filterLevels.contains(Level.error),
+            (selected) =>
+                ref.read(logViewerProvider.notifier).toggleLevel(Level.error),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLevelChip(
+    Level level,
+    String label,
+    Color color,
+    bool isSelected,
+    Function(bool) onSelected,
+  ) {
+    return FilterChip(
+      label: Text(label),
+      selected: isSelected,
+      onSelected: onSelected,
+      selectedColor: color.withOpacity(0.3),
+      checkmarkColor: color,
+      labelStyle: TextStyle(
+        color: isSelected ? color : null,
+        fontWeight: isSelected ? FontWeight.bold : null,
+      ),
+      side: BorderSide(
+        color: isSelected ? color : Colors.grey,
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.description_outlined, size: 64, color: Colors.grey),
+          const SizedBox(height: 16),
+          Text(
+            I18n.of(context).log_empty ?? '暂无日志',
+            style: const TextStyle(fontSize: 16, color: Colors.grey),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLogList(List<OutputEvent> logs, LogViewerState state) {
+    return ListView.builder(
+      controller: _scrollController,
+      itemCount: logs.length,
+      itemBuilder: (context, index) {
+        return _LogEventTile(
+          event: logs[index],
+          maxLines: maxLogPreviewLines,
+        );
+      },
+    );
+  }
+}
+
+/// 单条日志事件组件
+class _LogEventTile extends StatefulWidget {
+  final OutputEvent event;
+  final int maxLines;
+
+  const _LogEventTile({
+    required this.event,
+    required this.maxLines,
+  });
+
+  @override
+  State<_LogEventTile> createState() => _LogEventTileState();
+}
+
+class _LogEventTileState extends State<_LogEventTile> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final level = widget.event.level;
+    final message = widget.event.origin.message.toString();
+    final lines = message.split('\n');
+    final needExpand = lines.length > widget.maxLines;
+    final displayMessage = _expanded
+        ? message
+        : lines.take(widget.maxLines).join('\n');
+
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: InkWell(
+        onTap: needExpand
+            ? () {
+                setState(() {
+                  _expanded = !_expanded;
+                });
+              }
+            : null,
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 第一行: 时间 + 级别
+              Row(
+                children: [
+                  _buildTimeText(),
+                  const SizedBox(width: 8),
+                  _buildLevelIcon(level),
+                  const Spacer(),
+                  if (needExpand)
+                    Icon(
+                      _expanded ? Icons.expand_less : Icons.expand_more,
+                      size: 20,
+                    ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              // 消息内容 - 使用 SelectableText 支持复制
+              SelectableText(
+                displayMessage,
+                style: TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 12,
+                  color: _getLevelColor(level),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTimeText() {
+    final time = DateFormat('HH:mm:ss.SSS').format(widget.event.origin.time);
+    return Text(
+      time,
+      style: const TextStyle(
+        fontSize: 12,
+        fontFamily: 'monospace',
+        color: Colors.grey,
+      ),
+    );
+  }
+
+  Widget _buildLevelIcon(Level level) {
+    IconData icon;
+    Color color;
+    String label;
+
+    switch (level) {
+      case Level.info:
+        icon = Icons.info_outline;
+        color = Colors.blue;
+        label = 'INFO';
+        break;
+      case Level.warning:
+        icon = Icons.warning_outlined;
+        color = Colors.orange;
+        label = 'WARN';
+        break;
+      case Level.error:
+        icon = Icons.error_outline;
+        color = Colors.red;
+        label = 'ERROR';
+        break;
+      default:
+        icon = Icons.bug_report_outlined;
+        color = Colors.grey;
+        label = 'DEBUG';
+    }
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 16, color: color),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Color _getLevelColor(Level level) {
+    switch (level) {
+      case Level.info:
+        return Colors.blue.shade700;
+      case Level.warning:
+        return Colors.orange.shade700;
+      case Level.error:
+        return Colors.red.shade700;
+      default:
+        return Colors.black87;
+    }
+  }
+}

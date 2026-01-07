@@ -337,5 +337,12 @@
   "network_speed_ball": "ネット速度表示",
   "network_speed_ball_subtitle": "ネットワークのアップロード/ダウンロード速度をリアルタイム表示",
   "enable_mana": "開発者ツールを有効化",
-  "enable_mana_subtitle": "Manaデバッグツールを有効化（アプリ再起動が必要）"
+  "enable_mana_subtitle": "Manaデバッグツールを有効化（アプリ再起動が必要）",
+  "log_viewer": "ログビューア",
+  "log_open_folder": "ログフォルダを開く",
+  "log_directory": "ログディレクトリ",
+  "log_filter_info": "情報",
+  "log_filter_warning": "警告",
+  "log_filter_error": "エラー",
+  "log_empty": "ログがありません"
 }

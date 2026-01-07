@@ -339,5 +339,12 @@
   "network_speed_ball": "网速悬浮球",
   "network_speed_ball_subtitle": "实时显示网络上传/下载速度",
   "enable_mana": "启用开发者工具",
-  "enable_mana_subtitle": "启用 Mana 调试工具（需要重启应用）"
+  "enable_mana_subtitle": "启用 Mana 调试工具（需要重启应用）",
+  "log_viewer": "日志查看",
+  "log_open_folder": "打开日志目录",
+  "log_directory": "日志目录",
+  "log_filter_info": "信息",
+  "log_filter_warning": "警告",
+  "log_filter_error": "错误",
+  "log_empty": "暂无日志"
 }

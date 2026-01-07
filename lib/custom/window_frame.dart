@@ -10,7 +10,7 @@ import 'package:pixez/i18n.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/page/downloaded/downloaded_page.dart';
 import 'package:pixez/page/hello/setting/setting_quality_page.dart';
-import 'package:pixez/page/history/history_page.dart';
+import 'package:pixez/page/log/log_viewer_page.dart';
 import 'package:pixez/page/task/job_page.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:pixez/custom/log.dart';
@@ -329,6 +329,14 @@ class _SideBarBody extends StatelessWidget {
     return Column(
       children: [
         const SizedBox(height: 8),
+        buildItem(
+          icon: Icons.article,
+          title: I18n.of(context).log_viewer ?? '日志查看',
+          onTap: () {
+            windowFrameController.openSideBar();
+            _pushPage(const LogViewerPage());
+          },
+        ),
         buildItem(
           icon: Icons.home,
           title: '回到首页',

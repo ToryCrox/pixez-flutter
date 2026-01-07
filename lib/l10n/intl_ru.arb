@@ -337,5 +337,12 @@
   "network_speed_ball": "Индикатор скорости сети",
   "network_speed_ball_subtitle": "Отображение скорости загрузки/выгрузки в реальном времени",
   "enable_mana": "Инструменты разработчика",
-  "enable_mana_subtitle": "Включить инструменты отладки Mana (требуется перезагрузка)"
+  "enable_mana_subtitle": "Включить инструменты отладки Mana (требуется перезагрузка)",
+  "log_viewer": "Log Viewer",
+  "log_open_folder": "Open Log Folder",
+  "log_directory": "Log Directory",
+  "log_filter_info": "Info",
+  "log_filter_warning": "Warning",
+  "log_filter_error": "Error",
+  "log_empty": "No logs yet"
 }
