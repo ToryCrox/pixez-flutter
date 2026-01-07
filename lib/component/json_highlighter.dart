@@ -15,7 +15,7 @@
  */
 
 import 'package:flutter/material.dart';
-import 'package:flutter_highlight/flutter_highlight.dart';
+import 'package:highlight/highlight.dart' show highlight, Node;
 import 'package:flutter_highlight/themes/atom-one-dark.dart';
 import 'package:flutter_highlight/themes/atom-one-light.dart';
 
@@ -41,26 +41,70 @@ class JsonHighlighter extends StatelessWidget {
     this.isDark = false,
   }) : super(key: key);
 
+  List<TextSpan> _convert(List<Node> nodes, Map<String, TextStyle> theme) {
+    List<TextSpan> spans = [];
+    var currentSpans = spans;
+    List<List<TextSpan>> stack = [];
+
+    void _traverse(Node node) {
+      if (node.value != null) {
+        currentSpans.add(node.className == null
+            ? TextSpan(text: node.value)
+            : TextSpan(text: node.value, style: theme[node.className!]));
+      } else if (node.children != null) {
+        List<TextSpan> tmp = [];
+        currentSpans.add(TextSpan(children: tmp, style: theme[node.className!]));
+        stack.add(currentSpans);
+        currentSpans = tmp;
+
+        for (var n in node.children!) {
+          _traverse(n);
+          if (n == node.children!.last) {
+            currentSpans = stack.isEmpty ? spans : stack.removeLast();
+          }
+        }
+      }
+    }
+
+    for (var node in nodes) {
+      _traverse(node);
+    }
+
+    return spans;
+  }
+
+  static const _rootKey = 'root';
+  static const _defaultFontColor = Color(0xff000000);
+  static const _defaultBackgroundColor = Color(0xffffffff);
+  static const _defaultFontFamily = 'monospace';
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
     final useDarkTheme = isDark || isDarkMode;
+    final themeData = useDarkTheme ? atomOneDarkTheme : atomOneLightTheme;
+
+    var textStyle = TextStyle(
+      fontFamily: _defaultFontFamily,
+      color: themeData[_rootKey]?.color ?? _defaultFontColor,
+      fontSize: fontSize,
+    );
+
+    final nodes = highlight.parse(json, language: 'json').nodes!;
+    final spans = _convert(nodes, themeData);
 
     return Container(
+      width: double.infinity,
+      padding: padding,
       decoration: BoxDecoration(
+        color: themeData[_rootKey]?.backgroundColor ?? _defaultBackgroundColor,
         borderRadius: BorderRadius.circular(8),
       ),
-      child: SelectionArea(
-        child: HighlightView(
-          json,
-          language: 'json',
-          theme: useDarkTheme ? atomOneDarkTheme : atomOneLightTheme,
-          padding: padding,
-          textStyle: TextStyle(
-            fontFamily: 'monospace',
-            fontSize: fontSize,
-          ),
+      child: SelectableText.rich(
+        TextSpan(
+          style: textStyle,
+          children: spans,
         ),
       ),
     );
