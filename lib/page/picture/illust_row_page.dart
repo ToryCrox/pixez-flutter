@@ -1751,10 +1751,8 @@ class _IllustInfoDialogState extends State<IllustInfoDialog>
                               SizedBox(height: 8),
                               Expanded(
                                 child: SingleChildScrollView(
-                                  child: SelectionArea(
-                                    child: JsonHighlighter(
-                                      json: formattedJson,
-                                    ),
+                                  child: JsonHighlighter(
+                                    json: formattedJson,
                                   ),
                                 ),
                               ),
@@ -1786,10 +1784,8 @@ class _IllustInfoDialogState extends State<IllustInfoDialog>
                           SizedBox(height: 8),
                           Expanded(
                             child: SingleChildScrollView(
-                              child: SelectionArea(
-                                child: JsonHighlighter(
-                                  json: formattedUgoiraMetadataJson,
-                                ),
+                              child: JsonHighlighter(
+                                json: formattedUgoiraMetadataJson,
                               ),
                             ),
                           ),

@@ -47,16 +47,20 @@ class JsonHighlighter extends StatelessWidget {
     final isDarkMode = theme.brightness == Brightness.dark;
     final useDarkTheme = isDark || isDarkMode;
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
-      child: HighlightView(
-        json,
-        language: 'json',
-        theme: useDarkTheme ? atomOneDarkTheme : atomOneLightTheme,
-        padding: padding,
-        textStyle: TextStyle(
-          fontFamily: 'monospace',
-          fontSize: fontSize,
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: SelectionArea(
+        child: HighlightView(
+          json,
+          language: 'json',
+          theme: useDarkTheme ? atomOneDarkTheme : atomOneLightTheme,
+          padding: padding,
+          textStyle: TextStyle(
+            fontFamily: 'monospace',
+            fontSize: fontSize,
+          ),
         ),
       ),
     );
