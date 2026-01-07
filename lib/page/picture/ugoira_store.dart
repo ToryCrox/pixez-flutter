@@ -109,6 +109,8 @@ abstract class _UgoiraStoreBase with Store {
   bool get isPlayingWebP => webpPath != null && webpPath!.isNotEmpty;
 
   List<FileSystemEntity> drawPool = [];
+
+  @observable
   UgoiraMetadataResponse? ugoiraMetadataResponse;
 
   export() async {
