@@ -9,6 +9,7 @@ import 'package:pixez/main.dart';
 import 'package:pixez/models/glance_illust_persist.dart';
 import 'package:pixez/page/history/history_store.dart';
 import 'package:pixez/page/novel/history/novel_history_store.dart';
+import 'package:pixez/custom/log.dart';
 
 class DataExportPage extends StatefulWidget {
   const DataExportPage({super.key});
@@ -55,7 +56,7 @@ class _DataExportPageState extends State<DataExportPage> {
               try {
                 await tagHistoryStore.exportData(context);
               } catch (e) {
-                print(e);
+                Log.e('Failed to export tag history', error: e);
               }
             },
           );
@@ -67,7 +68,7 @@ class _DataExportPageState extends State<DataExportPage> {
             try {
               await tagHistoryStore.importData();
             } catch (e) {
-              print(e);
+              Log.e('Failed to import tag history', error: e);
               BotToast.showText(text: e.toString());
             }
           },
@@ -81,7 +82,7 @@ class _DataExportPageState extends State<DataExportPage> {
               try {
                 await bookTagStore.exportData(context);
               } catch (e) {
-                print(e);
+                Log.e('Failed to export bookmark tags', error: e);
               }
             },
           );
@@ -93,7 +94,7 @@ class _DataExportPageState extends State<DataExportPage> {
             try {
               await bookTagStore.importData();
             } catch (e) {
-              print(e);
+              Log.e('Failed to import bookmark tags', error: e);
               BotToast.showText(text: e.toString());
             }
           },
@@ -108,7 +109,7 @@ class _DataExportPageState extends State<DataExportPage> {
                 await ref.read(historyProvider.notifier).fetch();
                 await ref.read(historyProvider.notifier).exportData(context);
               } catch (e) {
-                print(e);
+                Log.e('Failed to export illust history', error: e);
               }
             },
           );
@@ -122,7 +123,7 @@ class _DataExportPageState extends State<DataExportPage> {
                 await ref.read(historyProvider.notifier).fetch();
                 await ref.read(historyProvider.notifier).importData();
               } catch (e) {
-                print(e);
+                Log.e('Failed to import illust history', error: e);
                 BotToast.showText(text: e.toString());
               }
             },
@@ -138,7 +139,7 @@ class _DataExportPageState extends State<DataExportPage> {
                 await novelHistoryStore.fetch();
                 await novelHistoryStore.exportData(context);
               } catch (e) {
-                print(e);
+                Log.e('Failed to export novel history', error: e);
               }
             },
           );
@@ -152,7 +153,7 @@ class _DataExportPageState extends State<DataExportPage> {
                 await novelHistoryStore.fetch();
                 await novelHistoryStore.importData();
               } catch (e) {
-                print(e);
+                Log.e('Failed to import novel history', error: e);
                 BotToast.showText(text: e.toString());
               }
             },
@@ -167,7 +168,7 @@ class _DataExportPageState extends State<DataExportPage> {
               try {
                 await muteStore.export(context);
               } catch (e) {
-                print(e);
+                Log.e('Failed to export mute data', error: e);
               }
             },
           );
@@ -180,7 +181,7 @@ class _DataExportPageState extends State<DataExportPage> {
               try {
                 await muteStore.importFile();
               } catch (e) {
-                print(e);
+                Log.e('Failed to import mute data', error: e);
                 BotToast.showText(text: e.toString());
               }
             },

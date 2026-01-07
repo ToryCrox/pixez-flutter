@@ -18,6 +18,7 @@ import 'dart:io';
 
 import 'package:bot_toast/bot_toast.dart';
 import 'package:dio/dio.dart';
+import 'package:pixez/custom/log.dart';
 import 'package:flutter/material.dart';
 
 import 'package:pixez/er/lprinter.dart';
@@ -247,7 +248,7 @@ class Leader {
             ).push(MaterialPageRoute(builder: (context) => UsersPage(id: id)));
             return true;
           } catch (e) {
-            print(e);
+            Log.e(() => "Failed to parse user id", error: e);
           }
         }
       }

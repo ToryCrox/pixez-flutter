@@ -20,6 +20,7 @@ import 'package:bot_toast/bot_toast.dart';
 import 'package:mobx/mobx.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pixez/er/prefer.dart';
+import 'package:pixez/custom/log.dart';
 
 part 'directory_store.g.dart';
 
@@ -40,11 +41,10 @@ abstract class _DirectoryStoreBase with Store {
       path = fileSystemEntity.path;
       list = ObservableList.of(fileSystemEntity.listSync());
     } on Exception catch (e) {
-      print('Exception details:\n $e');
+      Log.e('Failed to enter folder (Exception)', error: e);
       BotToast.showText(text: e.toString());
     } catch (e, s) {
-      print('Exception details:\n $e');
-      print('Stack trace:\n $s');
+      Log.e('Failed to enter folder', error: e, stackTrace: s);
       BotToast.showText(text: s.toString());
     }
   }
@@ -74,11 +74,10 @@ abstract class _DirectoryStoreBase with Store {
       path = fileSystemEntity.path;
       list = ObservableList.of(fileSystemEntity.listSync());
     } on Exception catch (e) {
-      print('Exception details:\n $e');
+      Log.e('Failed to go back to parent folder (Exception)', error: e);
       BotToast.showText(text: e.toString());
     } catch (e, s) {
-      print('Exception details:\n $e');
-      print('Stack trace:\n $s');
+      Log.e('Failed to go back to parent folder', error: e, stackTrace: s);
       BotToast.showText(text: s.toString());
     }
   }
@@ -100,11 +99,10 @@ abstract class _DirectoryStoreBase with Store {
       }
       list = ObservableList.of(Directory(path!).listSync());
     } on Exception catch (e) {
-      print('Exception details:\n $e');
+      Log.e('Failed to initialize directory (Exception)', error: e);
       BotToast.showText(text: e.toString());
     } catch (e, s) {
-      print('Exception details:\n $e');
-      print('Stack trace:\n $s');
+      Log.e('Failed to initialize directory', error: e, stackTrace: s);
       BotToast.showText(text: s.toString());
     }
   }

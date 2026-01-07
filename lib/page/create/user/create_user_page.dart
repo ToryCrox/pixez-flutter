@@ -19,6 +19,7 @@ import 'package:pixez/i18n.dart';
 import 'package:pixez/models/create_user_response.dart';
 import 'package:pixez/network/account_client.dart';
 import 'package:url_launcher/url_launcher_string.dart';
+import 'package:pixez/custom/log.dart';
 
 class CreateUserPage extends StatefulWidget {
   @override
@@ -70,7 +71,7 @@ class _CreateUserPageState extends State<CreateUserPage> {
                       if (name.isEmpty) return;
                       final response =
                           await AccountClient().createProvisionalAccount(name);
-                      print(response.data);
+                      Log.d('Create user response: ${response.data}');
                       var createUserResponseFromJson2 =
                           CreateUserResponse.fromJson(response.data);
                       Navigator.of(context).pop(createUserResponseFromJson2);

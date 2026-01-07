@@ -8,6 +8,7 @@ import 'package:pixez/component/pixiv_image.dart';
 import 'package:pixez/er/hoster.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/network/api_client.dart';
+import 'package:pixez/custom/log.dart';
 
 class NetworkSettingPage extends StatefulWidget {
   @override
@@ -44,7 +45,7 @@ class _NetworkSettingPageState extends State<NetworkSettingPage> {
         apiStatus = 1;
       });
     } catch (e) {
-      print(e);
+      Log.e('API check failed', error: e);
       setState(() {
         apiStatus = 2;
       });

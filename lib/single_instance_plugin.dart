@@ -2,6 +2,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:pixez/er/leader.dart';
 import 'package:pixez/main.dart';
+import 'package:pixez/custom/log.dart';
 
 class SingleInstancePlugin {
   static final platform = const EventChannel("pixez/single_instance");
@@ -16,7 +17,7 @@ class SingleInstancePlugin {
     platform.receiveBroadcastStream().listen(
       (event) {
         final args = event.toString().split('\n');
-        debugPrint("从另一实例接收到的参数: $args");
+        Log.d('Received args from another instance: $args');
         argsParser(args, callback: callback);
       },
     );
@@ -29,7 +30,7 @@ class SingleInstancePlugin {
 
     final uri = Uri.tryParse(args[0]);
     if (uri != null) {
-      debugPrint("::argsParser(): 合法的Uri: \"${uri}\"");
+      Log.d('argsParser(): Valid URI: "$uri"');
 
       if (callback != null) callback();
       Leader.pushWithUri(routeObserver.navigator!.context, uri);

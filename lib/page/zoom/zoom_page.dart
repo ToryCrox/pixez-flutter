@@ -17,6 +17,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:pixez/component/pixiv_image.dart';
+import 'package:pixez/custom/log.dart';
 
 class ZoomPage extends StatefulWidget {
   final String url;
@@ -43,13 +44,13 @@ class _ZoomPageState extends State<ZoomPage> {
         child: PinchZoomImage(
           image: PixivImage(widget.url),
           onZoomStart: () {
-            print('Zoom started');
+            Log.d('Zoom started');
             setState(() {
               fabvisible = false;
             });
           },
           onZoomEnd: () {
-            print('Zoom finished');
+            Log.d('Zoom finished');
             setState(() {
               fabvisible = true;
             });

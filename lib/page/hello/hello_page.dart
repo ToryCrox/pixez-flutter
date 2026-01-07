@@ -40,6 +40,7 @@ import 'package:pixez/page/history/history_page.dart';
 import 'package:pixez/page/theme/theme_page.dart';
 import 'package:pixez/page/preview/preview_page.dart';
 import 'package:pixez/page/search/search_page.dart';
+import 'package:pixez/custom/log.dart';
 
 /// InheritedWidget 用于传递宽屏状态和右侧 Navigator
 class WideScreenNavigator extends InheritedWidget {
@@ -143,7 +144,7 @@ class _HelloPageState extends State<HelloPage> {
       _sub = DeepLinkPlugin.uriLinkStream
           .listen((Uri? link) => Leader.pushWithUri(context, link!));
     } catch (e) {
-      print(e);
+      Log.e('Failed to initialize links stream', error: e);
     }
   }
 

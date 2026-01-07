@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:pixez/constants.dart';
 import 'package:pixez/er/lprinter.dart';
+import 'package:pixez/custom/log.dart';
 
 enum Result { yes, no, timeout }
 
@@ -37,7 +38,7 @@ Future<Result> checkUpdate(String arg) async {
       }
     }
   } catch (e) {
-    print(e);
+    Log.e('Failed to check for updates', error: e);
     return Result.timeout;
   }
   return Result.no;

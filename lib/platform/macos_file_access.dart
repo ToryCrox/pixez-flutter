@@ -1,6 +1,6 @@
 import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:pixez/custom/log.dart';
 
 /// macOS 文件访问管理器
 /// 使用 Security-Scoped Bookmark 机制访问外部存储卷
@@ -24,7 +24,7 @@ class MacOSFileAccessManager {
       final path = result['path'] as String?;
       return (success, path);
     } catch (e) {
-      debugPrint('❌ requestDirectoryAccess error: $e');
+      Log.e(() => '❌ requestDirectoryAccess error', error: e);
       return (false, null);
     }
   }
@@ -45,7 +45,7 @@ class MacOSFileAccessManager {
       );
       return result ?? false;
     } catch (e) {
-      debugPrint('❌ startAccessingPath error: $e');
+      Log.e(() => '❌ startAccessingPath error', error: e);
       return false;
     }
   }
@@ -64,7 +64,7 @@ class MacOSFileAccessManager {
         {'path': path},
       );
     } catch (e) {
-      debugPrint('❌ stopAccessingPath error: $e');
+      Log.e(() => '❌ stopAccessingPath error', error: e);
     }
   }
 
@@ -83,7 +83,7 @@ class MacOSFileAccessManager {
       );
       return result ?? false;
     } catch (e) {
-      debugPrint('❌ hasBookmark error: $e');
+      Log.e(() => '❌ hasBookmark error', error: e);
       return false;
     }
   }
@@ -104,7 +104,7 @@ class MacOSFileAccessManager {
       );
       return result ?? false;
     } catch (e) {
-      debugPrint('❌ saveBookmark error: $e');
+      Log.e(() => '❌ saveBookmark error', error: e);
       return false;
     }
   }
@@ -122,7 +122,7 @@ class MacOSFileAccessManager {
         {'path': path},
       );
     } catch (e) {
-      debugPrint('❌ clearBookmark error: $e');
+      Log.e(() => '❌ clearBookmark error', error: e);
     }
   }
 
@@ -135,7 +135,7 @@ class MacOSFileAccessManager {
     try {
       await _channel.invokeMethod<bool>('clearAllBookmarks');
     } catch (e) {
-      debugPrint('❌ clearAllBookmarks error: $e');
+      Log.e(() => '❌ clearAllBookmarks error', error: e);
     }
   }
 
@@ -150,7 +150,7 @@ class MacOSFileAccessManager {
       final result = await _channel.invokeMethod<List<dynamic>>('getAllBookmarkedPaths');
       return result?.cast<String>() ?? [];
     } catch (e) {
-      debugPrint('❌ getAllBookmarkedPaths error: $e');
+      Log.e(() => '❌ getAllBookmarkedPaths error', error: e);
       return [];
     }
   }
@@ -200,12 +200,12 @@ class MacOSFileAccessManager {
 
     // 没有 bookmark
     if (!autoRequest) {
-      debugPrint('⚠️ No bookmark for external volume: $rootPath');
+      Log.w(() => '⚠️ No bookmark for external volume: $rootPath');
       return false;
     }
 
     // 自动请求授权
-    debugPrint('📁 Requesting access for: $rootPath');
+    Log.d(() => '📁 Requesting access for: $rootPath');
     final (success, selectedPath) = await requestDirectoryAccess();
     if (!success || selectedPath == null) {
       return false;
@@ -213,7 +213,7 @@ class MacOSFileAccessManager {
 
     // 验证用户选择的路径是否匹配
     if (!path.startsWith(selectedPath)) {
-      debugPrint('⚠️ Selected path does not match: $selectedPath vs $rootPath');
+      Log.w(() => '⚠️ Selected path does not match: $selectedPath vs $rootPath');
       return false;
     }
 

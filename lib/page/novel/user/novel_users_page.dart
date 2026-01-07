@@ -26,6 +26,7 @@ import 'package:pixez/page/user/detail/user_detail.dart';
 import 'package:pixez/page/user/user_store.dart';
 import 'package:pixez/page/user/users_page.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:pixez/custom/log.dart';
 
 class NovelUsersPage extends StatefulWidget {
   final int id;
@@ -259,7 +260,7 @@ class _NovelUsersPageState extends State<NovelUsersPage>
       await DocumentPlugin.save(bytes, "${widget.id}_bg.jpg");
       BotToast.showText(text: I18n.of(context).saved);
     } catch (e) {
-      print(e);
+      Log.e('Failed to save user background', error: e);
     }
   }
 
@@ -327,7 +328,7 @@ class _NovelUsersPageState extends State<NovelUsersPage>
       } else
         BotToast.showText(text: I18n.of(context).failed);
     } catch (e) {
-      print(e);
+      Log.e('Failed to save user avatar', error: e);
     }
   }
 

@@ -23,6 +23,7 @@ import 'package:pixez/er/prefer.dart';
 import 'package:pixez/i18n.dart';
 import 'package:pixez/main.dart';
 import 'package:url_launcher/url_launcher_string.dart';
+import 'package:pixez/custom/log.dart';
 
 import 'directory_page.dart';
 
@@ -226,7 +227,7 @@ class _SaveModeChoicePageState extends State<SaveModeChoicePage>
     } else if (groupValue == 2) {
       DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
       AndroidDeviceInfo androidInfo = await deviceInfo.androidInfo;
-      print('Running on ${androidInfo.version.sdkInt}');
+      Log.d('Running on Android SDK: ${androidInfo.version.sdkInt}');
       if ((androidInfo.version.sdkInt) > 29) {
         BotToast.showText(text: I18n.of(context).legacy_mode_warning);
       }

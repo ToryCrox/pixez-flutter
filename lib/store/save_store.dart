@@ -25,6 +25,7 @@ import 'package:mobx/mobx.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pixez/component/pixiv_image.dart';
 import 'package:pixez/constants.dart';
+import 'package:pixez/custom/log.dart';
 import 'package:pixez/document_plugin.dart';
 import 'package:pixez/er/toaster.dart';
 import 'package:pixez/exts.dart';
@@ -264,7 +265,7 @@ abstract class _SaveStoreBase with Store {
         else
           DocumentPlugin.save(uint8list, fileName);
       } catch (e) {
-        print(e);
+        Log.e(() => "Failed to save file", error: e);
       }
       return;
     } else {

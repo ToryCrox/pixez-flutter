@@ -22,6 +22,7 @@ import 'package:flutter_displaymode/flutter_displaymode.dart';
 import 'package:mobx/mobx.dart';
 import 'package:pixez/component/picker/utils.dart';
 import 'package:pixez/component/pixiv_image.dart';
+import 'package:pixez/custom/log.dart';
 import 'package:pixez/er/hoster.dart';
 import 'package:pixez/er/prefer.dart';
 import 'package:pixez/main.dart';
@@ -459,7 +460,7 @@ abstract class _UserSetting with Store {
       try {
         seedColor = Color(colors);
       } catch (e) {
-        print(e);
+        Log.e(() => "Failed to parse seed color", error: e);
       }
     }
     isAMOLED = prefs.getBool(IS_AMOLED_KEY) ?? false;

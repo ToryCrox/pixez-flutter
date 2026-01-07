@@ -18,6 +18,7 @@ import 'package:dio/dio.dart';
 import 'package:mobx/mobx.dart';
 import 'package:pixez/models/trend_tags.dart';
 import 'package:pixez/network/api_client.dart';
+import 'package:pixez/custom/log.dart';
 
 part 'trend_tags_store.g.dart';
 
@@ -37,7 +38,7 @@ abstract class _TrendTagsStoreBase with Store {
       trendTags.clear();
       trendTags.addAll(trendingTag.trend_tags);
     } catch (e) {
-      print(e);
+      Log.e('Failed to fetch trend tags', error: e);
     }
   }
 }

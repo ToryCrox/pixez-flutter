@@ -35,6 +35,7 @@ import 'package:pixez/page/report/report_items_page.dart';
 import 'package:pixez/supportor_plugin.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:flutter/services.dart';
+import 'package:pixez/custom/log.dart';
 
 enum CommentArtWorkType { ILLUST, NOVEL }
 
@@ -442,7 +443,7 @@ class _CommentPageState extends State<CommentPage> {
                                               _editController.clear();
                                               _store.fetch();
                                             } catch (e) {
-                                              print(e);
+                                              Log.e('Failed to post comment', error: e);
                                             }
                                             fun1();
                                           })),

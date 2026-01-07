@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:json_annotation/json_annotation.dart';
 import 'package:pixez/constants.dart';
+import 'package:pixez/custom/log.dart';
 
 part 'board_info.g.dart';
 
@@ -46,7 +47,7 @@ class BoardInfo {
   }
 
   static Future<List<BoardInfo>> load() async {
-    print(path());
+    Log.d('Loading board data from: ${path()}');
     final request = await Dio().get(
         'https://raw.githubusercontent.com/Notsfsssf/pixez-flutter/refs/heads/master/.github/board/${path()}');
     final list = (jsonDecode(request.data) as List)

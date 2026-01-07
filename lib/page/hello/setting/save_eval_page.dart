@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:pixez/i18n.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/models/illust.dart';
+import 'package:pixez/custom/log.dart';
 
 class SaveEvalPage extends StatefulWidget {
   final String? eval;
@@ -184,7 +185,7 @@ function eval(illust, index, mime) {
         _fileName = string;
       });
     } catch (e) {
-      print(e);
+      Log.e('Failed to test eval name', error: e);
     }
   }
 }

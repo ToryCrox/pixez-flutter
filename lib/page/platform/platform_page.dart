@@ -29,6 +29,7 @@ import 'package:pixez/page/directory/save_mode_choice_page.dart';
 import 'package:pixez/page/hello/setting/save_eval_page.dart';
 import 'package:pixez/page/hello/setting/save_format_page.dart';
 import 'package:url_launcher/url_launcher_string.dart';
+import 'package:pixez/custom/log.dart';
 
 class PlatformPage extends StatefulWidget {
   @override
@@ -66,7 +67,7 @@ class _PlatformPageState extends State<PlatformPage> {
       /// #4 1080x2376 @ 120Hz
       selected = await FlutterDisplayMode.preferred;
     } on PlatformException catch (e) {
-      print(e);
+      Log.e('Failed to fetch display modes', error: e);
 
       /// e.code =>
       /// noAPI - No API support. Only Marshmallow and above.

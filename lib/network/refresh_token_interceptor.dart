@@ -16,6 +16,7 @@
 
 import 'dart:async';
 import 'package:dio/dio.dart';
+import 'package:pixez/custom/log.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/models/account.dart';
 import 'package:pixez/models/error_message.dart';
@@ -74,7 +75,7 @@ class RefreshTokenInterceptor extends QueuedInterceptorsWrapper {
       DateTime dateTime = DateTime.now();
       if ((dateTime.millisecondsSinceEpoch - lastRefreshTime) > 200000) {
         try {
-          print("lock start ========================");
+          Log.d(() => "lock start ========================");
           ErrorMessage errorMessage = ErrorMessage.fromJson(err.response!.data);
           if (errorMessage.error.message!.contains("OAuth") &&
               accountStore.now != null) {
@@ -102,26 +103,26 @@ class RefreshTokenInterceptor extends QueuedInterceptorsWrapper {
                 isMailAuthorized: bti(user.isMailAuthorized),
                 id: accountPersist.id));
             lastRefreshTime = DateTime.now().millisecondsSinceEpoch;
-            print("unlock ========================");
+            Log.d(() => "unlock ========================");
           } else if (errorMessage.error.message!.contains("Limit")) {
             lastRefreshTime = 0;
-            print("unlock ========================");
+            Log.d(() => "unlock ========================");
             return handler.reject(err);
           } else {
             lastRefreshTime = 0;
-            print("unlock ========================");
+            Log.d(() => "unlock ========================");
             return handler.reject(err);
           }
         } catch (e) {
-          print(e);
+          Log.e(() => "refresh token error", error: e);
           lastRefreshTime = 0;
-          print("unlock ========================");
+          Log.d(() => "unlock ========================");
           return handler.reject(err);
         }
       }
       var option = err.requestOptions;
       final newToken = (await getToken());
-      print("unlock retry ======================== $newToken");
+      Log.d(() => "unlock retry ======================== $newToken");
       option.headers[OAuthClient.AUTHORIZATION] = newToken;
       var response = await apiClient.httpClient.request(
         option.path,
@@ -140,7 +141,7 @@ class RefreshTokenInterceptor extends QueuedInterceptorsWrapper {
                 "Connection closed before full header was received") ==
             true &&
         retryNum < 2) {
-      print('retry $retryNum =========================');
+      Log.d(() => 'retry $retryNum =========================');
       retryNum++;
       RequestOptions options = err.requestOptions;
       var response = await apiClient.httpClient.request(

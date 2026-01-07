@@ -13,6 +13,7 @@ import 'package:pixez/page/hello/setting/setting_quality_page.dart';
 import 'package:pixez/page/history/history_page.dart';
 import 'package:pixez/page/task/job_page.dart';
 import 'package:window_manager/window_manager.dart';
+import 'package:pixez/custom/log.dart';
 
 import '../page/downloaded/downloaded_authors_page.dart';
 
@@ -763,7 +764,7 @@ class WindowPlacement {
   }
 
   Future<void> writeToFile() async {
-    print("writeToFile ${toMap()}");
+    Log.d('WindowPlacement.writeToFile: ${toMap()}');
     Prefer.setString('window_frame', jsonEncode(toMap()));
   }
 
@@ -774,10 +775,10 @@ class WindowPlacement {
         return defaultPlacement;
       }
       var json = jsonDecode(jsonString);
-      print("loadFromFile $json");
+      Log.d('WindowPlacement.loadFromFile: $json');
       return WindowPlacement.fromMap(json);
     } catch (e) {
-      print("loadFromFile error $e");
+      Log.e('WindowPlacement.loadFromFile error', error: e);
       return defaultPlacement;
     }
   }

@@ -17,6 +17,7 @@
 import 'package:flutter/material.dart';
 import 'package:pixez/component/painter_avatar.dart';
 import 'package:pixez/component/pixiv_image.dart';
+import 'package:pixez/custom/log.dart';
 import 'package:pixez/models/user_preview.dart';
 import 'package:pixez/network/api_client.dart';
 import 'package:pixez/page/novel/user/novel_users_page.dart';
@@ -200,7 +201,7 @@ class _PainterCardState extends State<PainterCard> {
                     });
                   }
                 } catch (e) {
-                  print(e);
+                  Log.e(() => "Failed to toggle follow", error: e);
                 }
               },
             )

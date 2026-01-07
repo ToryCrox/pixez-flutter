@@ -15,6 +15,7 @@ import 'package:pixez/page/novel/user/novel_users_page.dart';
 import 'package:pixez/page/novel/viewer/novel_store.dart';
 import 'package:pixez/page/novel/viewer/novel_viewer.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:pixez/custom/log.dart';
 
 final novelSeriesProvider =
     NotifierProvider<NovelSeriesNotifier, NovelSeriesState?>(() {
@@ -47,7 +48,7 @@ class NovelSeriesNotifier extends Notifier<NovelSeriesState?> {
       state = result;
       refreshController.finishRefresh();
     } catch (e) {
-      print(e);
+      Log.e('Failed to fetch novel series', error: e);
       refreshController.finishRefresh(IndicatorResult.fail);
     }
   }
@@ -67,7 +68,7 @@ class NovelSeriesNotifier extends Notifier<NovelSeriesState?> {
         refreshController.finishLoad(
             IndicatorResult.success, detail.nextUrl == null);
       } catch (e) {
-        print(e);
+        Log.e('Failed to load next novel series page', error: e);
         refreshController.finishLoad(IndicatorResult.fail);
       }
     } else {
@@ -84,7 +85,7 @@ class NovelSeriesNotifier extends Notifier<NovelSeriesState?> {
           updatedDetail, state!.novels, state!.novelStores, state!.nextUrl);
       state = result;
     } catch (e) {
-      print(e);
+      Log.e('Failed to add to watchlist', error: e);
     }
   }
 
@@ -98,7 +99,7 @@ class NovelSeriesNotifier extends Notifier<NovelSeriesState?> {
           updatedDetail, state!.novels, state!.novelStores, state!.nextUrl);
       state = result;
     } catch (e) {
-      print(e);
+      Log.e('Failed to remove from watchlist', error: e);
     }
   }
 

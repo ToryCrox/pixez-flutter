@@ -21,6 +21,7 @@ import 'package:pixez/lighting/lighting_store.dart';
 import 'package:pixez/models/novel_recom_response.dart';
 import 'package:pixez/network/api_client.dart';
 import 'package:pixez/page/novel/viewer/novel_store.dart';
+import 'package:pixez/custom/log.dart';
 
 part 'novel_lighting_store.g.dart';
 
@@ -54,7 +55,7 @@ abstract class _NovelLightingStoreBase with Store {
           .addAll(novel.map((element) => NovelStore(element.id, element)));
       controller.finishRefresh(IndicatorResult.success);
     } catch (e) {
-      print(e);
+      Log.e('Failed to fetch novels', error: e);
       errorMessage = e.toString();
       controller.finishRefresh(IndicatorResult.fail);
     }

@@ -351,6 +351,42 @@ dart run build_runner build --delete-conflicting-outputs
 - Riverpod Provider：`.riverpod.dart` 文件（`riverpod_generator`）
 - Freezed 类：`.freezed.dart` 和 `.g.dart` 文件（`freezed`）
 
+## 日志输出规范
+
+项目统一使用 `Log` 类进行日志输出，定义于 `lib/custom/log.dart`。
+
+### 日志级别
+- `Log.d()` - Debug 级别（开发调试信息）
+- `Log.i()` - Info 级别（一般信息）
+- `Log.w()` - Warning 级别（警告信息）
+- `Log.e()` - Error 级别（错误信息）
+
+### 使用规范
+1. **必须使用 Log 类**：禁止使用 `print()`、`debugPrint()` 或 `developer.log()`
+2. **推荐使用 Lambda 表达式**：建议使用 `Log.d(() => "message")` 形式，避免不必要的字符串拼接
+   ```dart
+   // 推荐
+   Log.d(() => "用户ID: $userId, 操作: $action");
+
+   // 也可以
+   Log.d("用户ID: $userId, 操作: $action");
+   ```
+3. **错误日志**：记录异常时使用 error 和 stackTrace 参数
+   ```dart
+   try {
+     // ...
+   } catch (e, stackTrace) {
+     Log.e("操作失败", error: e, stackTrace: stackTrace);
+   }
+   ```
+
+### Log 类特性
+- 基于 `logger` 包实现
+- 支持彩色输出（非 iOS 平台）
+- 自动过滤调用栈中的 log.dart 文件
+- 支持内存缓冲（最近 500 条日志）
+- Release 模式下只输出 info 及以上级别
+
 ## 开发工具
 
 项目包含开发调试工具：

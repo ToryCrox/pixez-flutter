@@ -563,38 +563,38 @@ class DownloadDatabaseProvider {
     try {
       // macOS: 检查并请求外部存储访问权限
       if (Platform.isMacOS && MacOSFileAccessManager.isExternalVolume(downloadPath)) {
-        print('🔐 检测到外部存储卷: $downloadPath');
-        print('正在检查访问权限...');
-        
+        Log.d(() => '🔐 检测到外部存储卷: $downloadPath');
+        Log.d(() => '正在检查访问权限...');
+
         // 检查是否已有 bookmark（支持下载路径本身或其任意父目录）
         bool hasBookmark = await MacOSFileAccessManager.hasBookmark(downloadPath);
-        
+
         if (!hasBookmark) {
-          print('⚠️  未找到访问权限，需要用户授权');
-          print('提示: 请在文件选择器中选择下载目录或其父目录');
-          print('     例如选择: $downloadPath');
-          print('     或选择: ${MacOSFileAccessManager.getRootPath(downloadPath)}');
-          
+          Log.w(() => '⚠️  未找到访问权限，需要用户授权');
+          Log.i(() => '提示: 请在文件选择器中选择下载目录或其父目录');
+          Log.i(() => '     例如选择: $downloadPath');
+          Log.i(() => '     或选择: ${MacOSFileAccessManager.getRootPath(downloadPath)}');
+
           final (success, selectedPath) = await MacOSFileAccessManager.requestDirectoryAccess();
           if (!success || selectedPath == null) {
             throw Exception('用户取消授权或授权失败');
           }
-          
+
           // 验证选择的路径是下载路径的父目录
           if (!downloadPath.startsWith(selectedPath)) {
             throw Exception('选择的目录无效：必须是 $downloadPath 的父目录或本身');
           }
-          
-          print('✅ 用户已授权访问: $selectedPath');
+
+          Log.i(() => '✅ 用户已授权访问: $selectedPath');
         }
-        
+
         // 开始访问外部存储（Swift 端会自动查找最匹配的父目录 bookmark）
         final accessGranted = await MacOSFileAccessManager.startAccessingPath(downloadPath);
         if (!accessGranted) {
           throw Exception('无法获取外部存储访问权限，请重新授权');
         }
-        
-        print('✅ 已获取外部存储访问权限');
+
+        Log.i(() => '✅ 已获取外部存储访问权限');
       }
       
       // 确保目录存在
@@ -616,23 +616,22 @@ class DownloadDatabaseProvider {
         try {
           await dbFile.open(mode: FileMode.read).then((f) => f.close());
         } catch (e) {
-          print('ERROR: 无法访问数据库文件 $dbPath');
-          print('错误详情: $e');
-          
+          Log.e(() => 'ERROR: 无法访问数据库文件 $dbPath', error: e);
+
           if (Platform.isMacOS && MacOSFileAccessManager.isExternalVolume(downloadPath)) {
-            print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-            print('⚠️  外部存储访问失败');
-            print('可能的原因:');
-            print('1. Security-Scoped Bookmark 已失效，需要重新授权');
-            print('2. 外部存储卷已被卸载或路径变化');
-            print('3. 文件系统权限不足');
-            print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-            
+            Log.e(() => '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+            Log.e(() => '⚠️  外部存储访问失败');
+            Log.e(() => '可能的原因:');
+            Log.e(() => '1. Security-Scoped Bookmark 已失效，需要重新授权');
+            Log.e(() => '2. 外部存储卷已被卸载或路径变化');
+            Log.e(() => '3. 文件系统权限不足');
+            Log.e(() => '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
             // 尝试清除旧的 bookmark 并重新请求
             await MacOSFileAccessManager.clearBookmark(downloadPath);
             throw Exception('外部存储访问失败，请重新启动应用并重新授权');
           }
-          
+
           rethrow;
         }
       }
@@ -810,24 +809,22 @@ class DownloadDatabaseProvider {
       },
     );
     } catch (e, stackTrace) {
-      print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      print('数据库打开失败');
-      print('数据库路径: $dbPath');
-      print('错误信息: $e');
-      print('堆栈信息: $stackTrace');
-      print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      
+      Log.e(() => '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      Log.e(() => '数据库打开失败');
+      Log.e(() => '数据库路径: $dbPath', error: e, stackTrace: stackTrace);
+      Log.e(() => '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
       // 如果是外部存储卷，给出特别提示
       if (downloadPath.startsWith('/Volumes/')) {
-        print('⚠️  检测到数据库位于外部存储卷');
-        print('可能的解决方案:');
-        print('1. 确保外部存储卷已正确挂载并可访问');
-        print('2. 检查macOS应用权限设置，确保应用有访问外部存储的权限');
-        print('3. 尝试将下载路径更改到应用目录或用户目录下');
-        print('4. 如果问题持续，请尝试重新创建数据库');
-        print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        Log.w(() => '⚠️  检测到数据库位于外部存储卷');
+        Log.w(() => '可能的解决方案:');
+        Log.w(() => '1. 确保外部存储卷已正确挂载并可访问');
+        Log.w(() => '2. 检查macOS应用权限设置，确保应用有访问外部存储的权限');
+        Log.w(() => '3. 尝试将下载路径更改到应用目录或用户目录下');
+        Log.w(() => '4. 如果问题持续，请尝试重新创建数据库');
+        Log.w(() => '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       }
-      
+
       rethrow;
     }
   }

@@ -102,7 +102,8 @@ main(List<String> args) async {
   final app = ProviderScope(child: MyApp(arguments: args));
 
   // 根据配置决定是否启用 ManaWidget
-  runApp(ManaManager.instance.isEnabled ? ManaWidget(child: app) : app);
+  //runApp(ManaManager.instance.isEnabled ? ManaWidget(child: app) : app);
+  runApp(app);
 }
 
 class MyApp extends StatefulWidget {

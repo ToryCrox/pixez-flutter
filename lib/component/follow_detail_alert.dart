@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:pixez/custom/log.dart';
 import 'package:pixez/i18n.dart';
 import 'package:pixez/network/api_client.dart';
 
@@ -43,7 +44,7 @@ class _State extends ConsumerState<FollowDetailAlert> {
         });
       }
     } catch (e) {
-      print(e);
+      Log.e(() => "Failed to get user follow detail", error: e);
       if (mounted) {
         setState(() {
           _isLoading = false;

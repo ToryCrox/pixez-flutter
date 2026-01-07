@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:mobx/mobx.dart';
 import 'package:pixez/network/account_client.dart';
+import 'package:pixez/custom/log.dart';
 part 'account_edit_store.g.dart';
 
 class AccountEditStore = _AccountEditStoreBase with _$AccountEditStore;
@@ -18,7 +19,7 @@ abstract class _AccountEditStoreBase with Store {
           newPassword: newPassword,
           currentPassword: oldPassword,
           newUserAccount: newUserAccount);
-      print(response.data);
+      Log.d('Account edit response: ${response.data}');
       return true;
     } catch (e) {
       if (e is DioException) {

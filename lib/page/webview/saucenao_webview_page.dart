@@ -11,6 +11,7 @@ import 'package:pixez/custom_tab_plugin.dart';
 import 'package:pixez/er/leader.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/network/api_client.dart';
+import 'package:pixez/custom/log.dart';
 
 class SauncenaoWebview extends StatefulWidget {
   final String? path;
@@ -122,7 +123,7 @@ class _SauncenaoWebviewState extends State<SauncenaoWebview> {
                               return webResourceResponse;
                             }
                           } catch (e) {
-                            print(e);
+                            Log.e('Failed to process SauceNAO request', error: e);
                           }
                           return null;
                         }

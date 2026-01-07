@@ -26,6 +26,7 @@ import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:pixez/component/painter_avatar.dart';
 import 'package:pixez/constants.dart';
+import 'package:pixez/custom/log.dart';
 import 'package:pixez/deep_link_plugin.dart';
 import 'package:pixez/er/leader.dart';
 import 'package:pixez/er/prefer.dart';
@@ -42,6 +43,7 @@ import 'package:pixez/page/search/search_page.dart';
 import 'package:pixez/page/search/suggest/search_suggestion_page.dart';
 import 'package:pixez/page/webview/saucenao_webview_page.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
+import 'package:pixez/custom/log.dart';
 
 class AndroidHelloPage extends StatefulWidget {
   const AndroidHelloPage({Key? key}) : super(key: key);
@@ -310,7 +312,7 @@ class _AndroidHelloPageState extends State<AndroidHelloPage> {
         }
       }
     }, onError: (err) {
-      print("getIntentDataStream error: $err");
+      Log.e(() => "getIntentDataStream error: $err", error: err);
     });
     ReceiveSharingIntent.instance
         .getInitialMedia()
@@ -418,7 +420,7 @@ class _AndroidHelloPageState extends State<AndroidHelloPage> {
       _sub = DeepLinkPlugin.uriLinkStream
           .listen((Uri? link) => Leader.pushWithUri(context, link!));
     } catch (e) {
-      print(e);
+      Log.e('Failed to initialize platform links', error: e);
     }
   }
 

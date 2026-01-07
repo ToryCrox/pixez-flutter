@@ -24,6 +24,7 @@ import 'package:pixez/main.dart';
 import 'package:pixez/models/amwork.dart';
 import 'package:pixez/network/api_client.dart';
 import 'package:html/dom.dart';
+import 'package:pixez/custom/log.dart';
 
 part 'soup_store.g.dart';
 
@@ -112,7 +113,7 @@ abstract class _SoupStoreBase with Store {
         }
         amWorks.add(amWork);
       } catch (e) {
-        print(e);
+        Log.e('Failed to parse English article work', error: e);
       }
     }
   }
@@ -168,7 +169,7 @@ abstract class _SoupStoreBase with Store {
         }
         amWorks.add(amWork);
       } catch (e) {
-        print(e);
+        Log.e('Failed to parse Chinese article work', error: e);
       }
     }
   }

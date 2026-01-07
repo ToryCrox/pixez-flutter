@@ -26,6 +26,7 @@ import 'package:pixez/models/novel_web_response.dart';
 import 'package:pixez/network/api_client.dart';
 import 'package:pixez/page/picture/illust_lighting_page.dart';
 import 'package:url_launcher/url_launcher_string.dart';
+import 'package:pixez/custom/log.dart';
 
 //这一堆都是专门给小说特殊约定写的
 //🎵 EGOIST - Lovely Icecream Princess Sweetie
@@ -55,7 +56,7 @@ class PixivImageSpan extends WidgetSpan {
       final result = Illusts.fromJson(response.data['illust']);
       return result;
     } catch (e) {
-      print(e);
+      Log.e('Failed to get illust data', error: e);
     }
     return null;
   }
@@ -141,10 +142,10 @@ class NovelSpansGenerator {
       if (nowStr.isNotEmpty) {
         result.add(NovelSpansData(NovelSpansType.normal, nowStr));
       }
-      print(result);
+      Log.d('NovelSpansGenerator.buildSpans: $result');
       return result;
     } catch (e) {
-      print(e);
+      Log.e('Failed to build novel spans', error: e);
     }
     return [NovelSpansData(NovelSpansType.normal, source)];
   }

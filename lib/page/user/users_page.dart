@@ -44,6 +44,7 @@ import 'package:pixez/page/user/detail/user_detail.dart';
 import 'package:pixez/page/user/user_store.dart';
 import 'package:pixez/page/user/works/works_page.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:pixez/custom/log.dart';
 
 /*
 🎵 Lyn-The Whims of Fate🎵
@@ -796,7 +797,7 @@ class _UsersPageState extends State<UsersPage> with TickerProviderStateMixin {
       await DocumentPlugin.save(bytes, "${widget.id}_bg.jpg");
       BotToast.showText(text: I18n.of(context).saved);
     } catch (e) {
-      print(e);
+      Log.e('Failed to save user background', error: e);
     }
   }
 
@@ -864,7 +865,7 @@ class _UsersPageState extends State<UsersPage> with TickerProviderStateMixin {
       } else
         BotToast.showText(text: I18n.of(context).failed);
     } catch (e) {
-      print(e);
+      Log.e('Failed to save user avatar', error: e);
     }
   }
 }
