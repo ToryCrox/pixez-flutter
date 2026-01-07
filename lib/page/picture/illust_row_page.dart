@@ -14,6 +14,8 @@
  *
  */
 
+import 'dart:convert';
+
 import 'package:bot_toast/bot_toast.dart';
 import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/material.dart';
@@ -1400,12 +1402,8 @@ class _IllustRowPageState extends State<IllustRowPage>
                           Icons.local_library,
                         ),
                         onTap: () async {
-                          await Clipboard.setData(ClipboardData(
-                              text:
-                                  'title:${illusts.title}\npainter:${illusts.user.name}\nillust id:${widget.id}'));
-                          BotToast.showText(
-                              text: I18n.of(context).copied_to_clipboard);
                           Navigator.of(context).pop();
+                          _showIllustInfoDialog(context, illusts);
                         },
                       ),
                       Builder(builder: (context) {
@@ -1577,6 +1575,136 @@ class _IllustRowPageState extends State<IllustRowPage>
     );
   }
 
+  Future<void> _showIllustInfoDialog(BuildContext context, Illusts illust) async {
+    // 在显示对话框前先获取 i18n，避免在对话框中无法获取 context 的问题
+    final cancelText = I18n.of(context).cancel;
+    return showDialog(
+      context: context,
+      useRootNavigator: false,
+      builder: (context) => IllustInfoDialog(illust: illust, cancelText: cancelText),
+    );
+  }
+
   @override
   bool get wantKeepAlive => false;
+}
+
+class IllustInfoDialog extends StatelessWidget {
+  final Illusts illust;
+  final String cancelText;
+
+  const IllustInfoDialog({Key? key, required this.illust, required this.cancelText}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    // 生成原来的复制信息
+    final shareInfo = 'title:${illust.title}\npainter:${illust.user.name}\nillust id:${illust.id}';
+
+    // 生成 JSON 格式的插画信息
+    final jsonData = jsonEncode(illust.toJson());
+    final formattedJson = const JsonEncoder.withIndent('  ').convert(illust.toJson());
+
+    return AlertDialog(
+      title: Text('插画信息'),
+      content: Container(
+        width: double.maxFinite,
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.7,
+          maxWidth: 800,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 原来的复制信息
+            Container(
+              padding: EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text('复制信息:', style: TextStyle(fontWeight: FontWeight.bold)),
+                      Spacer(),
+                      InkWell(
+                        onTap: () {
+                          Clipboard.setData(ClipboardData(text: shareInfo));
+                          BotToast.showText(text: '已复制');
+                        },
+                        child: Icon(Icons.copy, size: 16),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 4),
+                  SelectionArea(
+                    child: Text(shareInfo, style: TextStyle(fontSize: 12)),
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(height: 16),
+            // JSON 数据
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text('JSON 数据:', style: TextStyle(fontWeight: FontWeight.bold)),
+                      Spacer(),
+                      InkWell(
+                        onTap: () {
+                          Clipboard.setData(ClipboardData(text: jsonData));
+                          BotToast.showText(text: '已复制全部');
+                        },
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text('复制全部', style: TextStyle(fontSize: 12)),
+                            SizedBox(width: 4),
+                            Icon(Icons.copy_all, size: 16),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 8),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      child: SelectionArea(
+                        child: Container(
+                          padding: EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            formattedJson,
+                            style: TextStyle(
+                              fontFamily: 'monospace',
+                              fontSize: 11,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(cancelText),
+        ),
+      ],
+    );
+  }
 }
