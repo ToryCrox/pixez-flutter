@@ -1595,7 +1595,7 @@ class _IllustRowPageState extends State<IllustRowPage>
   bool get wantKeepAlive => false;
 }
 
-class IllustInfoDialog extends StatelessWidget {
+class IllustInfoDialog extends StatefulWidget {
   final Illusts illust;
   final String cancelText;
   final UgoiraMetadataResponse? ugoiraMetadata;
@@ -1608,165 +1608,229 @@ class IllustInfoDialog extends StatelessWidget {
   }) : super(key: key);
 
   @override
+  State<IllustInfoDialog> createState() => _IllustInfoDialogState();
+}
+
+class _IllustInfoDialogState extends State<IllustInfoDialog>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+
+  @override
+  void initState() {
+    final hasUgoiraMetadata = widget.ugoiraMetadata != null;
+    _tabController = TabController(
+      length: hasUgoiraMetadata ? 2 : 1,
+      vsync: this,
+    );
+    super.initState();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     // 生成原来的复制信息
-    final shareInfo = 'title:${illust.title}\npainter:${illust.user.name}\nillust id:${illust.id}';
+    final shareInfo =
+        'title:${widget.illust.title}\npainter:${widget.illust.user.name}\nillust id:${widget.illust.id}';
 
     // 生成 JSON 格式的插画信息
-    final jsonData = jsonEncode(illust.toJson());
-    final formattedJson = const JsonEncoder.withIndent('  ').convert(illust.toJson());
+    final jsonData = jsonEncode(widget.illust.toJson());
+    final formattedJson =
+        const JsonEncoder.withIndent('  ').convert(widget.illust.toJson());
 
     // 生成动图 metadata JSON（如果有）
-    final hasUgoiraMetadata = ugoiraMetadata != null;
+    final hasUgoiraMetadata = widget.ugoiraMetadata != null;
     String ugoiraMetadataJson = '';
     String formattedUgoiraMetadataJson = '';
     if (hasUgoiraMetadata) {
-      ugoiraMetadataJson = jsonEncode(ugoiraMetadata!.toJson());
-      formattedUgoiraMetadataJson = const JsonEncoder.withIndent('  ').convert(ugoiraMetadata!.toJson());
+      ugoiraMetadataJson = jsonEncode(widget.ugoiraMetadata!.toJson());
+      formattedUgoiraMetadataJson =
+          const JsonEncoder.withIndent('  ').convert(widget.ugoiraMetadata!.toJson());
     }
 
     return AlertDialog(
       title: Text('插画信息'),
-      content: Container(
+      content: SizedBox(
         width: double.maxFinite,
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.7,
-          maxWidth: 800,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 原来的复制信息
-            Container(
-              padding: EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text('复制信息:', style: TextStyle(fontWeight: FontWeight.bold)),
-                      Spacer(),
-                      InkWell(
-                        onTap: () {
-                          Clipboard.setData(ClipboardData(text: shareInfo));
-                          BotToast.showText(text: '已复制');
-                        },
-                        child: Icon(Icons.copy, size: 16),
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: 4),
-                  SelectionArea(
-                    child: Text(shareInfo, style: TextStyle(fontSize: 12)),
-                  ),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.7,
+            maxWidth: 800,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Tab bar
+              TabBar(
+                controller: _tabController,
+                tabs: [
+                  Tab(text: 'Illust'),
+                  if (hasUgoiraMetadata) Tab(text: 'Ugoira Metadata'),
                 ],
               ),
-            ),
-            SizedBox(height: 16),
-            // 动图 Metadata（如果有）
-            if (hasUgoiraMetadata) ...[
-              Container(
-                padding: EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              SizedBox(height: 8),
+              // Tab bar view
+              Expanded(
+                child: TabBarView(
+                  controller: _tabController,
                   children: [
-                    Row(
+                    // Illust Tab
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('动图 Metadata:', style: TextStyle(fontWeight: FontWeight.bold)),
-                        Spacer(),
-                        InkWell(
-                          onTap: () {
-                            Clipboard.setData(ClipboardData(text: ugoiraMetadataJson));
-                            BotToast.showText(text: '已复制');
-                          },
-                          child: Icon(Icons.copy, size: 16),
+                        // 原来的复制信息
+                        Container(
+                          padding: EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .surfaceContainerHighest,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Text('复制信息:',
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.bold)),
+                                  Spacer(),
+                                  InkWell(
+                                    onTap: () {
+                                      Clipboard.setData(
+                                          ClipboardData(text: shareInfo));
+                                      BotToast.showText(text: '已复制');
+                                    },
+                                    child: Icon(Icons.copy, size: 16),
+                                  ),
+                                ],
+                              ),
+                              SizedBox(height: 4),
+                              SelectionArea(
+                                child: Text(shareInfo, style: TextStyle(fontSize: 12)),
+                              ),
+                            ],
+                          ),
+                        ),
+                        SizedBox(height: 16),
+                        // JSON 数据
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Text('JSON 数据:',
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.bold)),
+                                  Spacer(),
+                                  InkWell(
+                                    onTap: () {
+                                      Clipboard.setData(
+                                          ClipboardData(text: jsonData));
+                                      BotToast.showText(text: '已复制全部');
+                                    },
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text('复制全部',
+                                            style: TextStyle(fontSize: 12)),
+                                        SizedBox(width: 4),
+                                        Icon(Icons.copy_all, size: 16),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              SizedBox(height: 8),
+                              Expanded(
+                                child: SingleChildScrollView(
+                                  child: SelectionArea(
+                                    child: Container(
+                                      padding: EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .surfaceContainerHighest,
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Text(
+                                        formattedJson,
+                                        style: TextStyle(
+                                          fontFamily: 'monospace',
+                                          fontSize: 11,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ),
-                    SizedBox(height: 4),
-                    Expanded(
-                      child: SingleChildScrollView(
-                        child: SelectionArea(
-                          child: Text(
-                            formattedUgoiraMetadataJson,
-                            style: TextStyle(
-                              fontFamily: 'monospace',
-                              fontSize: 11,
+                    // Ugoira Metadata Tab
+                    if (hasUgoiraMetadata)
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Text('Ugoira Metadata:',
+                                  style: TextStyle(fontWeight: FontWeight.bold)),
+                              Spacer(),
+                              InkWell(
+                                onTap: () {
+                                  Clipboard.setData(
+                                      ClipboardData(text: ugoiraMetadataJson));
+                                  BotToast.showText(text: '已复制');
+                                },
+                                child: Icon(Icons.copy, size: 16),
+                              ),
+                            ],
+                          ),
+                          SizedBox(height: 8),
+                          Expanded(
+                            child: SingleChildScrollView(
+                              child: SelectionArea(
+                                child: Container(
+                                  padding: EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .surfaceContainerHighest,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    formattedUgoiraMetadataJson,
+                                    style: TextStyle(
+                                      fontFamily: 'monospace',
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                ),
+                              ),
                             ),
                           ),
-                        ),
+                        ],
                       ),
-                    ),
                   ],
                 ),
               ),
-              SizedBox(height: 16),
             ],
-            // JSON 数据
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text('JSON 数据:', style: TextStyle(fontWeight: FontWeight.bold)),
-                      Spacer(),
-                      InkWell(
-                        onTap: () {
-                          Clipboard.setData(ClipboardData(text: jsonData));
-                          BotToast.showText(text: '已复制全部');
-                        },
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text('复制全部', style: TextStyle(fontSize: 12)),
-                            SizedBox(width: 4),
-                            Icon(Icons.copy_all, size: 16),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: 8),
-                  Expanded(
-                    child: SingleChildScrollView(
-                      child: SelectionArea(
-                        child: Container(
-                          padding: EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            formattedJson,
-                            style: TextStyle(
-                              fontFamily: 'monospace',
-                              fontSize: 11,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+          ),
         ),
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: Text(cancelText),
+          child: Text(widget.cancelText),
         ),
       ],
     );
