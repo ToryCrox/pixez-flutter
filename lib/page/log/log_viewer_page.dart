@@ -273,54 +273,86 @@ class _LogEventTileState extends State<_LogEventTile> {
   Widget build(BuildContext context) {
     final level = widget.event.level;
     final message = _formatFullMessage();
-    final lines = message.split('\n');
-    final needExpand = lines.length > widget.maxLines;
-    final displayMessage = _expanded
-        ? message
-        : lines.take(widget.maxLines).join('\n');
+    final textPainter = TextPainter(
+      text: TextSpan(
+        text: message,
+        style: const TextStyle(
+          fontFamily: 'monospace',
+          fontSize: 12,
+        ),
+      ),
+      textDirection: Directionality.of(context),
+      maxLines: widget.maxLines,
+    )..layout(maxWidth: MediaQuery.of(context).size.width - 80); // 减去 padding 和 margin
+
+    final didExceedMaxLines = textPainter.didExceedMaxLines;
+    final displayMessage = _expanded ? message : message;
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      child: InkWell(
-        onTap: needExpand
-            ? () {
-                setState(() {
-                  _expanded = !_expanded;
-                });
-              }
-            : null,
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // 第一行: 时间 + 级别
-              Row(
-                children: [
-                  _buildTimeText(),
-                  const SizedBox(width: 8),
-                  _buildLevelIcon(level),
-                  const Spacer(),
-                  if (needExpand)
-                    Icon(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 第一行: 时间 + 级别 + 复制按钮
+            Row(
+              children: [
+                _buildTimeText(),
+                const SizedBox(width: 8),
+                _buildLevelIcon(level),
+                const Spacer(),
+                // 复制按钮
+                IconButton(
+                  icon: const Icon(Icons.copy, size: 16),
+                  tooltip: '复制',
+                  onPressed: () {
+                    Clipboard.setData(ClipboardData(text: message));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('已复制'),
+                        duration: Duration(seconds: 1),
+                      ),
+                    );
+                  },
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+                const SizedBox(width: 8),
+                // 展开/收起按钮
+                if (didExceedMaxLines)
+                  IconButton(
+                    icon: Icon(
                       _expanded ? Icons.expand_less : Icons.expand_more,
                       size: 20,
                     ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              // 消息内容 - 使用 SelectableText 支持复制
-              SelectableText(
+                    tooltip: _expanded ? '收起' : '展开',
+                    onPressed: () {
+                      setState(() {
+                        _expanded = !_expanded;
+                      });
+                    },
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            // 消息内容 - 使用 SelectionArea 包裹 Text 以支持文本选择
+            SelectionArea(
+              child: Text(
                 displayMessage,
+                maxLines: _expanded ? null : widget.maxLines,
+                overflow: _expanded ? TextOverflow.visible : TextOverflow.ellipsis,
                 style: TextStyle(
                   fontFamily: 'monospace',
                   fontSize: 12,
                   color: _getLevelColor(level),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -412,17 +444,27 @@ class _LogEventTileState extends State<_LogEventTile> {
       const encoder = JsonEncoder.withIndent('  ');
       buffer.write(encoder.convert(finalMessage));
     } else {
-      buffer.write(finalMessage.toString());
+      // 去除首尾的换行符和空白，避免多余空行
+      final trimmed = finalMessage.toString().trim();
+      buffer.write(trimmed);
     }
 
     // 添加 error
     if (widget.event.origin.error != null) {
-      buffer.write('\nError: ${widget.event.origin.error}');
+      // 如果已经有消息内容，先换行
+      if (buffer.isNotEmpty) {
+        buffer.write('\n');
+      }
+      buffer.write('Error: ${widget.event.origin.error}');
     }
 
     // 添加 stackTrace
     if (widget.event.origin.stackTrace != null) {
-      buffer.write('\nStackTrace:\n${widget.event.origin.stackTrace}');
+      // 如果已经有内容，先换行
+      if (buffer.isNotEmpty) {
+        buffer.write('\n');
+      }
+      buffer.write('StackTrace:\n${widget.event.origin.stackTrace}');
     }
 
     return buffer.toString();
