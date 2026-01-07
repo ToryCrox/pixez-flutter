@@ -44,6 +44,7 @@ import 'package:pixez/page/picture/illust_about_store.dart';
 import 'package:pixez/page/picture/illust_detail_content.dart';
 import 'package:pixez/page/picture/illust_store.dart';
 import 'package:pixez/page/picture/picture_list_page.dart';
+import 'package:pixez/component/json_highlighter.dart';
 import 'package:pixez/page/picture/tag_for_illust_page.dart';
 import 'package:pixez/page/picture/ugoira_loader.dart';
 import 'package:pixez/page/search/result_page.dart';
@@ -1751,21 +1752,8 @@ class _IllustInfoDialogState extends State<IllustInfoDialog>
                               Expanded(
                                 child: SingleChildScrollView(
                                   child: SelectionArea(
-                                    child: Container(
-                                      padding: EdgeInsets.all(8),
-                                      decoration: BoxDecoration(
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .surfaceContainerHighest,
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: Text(
-                                        formattedJson,
-                                        style: TextStyle(
-                                          fontFamily: 'monospace',
-                                          fontSize: 11,
-                                        ),
-                                      ),
+                                    child: JsonHighlighter(
+                                      json: formattedJson,
                                     ),
                                   ),
                                 ),
@@ -1799,21 +1787,8 @@ class _IllustInfoDialogState extends State<IllustInfoDialog>
                           Expanded(
                             child: SingleChildScrollView(
                               child: SelectionArea(
-                                child: Container(
-                                  padding: EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .surfaceContainerHighest,
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Text(
-                                    formattedUgoiraMetadataJson,
-                                    style: TextStyle(
-                                      fontFamily: 'monospace',
-                                      fontSize: 11,
-                                    ),
-                                  ),
+                                child: JsonHighlighter(
+                                  json: formattedUgoiraMetadataJson,
                                 ),
                               ),
                             ),
