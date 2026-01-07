@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:dio_compatibility_layer/dio_compatibility_layer.dart';
 import 'package:pixez/component/pixiv_image.dart';
-import 'package:pixez/er/lprinter.dart';
+import 'package:pixez/custom/log.dart';
 import 'package:pixez/er/prefer.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/models/onezero_response.dart';
@@ -78,7 +78,7 @@ class Hoster {
         }
       }
     } catch (e) {
-      LPrinter.d(e);
+      Log.e('Failed to init Hoster map', error: e);
     }
   }
 
@@ -105,9 +105,9 @@ class Hoster {
           Prefer.setString('h_hoster_$name', host);
         }
       }
-      LPrinter.d(host);
+      Log.d(() => host);
     } catch (e) {
-      LPrinter.d(e);
+      Log.e('Failed to query DNS', error: e);
     }
   }
 

@@ -23,7 +23,7 @@ import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pixez/component/pixiv_image.dart';
 import 'package:pixez/er/hoster.dart';
-import 'package:pixez/er/lprinter.dart';
+import 'package:pixez/custom/log.dart';
 import 'package:pixez/er/toaster.dart';
 import 'package:pixez/i18n.dart';
 import 'package:pixez/main.dart';
@@ -107,7 +107,7 @@ class Fetcher {
     if (receivePort.isBroadcast) return;
     await taskPersistProvider.open();
     await taskPersistProvider.getAllAccount();
-    LPrinter.d("Fetcher start");
+    Log.d(() => "Fetcher start");
     receivePort.listen((message) {
       try {
         IsoContactBean isoContactBean = message;
@@ -135,7 +135,7 @@ class Fetcher {
             urlPool.remove(taskBean.url);
             if (queue.isNotEmpty) {
               queue.removeWhere((element) => element.url == taskBean.url);
-              LPrinter.d("c ${queue.length}");
+              Log.d(() => "c ${queue.length}");
             }
             fetcher.jobMaps.removeWhere((key, value) => key == taskBean.url);
             nextJob();
@@ -147,7 +147,7 @@ class Fetcher {
             urlPool.remove(taskBean.url);
             if (queue.isNotEmpty) {
               queue.removeWhere((element) => element.url == taskBean.url);
-              LPrinter.d("c ${queue.length}");
+              Log.d(() => "c ${queue.length}");
             }
             fetcher.jobMaps.removeWhere((key, value) => key == taskBean.url);
             nextJob();
@@ -164,7 +164,7 @@ class Fetcher {
   }
 
   save(String url, Illusts illusts, String fileName) async {
-    LPrinter.d(sendPortToChild.toString() + url);
+    Log.d(() => sendPortToChild.toString() + url);
     var taskBean = TaskBean(
         url: url,
         illusts: illusts,
@@ -257,7 +257,7 @@ r.RhttpClient? isolateDio;
 entryPoint(SendMessage message) async {
   String pictureSource = message.pictureSource;
   SendPort sendPort = message.sendPort;
-  LPrinter.d("entryPoint ====== $pictureSource");
+  Log.d(() => "entryPoint ====== $pictureSource");
   String inSource = pictureSource;
   await Rhttp.init();
   await Hoster.initMap();
@@ -312,18 +312,19 @@ entryPoint(SendMessage message) async {
               sendPort.send(
                   IsoContactBean(state: IsoTaskState.COMPLETE, data: taskBean));
             }).catchError((e) {
-              LPrinter.d(e);
+              Log.e('Fetcher task failed', error: e);
               try {
                 splashStore.maybeFetch();
                 sendPort.send(
                     IsoContactBean(state: IsoTaskState.ERROR, data: taskBean));
               } catch (e) {
-                LPrinter.d(e);
+                Log.e('Failed to send error message', error: e);
               }
             });
           } catch (e) {
-            LPrinter.d("fetcher=======");
-            LPrinter.d(e);
+            Log.e('Fetcher catch error', error: e);
+            Log.d(() => "fetcher=======");
+            Log.e('Fetcher error details', error: e);
             sendPort.send(
                 IsoContactBean(state: IsoTaskState.ERROR, data: taskBean));
           }
@@ -332,7 +333,7 @@ entryPoint(SendMessage message) async {
           break;
       }
     } catch (e) {
-      LPrinter.d(e);
+      Log.e('Fetcher listen error', error: e);
     }
   });
 }

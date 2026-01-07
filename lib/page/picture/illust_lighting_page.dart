@@ -30,7 +30,7 @@ import 'package:pixez/component/pixez_default_header.dart';
 import 'package:pixez/component/pixiv_image.dart';
 import 'package:pixez/component/star_icon.dart';
 import 'package:pixez/er/leader.dart';
-import 'package:pixez/er/lprinter.dart';
+import 'package:pixez/custom/log.dart';
 import 'package:pixez/i18n.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/models/ban_illust_id.dart';
@@ -174,7 +174,7 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
       _illustStore = widget.store ?? IllustStore(widget.id, null);
       _illustStore.fetch();
       _aboutStore = IllustAboutStore(widget.id, _refreshController);
-      LPrinter.d("state change");
+      Log.d(() => "state change");
     }
   }
 
@@ -1320,7 +1320,7 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
     final result =
         await Leader.pushWithScaffold(context, TagForIllustPage(id: widget.id));
     if (result is Map) {
-      LPrinter.d(result);
+      Log.d(() => result);
       String restrict = result['restrict'];
       List<String>? tags = result['tags'];
       if (userSetting.saveAfterStar && (_illustStore.state == 0)) {

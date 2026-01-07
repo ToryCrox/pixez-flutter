@@ -19,14 +19,13 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:pixez/component/pixiv_image.dart';
 import 'package:pixez/er/leader.dart';
-import 'package:pixez/er/lprinter.dart';
+import 'package:pixez/custom/log.dart';
 import 'package:pixez/i18n.dart';
 import 'package:pixez/models/illust.dart';
 import 'package:pixez/models/novel_web_response.dart';
 import 'package:pixez/network/api_client.dart';
 import 'package:pixez/page/picture/illust_lighting_page.dart';
 import 'package:url_launcher/url_launcher_string.dart';
-import 'package:pixez/custom/log.dart';
 
 //这一堆都是专门给小说特殊约定写的
 //🎵 EGOIST - Lovely Icecream Princess Sweetie
@@ -173,7 +172,7 @@ class NovelSpansGenerator {
     } else if (spanStr.startsWith("[uploadedimage:")) {
       final String key = spanStr.toString();
       final flag = '[uploadedimage:';
-      LPrinter.d(key);
+      Log.d(() => key);
       String now = key.substring(flag.length, key.indexOf("]"));
       final image = webResponse.images?[now];
       final url = image?.urls.the128X128 ??
@@ -187,7 +186,7 @@ class NovelSpansGenerator {
     } else if (spanStr.startsWith('[[jumpuri:')) {
       final String key = spanStr.toString();
       final flag = '[[jumpuri:';
-      LPrinter.d(key);
+      Log.d(() => key);
       String now = key.substring(flag.length, key.indexOf("]"));
       Iterable<RegExpMatch> matches = linkRegex.allMatches(now);
       final matchLink = matches.firstOrNull;

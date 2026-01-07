@@ -19,7 +19,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:pixez/component/pixiv_image.dart';
 import 'package:pixez/er/leader.dart';
-import 'package:pixez/er/lprinter.dart';
+import 'package:pixez/custom/log.dart';
 import 'package:pixez/i18n.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/models/tags.dart';
@@ -56,7 +56,7 @@ class _NovelSearchPageState extends State<NovelSearchPage> {
         _tags = trendingTag.trend_tags;
       });
     } catch (e) {
-      LPrinter.d(e);
+      Log.e('Failed to fetch novel trend tags', error: e);
     }
   }
 

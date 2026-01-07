@@ -20,7 +20,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 import 'package:pixez/component/picker/utils.dart';
 import 'package:pixez/er/leader.dart';
-import 'package:pixez/er/lprinter.dart';
+import 'package:pixez/custom/log.dart';
 import 'package:pixez/supportor_plugin.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:share_plus/share_plus.dart';
@@ -60,7 +60,7 @@ class _SelectableHtmlState extends State<SelectableHtml> {
         },
         onTapUrl: (String url) async {
           try {
-            LPrinter.d("html tap url: $url");
+            Log.d(() => "html tap url: $url");
             bool result = await Leader.pushWithUri(context, Uri.parse(url));
             if (!result) {
               await launchUrl(Uri.parse(url),

@@ -20,18 +20,13 @@ import 'package:archive/archive.dart';
 import 'package:bot_toast/bot_toast.dart';
 import 'package:mobx/mobx.dart';
 import 'package:path/path.dart' as path;
-import 'package:path_provider/path_provider.dart';
-import 'package:pixez/er/lprinter.dart';
+import 'package:pixez/custom/log.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/models/ugoira_metadata_response.dart';
-import 'package:pixez/network/api_client.dart';
-import 'package:pixez/saf_plugin.dart';
 import 'package:pixez/store/download_store.dart';
 import 'package:pixez/utils/ugoira_downloader.dart';
 import 'package:pixez/custom/pixiv_url_util.dart';
 import 'package:pixez/custom/type_util.dart';
-
-import '../../custom/log.dart';
 
 part 'ugoira_store.g.dart';
 
@@ -68,7 +63,7 @@ abstract class _UgoiraStoreBase with Store {
   void _onDownloadStatusChanged(IllustDownloadStatus status) {
     if (status.status == DownloadTaskStatus.downloading ||
         status.status == DownloadTaskStatus.pending) {
-      LPrinter.d('动图 $id 开始下载，清空当前帧列表');
+      Log.d(() =>'动图 $id 开始下载，清空当前帧列表');
       // 下载开始时，清空当前帧列表，避免使用即将被删除的临时文件
       drawPool = [];
       // 如果当前不是进度状态，设置为进度状态
@@ -76,11 +71,11 @@ abstract class _UgoiraStoreBase with Store {
         this.status = UgoiraStatus.progress;
       }
     } else if (status.status == DownloadTaskStatus.completed) {
-      LPrinter.d('动图 $id 下载完成，重新加载本地文件');
+      Log.d(() =>'动图 $id 下载完成，重新加载本地文件');
       // 下载完成时，重新从已下载目录加载
       _loadFromDownloadDirectory();
     } else if (status.status == DownloadTaskStatus.failed) {
-      LPrinter.d('动图 $id 下载失败');
+      Log.d(() =>'动图 $id 下载失败');
       // 下载失败时，恢复到初始状态
       this.status = UgoiraStatus.pre;
     }
@@ -128,14 +123,14 @@ abstract class _UgoiraStoreBase with Store {
 
     // 1. 首先检查是否已经下载到统一下载目录
     final isDownloaded = await downloadStore.dbProvider.isIllustDownloaded(id);
-    LPrinter.d('动图 $id 下载状态检查: isDownloaded=$isDownloaded');
+    Log.d(() => '动图 $id 下载状态检查: isDownloaded=$isDownloaded');
     if (isDownloaded) {
       await _loadFromDownloadDirectory();
       return;
     }
 
     // 2. 如果没有下载，使用临时下载流程
-    LPrinter.d('动图 $id 未下载，使用临时下载流程');
+    Log.d(() => '动图 $id 未下载，使用临时下载流程');
     await _fetchAndUnzip();
   }
 
@@ -147,7 +142,7 @@ abstract class _UgoiraStoreBase with Store {
       final downloadedIllust = await downloadStore.dbProvider.getIllustByIllustId(id);
       if (downloadedIllust == null) {
         // 数据库记录不存在，回退到下载流程
-        LPrinter.d('动图 $id 数据库记录不存在，回退到下载流程');
+        Log.d(() =>'动图 $id 数据库记录不存在，回退到下载流程');
         await _fetchAndUnzip();
         return;
       }
@@ -249,7 +244,7 @@ abstract class _UgoiraStoreBase with Store {
       drawPool = frameFiles;
       status = UgoiraStatus.play;
     } catch (e) {
-      LPrinter.d('动图 $id 加载本地动图失败: $e');
+      Log.d(() =>'动图 $id 加载本地动图失败: $e');
       // 加载失败，回退到下载流程
       await _fetchAndUnzip();
     }
@@ -267,7 +262,7 @@ abstract class _UgoiraStoreBase with Store {
       drawPool = result.frameFiles;
       status = UgoiraStatus.play;
     } catch (e) {
-      LPrinter.d('下载动图失败: $e');
+      Log.d(() =>'下载动图失败: $e');
       // 清理临时解压目录（ZIP 由 pixivCacheManager 管理）
       await ugoiraDownloader.cleanupTempExtractDir(id);
       status = UgoiraStatus.pre;

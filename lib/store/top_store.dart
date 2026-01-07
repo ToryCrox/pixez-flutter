@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:mobx/mobx.dart';
-import 'package:pixez/er/lprinter.dart';
+import 'package:pixez/custom/log.dart';
 
 part 'top_store.g.dart';
 
@@ -30,7 +30,7 @@ abstract class _TopStoreBase with Store {
   }
 
   setTop(String name) {
-    LPrinter.d(name);
+    Log.d(() => name);
     _streamController.add(name);
   }
 }

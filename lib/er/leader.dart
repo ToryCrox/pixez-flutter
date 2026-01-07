@@ -20,8 +20,6 @@ import 'package:bot_toast/bot_toast.dart';
 import 'package:dio/dio.dart';
 import 'package:pixez/custom/log.dart';
 import 'package:flutter/material.dart';
-
-import 'package:pixez/er/lprinter.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/models/account.dart';
 import 'package:pixez/network/oauth_client.dart';
@@ -108,7 +106,7 @@ class Leader {
         Response response = await dio.getUri(link);
         if (response.isRedirect == true) {
           Uri source = response.realUri;
-          LPrinter.d("here we go pixiv me:" + source.toString());
+          Log.d(() => "here we go pixiv me:" + source.toString());
           return await pushWithUri(context, source);
         }
       } catch (e) {
@@ -133,7 +131,7 @@ class Leader {
         try {
           BotToast.showText(text: "working....");
           String code = link.queryParameters['code']!;
-          LPrinter.d("here we go:" + code);
+          Log.d(() => "here we go:" + code);
           Response response = await oAuthClient.code2Token(code);
           AccountResponse accountResponse =
               Account.fromJson(response.data).response;
@@ -159,7 +157,7 @@ class Leader {
           BotToast.showText(text: "Login Success");
           if (Platform.isIOS) pushUntilHome(context);
         } catch (e) {
-          LPrinter.d(e);
+          Log.e('OAuth code2Token failed', error: e);
           BotToast.showText(text: e.toString());
         }
       } else if (link.host.contains("illusts") ||
@@ -214,7 +212,7 @@ class Leader {
         );
         return true;
       } catch (e) {
-        LPrinter.d(e);
+        Log.d(() => e);
       }
     } else if (link.host.contains('pixiv')) {
       if (link.path.contains("artworks")) {
@@ -232,7 +230,7 @@ class Leader {
             );
             return true;
           } catch (e) {
-            LPrinter.d(e);
+            Log.e('Failed to parse illust id from artworks path', error: e);
           }
         }
       }

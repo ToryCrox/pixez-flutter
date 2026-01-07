@@ -19,7 +19,7 @@ import 'dart:io';
 
 import 'package:flutter/widgets.dart';
 import 'package:mobx/mobx.dart';
-import 'package:pixez/er/lprinter.dart';
+import 'package:pixez/custom/log.dart';
 import 'package:pixez/er/prefer.dart';
 import 'package:pixez/er/sharer.dart';
 import 'package:pixez/models/ban_comment_persist.dart';
@@ -176,7 +176,7 @@ abstract class _MuteStoreBase with Store {
       final uri = await SAFPlugin.createFile(
           "pixez_mute_${DateTime.now().toIso8601String()}.json",
           "application/json");
-      LPrinter.d("exportJson:$exportJson");
+      Log.d(() => "exportJson:$exportJson");
       if (uri != null) {
         await SAFPlugin.writeUri(uri, uint8List);
       }

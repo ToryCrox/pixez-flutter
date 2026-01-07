@@ -29,7 +29,7 @@ import 'package:image_picker_android/image_picker_android.dart';
 import 'package:image_picker_platform_interface/image_picker_platform_interface.dart';
 import 'package:mobx/mobx.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:pixez/er/lprinter.dart';
+import 'package:pixez/custom/log.dart';
 import 'package:pixez/er/prefer.dart';
 import 'package:pixez/i18n.dart';
 import 'package:pixez/main.dart';
@@ -124,8 +124,7 @@ abstract class SauceStoreBase with Store {
       if (pickedFile == null) return;
       Uint8List originImageBytes = await pickedFile.readAsBytes();
       var newImageBytes = compressImage(originImageBytes);
-      LPrinter.d(
-          "Uncompressed image size: ${originImageBytes.length}, compressed image size: ${newImageBytes.length}");
+      Log.d(() => "Uncompressed image size: ${originImageBytes.length}, compressed image size: ${newImageBytes.length}");
       path =
           "${(await getTemporaryDirectory()).path}/${DateTime.now().millisecondsSinceEpoch}.jpg";
       await File(path).writeAsBytes(newImageBytes);

@@ -18,7 +18,7 @@ import 'dart:math';
 
 import 'package:crypto/crypto.dart';
 import 'package:pixez/constants.dart';
-import 'package:pixez/er/lprinter.dart';
+import 'package:pixez/custom/log.dart';
 
 //虽然官方有提供包能一键生成，但是少一个依赖更好 :)
 class CryptoPlugin {
@@ -33,7 +33,7 @@ class CryptoPlugin {
   }
 
   static Future<String> getCodeChallenge() async {
-    LPrinter.d(Constants.code_verifier);
+    Log.d(() => Constants.code_verifier);
     final codeChallenge = base64Url
         .encode(sha256.convert(ascii.encode(Constants.code_verifier!)).bytes)
         .replaceAll('=', '');

@@ -20,7 +20,7 @@ import 'package:flutter/foundation.dart';
 import 'package:html/parser.dart';
 import 'package:dio/dio.dart';
 import 'package:mobx/mobx.dart';
-import 'package:pixez/er/lprinter.dart';
+import 'package:pixez/custom/log.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/models/novel_recom_response.dart';
 import 'package:pixez/models/novel_viewer_persist.dart';
@@ -58,7 +58,7 @@ abstract class _NovelStoreBase with Store {
 
   @action
   bookPosition(double offset) async {
-    LPrinter.d("bookPosition $offset");
+    Log.d(() => "bookPosition $offset");
     await _novelViewerPersistProvider.open();
     await _novelViewerPersistProvider
         .insert(NovelViewerPersist(novelId: id, offset: offset));
@@ -67,7 +67,7 @@ abstract class _NovelStoreBase with Store {
 
   @action
   deleteBookPosition() async {
-    LPrinter.d("deleteBookPosition");
+    Log.d(() => "deleteBookPosition");
     await _novelViewerPersistProvider.open();
     await _novelViewerPersistProvider.delete(id);
     positionBooked = false;
@@ -113,7 +113,7 @@ abstract class _NovelStoreBase with Store {
       await _novelViewerPersistProvider.open();
       final result = await _novelViewerPersistProvider.getNovelPersistById(id);
       if (result != null) {
-        LPrinter.d("fetchOffset ${result.offset}");
+        Log.d(() => "fetchOffset ${result.offset}");
         positionBooked = true;
         bookedOffset = result.offset;
       }

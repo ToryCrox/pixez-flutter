@@ -24,7 +24,7 @@ import 'package:pixez/component/pixiv_image.dart';
 import 'package:pixez/component/star_icon.dart';
 import 'package:pixez/component/local_or_cached_image.dart';
 import 'package:pixez/constants.dart';
-import 'package:pixez/er/lprinter.dart';
+import 'package:pixez/custom/log.dart';
 import 'package:pixez/er/prefer.dart';
 import 'package:pixez/i18n.dart';
 import 'package:pixez/lighting/lighting_store.dart';
@@ -489,7 +489,7 @@ class _IllustCardState extends State<IllustCard> {
                 builder: (_) => TagForIllustPage(id: store.illusts!.id),
               );
               if (result?.isNotEmpty ?? false) {
-                LPrinter.d(result);
+                Log.d(() => result);
                 String restrict = result['restrict'];
                 List<String>? tags = result['tags'];
                 store.star(restrict: restrict, tags: tags, force: true);

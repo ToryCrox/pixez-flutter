@@ -31,7 +31,7 @@ import 'package:pixez/component/painter_avatar.dart';
 import 'package:pixez/component/pixiv_image.dart';
 import 'package:pixez/component/star_icon.dart';
 import 'package:pixez/er/leader.dart';
-import 'package:pixez/er/lprinter.dart';
+import 'package:pixez/custom/log.dart';
 import 'package:pixez/exts.dart';
 import 'package:pixez/i18n.dart';
 import 'package:pixez/main.dart';
@@ -44,8 +44,8 @@ import 'package:pixez/page/picture/illust_about_store.dart';
 import 'package:pixez/page/picture/illust_detail_content.dart';
 import 'package:pixez/page/picture/illust_store.dart';
 import 'package:pixez/page/picture/picture_list_page.dart';
-import 'package:pixez/component/json_highlighter.dart';
 import 'package:pixez/page/picture/tag_for_illust_page.dart';
+import 'package:pixez/component/json_highlighter.dart';
 import 'package:pixez/page/picture/ugoira_loader.dart';
 import 'package:pixez/page/search/result_page.dart';
 import 'package:pixez/page/user/user_store.dart';
@@ -132,7 +132,7 @@ class _IllustRowPageState extends State<IllustRowPage>
       _illustStore = widget.store ?? IllustStore(widget.id, null);
       _illustStore.fetch();
       _aboutStore = IllustAboutStore(widget.id, _refreshController);
-      LPrinter.d("state change");
+      Log.d(() => "state change");
     }
   }
 
@@ -1508,7 +1508,7 @@ class _IllustRowPageState extends State<IllustRowPage>
     final result =
         await Leader.pushWithScaffold(context, TagForIllustPage(id: widget.id));
     if (result is Map) {
-      LPrinter.d(result);
+      Log.d(() => result);
       String restrict = result['restrict'];
       List<String>? tags = result['tags'];
       _illustStore.star(restrict: restrict, tags: tags, force: true);

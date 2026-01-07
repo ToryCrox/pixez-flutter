@@ -27,7 +27,7 @@ import 'package:pixez/component/painter_avatar.dart';
 import 'package:pixez/component/pixiv_image.dart';
 import 'package:pixez/component/selectable_html.dart';
 import 'package:pixez/er/leader.dart';
-import 'package:pixez/er/lprinter.dart';
+import 'package:pixez/custom/log.dart';
 import 'package:pixez/exts.dart';
 import 'package:pixez/i18n.dart';
 import 'package:pixez/main.dart';
@@ -80,7 +80,7 @@ class _NovelViewerPageState extends State<NovelViewerPage> {
   void initState() {
     _novelStore = widget.novelStore ?? NovelStore(widget.id, null);
     _offsetDisposer = reaction((_) => _novelStore.bookedOffset, (_) {
-      LPrinter.d("jump to ${_novelStore.bookedOffset}");
+      Log.d(() => "jump to ${_novelStore.bookedOffset}");
       _controller?.jumpTo(_novelStore.bookedOffset);
     });
     _novelStore.fetch();
@@ -151,7 +151,7 @@ class _NovelViewerPageState extends State<NovelViewerPage> {
           _textStyle =
               _textStyle ?? Theme.of(context).textTheme.bodyLarge!.copyWith();
           if (_controller == null) {
-            LPrinter.d("init Controller ${_novelStore.bookedOffset}");
+            Log.d(() => "init Controller ${_novelStore.bookedOffset}");
             _controller =
                 ScrollController(initialScrollOffset: _novelStore.bookedOffset);
             _controller?.addListener(() {
@@ -692,7 +692,7 @@ class _NovelViewerPageState extends State<NovelViewerPage> {
       final data = _novelStore.novelTextResponse!.text;
       resultFile.writeAsStringSync(data);
       File(fileInAllPath).writeAsStringSync(data);
-      LPrinter.d("path: $filePath");
+      Log.d(() => "path: $filePath");
       BotToast.showText(text: "export ${filePath}");
     }
   }
