@@ -26,7 +26,6 @@ import 'package:intl/intl.dart';
 import 'package:pixez/constants.dart';
 import 'package:pixez/crypto_plugin.dart';
 import 'package:pixez/er/hoster.dart';
-import 'package:pixez/main.dart';
 import 'package:pixez/debug/mana_manager.dart';
 import 'package:rhttp/rhttp.dart' as r;
 
@@ -56,18 +55,7 @@ class OAuthClient {
 
   Future<Dio> createDioClient() async {
     final compatibleClient = await r.RhttpCompatibleClient.create(
-        settings: userSetting.disableBypassSni
-            ? null
-            : r.ClientSettings(
-                tlsSettings: r.TlsSettings(
-                    verifyCertificates: false, sni: false),
-                dnsSettings: r.DnsSettings.dynamic(
-                  resolver: (host) async {
-                    final ip = Hoster.oauth();
-                    return [ip];
-                  },
-                ),
-              ));
+        settings: Hoster.createOAuthClientSettings());
     httpClient.httpClientAdapter = ConversionLayerAdapter(compatibleClient);
     if (Platform.isAndroid) {
       try {

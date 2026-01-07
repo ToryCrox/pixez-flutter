@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:dio_compatibility_layer/dio_compatibility_layer.dart';
 import 'package:pixez/component/pixiv_image.dart';
@@ -147,6 +148,57 @@ class Hoster {
 
   static String host(String url) {
     return splashStore.host;
+  }
+
+  /// 创建图片请求的 ClientSettings（用于 i.pximg.net 和 s.pximg.net）
+  static r.ClientSettings? createImageClientSettings() {
+    if (userSetting.disableBypassSni) return null;
+    
+    return r.ClientSettings(
+      tlsSettings: r.TlsSettings(verifyCertificates: false, sni: false),
+      dnsSettings: r.DnsSettings.dynamic(
+        resolver: (host) async {
+          if (host == 'i.pximg.net') {
+            return [iPximgNet()];
+          }
+          if (host == 's.pximg.net') {
+            return [sPximgNet()];
+          }
+          return await InternetAddress.lookup(host)
+              .then((value) => value.map((e) => e.address).toList());
+        },
+      ),
+    );
+  }
+
+  /// 创建 API 请求的 ClientSettings（用于 app-api.pixiv.net）
+  static r.ClientSettings? createApiClientSettings() {
+    if (userSetting.disableBypassSni) return null;
+    
+    return r.ClientSettings(
+      tlsSettings: r.TlsSettings(verifyCertificates: false, sni: false),
+      dnsSettings: r.DnsSettings.dynamic(
+        resolver: (host) async {
+          final ip = api();
+          return [ip];
+        },
+      ),
+    );
+  }
+
+  /// 创建 OAuth 请求的 ClientSettings（用于 oauth.secure.pixiv.net）
+  static r.ClientSettings? createOAuthClientSettings() {
+    if (userSetting.disableBypassSni) return null;
+    
+    return r.ClientSettings(
+      tlsSettings: r.TlsSettings(verifyCertificates: false, sni: false),
+      dnsSettings: r.DnsSettings.dynamic(
+        resolver: (host) async {
+          final ip = oauth();
+          return [ip];
+        },
+      ),
+    );
   }
 
   static Map<String, String> header({String? url}) {

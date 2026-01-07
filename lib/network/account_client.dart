@@ -25,7 +25,6 @@ import 'package:dio_compatibility_layer/dio_compatibility_layer.dart';
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import 'package:pixez/er/hoster.dart';
-import 'package:pixez/main.dart';
 import 'package:pixez/models/account.dart';
 import 'package:pixez/network/oauth_client.dart';
 import 'package:rhttp/rhttp.dart' as r;
@@ -117,18 +116,7 @@ class AccountClient {
           responseBody: true, responseHeader: true, requestBody: true));
     }
     final compatibleClient = await r.RhttpCompatibleClient.create(
-        settings: userSetting.disableBypassSni
-            ? null
-            : r.ClientSettings(
-                tlsSettings:
-                    r.TlsSettings(verifyCertificates: false, sni: false),
-                dnsSettings: r.DnsSettings.dynamic(
-                  resolver: (host) async {
-                    final ip = Hoster.api();
-                    return [ip];
-                  },
-                ),
-              ));
+        settings: Hoster.createApiClientSettings());
     dio.httpClientAdapter = ConversionLayerAdapter(compatibleClient);
     _httpClient = dio;
     if (Platform.isAndroid) {

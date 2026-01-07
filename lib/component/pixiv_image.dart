@@ -313,21 +313,7 @@ class PixivImage extends StatefulWidget {
         settings: (userSetting.disableBypassSni ||
                 userSetting.pictureSource != ImageHost)
             ? null
-            : r.ClientSettings(
-                tlsSettings:
-                    r.TlsSettings(verifyCertificates: false, sni: false),
-                dnsSettings: r.DnsSettings.dynamic(
-                  resolver: (host) async {
-                    if (host == 'i.pximg.net') {
-                      return [Hoster.iPximgNet()];
-                    }
-                    if (host == 's.pximg.net') {
-                      return [Hoster.sPximgNet()];
-                    }
-                    return await io.InternetAddress.lookup(host)
-                        .then((value) => value.map((e) => e.address).toList());
-                  },
-                )));
+            : Hoster.createImageClientSettings());
     dio.httpClientAdapter = ConversionLayerAdapter(client);
     // 添加网络速度监控拦截器
     dio.interceptors.add(NetworkSpeedInterceptor());

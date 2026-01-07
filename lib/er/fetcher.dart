@@ -265,22 +265,7 @@ entryPoint(SendMessage message) async {
   isolateDio = await r.RhttpClient.create(
       settings: userSetting.disableBypassSni || pictureSource != ImageHost
           ? null
-          : r.ClientSettings(
-              tlsSettings: r.TlsSettings(
-                verifyCertificates: false,
-                sni: false,
-              ),
-              dnsSettings: r.DnsSettings.dynamic(resolver: (host) async {
-                if (host == 'i.pximg.net') {
-                  return [Hoster.iPximgNet()];
-                }
-                if (host == 's.pximg.net') {
-                  return [Hoster.sPximgNet()];
-                }
-                return await InternetAddress.lookup(host)
-                    .then((value) => value.map((e) => e.address).toList());
-              }),
-            ));
+          : Hoster.createImageClientSettings());
   ReceivePort receivePort = ReceivePort();
   sendPort.send(
       IsoContactBean(state: IsoTaskState.INIT, data: receivePort.sendPort));
