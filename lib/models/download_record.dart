@@ -1255,7 +1255,9 @@ class DownloadDatabaseProvider {
   /// 注意：对于动图(ugoira)类型，只返回预览图(part=0)，不返回帧文件
   /// 帧文件仅用于文件大小统计和动图播放，不应作为独立页面显示
   Future<Map<int, LocalImageInfo>> getLocalImageInfosByIllustId(
-      int illustId) async {
+    int illustId, {
+    bool includeUgoiraFrames = false,
+  }) async {
     final t1 = DateTime.now();
     final images = await getImagesByIllustId(illustId);
 
@@ -1263,13 +1265,14 @@ class DownloadDatabaseProvider {
     final illust = await getIllustByIllustId(illustId);
     final isUgoira = illust?.isUgoira;
 
-    // 对于动图，只处理预览图(part=0)，过滤掉所有帧文件(part>=1)
-    final filteredImages = isUgoira == true
+    // 对于动图，默认只处理预览图(part=0)，过滤掉所有帧文件(part>=1)
+    // 如果 includeUgoiraFrames 为 true，则包含所有帧文件
+    final filteredImages = (isUgoira == true && !includeUgoiraFrames)
         ? images.where((img) => img.part == 0).toList()
         : images;
 
     Log.d(
-        'getLocalImageInfosByIllustId: ${images.length} total images, ${filteredImages.length} filtered (isUgoira: $isUgoira), ${DateTime.now().difference(t1).inMilliseconds}ms');
+        'getLocalImageInfosByIllustId: ${images.length} total images, ${filteredImages.length} filtered (isUgoira: $isUgoira, includeUgoiraFrames: $includeUgoiraFrames), ${DateTime.now().difference(t1).inMilliseconds}ms');
 
     // 并行处理所有图片，大幅提升性能
     final futures = filteredImages.map((image) async {

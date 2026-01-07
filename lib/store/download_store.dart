@@ -1686,8 +1686,11 @@ abstract class _DownloadStoreBase with Store {
     final illust = await _dbProvider.getIllustByIllustId(illustId);
     if (illust == null) return;
 
-    // 获取所有图片信息（包含完整路径）
-    final imageInfos = await _dbProvider.getLocalImageInfosByIllustId(illustId);
+    // 获取所有图片信息（包含完整路径，动图包含序列帧）
+    final imageInfos = await _dbProvider.getLocalImageInfosByIllustId(
+      illustId,
+      includeUgoiraFrames: true,
+    );
 
     // 删除文件
     for (final imageInfo in imageInfos.values) {
@@ -1701,26 +1704,10 @@ abstract class _DownloadStoreBase with Store {
       }
     }
 
-    // 尝试删除空目录
+    // 尝试删除空目录（递归删除空子目录）
     final illustDir = _dbProvider.getIllustAbsolutePath(illust.relativePath);
     try {
-      // 首先删除WebP动图文件（如果存在）
-      final webpPath = await getUgoiraWebPPath(illustId);
-      if (webpPath != null) {
-        final webpFile = File(webpPath);
-        if (await webpFile.exists()) {
-          await webpFile.delete();
-          Log.d('删除WebP动图文件: $webpPath');
-        }
-      }
-      
-      final dir = Directory(illustDir);
-      if (await dir.exists()) {
-        final contents = await dir.list().toList();
-        if (contents.isEmpty) {
-          await dir.delete();
-        }
-      }
+      await _deleteEmptyDirectory(Directory(illustDir));
     } catch (e, s) {
       Log.e('删除目录失败: ${illustDir}', stackTrace: s);
     }
@@ -1742,6 +1729,30 @@ abstract class _DownloadStoreBase with Store {
     ));
 
     await refreshCount();
+  }
+
+  /// 递归删除空目录
+  /// 如果目录为空（包括子目录），则删除该目录
+  Future<void> _deleteEmptyDirectory(Directory dir) async {
+    if (!await dir.exists()) return;
+
+    try {
+      // 先递归处理子目录
+      await for (final entity in dir.list()) {
+        if (entity is Directory) {
+          await _deleteEmptyDirectory(entity);
+        }
+      }
+
+      // 检查目录是否为空
+      final contents = await dir.list().toList();
+      if (contents.isEmpty) {
+        await dir.delete();
+        Log.d('删除空目录: ${dir.path}');
+      }
+    } catch (e) {
+      Log.w('_deleteEmptyDirectory 失败: ${dir.path}, $e');
+    }
   }
 
   // ============ 文件存在性检查 ============
