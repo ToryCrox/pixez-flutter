@@ -38,6 +38,8 @@ import 'package:pixez/main.dart';
 import 'package:pixez/models/ban_illust_id.dart';
 import 'package:pixez/models/ban_tag.dart';
 import 'package:pixez/models/illust.dart';
+import 'package:pixez/models/ugoira_metadata_response.dart';
+import 'package:pixez/network/api_client.dart';
 import 'package:pixez/page/picture/illust_about_store.dart';
 import 'package:pixez/page/picture/illust_detail_content.dart';
 import 'package:pixez/page/picture/illust_store.dart';
@@ -1581,7 +1583,11 @@ class _IllustRowPageState extends State<IllustRowPage>
     return showDialog(
       context: context,
       useRootNavigator: false,
-      builder: (context) => IllustInfoDialog(illust: illust, cancelText: cancelText),
+      builder: (context) => IllustInfoDialog(
+        illust: illust,
+        cancelText: cancelText,
+        ugoiraMetadata: _illustStore.ugoiraMetadata,
+      ),
     );
   }
 
@@ -1592,8 +1598,14 @@ class _IllustRowPageState extends State<IllustRowPage>
 class IllustInfoDialog extends StatelessWidget {
   final Illusts illust;
   final String cancelText;
+  final UgoiraMetadataResponse? ugoiraMetadata;
 
-  const IllustInfoDialog({Key? key, required this.illust, required this.cancelText}) : super(key: key);
+  const IllustInfoDialog({
+    Key? key,
+    required this.illust,
+    required this.cancelText,
+    this.ugoiraMetadata,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -1603,6 +1615,15 @@ class IllustInfoDialog extends StatelessWidget {
     // 生成 JSON 格式的插画信息
     final jsonData = jsonEncode(illust.toJson());
     final formattedJson = const JsonEncoder.withIndent('  ').convert(illust.toJson());
+
+    // 生成动图 metadata JSON（如果有）
+    final hasUgoiraMetadata = ugoiraMetadata != null;
+    String ugoiraMetadataJson = '';
+    String formattedUgoiraMetadataJson = '';
+    if (hasUgoiraMetadata) {
+      ugoiraMetadataJson = jsonEncode(ugoiraMetadata!.toJson());
+      formattedUgoiraMetadataJson = const JsonEncoder.withIndent('  ').convert(ugoiraMetadata!.toJson());
+    }
 
     return AlertDialog(
       title: Text('插画信息'),
@@ -1647,6 +1668,49 @@ class IllustInfoDialog extends StatelessWidget {
               ),
             ),
             SizedBox(height: 16),
+            // 动图 Metadata（如果有）
+            if (hasUgoiraMetadata) ...[
+              Container(
+                padding: EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text('动图 Metadata:', style: TextStyle(fontWeight: FontWeight.bold)),
+                        Spacer(),
+                        InkWell(
+                          onTap: () {
+                            Clipboard.setData(ClipboardData(text: ugoiraMetadataJson));
+                            BotToast.showText(text: '已复制');
+                          },
+                          child: Icon(Icons.copy, size: 16),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 4),
+                    Expanded(
+                      child: SingleChildScrollView(
+                        child: SelectionArea(
+                          child: Text(
+                            formattedUgoiraMetadataJson,
+                            style: TextStyle(
+                              fontFamily: 'monospace',
+                              fontSize: 11,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(height: 16),
+            ],
             // JSON 数据
             Expanded(
               child: Column(

@@ -20,6 +20,7 @@ import 'package:bot_toast/bot_toast.dart';
 import 'package:flutter/material.dart' hide Image;
 import 'package:flutter/services.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
+import 'package:mobx/mobx.dart';
 import 'package:pixez/component/pixiv_image.dart';
 import 'package:pixez/component/ugoira_painter.dart';
 import 'package:pixez/component/webp_animated_widget.dart';
@@ -50,11 +51,27 @@ class UgoiraLoader extends StatefulWidget {
 
 class _UgoiraLoaderState extends State<UgoiraLoader> {
   late UgoiraStore _store;
+  ReactionDisposer? _metadataReaction;
 
   @override
   void initState() {
     _store = UgoiraStore(widget.id);
+    // 监听 metadata 变化，同步到 IllustStore
+    if (widget.illustStore != null) {
+      _metadataReaction = reaction((_) => _store.ugoiraMetadataResponse, (metadata) {
+        if (metadata != null) {
+          widget.illustStore!.updateUgoiraMetadata(metadata);
+        }
+      });
+    }
     super.initState();
+  }
+
+  @override
+  void dispose() {
+    _metadataReaction?.call();
+    _store.dispose();
+    super.dispose();
   }
 
   /// 获取预览图 URL

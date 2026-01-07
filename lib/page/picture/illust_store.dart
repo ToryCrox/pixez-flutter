@@ -26,6 +26,7 @@ import 'package:pixez/models/download_record.dart';
 import 'package:pixez/models/error_message.dart';
 import 'package:pixez/models/illust.dart';
 import 'package:pixez/models/illust_series_detail.dart';
+import 'package:pixez/models/ugoira_metadata_response.dart';
 import 'package:pixez/network/api_client.dart';
 import 'package:pixez/page/history/history_store.dart';
 import 'package:pixez/store/download_store.dart';
@@ -51,6 +52,10 @@ abstract class _IllustStoreBase with Store {
   bool captionFetching = false;
   @observable
   IllustSeriesDetailResponse? illustSeriesDetailResponse;
+
+  /// 动图元数据（如果有的话）
+  @observable
+  UgoiraMetadataResponse? ugoiraMetadata;
 
   /// 当前浏览的页数（用于多页插画）
   @observable
@@ -433,5 +438,11 @@ abstract class _IllustStoreBase with Store {
         currentPage = 0;
       }
     }
+  }
+
+  /// 更新动图元数据
+  @action
+  void updateUgoiraMetadata(UgoiraMetadataResponse? metadata) {
+    ugoiraMetadata = metadata;
   }
 }
