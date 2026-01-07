@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -83,7 +85,7 @@ class _LogViewerPageState extends ConsumerState<LogViewerPage> {
         await showDialog(
           context: context,
           builder: (context) => AlertDialog(
-            title: Text(I18n.of(context).log_directory ?? '日志目录'),
+            title: Text(I18n.of(context).log_directory),
             content: SelectableText(logPath),
             actions: [
               TextButton(
@@ -91,11 +93,11 @@ class _LogViewerPageState extends ConsumerState<LogViewerPage> {
                   Clipboard.setData(ClipboardData(text: logPath));
                   Navigator.of(context).pop();
                 },
-                child: Text(I18n.of(context).copy ?? '复制'),
+                child: Text(I18n.of(context).copy),
               ),
               TextButton(
                 onPressed: () => Navigator.of(context).pop(),
-                child: Text(I18n.of(context).ok ?? '确定'),
+                child: Text(I18n.of(context).ok),
               ),
             ],
           ),
@@ -122,16 +124,16 @@ class _LogViewerPageState extends ConsumerState<LogViewerPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(I18n.of(context).log_viewer ?? '日志查看'),
+        title: Text(I18n.of(context).log_viewer),
         actions: [
           IconButton(
             icon: const Icon(Icons.folder_open),
-            tooltip: I18n.of(context).log_open_folder ?? '打开日志目录',
+            tooltip: I18n.of(context).log_open_folder,
             onPressed: _openLogFolder,
           ),
           IconButton(
             icon: const Icon(Icons.refresh),
-            tooltip: I18n.of(context).refresh ?? '刷新',
+            tooltip: I18n.of(context).refresh,
             onPressed: () => ref.read(logViewerProvider.notifier).refresh(),
           ),
           IconButton(
@@ -161,8 +163,16 @@ class _LogViewerPageState extends ConsumerState<LogViewerPage> {
         spacing: 8,
         children: [
           _buildLevelChip(
+            Level.debug,
+            'Debug',
+            Colors.cyan,
+            state.filterLevels.contains(Level.debug),
+            (selected) =>
+                ref.read(logViewerProvider.notifier).toggleLevel(Level.debug),
+          ),
+          _buildLevelChip(
             Level.info,
-            I18n.of(context).log_filter_info ?? '信息',
+            I18n.of(context).log_filter_info,
             Colors.blue,
             state.filterLevels.contains(Level.info),
             (selected) =>
@@ -170,7 +180,7 @@ class _LogViewerPageState extends ConsumerState<LogViewerPage> {
           ),
           _buildLevelChip(
             Level.warning,
-            I18n.of(context).log_filter_warning ?? '警告',
+            I18n.of(context).log_filter_warning,
             Colors.orange,
             state.filterLevels.contains(Level.warning),
             (selected) =>
@@ -178,7 +188,7 @@ class _LogViewerPageState extends ConsumerState<LogViewerPage> {
           ),
           _buildLevelChip(
             Level.error,
-            I18n.of(context).log_filter_error ?? '错误',
+            I18n.of(context).log_filter_error,
             Colors.red,
             state.filterLevels.contains(Level.error),
             (selected) =>
@@ -220,7 +230,7 @@ class _LogViewerPageState extends ConsumerState<LogViewerPage> {
           const Icon(Icons.description_outlined, size: 64, color: Colors.grey),
           const SizedBox(height: 16),
           Text(
-            I18n.of(context).log_empty ?? '暂无日志',
+            I18n.of(context).log_empty,
             style: const TextStyle(fontSize: 16, color: Colors.grey),
           ),
         ],
@@ -262,7 +272,7 @@ class _LogEventTileState extends State<_LogEventTile> {
   @override
   Widget build(BuildContext context) {
     final level = widget.event.level;
-    final message = widget.event.origin.message.toString();
+    final message = _formatFullMessage();
     final lines = message.split('\n');
     final needExpand = lines.length > widget.maxLines;
     final displayMessage = _expanded
@@ -334,6 +344,11 @@ class _LogEventTileState extends State<_LogEventTile> {
     String label;
 
     switch (level) {
+      case Level.debug:
+        icon = Icons.bug_report_outlined;
+        color = Colors.cyan;
+        label = 'DEBUG';
+        break;
       case Level.info:
         icon = Icons.info_outline;
         color = Colors.blue;
@@ -351,7 +366,7 @@ class _LogEventTileState extends State<_LogEventTile> {
         break;
       default:
         icon = Icons.bug_report_outlined;
-        color = Colors.grey;
+        color = Colors.cyan;
         label = 'DEBUG';
     }
 
@@ -374,6 +389,8 @@ class _LogEventTileState extends State<_LogEventTile> {
 
   Color _getLevelColor(Level level) {
     switch (level) {
+      case Level.debug:
+        return Colors.cyan.shade700;
       case Level.info:
         return Colors.blue.shade700;
       case Level.warning:
@@ -381,7 +398,33 @@ class _LogEventTileState extends State<_LogEventTile> {
       case Level.error:
         return Colors.red.shade700;
       default:
-        return Colors.black87;
+        return Colors.cyan.shade700;
     }
+  }
+
+  String _formatFullMessage() {
+    final buffer = StringBuffer();
+    final message = widget.event.origin.message;
+    final finalMessage = message is Function ? message() : message;
+
+    // 添加消息内容
+    if (finalMessage is Map || finalMessage is Iterable) {
+      const encoder = JsonEncoder.withIndent('  ');
+      buffer.write(encoder.convert(finalMessage));
+    } else {
+      buffer.write(finalMessage.toString());
+    }
+
+    // 添加 error
+    if (widget.event.origin.error != null) {
+      buffer.write('\nError: ${widget.event.origin.error}');
+    }
+
+    // 添加 stackTrace
+    if (widget.event.origin.stackTrace != null) {
+      buffer.write('\nStackTrace:\n${widget.event.origin.stackTrace}');
+    }
+
+    return buffer.toString();
   }
 }

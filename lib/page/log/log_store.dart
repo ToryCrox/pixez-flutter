@@ -37,7 +37,7 @@ class LogViewer extends _$LogViewer {
 
     return LogViewerState(
       logs: logMemoryOut.buffer.toList(),
-      filterLevels: {Level.info, Level.warning, Level.error},
+      filterLevels: {Level.debug, Level.info, Level.warning, Level.error},
       autoScroll: true,
     );
   }

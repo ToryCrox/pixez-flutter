@@ -123,14 +123,20 @@ class LogFileOutput extends LogOutput {
     buffer.write('[$time] [$level] $message');
 
     if (event.origin.error != null) {
-      buffer.write('\nError: ${event.origin.error}');
+      buffer.write('\nError: ${_formatError(event.origin.error)}');
     }
 
     if (event.origin.stackTrace != null) {
-      buffer.write('\nStackTrace: ${event.origin.stackTrace}');
+      buffer.write('\nStackTrace:\n${event.origin.stackTrace}');
     }
 
     return buffer.toString();
+  }
+
+  String _formatError(Object? error) {
+    if (error == null) return '';
+    // 使用 error 的 toString() 方法，它会包含错误类型和消息
+    return error.toString();
   }
 
   String _stringifyMessage(dynamic message) {
