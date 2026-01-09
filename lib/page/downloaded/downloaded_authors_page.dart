@@ -179,6 +179,7 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
                   children: [
                     '最新下载',
                     '用户名',
+                    '文件大小',
                     '插画数量',
                   ],
                   onChange: _store.onSortChanged,

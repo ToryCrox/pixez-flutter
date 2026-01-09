@@ -643,7 +643,7 @@ class DownloadDatabaseProvider {
 
       db = await openDatabase(
         dbPath,
-        version: 7,
+        version: 8,
         onCreate: (Database db, int version) async {
           await db.execute('''
           CREATE TABLE ${DownloadedIllustColumns.tableName} (
@@ -736,6 +736,9 @@ class DownloadDatabaseProvider {
         await db.execute('''
           CREATE INDEX idx_author_illust_count ON ${DownloadedAuthorColumns.tableName}(${DownloadedAuthorColumns.illustCount})
         ''');
+        await db.execute('''
+          CREATE INDEX idx_author_total_file_size ON ${DownloadedAuthorColumns.tableName}(${DownloadedAuthorColumns.totalFileSize})
+        ''');
       },
       onUpgrade: (Database db, int oldVersion, int newVersion) async {
         if (oldVersion < 2) {
@@ -808,6 +811,12 @@ class DownloadDatabaseProvider {
           await db.execute('''
             ALTER TABLE ${DownloadedIllustColumns.tableName}
             ADD COLUMN ${DownloadedIllustColumns.ugoiraMetadataJson} TEXT NOT NULL DEFAULT ''
+          ''');
+        }
+        if (oldVersion < 8) {
+          // 添加 total_file_size 索引以优化作者列表排序性能
+          await db.execute('''
+            CREATE INDEX IF NOT EXISTS idx_author_total_file_size ON ${DownloadedAuthorColumns.tableName}(${DownloadedAuthorColumns.totalFileSize})
           ''');
         }
       },

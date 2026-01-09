@@ -30,6 +30,7 @@ part 'downloaded_authors_page_store.g.dart';
 enum AuthorSortType {
   lastDownloadTime, // 最新下载
   userName, // 用户名
+  fileSize, // 文件大小
   illustCount, // 插画数量
 }
 
@@ -117,6 +118,8 @@ abstract class _DownloadedAuthorsPageStoreBase with Store {
         return 'last_download_time';
       case AuthorSortType.userName:
         return 'user_name';
+      case AuthorSortType.fileSize:
+        return 'total_file_size';
       case AuthorSortType.illustCount:
         return 'illust_count';
     }
