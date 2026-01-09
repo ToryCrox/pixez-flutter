@@ -25,6 +25,7 @@ import 'package:pixez/component/star_icon.dart';
 import 'package:pixez/component/local_or_cached_image.dart';
 import 'package:pixez/constants.dart';
 import 'package:pixez/custom/log.dart';
+
 import 'package:pixez/er/prefer.dart';
 import 'package:pixez/i18n.dart';
 import 'package:pixez/lighting/lighting_store.dart';
@@ -141,7 +142,8 @@ class _IllustCardState extends State<IllustCard> {
         return;
       }
     }
-    saveStore.saveImage(store.illusts!);
+
+    downloadStore.downloadIllust(store.illusts!);
     if (userSetting.starAfterSave && (store.state == 0)) {
       store.star(
           restrict: userSetting.defaultPrivateLike ? "private" : "public");
@@ -461,7 +463,7 @@ class _IllustCardState extends State<IllustCard> {
             }),
             onTap: () async {
               if (userSetting.saveAfterStar && (store.state == 0)) {
-                saveStore.saveImage(store.illusts!);
+                downloadStore.downloadIllust(store.illusts!);
               }
               store.star(
                   restrict:
@@ -536,7 +538,7 @@ class _IllustCardState extends State<IllustCard> {
       bottom: 5.0,
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.6),
+          color: Colors.black.withValues(alpha: 0.6),
           borderRadius: BorderRadius.all(Radius.circular(4.0)),
         ),
         child: Padding(

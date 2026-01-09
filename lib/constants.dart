@@ -30,5 +30,5 @@ class Constants {
   static final bool isFluent = false; // Platform.isWindows;
 
   /// 为true表示使用新下载器，否则为false
-  static final bool useNewDownloader = true;
+
 }

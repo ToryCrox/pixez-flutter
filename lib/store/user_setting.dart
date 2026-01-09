@@ -490,7 +490,7 @@ abstract class _UserSetting with Store {
         : (prefs.getString(PICTURE_SOURCE_KEY) ?? ImageHost);
     await Hoster.initMap();
     themeInitState = 1;
-    fetcher.start(pictureSource!);
+
   }
 
 

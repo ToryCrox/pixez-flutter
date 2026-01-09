@@ -345,9 +345,10 @@ class _PhotoZoomPageState extends State<PhotoZoomPage> {
                         ),
                         onPressed: () {
                           if (_illusts.metaPages.isNotEmpty)
-                            saveStore.saveImage(widget.illusts, index: _index);
+                            downloadStore.downloadIllust(widget.illusts,
+                                part: _index);
                           else
-                            saveStore.saveImage(widget.illusts);
+                            downloadStore.downloadIllust(widget.illusts);
                           if (userSetting.starAfterSave &&
                               (widget.illustStore.state == 0)) {
                             widget.illustStore.star(
@@ -358,9 +359,10 @@ class _PhotoZoomPageState extends State<PhotoZoomPage> {
                         }),
                     onLongPress: () async {
                       if (_illusts.metaPages.isNotEmpty)
-                        saveStore.saveImage(widget.illusts, index: _index);
+                        downloadStore.downloadIllust(widget.illusts,
+                            part: _index);
                       else
-                        saveStore.saveImage(widget.illusts);
+                        downloadStore.downloadIllust(widget.illusts);
                     }),
                 AnimatedOpacity(
                   opacity: shareShow ? 1 : 0.5,

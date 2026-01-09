@@ -155,12 +155,12 @@ class _FloatingNetworkSpeedBallState extends State<FloatingNetworkSpeedBall> {
 
   Widget _buildBall(bool isDark) {
     final backgroundColor = isDark
-        ? Colors.white.withOpacity(0.9)
-        : Colors.black.withOpacity(0.75);
+        ? Colors.white.withValues(alpha: 0.9)
+        : Colors.black.withValues(alpha: 0.75);
     final textColor = isDark ? Colors.black87 : Colors.white;
     final shadowColor = isDark
-        ? Colors.white.withOpacity(0.3)
-        : Colors.black.withOpacity(0.3);
+        ? Colors.white.withValues(alpha: 0.3)
+        : Colors.black.withValues(alpha: 0.3);
 
     return Container(
       decoration: BoxDecoration(
@@ -226,7 +226,7 @@ class _FloatingNetworkSpeedBallState extends State<FloatingNetworkSpeedBall> {
       height: 60,
       child: Icon(
         Icons.drag_indicator,
-        color: textColor.withOpacity(0.5),
+        color: textColor.withValues(alpha: 0.5),
       ),
     );
   }

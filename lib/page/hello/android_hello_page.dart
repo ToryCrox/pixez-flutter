@@ -43,7 +43,6 @@ import 'package:pixez/page/search/search_page.dart';
 import 'package:pixez/page/search/suggest/search_suggestion_page.dart';
 import 'package:pixez/page/webview/saucenao_webview_page.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
-import 'package:pixez/custom/log.dart';
 
 class AndroidHelloPage extends StatefulWidget {
   const AndroidHelloPage({Key? key}) : super(key: key);
@@ -274,7 +273,7 @@ class _AndroidHelloPageState extends State<AndroidHelloPage> {
 
   @override
   void initState() {
-    fetcher.context = context;
+
     Constants.type = 0;
     _pageList = [
       RecomSpolightPage(),
@@ -286,10 +285,7 @@ class _AndroidHelloPageState extends State<AndroidHelloPage> {
     index = userSetting.welcomePageNum;
     _pageController = PageController(initialPage: index);
     super.initState();
-    saveStore.ctx = this.context;
-    saveStore.saveStream.listen((stream) {
-      saveStore.listenBehavior(stream);
-    });
+
     initPlatformState();
     _intentDataStreamSubscription = ReceiveSharingIntent.instance
         .getMediaStream()

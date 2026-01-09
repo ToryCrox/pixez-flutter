@@ -14,7 +14,6 @@
  *
  */
 import 'dart:async';
-import 'dart:ffi' hide Size;
 import 'dart:io';
 
 import 'package:flutter/gestures.dart';
@@ -27,8 +26,6 @@ import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pixez/custom/window_frame.dart';
-import 'package:pixez/document_plugin.dart';
-import 'package:pixez/er/fetcher.dart';
 import 'package:pixez/er/prefer.dart';
 
 import 'package:pixez/i18n.dart';
@@ -43,7 +40,7 @@ import 'package:pixez/store/book_tag_store.dart';
 import 'package:pixez/store/download_store.dart';
 import 'package:pixez/store/fullscreen_store.dart';
 import 'package:pixez/store/mute_store.dart';
-import 'package:pixez/store/save_store.dart';
+
 import 'package:pixez/store/tag_history_store.dart';
 import 'package:pixez/store/top_store.dart';
 import 'package:pixez/store/user_setting.dart';
@@ -52,17 +49,15 @@ import 'package:pixez/custom/image_cache_manager.dart';
 import 'package:rhttp/rhttp.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:window_manager/window_manager.dart';
-import 'package:flutter_mana/flutter_mana.dart';
 import 'package:pixez/debug/mana_manager.dart';
 import 'package:pixez/component/network_speed_floating_ball.dart';
-import 'package:pixez/monitor/network_speed_monitor.dart';
 
 import 'custom/log.dart';
 
 final RouteObserver<ModalRoute<void>> routeObserver =
     RouteObserver<ModalRoute<void>>();
 final UserSetting userSetting = UserSetting();
-final SaveStore saveStore = SaveStore();
+
 final MuteStore muteStore = MuteStore();
 final AccountStore accountStore = AccountStore();
 final TagHistoryStore tagHistoryStore = TagHistoryStore();
@@ -70,7 +65,7 @@ final NovelHistoryStore novelHistoryStore = NovelHistoryStore();
 final TopStore topStore = TopStore();
 final BookTagStore bookTagStore = BookTagStore();
 final SplashStore splashStore = SplashStore();
-final Fetcher fetcher = new Fetcher();
+
 final FullScreenStore fullScreenStore = FullScreenStore();
 final DownloadStore downloadStore = DownloadStore();
 
@@ -130,9 +125,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   @override
   void dispose() {
-    saveStore.dispose();
     topStore.dispose();
-    fetcher.stop();
     subscription.cancel();
     if (Platform.isIOS) WidgetsBinding.instance.removeObserver(this);
     super.dispose();
@@ -158,7 +151,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     );
 
     // 后台更新缺少宽高信息的历史图片（每次启动时处理一批）
-    _updateMissingImageDimensions();
+    //_updateMissingImageDimensions();
 
     // 加载待下载任务并提示用户确认
     if (Platform.isWindows || Platform.isLinux) {

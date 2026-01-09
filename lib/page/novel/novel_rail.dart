@@ -47,7 +47,7 @@ class _NovelRailState extends State<NovelRail> {
   void initState() {
     _pageController = PageController();
     Constants.type = 1;
-    fetcher.context = context;
+
     super.initState();
   }
 

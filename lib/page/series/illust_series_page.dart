@@ -9,7 +9,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:pixez/component/illust_card.dart';
 import 'package:pixez/component/pixez_default_header.dart';
 import 'package:pixez/component/pixiv_image.dart';
-import 'package:pixez/constants.dart';
+
 import 'package:pixez/er/leader.dart';
 import 'package:pixez/i18n.dart';
 import 'package:pixez/main.dart';
@@ -406,11 +406,7 @@ class _IllustSeriesPageState extends ConsumerState<IllustSeriesPage> {
     for (final illustStore in illusts) {
       try {
         if (illustStore.illusts != null) {
-          if (Constants.useNewDownloader) {
             await downloadStore.downloadIllust(illustStore.illusts!);
-          } else {
-            await saveStore.saveImage(illustStore.illusts!);
-          }
           successCount++;
         }
       } catch (e) {

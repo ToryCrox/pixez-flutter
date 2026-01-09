@@ -98,8 +98,7 @@ function eval(illust, index, mime) {
               onPressed: () async {
                 final text = _textEditingController.text.trim();
                 if (text.isEmpty) return;
-                final string =
-                    await saveStore.testEvalName(text, _illusts, 1, "png");
+                final string = "";
                 if (string.isEmpty) {
                   BotToast.showText(text: "func eval error");
                   return;
@@ -180,7 +179,7 @@ function eval(illust, index, mime) {
 
   void run(String text) async {
     try {
-      final string = await saveStore.testEvalName(text, _illusts, 1, "png");
+      final string = "";
       setState(() {
         _fileName = string;
       });

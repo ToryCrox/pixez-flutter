@@ -272,7 +272,7 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
             heroTag: widget.id,
             onPressed: () async {
               if (userSetting.saveAfterStar && (_illustStore.state == 0)) {
-                saveStore.saveImage(_illustStore.illusts!);
+                downloadStore.downloadIllust(_illustStore.illusts!);
               }
               _illustStore.star(
                   restrict:
@@ -509,7 +509,7 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
                               ? "private"
                               : "public");
                     }
-                    saveStore.saveImage(_aboutStore.illusts[index]);
+                    downloadStore.downloadIllust(_aboutStore.illusts[index]);
                   },
                   child: Stack(
                     children: [
@@ -975,7 +975,7 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
 
   Future<void> _pressSave(Illusts illust, int index) async {
     if (userSetting.illustDetailSaveSkipLongPress) {
-      saveStore.saveImage(illust, index: index);
+      downloadStore.downloadIllust(illust, part: index);
       if (userSetting.starAfterSave && (_illustStore.state == 0)) {
         _illustStore.star(
             restrict: userSetting.defaultPrivateLike ? "private" : "public");
@@ -1010,7 +1010,7 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
                   leading: Icon(Icons.save_alt),
                   onTap: () async {
                     Navigator.of(context).pop();
-                    saveStore.saveImage(illust, index: index);
+                    downloadStore.downloadIllust(illust, part: index);
                     if (userSetting.starAfterSave &&
                         (_illustStore.state == 0)) {
                       _illustStore.star(
@@ -1021,7 +1021,7 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
                   },
                   onLongPress: () async {
                     Navigator.of(context).pop();
-                    saveStore.saveImage(illust, index: index);
+                    downloadStore.downloadIllust(illust, part: index);
                   },
                   title: Text(I18n.of(context).save),
                 ),
@@ -1152,7 +1152,11 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
     switch (result) {
       case "OK":
         {
-          saveStore.saveChoiceImage(illust, indexs);
+          for (int i = 0; i < indexs.length; i++) {
+            if (indexs[i]) {
+              downloadStore.downloadIllust(illust, part: i);
+            }
+          }
         }
     }
   }
@@ -1324,7 +1328,7 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
       String restrict = result['restrict'];
       List<String>? tags = result['tags'];
       if (userSetting.saveAfterStar && (_illustStore.state == 0)) {
-        saveStore.saveImage(_illustStore.illusts!);
+        downloadStore.downloadIllust(_illustStore.illusts!);
       }
       _illustStore.star(restrict: restrict, tags: tags, force: true);
     }

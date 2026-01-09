@@ -668,7 +668,7 @@ class _IllustDownloadButtonState extends State<IllustDownloadButton> {
   }
 
   Future<void> _downloadAllPages() async {
-    saveStore.saveImage(widget.illusts);
+    downloadStore.downloadIllust(widget.illusts);
     if (userSetting.starAfterSave && widget.onStarAfterSave != null) {
       widget.onStarAfterSave!();
     }

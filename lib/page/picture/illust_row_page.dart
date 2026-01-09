@@ -39,7 +39,7 @@ import 'package:pixez/models/ban_illust_id.dart';
 import 'package:pixez/models/ban_tag.dart';
 import 'package:pixez/models/illust.dart';
 import 'package:pixez/models/ugoira_metadata_response.dart';
-import 'package:pixez/network/api_client.dart';
+
 import 'package:pixez/page/picture/illust_about_store.dart';
 import 'package:pixez/page/picture/illust_detail_content.dart';
 import 'package:pixez/page/picture/illust_store.dart';
@@ -774,7 +774,7 @@ class _IllustRowPageState extends State<IllustRowPage>
                   ));
             },
             onLongPress: () {
-              saveStore.saveImage(_aboutStore.illusts[index]);
+              downloadStore.downloadIllust(_aboutStore.illusts[index]);
               if (userSetting.starAfterSave && (_illustStore.state == 0)) {
                 _illustStore.star(
                     restrict:
@@ -1180,7 +1180,7 @@ class _IllustRowPageState extends State<IllustRowPage>
 
   Future<void> _pressSave(Illusts illust, int index) async {
     if (userSetting.illustDetailSaveSkipLongPress) {
-      saveStore.saveImage(illust, index: index);
+      downloadStore.downloadIllust(illust, part: index);
       if (userSetting.starAfterSave && (_illustStore.state == 0)) {
         _illustStore.star(
             restrict: userSetting.defaultPrivateLike ? "private" : "public");
@@ -1215,7 +1215,7 @@ class _IllustRowPageState extends State<IllustRowPage>
                   leading: Icon(Icons.save_alt),
                   onTap: () async {
                     Navigator.of(context).pop();
-                    saveStore.saveImage(illust, index: index);
+                    downloadStore.downloadIllust(illust, part: index);
                     if (userSetting.starAfterSave &&
                         (_illustStore.state == 0)) {
                       _illustStore.star(
@@ -1226,7 +1226,7 @@ class _IllustRowPageState extends State<IllustRowPage>
                   },
                   onLongPress: () async {
                     Navigator.of(context).pop();
-                    saveStore.saveImage(illust, index: index);
+                    downloadStore.downloadIllust(illust, part: index);
                     if (userSetting.starAfterSave &&
                         (_illustStore.state == 0)) {
                       _illustStore.star(
@@ -1357,7 +1357,11 @@ class _IllustRowPageState extends State<IllustRowPage>
     switch (result) {
       case "OK":
         {
-          saveStore.saveChoiceImage(illust, indexs);
+          for (int i = 0; i < indexs.length; i++) {
+            if (indexs[i]) {
+              downloadStore.downloadIllust(illust, part: i);
+            }
+          }
         }
     }
   }
@@ -1552,7 +1556,7 @@ class _IllustRowPageState extends State<IllustRowPage>
             backgroundColor: Colors.white,
             onPressed: () async {
               if (userSetting.saveAfterStar && (_illustStore.state == 0)) {
-                saveStore.saveImage(_illustStore.illusts!);
+                downloadStore.downloadIllust(_illustStore.illusts!);
               }
               _illustStore.star(
                   restrict:

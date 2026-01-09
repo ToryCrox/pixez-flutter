@@ -118,14 +118,10 @@ class _HelloPageState extends State<HelloPage> {
       DownloadedAuthorsPage(),
     ];
     Constants.type = 0;
-    fetcher.context = context;
+
     index = userSetting.welcomePageNum;
     _pageController = PageController(initialPage: userSetting.welcomePageNum);
     super.initState();
-    saveStore.ctx = this.context;
-    saveStore.saveStream.listen((stream) {
-      saveStore.listenBehavior(stream);
-    });
     initLinksStream();
     initPlatformState();
   }

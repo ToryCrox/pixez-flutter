@@ -32,7 +32,7 @@ import 'package:pixez/er/hoster.dart';
 import 'package:pixez/i18n.dart';
 import 'package:pixez/lighting/lighting_store.dart';
 import 'package:pixez/main.dart';
-import 'package:pixez/models/illust.dart';
+
 import 'package:pixez/network/api_client.dart';
 import 'package:pixez/page/follow/follow_list.dart';
 import 'package:pixez/page/novel/user/novel_users_page.dart';
@@ -824,42 +824,8 @@ class _UsersPageState extends State<UsersPage> with TickerProviderStateMixin {
       await dio.download(url, tempFile, deleteOnError: true);
       File file = File(tempFile);
       if (file.existsSync()) {
-        await saveStore.saveToGallery(
+        await DocumentPlugin.save(
             file.readAsBytesSync(),
-            Illusts(
-              user: User(
-                id: userStore.userDetail!.user.id,
-                name: replaceAll,
-                profileImageUrls: userStore.userDetail!.user.profileImageUrls,
-                isFollowed: userStore.userDetail!.user.isFollowed,
-                account: userStore.userDetail!.user.account,
-                comment: userStore.userDetail!.user.comment,
-              ),
-              metaPages: [],
-              type: '',
-              width: 0,
-              series: null,
-              totalComments: 0,
-              totalBookmarks: 0,
-              visible: false,
-              isMuted: false,
-              sanityLevel: 0,
-              tags: [],
-              caption: '',
-              pageCount: 0,
-              metaSinglePage: MetaSinglePage(originalImageUrl: ''),
-              tools: [],
-              height: 0,
-              restrict: 0,
-              createDate: '',
-              id: 0,
-              xRestrict: 0,
-              imageUrls: ImageUrls(squareMedium: '', medium: '', large: ''),
-              title: '',
-              isBookmarked: false,
-              totalView: 0,
-              illustAIType: 1,
-            ),
             fileName);
         BotToast.showText(text: I18n.of(context).complete);
       } else
