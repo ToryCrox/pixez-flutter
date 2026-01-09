@@ -14,7 +14,7 @@
  *
  */
 import 'dart:async';
-import 'dart:ffi';
+import 'dart:ffi' hide Size;
 import 'dart:io';
 
 import 'package:flutter/gestures.dart';
@@ -29,6 +29,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:pixez/custom/window_frame.dart';
 import 'package:pixez/document_plugin.dart';
 import 'package:pixez/er/fetcher.dart';
+import 'package:pixez/er/prefer.dart';
 
 import 'package:pixez/i18n.dart';
 import 'package:pixez/page/novel/history/novel_history_store.dart';
@@ -93,6 +94,8 @@ main(List<String> args) async {
     SingleInstancePlugin.initialize();
   }
   if (Platform.isWindows || Platform.isLinux) {
+    // 初始化 SharedPreferences，用于保存窗口位置等配置
+    await Prefer.init();
     await initWindows(args);
   }
 
@@ -393,17 +396,32 @@ Future<void> initWindows(List<String> args) async {
   // 必须加上这一行。
   await windowManager.ensureInitialized();
 
+  // 在 Windows 上提前加载窗口位置信息
+  WindowPlacement? placement;
+  if (Platform.isWindows) {
+    placement = await WindowPlacement.loadFromFile();
+  }
+
   WindowOptions windowOptions = WindowOptions(
     //skipTaskbar: false,
+    // 设置初始窗口大小，避免窗口过小
+    size: placement?.rect.size ?? const Size(1200, 800),
+    // 设置最小窗口大小，防止窗口被调整得太小
+    minimumSize: const Size(900, 600),
     titleBarStyle: TitleBarStyle.hidden,
     title: "PixEz",
   );
+  
   await windowManager.waitUntilReadyToShow(windowOptions, () async {
+    // 在 Windows 上先应用窗口位置和尺寸，再显示窗口
+    if (Platform.isWindows && placement != null) {
+      await placement.applyToWindow();
+    }
+    
     await windowManager.show();
     await windowManager.focus();
+    
     if (Platform.isWindows) {
-      var placement = await WindowPlacement.loadFromFile();
-      await placement.applyToWindow();
       WindowPlacement.loop();
     }
   });
