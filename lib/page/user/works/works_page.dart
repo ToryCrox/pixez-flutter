@@ -371,7 +371,7 @@ class _WorksPageState extends State<WorksPage> {
       final illusts = store.illusts!;
 
       // 跳过动图
-      if (illusts.type == 'ugoira') {
+      if (illusts.isUgoira) {
         skipCount++;
         continue;
       }

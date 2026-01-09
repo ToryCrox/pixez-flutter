@@ -37,9 +37,8 @@ import 'package:rhttp/rhttp.dart' as r;
 
 import '../custom/log.dart';
 
-const ImageHost = "i.pximg.net";
-const ImageCatHost = "i.pixiv.re";
-const ImageSHost = "s.pximg.net";
+// 从 hoster.dart 导出常量，保持向后兼容
+export 'package:pixez/er/hoster.dart' show ImageHost, ImageCatHost, ImageSHost;
 
 // 注意，stable的http_interceptor这里是无效的，因为实现send是todo
 // 实现CacheManager和混入ImageCacheManager缺一不可
