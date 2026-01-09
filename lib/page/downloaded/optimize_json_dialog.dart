@@ -18,6 +18,7 @@ import 'package:pixez/store/download_store.dart';
 
 enum OptimizeDialogState {
   confirm,    // 确认阶段
+  backingUp,  // 备份中
   optimizing, // 优化中
   completed,  // 完成
   error,      // 错误
@@ -48,7 +49,7 @@ class _OptimizeDialogState extends State<_OptimizeDialog> {
 
   void _startOptimize() async {
     setState(() {
-      _state = OptimizeDialogState.optimizing;
+      _state = OptimizeDialogState.backingUp;
       _isCancelled = false;
     });
 
@@ -57,6 +58,9 @@ class _OptimizeDialogState extends State<_OptimizeDialog> {
         onProgress: (int current, int total, int savedBytes) {
           if (mounted && !_isCancelled) {
             setState(() {
+              if (_state == OptimizeDialogState.backingUp) {
+                _state = OptimizeDialogState.optimizing;
+              }
               _current = current;
               _total = total;
               _savedBytes = savedBytes;
@@ -149,6 +153,28 @@ class _OptimizeDialogState extends State<_OptimizeDialog> {
           TextButton(
             onPressed: _startOptimize,
             child: Text('确认优化'),
+          ),
+        ];
+        break;
+
+      case OptimizeDialogState.backingUp:
+        content = Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('正在备份数据库...'),
+            SizedBox(height: 8),
+            Text(
+              '并在优化前确保数据安全',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+          ],
+        );
+        actions = [
+          TextButton(
+            onPressed: null, // 备份时禁用取消，防止状态不一致
+            child: Text('取消'),
           ),
         ];
         break;

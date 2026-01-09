@@ -545,8 +545,11 @@ class DownloadDatabaseProvider {
   String? _basePath;
   String? _coverPath;
   String? _ugoiraTempPath;
+  String? _dbPath;
 
   String get downloadPath => _downloadPath ?? '';
+
+  String get dbPathStr => _dbPath ?? '';
 
   String get coverPath => _coverPath ?? '';
 
@@ -558,7 +561,8 @@ class DownloadDatabaseProvider {
     _downloadPath = path.join(basePath, 'download');
     _coverPath = path.join(basePath, 'covers');
     _ugoiraTempPath = path.join(basePath, 'ugoira');
-    String dbPath = path.join(basePath, 'download.db');
+    _dbPath = path.join(basePath, 'download.db');
+    String dbPath = _dbPath!;
 
     try {
       // macOS: 检查并请求外部存储访问权限
@@ -2112,6 +2116,16 @@ class DownloadDatabaseProvider {
       Log.e('执行 VACUUM 失败: $e');
       rethrow;
     }
+  }
+
+  /// 获取数据库文件大小（字节）
+  Future<int> getDatabaseSize() async {
+    if (_dbPath == null) return 0;
+    final file = File(_dbPath!);
+    if (await file.exists()) {
+      return await file.length();
+    }
+    return 0;
   }
 
   // ============ WebP 动图相关操作 ============
