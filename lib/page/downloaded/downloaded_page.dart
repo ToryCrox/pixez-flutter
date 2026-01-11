@@ -33,7 +33,7 @@ import 'package:pixez/page/picture/illust_store.dart';
 import 'package:pixez/page/picture/picture_list_page.dart';
 import 'package:pixez/page/downloaded/downloaded_authors_page.dart';
 import 'package:pixez/page/downloaded/downloaded_page_store.dart';
-import 'package:pixez/page/downloaded/import_dialog.dart';
+
 import 'package:pixez/page/downloaded/optimize_json_dialog.dart';
 import 'package:pixez/page/downloaded/update_illust_info_dialog.dart';
 import 'package:pixez/store/download_store.dart';
@@ -129,7 +129,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
           onPressed: _toggleSearch,
         ),
         if (!_store.isSearching) ...[
-          _buildImportButton(),
+
           _buildAuthorsButton(),
           _buildMoreMenu(),
         ],
@@ -188,13 +188,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
     );
   }
 
-  Widget _buildImportButton() {
-    return IconButton(
-      icon: Icon(Icons.upload_file),
-      tooltip: '导入',
-      onPressed: _showImportDialog,
-    );
-  }
+
 
   Widget _buildAuthorsButton() {
     return IconButton(
@@ -557,16 +551,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
 
   // ============ 对话框 ============
 
-  void _showImportDialog() async {
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (context) => ImportDialog(),
-    );
-    if (result == true) {
-      _store.loadData();
-      _store.loadStats();
-    }
-  }
+
 
   void _showUpdateIllustInfoDialog() async {
     List<DownloadedIllust> illustsToUpdate;
