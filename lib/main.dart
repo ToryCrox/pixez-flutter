@@ -44,6 +44,7 @@ import 'package:pixez/store/mute_store.dart';
 import 'package:pixez/store/tag_history_store.dart';
 import 'package:pixez/store/top_store.dart';
 import 'package:pixez/store/user_setting.dart';
+import 'package:pixez/store/tag_manager_store.dart';
 import 'package:pixez/page/task/pending_download_dialog.dart';
 import 'package:pixez/custom/image_cache_manager.dart';
 import 'package:rhttp/rhttp.dart';
@@ -65,6 +66,7 @@ final NovelHistoryStore novelHistoryStore = NovelHistoryStore();
 final TopStore topStore = TopStore();
 final BookTagStore bookTagStore = BookTagStore();
 final SplashStore splashStore = SplashStore();
+final TagManagerStore tagManagerStore = TagManagerStore();
 
 final FullScreenStore fullScreenStore = FullScreenStore();
 final DownloadStore downloadStore = DownloadStore();

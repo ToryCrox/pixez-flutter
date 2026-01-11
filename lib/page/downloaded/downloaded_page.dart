@@ -13,26 +13,22 @@
  * this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-import 'dart:io';
-
-import 'package:bot_toast/bot_toast.dart';
 import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:open_file/open_file.dart';
-import 'package:path/path.dart' as p;
 import 'package:pixez/er/leader.dart';
 import 'package:pixez/exts.dart';
 import 'package:pixez/i18n.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/models/download_record.dart';
-import 'package:pixez/models/ugoira_metadata_response.dart';
-import 'package:pixez/component/ugoira_painter.dart';
 import 'package:pixez/page/picture/illust_lighting_page.dart';
 import 'package:pixez/page/picture/illust_store.dart';
 import 'package:pixez/page/picture/picture_list_page.dart';
 import 'package:pixez/page/downloaded/downloaded_authors_page.dart';
 import 'package:pixez/page/downloaded/downloaded_page_store.dart';
+import 'package:pixez/page/downloaded/tag_manager/tag_manager_page.dart';
+import 'package:pixez/page/downloaded/tag_manager/tag_assignment_dialog.dart';
 
 import 'package:pixez/page/downloaded/optimize_json_dialog.dart';
 import 'package:pixez/page/downloaded/update_illust_info_dialog.dart';
@@ -46,11 +42,13 @@ import '../../component/pixiv_image.dart';
 class DownloadedPage extends StatefulWidget {
   final int? initialUserId;
   final String? initialUserName;
+  final String? initialSearchKeyword;
 
   const DownloadedPage({
     Key? key,
     this.initialUserId,
     this.initialUserName,
+    this.initialSearchKeyword,
   }) : super(key: key);
 
   @override
@@ -73,13 +71,18 @@ class _DownloadedPageState extends State<DownloadedPage> {
     );
     _store = DownloadedPageStore();
     _store.easyRefreshController = _easyRefreshController;
-    _searchController = TextEditingController();
+    _searchController = TextEditingController(text: widget.initialSearchKeyword);
     _searchFocusNode = FocusNode();
     _searchController.addListener(_onSearchChanged);
     _store.init(
       initialUserId: widget.initialUserId,
       initialUserName: widget.initialUserName,
+      initialSearchKeyword: widget.initialSearchKeyword,
     );
+     // Set text controller if search keyword provided
+    if (widget.initialSearchKeyword?.isNotEmpty == true) {
+      _searchController.text = widget.initialSearchKeyword!;
+    }
   }
 
   @override
@@ -131,6 +134,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
         if (!_store.isSearching) ...[
 
           _buildAuthorsButton(),
+          _buildTagsButton(),
           _buildMoreMenu(),
         ],
       ],
@@ -192,12 +196,26 @@ class _DownloadedPageState extends State<DownloadedPage> {
 
   Widget _buildAuthorsButton() {
     return IconButton(
-      icon: Icon(Icons.people),
+      icon: const Icon(Icons.people),
       tooltip: '作者列表',
       onPressed: () {
         Navigator.of(context).push(
           MaterialPageRoute(
             builder: (context) => DownloadedAuthorsPage(),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildTagsButton() {
+    return IconButton(
+      icon: const Icon(Icons.label),
+      tooltip: '标签管理',
+      onPressed: () {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => const TagManagerPage(),
           ),
         );
       },
@@ -682,6 +700,16 @@ class _DownloadedPageState extends State<DownloadedPage> {
           label: I18n.of(context).delete,
           labelColor: Colors.red,
           onTap: () => _deleteIllust(illust),
+        ),
+        _buildContextMenuItem(
+          icon: Icons.label,
+          label: '编辑标签',
+          onTap: () {
+            showDialog(
+              context: context,
+              builder: (context) => TagAssignmentDialog(illustId: illust.illustId),
+            );
+          },
         ),
       ],
     );

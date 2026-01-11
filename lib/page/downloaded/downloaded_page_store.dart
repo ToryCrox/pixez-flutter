@@ -157,11 +157,18 @@ abstract class _DownloadedPageStoreBase with Store {
   // ===== 初始化与销毁 =====
 
   /// 初始化 Store
-  void init({int? initialUserId, String? initialUserName}) {
+  void init({int? initialUserId, String? initialUserName, String? initialSearchKeyword}) {
     if (initialUserId != null) {
       _filterUserId = initialUserId;
       _filterUserName = initialUserName;
     }
+    
+    // 初始化搜索状态
+    if (initialSearchKeyword?.isNotEmpty == true) {
+      _searchKeyword = initialSearchKeyword;
+      _isSearching = true;
+    }
+    
     _loadPersistedState();
     loadData();
     loadStats();

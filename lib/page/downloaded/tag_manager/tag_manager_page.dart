@@ -1,0 +1,250 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_mobx/flutter_mobx.dart';
+import 'package:pixez/main.dart';
+import 'package:pixez/page/downloaded/tag_manager/tag_item.dart';
+import 'package:pixez/component/sort_group.dart';
+
+class TagManagerPage extends StatefulWidget {
+  const TagManagerPage({super.key});
+
+  @override
+  State<TagManagerPage> createState() => _TagManagerPageState();
+}
+
+class _TagManagerPageState extends State<TagManagerPage> {
+  final TextEditingController _searchController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController.addListener(() {
+      tagManagerStore.setSearchText(_searchController.text);
+    });
+    // Ensure data is loaded (will skip if already exists)
+    tagManagerStore.loadTags();
+  }
+  
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: TextField(
+           controller: _searchController,
+           decoration: InputDecoration(
+             hintText: '搜索标签...',
+             border: InputBorder.none,
+             suffixIcon: _searchController.builder(
+               (context, value) {
+                 return value.text.isNotEmpty 
+                   ? IconButton(icon: const Icon(Icons.clear), onPressed: _searchController.clear)
+                   : const SizedBox.shrink();
+               }
+             ),
+           ),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.sync),
+            tooltip: '同步标签',
+            onPressed: _showSyncDialog,
+          ),
+          PopupMenuButton<int>(
+            icon: const Icon(Icons.sort),
+            tooltip: '排序',
+            onSelected: (value) {
+              tagManagerStore.setSortType(value);
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(value: 0, child: Text('按数量排序 (降序)')),
+              const PopupMenuItem(value: 1, child: Text('按名称排序 (升序)')),
+              const PopupMenuItem(value: 2, child: Text('按最近使用排序')),
+              const PopupMenuItem(value: 3, child: Text('按手动优先级排序')),
+            ],
+          ),
+        ],
+      ),
+      body: Observer(builder: (_) {
+        if (tagManagerStore.isLoading && tagManagerStore.tags.isEmpty) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        final tags = tagManagerStore.displayTags;
+        
+        return CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverPersistentHeader(
+              pinned: true,
+              delegate: SliverChipDelegate(
+                 Container(
+                    alignment: Alignment.center,
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      child: SortGroup(
+                        key: ValueKey(tagManagerStore.filterCategory),
+                        children: const ['全部', '作品', '角色', '画师', '收藏'],
+                        initIndex: _getFilterIndex(tagManagerStore.filterCategory),
+                        onChange: (index) {
+                           final category = _getCategoryFromIndex(index);
+                           tagManagerStore.setFilterCategory(category);
+                        },
+                      ),
+                    ),
+                 ),
+                 height: 52,
+               ),
+            ),
+            if (tags.isEmpty)
+              SliverFillRemaining(
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text('没有找到标签'),
+                      if (tagManagerStore.tags.isEmpty) ...[
+                         const SizedBox(height: 16),
+                         ElevatedButton(
+                           onPressed: _showSyncDialog,
+                           child: const Text('从已下载作品同步'),
+                         ),
+                      ]
+                    ],
+                  ),
+                ),
+              )
+            else
+              SliverPadding(
+                padding: const EdgeInsets.all(8.0),
+                sliver: SliverGrid(
+                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                    maxCrossAxisExtent: 200,
+                    childAspectRatio: 0.8,
+                    crossAxisSpacing: 8.0,
+                    mainAxisSpacing: 8.0,
+                  ),
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final data = tags[index];
+                      return TagItem(
+                        key: ValueKey(data), 
+                        data: data,
+                      );
+                    },
+                    childCount: tags.length,
+                  ),
+                ),
+              ),
+          ],
+        );
+      }),
+    );
+  }
+
+  int _getFilterIndex(int category) {
+      switch (category) {
+          case -1: return 0; // All
+          case 1: return 1; // Work
+          case 2: return 2; // Character
+          case 3: return 3; // Artist
+          case 99: return 4; // Bookmark
+          default: return 0; 
+      }
+  }
+
+  int _getCategoryFromIndex(int index) {
+      switch (index) {
+          case 0: return -1;
+          case 1: return 1;
+          case 2: return 2;
+          case 3: return 3;
+          case 4: return 99;
+          default: return -1;
+      }
+  }
+
+  void _showSyncDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return Observer(builder: (_) {
+          if (tagManagerStore.isSyncing) {
+            return AlertDialog(
+              title: const Text('正在同步'),
+              content: Row(
+                children: [
+                   const CircularProgressIndicator(),
+                   const SizedBox(width: 16),
+                   Expanded(child: Text(tagManagerStore.syncStatus)),
+                ],
+              ),
+            );
+          }
+          
+          return AlertDialog(
+            title: const Text('同步标签'),
+            content: const Text('这将扫描所有已下载的作品并重建标签库。\n现有的自定义设置（翻译、分类等）将被保留。\n是否继续？'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('取消'),
+              ),
+              TextButton(
+                onPressed: () async {
+                   await tagManagerStore.syncTags();
+                   if (context.mounted) {
+                     Navigator.of(context).pop();
+                   }
+                },
+                child: const Text('开始同步'),
+              ),
+            ],
+          );
+        });
+      },
+    );
+  }
+}
+
+extension TextEditingControllerExt on TextEditingController {
+  // Helper to rebuild on text change without full setstate
+  Widget builder(Widget Function(BuildContext, TextEditingValue) builder) {
+    return ValueListenableBuilder<TextEditingValue>(
+      valueListenable: this,
+      builder: (context, value, child) {
+        return builder(context, value);
+      },
+    );
+  }
+}
+
+class SliverChipDelegate extends SliverPersistentHeaderDelegate {
+  final Widget child;
+  double height = 45;
+
+  SliverChipDelegate(this.child, {this.height = 45});
+
+  @override
+  double get minExtent => height;
+
+  @override
+  double get maxExtent => height;
+
+  @override
+  Widget build(
+      BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return child;
+  }
+
+  @override
+  bool shouldRebuild(SliverChipDelegate oldDelegate) {
+    return height != oldDelegate.height;
+  }
+}
