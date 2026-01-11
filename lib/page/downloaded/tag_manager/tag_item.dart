@@ -57,7 +57,7 @@ class TagItem extends StatelessWidget {
                         ),
                       const SizedBox(width: 4),
                       Text(
-                        '${data.tag.illustCount}',
+                        '${data.tag.count}',
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                     ],

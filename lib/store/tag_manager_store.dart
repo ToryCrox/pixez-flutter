@@ -58,7 +58,7 @@ abstract class _TagManagerStore with Store {
     // 3. Sort
     switch (sortType) {
       case 0: // Count Desc
-        result.sort((a, b) => b.tag.illustCount.compareTo(a.tag.illustCount));
+        result.sort((a, b) => b.tag.count.compareTo(a.tag.count));
         break;
       case 1: // Name Asc
         result.sort((a, b) => a.tag.displayName.compareTo(b.tag.displayName));
