@@ -41,6 +41,7 @@ import 'package:pixez/page/theme/theme_page.dart';
 import 'package:pixez/page/preview/preview_page.dart';
 import 'package:pixez/page/search/search_page.dart';
 import 'package:pixez/custom/log.dart';
+import 'package:pixez/page/downloaded/tag_manager/tag_manager_page.dart';
 
 /// InheritedWidget 用于传递宽屏状态和右侧 Navigator
 class WideScreenNavigator extends InheritedWidget {
@@ -116,6 +117,7 @@ class _HelloPageState extends State<HelloPage> {
       ..._lists,
       DownloadedPage(),
       DownloadedAuthorsPage(),
+      TagManagerPage(),
     ];
     Constants.type = 0;
 
@@ -243,6 +245,10 @@ class _HelloPageState extends State<HelloPage> {
               NavigationRailDestination(
                 icon: Icon(Icons.person),
                 label: Text('作者'),
+              ),
+              NavigationRailDestination(
+                icon: Icon(Icons.label),
+                label: Text('标签管理'),
               )
             ],
           ),
