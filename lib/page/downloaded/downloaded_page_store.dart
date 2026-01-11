@@ -17,6 +17,7 @@ import 'dart:async';
 
 import 'package:bot_toast/bot_toast.dart';
 import 'package:easy_refresh/easy_refresh.dart';
+import 'package:flutter/material.dart';
 import 'package:mobx/mobx.dart';
 import 'package:pixez/custom/log.dart';
 import 'package:pixez/er/prefer.dart';
@@ -53,6 +54,7 @@ abstract class _DownloadedPageStoreBase with Store {
 
   EasyRefreshController? easyRefreshController;
   StreamSubscription<IllustDownloadStatus>? _downloadStatusSubscription;
+  Timer? _searchDebounce;
 
   // ===== 私有可观察状态 =====
   
@@ -81,7 +83,11 @@ abstract class _DownloadedPageStoreBase with Store {
   int _page = 0;
 
   @readonly
+  @readonly
   String? _searchKeyword;
+
+  @readonly
+  bool _isSearching = false;
 
   @readonly
   int? _filterUserId;
@@ -167,6 +173,8 @@ abstract class _DownloadedPageStoreBase with Store {
   void dispose() {
     _downloadStatusSubscription?.cancel();
     _downloadStatusSubscription = null;
+    _searchDebounce?.cancel();
+    _searchDebounce = null;
   }
 
   /// 加载持久化的状态
@@ -417,6 +425,29 @@ abstract class _DownloadedPageStoreBase with Store {
   void setSearchKeyword(String? keyword) {
     _searchKeyword = keyword;
     loadData();
+  }
+
+  @action
+  void onSearchChanged(String text) {
+    // 取消之前的定时器
+    _searchDebounce?.cancel();
+
+    // 设置新的定时器,延迟300ms后执行搜索
+    _searchDebounce = Timer(const Duration(milliseconds: 300), () {
+      final keyword = text.trim();
+      if (keyword != _searchKeyword) {
+        setSearchKeyword(keyword.isEmpty ? null : keyword);
+      }
+    });
+  }
+
+  @action
+  void toggleSearch({required bool isSearching, VoidCallback? onClear}) {
+    _isSearching = isSearching;
+    if (!_isSearching) {
+      onClear?.call();
+      setSearchKeyword(null);
+    }
   }
 
   /// 设置用户筛选

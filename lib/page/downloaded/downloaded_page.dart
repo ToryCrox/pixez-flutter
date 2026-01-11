@@ -61,6 +61,8 @@ class _DownloadedPageState extends State<DownloadedPage> {
   late DownloadedPageStore _store;
   late EasyRefreshController _easyRefreshController;
   Offset? _tapPosition;
+  late TextEditingController _searchController;
+  late FocusNode _searchFocusNode;
 
   @override
   void initState() {
@@ -71,6 +73,9 @@ class _DownloadedPageState extends State<DownloadedPage> {
     );
     _store = DownloadedPageStore();
     _store.easyRefreshController = _easyRefreshController;
+    _searchController = TextEditingController();
+    _searchFocusNode = FocusNode();
+    _searchController.addListener(_onSearchChanged);
     _store.init(
       initialUserId: widget.initialUserId,
       initialUserName: widget.initialUserName,
@@ -81,7 +86,25 @@ class _DownloadedPageState extends State<DownloadedPage> {
   void dispose() {
     _store.dispose();
     _easyRefreshController.dispose();
+    _searchController.dispose();
+    _searchFocusNode.dispose();
     super.dispose();
+  }
+
+  void _onSearchChanged() {
+    _store.onSearchChanged(_searchController.text);
+  }
+
+  void _toggleSearch() {
+    _store.toggleSearch(
+      isSearching: !_store.isSearching,
+      onClear: () {
+        _searchController.clear();
+      },
+    );
+    if (_store.isSearching) {
+      _searchFocusNode.requestFocus();
+    }
   }
 
   @override
@@ -98,11 +121,18 @@ class _DownloadedPageState extends State<DownloadedPage> {
 
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
-      title: _buildAppBarTitle(),
+      title: _store.isSearching ? _buildSearchField() : _buildAppBarTitle(),
       actions: [
-        _buildImportButton(),
-        _buildAuthorsButton(),
-        _buildMoreMenu(),
+        IconButton(
+          icon: Icon(_store.isSearching ? Icons.close : Icons.search),
+          tooltip: _store.isSearching ? '关闭搜索' : '搜索',
+          onPressed: _toggleSearch,
+        ),
+        if (!_store.isSearching) ...[
+          _buildImportButton(),
+          _buildAuthorsButton(),
+          _buildMoreMenu(),
+        ],
       ],
     );
   }
@@ -136,6 +166,25 @@ class _DownloadedPageState extends State<DownloadedPage> {
           ),
         ),
       ],
+    );
+  }
+
+
+
+  Widget _buildSearchField() {
+    return TextField(
+      controller: _searchController,
+      focusNode: _searchFocusNode,
+      decoration: InputDecoration(
+        hintText: '搜索标题，用户或者标签',
+        border: InputBorder.none,
+        hintStyle: TextStyle(
+          color: Theme.of(context).appBarTheme.foregroundColor?.withOpacity(0.6),
+        ),
+      ),
+      style: TextStyle(
+        color: Theme.of(context).appBarTheme.foregroundColor,
+      ),
     );
   }
 
