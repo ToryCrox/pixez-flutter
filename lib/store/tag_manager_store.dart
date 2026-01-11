@@ -1,6 +1,8 @@
 
+
 import 'package:mobx/mobx.dart';
 import 'package:pixez/main.dart';
+import 'package:pixez/custom/log.dart';
 import 'package:pixez/models/download_record.dart';
 
 part 'tag_manager_store.g.dart';
@@ -22,57 +24,9 @@ abstract class _TagManagerStore with Store {
   @observable
   String syncStatus = '';
 
-  // Client-side Filters
-  @observable
-  String searchText = '';
 
-  @observable
-  int filterCategory = -1; // -1: All, 1: Work, 2: Character, 99: Bookmarked
 
-  @observable
-  int sortType = 0; // 0: count desc, 1: name asc, 2: last_used desc, 3: display_order desc
 
-  @computed
-  List<TagDisplayData> get displayTags {
-    var result = tags.toList();
-
-    // 1. Filter by Search Text
-    if (searchText.isNotEmpty) {
-      final lowerSearch = searchText.toLowerCase();
-      result = result.where((data) {
-        return data.tag.name.toLowerCase().contains(lowerSearch) ||
-               data.tag.translatedName.toLowerCase().contains(lowerSearch) ||
-               (data.tag.customTranslatedName?.toLowerCase().contains(lowerSearch) ?? false);
-      }).toList();
-    }
-
-    // 2. Filter by Category / Bookmark
-    if (filterCategory != -1) {
-      if (filterCategory == 99) {
-        result = result.where((data) => data.tag.isBookmarked).toList();
-      } else {
-        result = result.where((data) => data.tag.category == filterCategory).toList();
-      }
-    }
-
-    // 3. Sort
-    switch (sortType) {
-      case 0: // Count Desc
-        result.sort((a, b) => b.tag.count.compareTo(a.tag.count));
-        break;
-      case 1: // Name Asc
-        result.sort((a, b) => a.tag.displayName.compareTo(b.tag.displayName));
-        break;
-      case 2: // Last Used Desc
-        result.sort((a, b) => (b.tag.lastUsedTime ?? 0).compareTo(a.tag.lastUsedTime ?? 0));
-        break;
-      case 3: // Display Order Desc
-        result.sort((a, b) => b.tag.displayOrder.compareTo(a.tag.displayOrder));
-        break;
-    }
-
-    return result;
-  }
 
   @action
   Future<void> loadTags({bool force = false}) async {
@@ -92,20 +46,6 @@ abstract class _TagManagerStore with Store {
     }
   }
 
-  @action
-  void setSearchText(String text) {
-    searchText = text;
-  }
-
-  @action
-  void setFilterCategory(int category) {
-    filterCategory = category;
-  }
-
-  @action
-  void setSortType(int type) {
-    sortType = type;
-  }
 
   @action
   Future<void> syncTags() async {
@@ -123,7 +63,7 @@ abstract class _TagManagerStore with Store {
       await loadTags(force: true);
       
     } catch (e) {
-      print('Sync tags error: $e');
+      Log.e('Sync tags error', error: e);
       runInAction(() {
           syncStatus = '失败: $e';
       });

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/page/downloaded/tag_manager/tag_item.dart';
+import 'package:pixez/page/downloaded/tag_manager/tag_manager_page_store.dart';
 import 'package:pixez/component/sort_group.dart';
 
 class TagManagerPage extends StatefulWidget {
@@ -12,13 +13,15 @@ class TagManagerPage extends StatefulWidget {
 }
 
 class _TagManagerPageState extends State<TagManagerPage> {
+  final TagManagerPageStore _pageStore = TagManagerPageStore();
   final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
 
   @override
   void initState() {
     super.initState();
     _searchController.addListener(() {
-      tagManagerStore.setSearchText(_searchController.text);
+      _pageStore.setSearchText(_searchController.text);
     });
     // Ensure data is loaded (will skip if already exists)
     tagManagerStore.loadTags();
@@ -27,123 +30,160 @@ class _TagManagerPageState extends State<TagManagerPage> {
   @override
   void dispose() {
     _searchController.dispose();
+    _searchFocusNode.dispose();
     super.dispose();
+  }
+
+  void _toggleSearch() {
+    _pageStore.toggleSearch(!_pageStore.isSearching);
+    if (_pageStore.isSearching) {
+      _searchFocusNode.requestFocus();
+    } else {
+      _searchController.clear();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: TextField(
-           controller: _searchController,
-           decoration: InputDecoration(
-             hintText: '搜索标签...',
-             border: InputBorder.none,
-             suffixIcon: _searchController.builder(
-               (context, value) {
-                 return value.text.isNotEmpty 
-                   ? IconButton(icon: const Icon(Icons.clear), onPressed: _searchController.clear)
-                   : const SizedBox.shrink();
-               }
-             ),
-           ),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.sync),
-            tooltip: '同步标签',
-            onPressed: _showSyncDialog,
-          ),
-          PopupMenuButton<int>(
-            icon: const Icon(Icons.sort),
-            tooltip: '排序',
-            onSelected: (value) {
-              tagManagerStore.setSortType(value);
-            },
-            itemBuilder: (context) => [
-              const PopupMenuItem(value: 0, child: Text('按数量排序 (降序)')),
-              const PopupMenuItem(value: 1, child: Text('按名称排序 (升序)')),
-              const PopupMenuItem(value: 2, child: Text('按最近使用排序')),
-              const PopupMenuItem(value: 3, child: Text('按手动优先级排序')),
+    return Observer(builder: (context) {
+      return Scaffold(
+        appBar: AppBar(
+          title: _pageStore.isSearching ? _buildSearchField() : _buildAppBarTitle(),
+          actions: [
+            IconButton(
+              icon: Icon(_pageStore.isSearching ? Icons.close : Icons.search),
+              tooltip: _pageStore.isSearching ? '关闭搜索' : '搜索',
+              onPressed: _toggleSearch,
+            ),
+            if (!_pageStore.isSearching) ...[
+              IconButton(
+                icon: const Icon(Icons.sync),
+                tooltip: '同步标签',
+                onPressed: _showSyncDialog,
+              ),
+              PopupMenuButton<int>(
+                icon: const Icon(Icons.sort),
+                tooltip: '排序',
+                onSelected: (value) {
+                  _pageStore.setSortType(value);
+                },
+                itemBuilder: (context) => [
+                  const PopupMenuItem(value: 0, child: Text('按数量排序 (降序)')),
+                  const PopupMenuItem(value: 1, child: Text('按名称排序 (升序)')),
+                  const PopupMenuItem(value: 2, child: Text('按最近使用排序')),
+                  const PopupMenuItem(value: 3, child: Text('按手动优先级排序')),
+                ],
+              ),
             ],
+          ],
+        ),
+        body: Observer(builder: (_) {
+          if (tagManagerStore.isLoading && tagManagerStore.tags.isEmpty) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          final tags = _pageStore.displayTags;
+          
+          return CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              SliverPersistentHeader(
+                pinned: true,
+                delegate: SliverChipDelegate(
+                   Container(
+                      alignment: Alignment.center,
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        child: SortGroup(
+                          key: ValueKey(_pageStore.filterCategory),
+                          children: const ['全部', '作品', '角色', '画师', '收藏'],
+                          initIndex: _getFilterIndex(_pageStore.filterCategory),
+                          onChange: (index) {
+                             final category = _getCategoryFromIndex(index);
+                             _pageStore.setFilterCategory(category);
+                          },
+                        ),
+                      ),
+                   ),
+                   height: 52,
+                 ),
+              ),
+              if (tags.isEmpty)
+                SliverFillRemaining(
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Text('没有找到标签'),
+                        if (tagManagerStore.tags.isEmpty) ...[
+                           const SizedBox(height: 16),
+                           ElevatedButton(
+                             onPressed: _showSyncDialog,
+                             child: const Text('从已下载作品同步'),
+                           ),
+                        ]
+                      ],
+                    ),
+                  ),
+                )
+              else
+                SliverPadding(
+                  padding: const EdgeInsets.all(8.0),
+                  sliver: SliverGrid(
+                    gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                      maxCrossAxisExtent: 200,
+                      childAspectRatio: 0.8,
+                      crossAxisSpacing: 8.0,
+                      mainAxisSpacing: 8.0,
+                    ),
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        final data = tags[index];
+                        return TagItem(
+                          key: ValueKey(data), 
+                          data: data,
+                        );
+                      },
+                      childCount: tags.length,
+                    ),
+                  ),
+                ),
+            ],
+          );
+        }),
+      );
+    });
+  }
+
+  Widget _buildAppBarTitle() {
+    return Observer(builder: (context) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text('标签管理'),
+          const SizedBox(width: 8),
+          Text(
+            '${_pageStore.displayTags.length} 标签',
+            style: TextStyle(
+              fontSize: 12,
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+            ),
           ),
         ],
-      ),
-      body: Observer(builder: (_) {
-        if (tagManagerStore.isLoading && tagManagerStore.tags.isEmpty) {
-          return const Center(child: CircularProgressIndicator());
-        }
+      );
+    });
+  }
 
-        final tags = tagManagerStore.displayTags;
-        
-        return CustomScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          slivers: [
-            SliverPersistentHeader(
-              pinned: true,
-              delegate: SliverChipDelegate(
-                 Container(
-                    alignment: Alignment.center,
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      child: SortGroup(
-                        key: ValueKey(tagManagerStore.filterCategory),
-                        children: const ['全部', '作品', '角色', '画师', '收藏'],
-                        initIndex: _getFilterIndex(tagManagerStore.filterCategory),
-                        onChange: (index) {
-                           final category = _getCategoryFromIndex(index);
-                           tagManagerStore.setFilterCategory(category);
-                        },
-                      ),
-                    ),
-                 ),
-                 height: 52,
-               ),
-            ),
-            if (tags.isEmpty)
-              SliverFillRemaining(
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Text('没有找到标签'),
-                      if (tagManagerStore.tags.isEmpty) ...[
-                         const SizedBox(height: 16),
-                         ElevatedButton(
-                           onPressed: _showSyncDialog,
-                           child: const Text('从已下载作品同步'),
-                         ),
-                      ]
-                    ],
-                  ),
-                ),
-              )
-            else
-              SliverPadding(
-                padding: const EdgeInsets.all(8.0),
-                sliver: SliverGrid(
-                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                    maxCrossAxisExtent: 200,
-                    childAspectRatio: 0.8,
-                    crossAxisSpacing: 8.0,
-                    mainAxisSpacing: 8.0,
-                  ),
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      final data = tags[index];
-                      return TagItem(
-                        key: ValueKey(data), 
-                        data: data,
-                      );
-                    },
-                    childCount: tags.length,
-                  ),
-                ),
-              ),
-          ],
-        );
-      }),
+  Widget _buildSearchField() {
+    return TextField(
+      controller: _searchController,
+      focusNode: _searchFocusNode,
+      decoration: const InputDecoration(
+        hintText: '搜索标签...',
+        border: InputBorder.none,
+      ),
+      autofocus: true,
     );
   }
 
