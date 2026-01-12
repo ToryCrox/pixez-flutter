@@ -14,6 +14,8 @@ class TagItem extends StatelessWidget {
   final bool isSelected;
   final VoidCallback? onSelectionToggle;
   final Function(bool)? onSelectionModeToggle;
+  final VoidCallback? onClassify;
+  final VoidCallback? onAssociate;
 
   const TagItem({
     super.key,
@@ -22,6 +24,8 @@ class TagItem extends StatelessWidget {
     this.isSelected = false,
     this.onSelectionToggle,
     this.onSelectionModeToggle,
+    this.onClassify,
+    this.onAssociate,
   });
 
   @override
@@ -58,12 +62,14 @@ class TagItem extends StatelessWidget {
             }
           },
           onLongPress: () {
-               // Avoid opening dialog in selection mode, maybe trigger selection?
-               if (isSelectionMode) {
-                  onSelectionToggle?.call();
-               } else {
-                  _showEditDialog(context);
-               }
+            if (!isSelectionMode) {
+              onSelectionModeToggle?.call(true);
+              if (!isSelected) {
+                onSelectionToggle?.call();
+              }
+            } else {
+              onSelectionToggle?.call();
+            }
           },
           child: Stack(
             children: [
@@ -197,6 +203,28 @@ class TagItem extends StatelessWidget {
         Offset.zero & overlay.size,
       ),
       items: <PopupMenuEntry<String>>[
+        if (isSelectionMode) ...[
+          const PopupMenuItem(
+            value: 'classify',
+            child: Row(
+              children: [
+                Icon(Icons.category, size: 20),
+                SizedBox(width: 8),
+                Text('分类'),
+              ],
+            ),
+          ),
+          const PopupMenuItem(
+            value: 'associate',
+            child: Row(
+              children: [
+                Icon(Icons.link, size: 20),
+                SizedBox(width: 8),
+                Text('关联'),
+              ],
+            ),
+          ),
+        ],
         const PopupMenuItem(
           value: 'search_online',
           child: Row(
@@ -222,7 +250,12 @@ class TagItem extends StatelessWidget {
           value: 'bookmark',
           child: Row(
             children: [
-              Icon(data.tag.isBookmarked ? Icons.bookmark_remove : Icons.bookmark_add, size: 20),
+              Icon(
+                data.tag.isBookmarked
+                    ? Icons.bookmark_remove
+                    : Icons.bookmark_add,
+                size: 20,
+              ),
               const SizedBox(width: 8),
               Text(data.tag.isBookmarked ? '取消收藏' : '收藏'),
             ],
@@ -258,16 +291,17 @@ class TagItem extends StatelessWidget {
             ],
           ),
         ),
-        PopupMenuItem(
-          value: 'selection_mode',
-          child: Row(
-            children: [
-              Icon(isSelectionMode ? Icons.close : Icons.checklist, size: 20),
-              const SizedBox(width: 8),
-              Text(isSelectionMode ? '退出选择模式' : '进入选择模式'),
-            ],
+        if (isSelectionMode)
+          const PopupMenuItem(
+            value: 'exit_selection_mode',
+            child: Row(
+              children: [
+                Icon(Icons.close, size: 20),
+                const SizedBox(width: 8),
+                Text('退出选择模式'),
+              ],
+            ),
           ),
-        ),
       ],
     );
 
@@ -297,16 +331,14 @@ class TagItem extends StatelessWidget {
           _showEditDialog(context);
         }
         break;
-      case 'selection_mode':
-        if (!isSelectionMode) {
-          onSelectionModeToggle?.call(true);
-          // 自动选中当前标签
-          if (!isSelected) {
-            onSelectionToggle?.call();
-          }
-        } else {
-          onSelectionModeToggle?.call(false);
-        }
+      case 'classify':
+        onClassify?.call();
+        break;
+      case 'associate':
+        onAssociate?.call();
+        break;
+      case 'exit_selection_mode':
+        onSelectionModeToggle?.call(false);
         break;
     }
   }

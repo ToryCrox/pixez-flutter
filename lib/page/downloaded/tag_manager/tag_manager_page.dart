@@ -137,6 +137,8 @@ class _TagManagerPageState extends State<TagManagerPage> {
                                 onSelectionModeToggle:
                                     (value) =>
                                         _pageStore.toggleSelectionMode(value),
+                                onClassify: _showClassifyDialog,
+                                onAssociate: _showAssociateDialog,
                               );
                             },
                           );
