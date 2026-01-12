@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:pixez/models/download_record.dart';
 import 'package:pixez/page/downloaded/tag_manager/tag_edit_dialog.dart';
 import 'package:pixez/component/pixiv_image.dart';
 import 'package:pixez/page/downloaded/downloaded_page.dart';
+import 'package:pixez/main.dart';
 
 class TagItem extends StatelessWidget {
   final TagDisplayData data;
   final bool isSelectionMode;
   final bool isSelected;
   final VoidCallback? onSelectionToggle;
+  final Function(bool)? onSelectionModeToggle;
 
   const TagItem({
     super.key,
@@ -16,6 +19,7 @@ class TagItem extends StatelessWidget {
     this.isSelectionMode = false,
     this.isSelected = false,
     this.onSelectionToggle,
+    this.onSelectionModeToggle,
   });
 
   @override
@@ -27,119 +31,234 @@ class TagItem extends StatelessWidget {
     // 2-3: 组合图 -> 1:1 或 4:3
     // 这里简单预设一个比例，实际由内容撑开
     
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      // Selection border
-      shape: isSelected
-          ? RoundedRectangleBorder(
-              side: BorderSide(color: Theme.of(context).colorScheme.primary, width: 3),
-              borderRadius: BorderRadius.circular(12),
-            )
-          : null,
-      child: InkWell(
-        onTap: () {
-          if (isSelectionMode) {
-             onSelectionToggle?.call();
-          } else {
-             _navigateToSearchResults(context);
-          }
-        },
-        onLongPress: () {
-             // Avoid opening dialog in selection mode, maybe trigger selection?
-             if (isSelectionMode) {
-                onSelectionToggle?.call();
-             } else {
-                _showEditDialog(context);
-             }
-        },
-        child: Stack(
-          children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(
-                  child: _buildCoverArea(context),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // First line: Name + Count
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              data.tag.name,
-                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                color: data.tag.categoryEnum.color,
-                                fontWeight: FontWeight.bold,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          if (data.tag.isBookmarked) 
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                              child: Icon(
-                                Icons.bookmark, 
-                                size: 16, 
-                                color: Theme.of(context).colorScheme.primary,
-                              ),
-                            ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${data.tag.count}',
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 2),
-                      // Second line: Translation
-                      Builder(builder: (context) {
-                        final translation = (data.tag.customTranslatedName?.isNotEmpty == true)
-                            ? data.tag.customTranslatedName!
-                            : data.tag.translatedName;
-                        return Text(
-                          translation,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        );
-                      }),
-                    ],
+    return GestureDetector(
+      onSecondaryTapDown: (details) {
+        _tapPosition = details.globalPosition;
+      },
+      onSecondaryTap: () {
+        _showContextMenu(context);
+      },
+      child: Card(
+        clipBehavior: Clip.antiAlias,
+        // Selection border
+        shape: isSelected
+            ? RoundedRectangleBorder(
+                side: BorderSide(color: Theme.of(context).colorScheme.primary, width: 3),
+                borderRadius: BorderRadius.circular(12),
+              )
+            : null,
+        child: InkWell(
+          onTap: () {
+            if (isSelectionMode) {
+               onSelectionToggle?.call();
+            } else {
+               _navigateToSearchResults(context);
+            }
+          },
+          onLongPress: () {
+               // Avoid opening dialog in selection mode, maybe trigger selection?
+               if (isSelectionMode) {
+                  onSelectionToggle?.call();
+               } else {
+                  _showEditDialog(context);
+               }
+          },
+          child: Stack(
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: _buildCoverArea(context),
                   ),
-                ),
-              ],
-            ),
-            if (isSelectionMode)
-               Positioned(
-                 top: 8,
-                 right: 8,
-                 child: Container(
-                   decoration: BoxDecoration(
-                     color: isSelected ? Theme.of(context).colorScheme.primary : Colors.black54,
-                     shape: BoxShape.circle,
-                     border: Border.all(color: Colors.white, width: 2),
-                   ),
-                   child: Padding(
-                     padding: const EdgeInsets.all(4.0),
-                     child: Icon(
-                       Icons.check,
-                       size: 16,
-                       color: Colors.white,
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // First line: Name + Count
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                data.tag.name,
+                                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  color: data.tag.categoryEnum.color,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (data.tag.isBookmarked) 
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                                child: Icon(
+                                  Icons.bookmark, 
+                                  size: 16, 
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
+                              ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${data.tag.count}',
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 2),
+                        // Second line: Translation
+                        Builder(builder: (context) {
+                          final translation = (data.tag.customTranslatedName?.isNotEmpty == true)
+                              ? data.tag.customTranslatedName!
+                              : data.tag.translatedName;
+                          return Text(
+                            translation,
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          );
+                        }),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              if (isSelectionMode)
+                 Positioned(
+                   top: 8,
+                   right: 8,
+                   child: Container(
+                     decoration: BoxDecoration(
+                       color: isSelected ? Theme.of(context).colorScheme.primary : Colors.black54,
+                       shape: BoxShape.circle,
+                       border: Border.all(color: Colors.white, width: 2),
+                     ),
+                     child: Padding(
+                       padding: const EdgeInsets.all(4.0),
+                       child: Icon(
+                         Icons.check,
+                         size: 16,
+                         color: Colors.white,
+                       ),
                      ),
                    ),
                  ),
-               ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
+  static Offset _tapPosition = Offset.zero;
+
+  Future<void> _showContextMenu(BuildContext context) async {
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final localPosition = overlay.globalToLocal(_tapPosition);
+
+    final result = await showMenu(
+      context: context,
+      position: RelativeRect.fromRect(
+        localPosition & const Size(40, 40),
+        Offset.zero & overlay.size,
+      ),
+      items: [
+        PopupMenuItem(
+          value: 'bookmark',
+          child: Row(
+            children: [
+              Icon(data.tag.isBookmarked ? Icons.bookmark_remove : Icons.bookmark_add, size: 20),
+              const SizedBox(width: 8),
+              Text(data.tag.isBookmarked ? '取消收藏' : '收藏'),
+            ],
+          ),
+        ),
+        const PopupMenuItem(
+          value: 'copy_title',
+          child: Row(
+            children: [
+              Icon(Icons.copy, size: 20),
+              const SizedBox(width: 8),
+              Text('复制标题'),
+            ],
+          ),
+        ),
+        const PopupMenuItem(
+          value: 'copy_translation',
+          child: Row(
+            children: [
+              Icon(Icons.translate, size: 20),
+              const SizedBox(width: 8),
+              Text('复制翻译'),
+            ],
+          ),
+        ),
+        const PopupMenuItem(
+          value: 'edit',
+          child: Row(
+            children: [
+              Icon(Icons.edit, size: 20),
+              const SizedBox(width: 8),
+              Text('编辑标签'),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: 'selection_mode',
+          child: Row(
+            children: [
+              Icon(isSelectionMode ? Icons.close : Icons.checklist, size: 20),
+              const SizedBox(width: 8),
+              Text(isSelectionMode ? '退出选择模式' : '进入选择模式'),
+            ],
+          ),
+        ),
+      ],
+    );
+
+    if (result == null) return;
+
+    switch (result) {
+      case 'bookmark':
+        await tagManagerStore.updateTag(data.tag.copyWith(isBookmarked: !data.tag.isBookmarked));
+        break;
+      case 'copy_title':
+        await _copyToClipboard(context, data.tag.name);
+        break;
+      case 'copy_translation':
+        final translation = (data.tag.customTranslatedName?.isNotEmpty == true)
+            ? data.tag.customTranslatedName!
+            : data.tag.translatedName;
+        await _copyToClipboard(context, translation);
+        break;
+      case 'edit':
+        if (context.mounted) {
+          _showEditDialog(context);
+        }
+        break;
+      case 'selection_mode':
+        if (!isSelectionMode) {
+          onSelectionModeToggle?.call(true);
+          // 自动选中当前标签
+          if (!isSelected) {
+            onSelectionToggle?.call();
+          }
+        } else {
+          onSelectionModeToggle?.call(false);
+        }
+        break;
+    }
+  }
+
+  Future<void> _copyToClipboard(BuildContext context, String text) async {
+    if (text.isEmpty) return;
+    Clipboard.setData(ClipboardData(text: text));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('已复制到剪贴板'), duration: Duration(seconds: 1)),
+    );
+  }
 
   void _navigateToSearchResults(BuildContext context) {
     Navigator.of(context).push(

@@ -121,6 +121,7 @@ class _TagManagerPageState extends State<TagManagerPage> {
                               isSelectionMode: _pageStore.isSelectionMode,
                               isSelected: _pageStore.selectedTagIds.contains(data.tag.id),
                               onSelectionToggle: () => _pageStore.toggleTagSelection(data.tag.id),
+                              onSelectionModeToggle: (value) => _pageStore.toggleSelectionMode(value),
                             );
                         });
                       },
