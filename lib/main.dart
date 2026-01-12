@@ -241,6 +241,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     // 初始化图片缓存管理器，设置默认缓存大小为240MB
     imageCacheManager.initialize();
     await _initDownloadStore(); // 确保在 userSetting.init 之后执行
+    // 预加载标签数据，确保详情页能正确显示标签状态（收藏、自定义翻译等）
+    tagManagerStore.loadTags();
   }
 
   Widget build(BuildContext context) {
