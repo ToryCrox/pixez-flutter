@@ -183,6 +183,36 @@ abstract class _TagManagerStore with Store {
     await loadTags(force: true);
   }
 
+  @action
+  Future<void> toggleExampleIllust(int tagId, int illustId, String squareMediumUrl) async {
+    final index = tags.indexWhere((t) => t.tag.id == tagId);
+    if (index == -1) return;
+
+    final oldData = tags[index];
+    final exampleIds = List<int>.from(oldData.tag.exampleIllustIds);
+    final List<IllustPreviewData> previewIllusts = List.from(oldData.previewIllusts);
+
+    if (exampleIds.contains(illustId)) {
+      exampleIds.remove(illustId);
+      previewIllusts.removeWhere((p) => p.illustId == illustId);
+    } else {
+      // 最多 3 个
+      if (exampleIds.length >= 3) {
+        exampleIds.removeAt(0);
+        if (previewIllusts.isNotEmpty) {
+           previewIllusts.removeAt(0);
+        }
+      }
+      exampleIds.add(illustId);
+      previewIllusts.add(IllustPreviewData(illustId: illustId, squareMediumUrl: squareMediumUrl));
+    }
+
+    final newTag = oldData.tag.copyWith(exampleIllusts: exampleIds.join(','));
+    await downloadStore.updateTagExampleIllusts(tagId, exampleIds);
+    
+    tags[index] = oldData.copyWith(tag: newTag, previewIllusts: previewIllusts);
+  }
+
   /// 开始监听tag变更事件
   void startListening() {
     _tagChangesSubscription = _dbProvider.tagChanges.listen((events) {

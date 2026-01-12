@@ -57,6 +57,7 @@ class _TagEditDialogState extends State<TagEditDialog> {
             const Text('分类', style: TextStyle(fontWeight: FontWeight.bold)),
             Wrap(
               spacing: 8.0,
+              runSpacing: 8.0,
               children: TagCategory.values.where((e) => e != TagCategory.uncategorized).map((category) {
                 return ChoiceChip(
                   label: Text(category.label),

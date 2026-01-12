@@ -667,6 +667,27 @@ class _DownloadedPageState extends State<DownloadedPage> {
           label: I18n.of(context).detail,
           onTap: () => _navigateToPictureList(illust),
         ),
+        if (_store.filterTagName != null)
+          _buildContextMenuItem(
+            icon: _store.exampleIllustIds.contains(illust.illustId) ? Icons.star : Icons.star_border,
+            label: _store.exampleIllustIds.contains(illust.illustId) ? '取消示例插画' : '设置为示例插画',
+            onTap: () async {
+              final tagName = _store.filterTagName!;
+              final tagData = tagManagerStore.getTagDisplayData(tagName);
+              if (tagData != null) {
+                final imageUrls = illust.getImageUrls();
+                String coverUrl = imageUrls.squareMedium;
+                if (coverUrl.isEmpty) {
+                  final illusts = illust.toIllusts();
+                  coverUrl = illusts.imageUrls.squareMedium;
+                }
+                await tagManagerStore.toggleExampleIllust(tagData.tag.id, illust.illustId, coverUrl);
+                // 同步更新 store 中的 exampleIllustIds
+                _store.exampleIllustIds.clear();
+                _store.exampleIllustIds.addAll(tagManagerStore.getTagDisplayData(tagName)!.tag.exampleIllustIds);
+              }
+            },
+          ),
         _buildContextMenuItem(
           icon: Icons.folder_open,
           label: I18n.of(context).save_path,
@@ -906,6 +927,7 @@ class _DownloadedIllustCard extends StatelessWidget {
                       _buildThumbnail(context),
                       _buildFolderButton(context),
                       if (illust.isUgoira) _buildUgoiraBadge(context),
+                      if (store.exampleIllustIds.contains(illust.illustId)) _buildExampleBadge(context),
                       if (isDownloading) _buildDownloadingOverlay(),
                       if (isPending) _buildPendingOverlay(context),
                       if (isPaused) _buildStatusBadge(context, I18n.of(context).paused, Colors.orange),
@@ -984,6 +1006,35 @@ class _DownloadedIllustCard extends StatelessWidget {
             fontSize: 10,
             fontWeight: FontWeight.bold,
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildExampleBadge(BuildContext context) {
+    return Positioned(
+      top: 4,
+      right: illust.isUgoira ? 40 : 4,
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: Colors.blueAccent,
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.star, color: Colors.white, size: 10),
+            SizedBox(width: 2),
+            Text(
+              '示例',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
         ),
       ),
     );

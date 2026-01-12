@@ -1549,10 +1549,14 @@ class DownloadDatabaseProvider {
     int? limit,
     int? offset,
     String? orderBy,
+    List<int>? exampleIllustIds,
   }) async {
     // 如果按文件大小排序，需要使用 JOIN 查询
     if (orderBy != null && orderBy.contains('total_file_size')) {
       final orderDirection = orderBy.contains('DESC') ? 'DESC' : 'ASC';
+      final exampleCase = (exampleIllustIds != null && exampleIllustIds.isNotEmpty)
+          ? 'CASE WHEN di.${DownloadedIllustColumns.illustId} IN (${exampleIllustIds.join(',')}) THEN 0 ELSE 1 END ASC,'
+          : '';
       var query = '''
         SELECT di.*, COALESCE(SUM(img.${DownloadedImageColumns.fileSize}), 0) as total_file_size
         FROM ${DownloadedIllustColumns.tableName} di
@@ -1560,7 +1564,7 @@ class DownloadDatabaseProvider {
         INNER JOIN ${DownloadedIllustTagsColumns.tableName} dit ON di.${DownloadedIllustColumns.illustId} = dit.${DownloadedIllustTagsColumns.illustId}
         WHERE dit.${DownloadedIllustTagsColumns.tagId} = ?
         GROUP BY di.${DownloadedIllustColumns.id}
-        ORDER BY total_file_size $orderDirection
+        ORDER BY $exampleCase total_file_size $orderDirection
       ''';
       final args = <dynamic>[tagId];
       if (limit != null) {
@@ -1578,6 +1582,10 @@ class DownloadDatabaseProvider {
     final orderByClause =
         orderBy ?? 'di.${DownloadedIllustColumns.downloadTime} DESC';
     
+    final exampleCase = (exampleIllustIds != null && exampleIllustIds.isNotEmpty)
+        ? 'CASE WHEN di.${DownloadedIllustColumns.illustId} IN (${exampleIllustIds.join(',')}) THEN 0 ELSE 1 END ASC,'
+        : '';
+
     // 等价类查询逻辑：
     // 1. 找到该标签关联的主标签ID (可能是它自己，也可能是它引用的 referencedTagId)
     // 2. 找到所有引用该主标签的标签ID (包括主标签本身)
@@ -1596,7 +1604,7 @@ class DownloadDatabaseProvider {
         WHERE id = (SELECT main_id FROM TargetGroup)
         OR ${DownloadedTagsColumns.referencedTagId} = (SELECT main_id FROM TargetGroup)
       )
-      ORDER BY $orderByClause
+      ORDER BY $exampleCase $orderByClause
     ''';
     
     final args = <dynamic>[tagId];
@@ -1611,6 +1619,16 @@ class DownloadDatabaseProvider {
     
     final maps = await db.rawQuery(query, args);
     return maps.map((e) => DownloadedIllust.fromJson(e)).toList();
+  }
+
+  /// 更新标签的示例插画
+  Future<void> updateTagExampleIllusts(int tagId, List<int> illustIds) async {
+    await db.update(
+      DownloadedTagsColumns.tableName,
+      {DownloadedTagsColumns.exampleIllusts: illustIds.join(',')},
+      where: '${DownloadedTagsColumns.id} = ?',
+      whereArgs: [tagId],
+    );
   }
 
   /// 建立标签关联关系（等价标签）

@@ -451,9 +451,10 @@ abstract class _DownloadStoreBase with Store {
     int? limit,
     int? offset,
     String? orderBy,
+    List<int>? exampleIllustIds,
   }) async {
     return await _dbProvider.searchIllustsByTagId(tagId,
-        limit: limit, offset: offset, orderBy: orderBy);
+        limit: limit, offset: offset, orderBy: orderBy, exampleIllustIds: exampleIllustIds);
   }
 
   Future<List<DownloadedIllust>> searchDownloadedByTagName(
@@ -461,12 +462,13 @@ abstract class _DownloadStoreBase with Store {
     int? limit,
     int? offset,
     String? orderBy,
+    List<int>? exampleIllustIds,
   }) async {
     // 先获取标签 ID，再调用按 ID 搜索的方法
     final tag = await _dbProvider.getTagByName(tagName);
     if (tag == null) return [];
     return await searchDownloadedByTagId(tag.id,
-        limit: limit, offset: offset, orderBy: orderBy);
+        limit: limit, offset: offset, orderBy: orderBy, exampleIllustIds: exampleIllustIds);
   }
 
   Future<List<DownloadedIllust>> searchDownloaded(
@@ -2038,5 +2040,8 @@ abstract class _DownloadStoreBase with Store {
     final hasWebP = await hasUgoiraWebP(illustId);
     if (!hasWebP) return null;
     return await _dbProvider.findImagePath(illustId, -1);
+  }
+  Future<void> updateTagExampleIllusts(int tagId, List<int> illustIds) async {
+    await _dbProvider.updateTagExampleIllusts(tagId, illustIds);
   }
 }

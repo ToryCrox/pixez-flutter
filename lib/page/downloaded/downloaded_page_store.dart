@@ -89,6 +89,9 @@ abstract class _DownloadedPageStoreBase with Store {
   @readonly
   String? _filterTagName;
 
+  @observable
+  ObservableList<int> exampleIllustIds = ObservableList();
+
   @readonly
   bool _isSearching = false;
 
@@ -175,6 +178,12 @@ abstract class _DownloadedPageStoreBase with Store {
 
     if (initialTagName != null) {
       _filterTagName = initialTagName;
+      // 初始化 exampleIllustIds
+      final tag = tagManagerStore.getTagDisplayData(initialTagName);
+      if (tag != null) {
+        exampleIllustIds.clear();
+        exampleIllustIds.addAll(tag.tag.exampleIllustIds);
+      }
     } else if (initialSearchKeyword != null) {
       _searchKeyword = initialSearchKeyword;
       _isSearching = true;
@@ -273,6 +282,7 @@ abstract class _DownloadedPageStoreBase with Store {
           limit: _pageSize,
           offset: 0,
           orderBy: orderBy,
+          exampleIllustIds: exampleIllustIds,
         );
       } else if (_filterUserId != null) {
         illusts = await downloadStore.getDownloadedByUser(
@@ -345,6 +355,7 @@ abstract class _DownloadedPageStoreBase with Store {
           limit: _pageSize,
           offset: offset,
           orderBy: orderBy,
+          exampleIllustIds: exampleIllustIds,
         );
       } else if (_filterUserId != null) {
         moreIllusts = await downloadStore.getDownloadedByUser(
