@@ -22,6 +22,7 @@ import 'package:pixez/component/painter_avatar.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:pixez/store/tag_manager_store.dart';
 import 'package:pixez/page/downloaded/downloaded_page.dart';
+import 'package:pixez/page/downloaded/tag_manager/tag_edit_dialog.dart';
 
 class IllustDetailContent extends StatefulWidget {
   final Illusts illusts;
@@ -473,6 +474,13 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
               },
               child: const Text("查看本地下载"),
             ),
+            if (tagManagerStore.getTagDisplayData(f.name) != null)
+              SimpleDialogOption(
+                onPressed: () {
+                  Navigator.pop(context, 4);
+                },
+                child: const Text("编辑标签"),
+              ),
           ],
         );
       },
@@ -508,6 +516,9 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
             ),
           );
         }
+        break;
+      case 4:
+        _showEditTagDialog(context, f);
         break;
     }
   }
@@ -557,6 +568,17 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
             ],
           ),
         ),
+        if (tagManagerStore.getTagDisplayData(f.name) != null)
+          const PopupMenuItem<int>(
+            value: 3,
+            child: Row(
+              children: [
+                Icon(Icons.edit, size: 20),
+                SizedBox(width: 12),
+                Text('编辑标签'),
+              ],
+            ),
+          ),
       ],
     );
 
@@ -580,6 +602,9 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
               builder: (context) => DownloadedPage(initialTagName: f.name),
             ),
           );
+          break;
+        case 3:
+          _showEditTagDialog(context, f);
           break;
       }
     }
@@ -679,6 +704,16 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
       ),
     );
     widget.illustStore?.illusts!.user.isFollowed = userStore!.isFollow;
+  }
+
+  void _showEditTagDialog(BuildContext context, Tags f) {
+    final localTag = tagManagerStore.getTagDisplayData(f.name);
+    if (localTag != null && context.mounted) {
+      showDialog(
+        context: context,
+        builder: (context) => TagEditDialog(tag: localTag.tag),
+      );
+    }
   }
 
   Widget _buildNameAvatar(BuildContext context, Illusts illust) {
