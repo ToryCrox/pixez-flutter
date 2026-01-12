@@ -242,6 +242,18 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
   }
 
   Padding _buildTagArea(BuildContext context, Illusts data) {
+    final tagNames = data.tags.map((e) => e.name).toSet();
+    final List<Tags> displayTags = List.from(data.tags);
+    
+    // 如果某个标签关联了主标签，且主标签不在列表中，则将其加入显示
+    for (final tag in data.tags) {
+      final mainTag = tagManagerStore.getMainTag(tag.name);
+      if (mainTag != null && !tagNames.contains(mainTag.name)) {
+        displayTags.add(Tags(name: mainTag.name, translatedName: mainTag.translatedName));
+        tagNames.add(mainTag.name);
+      }
+    }
+
     return Padding(
       padding: const EdgeInsets.only(left: 16.0, right: 16.0, top: 8.0),
       child: Wrap(
@@ -275,7 +287,7 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
                 ),
               ),
             ),
-          for (var f in data.tags) buildRow(context, f),
+          for (var f in displayTags) buildRow(context, f),
         ],
       ),
     );

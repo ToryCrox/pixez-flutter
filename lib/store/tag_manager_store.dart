@@ -114,6 +114,19 @@ abstract class _TagManagerStore with Store {
     return tags.firstWhereOrNull((t) => t.tag.name == tagName);
   }
 
+  TagDisplayData? getTagDisplayDataByID(int tagId) {
+    return tags.firstWhereOrNull((t) => t.tag.id == tagId);
+  }
+
+  /// 获取标签对应的主标签（如果它本身是别名）
+  DownloadedTag? getMainTag(String tagName) {
+    final localData = getTagDisplayData(tagName);
+    if (localData != null && localData.tag.referencedTagId != null) {
+      return getTagDisplayDataByID(localData.tag.referencedTagId!)?.tag;
+    }
+    return null;
+  }
+
   @action
   Future<void> associateTags(int primaryTagId, List<int> aliasTagIds) async {
     await _dbProvider.associateTags(primaryTagId, aliasTagIds);
