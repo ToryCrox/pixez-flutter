@@ -71,7 +71,10 @@ abstract class _TagManagerPageStore with Store {
       if (priorityCompare != 0) return priorityCompare;
       
       // Tertiary sort: Count DESC
-      return b.tag.count.compareTo(a.tag.count);
+      final countComapre = b.tag.count.compareTo(a.tag.count);
+      if (countComapre != 0) return countComapre;
+
+      return b.tag.displayName.compareTo(a.tag.displayName);
     }
 
     result.sort(compareTags);
