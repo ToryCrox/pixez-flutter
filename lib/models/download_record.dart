@@ -1551,18 +1551,38 @@ class DownloadDatabaseProvider {
     String? orderBy,
     List<int>? exampleIllustIds,
   }) async {
+    final exampleCase = (exampleIllustIds != null && exampleIllustIds.isNotEmpty)
+        ? 'CASE WHEN di.${DownloadedIllustColumns.illustId} IN (${exampleIllustIds.join(',')}) THEN 0 ELSE 1 END ASC,'
+        : '';
+
+    // 等价类查询逻辑：
+    // 1. 找到该标签关联的主标签ID (可能是它自己，也可能是它引用的 referencedTagId)
+    // 2. 找到所有引用该主标签的标签ID (包括主标签本身)
+    // 3. 查询这些标签关联的作品，并按插画 ID 分组去重
+    
     // 如果按文件大小排序，需要使用 JOIN 查询
     if (orderBy != null && orderBy.contains('total_file_size')) {
       final orderDirection = orderBy.contains('DESC') ? 'DESC' : 'ASC';
-      final exampleCase = (exampleIllustIds != null && exampleIllustIds.isNotEmpty)
-          ? 'CASE WHEN di.${DownloadedIllustColumns.illustId} IN (${exampleIllustIds.join(',')}) THEN 0 ELSE 1 END ASC,'
-          : '';
       var query = '''
+        WITH TargetGroup AS (
+          SELECT id, COALESCE(referenced_tag_id, id) as main_id 
+          FROM ${DownloadedTagsColumns.tableName} 
+          WHERE ${DownloadedTagsColumns.id} = ?
+        ),
+        RelevantTags AS (
+          SELECT id FROM ${DownloadedTagsColumns.tableName}
+          WHERE id = (SELECT main_id FROM TargetGroup)
+          OR ${DownloadedTagsColumns.referencedTagId} = (SELECT main_id FROM TargetGroup)
+        ),
+        MatchingIds AS (
+          SELECT DISTINCT ${DownloadedIllustTagsColumns.illustId}
+          FROM ${DownloadedIllustTagsColumns.tableName}
+          WHERE ${DownloadedIllustTagsColumns.tagId} IN (SELECT id FROM RelevantTags)
+        )
         SELECT di.*, COALESCE(SUM(img.${DownloadedImageColumns.fileSize}), 0) as total_file_size
         FROM ${DownloadedIllustColumns.tableName} di
-        LEFT JOIN ${DownloadedImageColumns.tableName} img ON di.${DownloadedImageColumns.illustId} = img.${DownloadedImageColumns.illustId}
-        INNER JOIN ${DownloadedIllustTagsColumns.tableName} dit ON di.${DownloadedIllustColumns.illustId} = dit.${DownloadedIllustTagsColumns.illustId}
-        WHERE dit.${DownloadedIllustTagsColumns.tagId} = ?
+        INNER JOIN MatchingIds m ON di.${DownloadedIllustColumns.illustId} = m.${DownloadedIllustTagsColumns.illustId}
+        LEFT JOIN ${DownloadedImageColumns.tableName} img ON di.${DownloadedIllustColumns.illustId} = img.${DownloadedIllustColumns.illustId}
         GROUP BY di.${DownloadedIllustColumns.id}
         ORDER BY $exampleCase total_file_size $orderDirection
       ''';
@@ -1581,29 +1601,26 @@ class DownloadDatabaseProvider {
 
     final orderByClause =
         orderBy ?? 'di.${DownloadedIllustColumns.downloadTime} DESC';
-    
-    final exampleCase = (exampleIllustIds != null && exampleIllustIds.isNotEmpty)
-        ? 'CASE WHEN di.${DownloadedIllustColumns.illustId} IN (${exampleIllustIds.join(',')}) THEN 0 ELSE 1 END ASC,'
-        : '';
 
-    // 等价类查询逻辑：
-    // 1. 找到该标签关联的主标签ID (可能是它自己，也可能是它引用的 referencedTagId)
-    // 2. 找到所有引用该主标签的标签ID (包括主标签本身)
-    // 3. 查询这些标签关联的作品
     var query = '''
       WITH TargetGroup AS (
         SELECT id, COALESCE(referenced_tag_id, id) as main_id 
         FROM ${DownloadedTagsColumns.tableName} 
         WHERE ${DownloadedTagsColumns.id} = ?
-      )
-      SELECT di.* 
-      FROM ${DownloadedIllustColumns.tableName} di
-      INNER JOIN ${DownloadedIllustTagsColumns.tableName} dit ON di.${DownloadedIllustColumns.illustId} = dit.${DownloadedIllustTagsColumns.illustId}
-      WHERE dit.${DownloadedIllustTagsColumns.tagId} IN (
+      ),
+      RelevantTags AS (
         SELECT id FROM ${DownloadedTagsColumns.tableName}
         WHERE id = (SELECT main_id FROM TargetGroup)
         OR ${DownloadedTagsColumns.referencedTagId} = (SELECT main_id FROM TargetGroup)
+      ),
+      MatchingIds AS (
+        SELECT DISTINCT ${DownloadedIllustTagsColumns.illustId}
+        FROM ${DownloadedIllustTagsColumns.tableName}
+        WHERE ${DownloadedIllustTagsColumns.tagId} IN (SELECT id FROM RelevantTags)
       )
+      SELECT di.* 
+      FROM ${DownloadedIllustColumns.tableName} di
+      INNER JOIN MatchingIds m ON di.${DownloadedIllustColumns.illustId} = m.${DownloadedIllustTagsColumns.illustId}
       ORDER BY $exampleCase $orderByClause
     ''';
     
@@ -2618,15 +2635,19 @@ class DownloadDatabaseProvider {
             SELECT id FROM ${DownloadedTagsColumns.tableName}
             WHERE id = (SELECT main_id FROM TargetGroup)
             OR ${DownloadedTagsColumns.referencedTagId} = (SELECT main_id FROM TargetGroup)
+          ),
+          MatchingIds AS (
+            SELECT DISTINCT ${DownloadedIllustTagsColumns.illustId}
+            FROM ${DownloadedIllustTagsColumns.tableName}
+            WHERE ${DownloadedIllustTagsColumns.tagId} IN (SELECT id FROM GroupIds)
           )
           SELECT 
             COUNT(DISTINCT di.${DownloadedIllustColumns.id}) as illust_count,
             COUNT(img.${DownloadedImageColumns.id}) as total_image_count,
             COALESCE(SUM(img.${DownloadedImageColumns.fileSize}), 0) as total_file_size
           FROM ${DownloadedIllustColumns.tableName} di
-          INNER JOIN ${DownloadedIllustTagsColumns.tableName} dit ON di.${DownloadedIllustColumns.illustId} = dit.${DownloadedIllustTagsColumns.illustId}
+          INNER JOIN MatchingIds m ON di.${DownloadedIllustColumns.illustId} = m.${DownloadedIllustTagsColumns.illustId}
           LEFT JOIN ${DownloadedImageColumns.tableName} img ON di.${DownloadedIllustColumns.illustId} = img.${DownloadedImageColumns.illustId}
-          WHERE dit.${DownloadedIllustTagsColumns.tagId} IN (SELECT id FROM GroupIds)
         ''';
         final result = await db.rawQuery(query, [tag.id]);
         if (result.isNotEmpty) {
