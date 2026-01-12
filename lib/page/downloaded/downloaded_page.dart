@@ -28,7 +28,7 @@ import 'package:pixez/page/picture/picture_list_page.dart';
 import 'package:pixez/page/downloaded/downloaded_authors_page.dart';
 import 'package:pixez/page/downloaded/downloaded_page_store.dart';
 import 'package:pixez/page/downloaded/tag_manager/tag_manager_page.dart';
-import 'package:pixez/page/downloaded/tag_manager/tag_assignment_dialog.dart';
+
 
 import 'package:pixez/page/downloaded/optimize_json_dialog.dart';
 import 'package:pixez/page/downloaded/update_illust_info_dialog.dart';
@@ -703,16 +703,6 @@ class _DownloadedPageState extends State<DownloadedPage> {
           label: I18n.of(context).delete,
           labelColor: Colors.red,
           onTap: () => _deleteIllust(illust),
-        ),
-        _buildContextMenuItem(
-          icon: Icons.label,
-          label: '编辑标签',
-          onTap: () {
-            showDialog(
-              context: context,
-              builder: (context) => TagAssignmentDialog(illustId: illust.illustId),
-            );
-          },
         ),
       ],
     );
