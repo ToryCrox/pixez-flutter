@@ -705,6 +705,18 @@ class TagDisplayData {
       required this.previewIllusts, 
       this.hasEquivalentTags = false,
     });
+
+    TagDisplayData copyWith({
+      DownloadedTag? tag,
+      List<IllustPreviewData>? previewIllusts,
+      bool? hasEquivalentTags,
+    }) {
+      return TagDisplayData(
+        tag: tag ?? this.tag,
+        previewIllusts: previewIllusts ?? this.previewIllusts,
+        hasEquivalentTags: hasEquivalentTags ?? this.hasEquivalentTags,
+      );
+    }
 }
 
 // 数据库Provider
