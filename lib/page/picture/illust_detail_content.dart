@@ -537,42 +537,45 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
       },
       mouseCursor: SystemMouseCursors.click,
       borderRadius: const BorderRadius.all(Radius.circular(12.5)),
-      child: Container(
-        height: 25,
-        padding: const EdgeInsets.symmetric(horizontal: 14),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.secondaryContainer,
-          borderRadius: const BorderRadius.all(Radius.circular(12.5)),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            RichText(
-                textAlign: TextAlign.start,
-                overflow: TextOverflow.ellipsis,
-                maxLines: 1,
-                text: TextSpan(
-                    text: "#${f.name}",
-                    children: [
-                      TextSpan(
-                        text: " ",
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleSmall!
-                            .copyWith(fontSize: 12),
-                      ),
-                      if (f.translatedName != null)
+      child: Tooltip(
+        message: f.translatedName != null ? "${f.name} (${f.translatedName})" : f.name,
+        child: Container(
+          height: 25,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.secondaryContainer,
+            borderRadius: const BorderRadius.all(Radius.circular(12.5)),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              RichText(
+                  textAlign: TextAlign.start,
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                  text: TextSpan(
+                      text: "#${f.name}",
+                      children: [
                         TextSpan(
-                            text: "${f.translatedName}",
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleSmall!
-                                .copyWith(fontSize: 12))
-                    ],
-                    style: Theme.of(context).textTheme.titleSmall!.copyWith(
-                        color: Theme.of(context).colorScheme.primary,
-                        fontSize: 12))),
-          ],
+                          text: " ",
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleSmall!
+                              .copyWith(fontSize: 12),
+                        ),
+                        if (f.translatedName != null)
+                          TextSpan(
+                              text: "${f.translatedName}",
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleSmall!
+                                  .copyWith(fontSize: 12))
+                      ],
+                      style: Theme.of(context).textTheme.titleSmall!.copyWith(
+                          color: Theme.of(context).colorScheme.primary,
+                          fontSize: 12))),
+            ],
+          ),
         ),
       ),
     );
