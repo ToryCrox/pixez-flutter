@@ -2431,13 +2431,52 @@ class DownloadDatabaseProvider {
     String filterType = 'all',
     int? userId,
     String? searchKeyword,
+    String? tagName,
   }) async {
+    String joinClause =
+        'LEFT JOIN ${DownloadedImageColumns.tableName} img ON di.${DownloadedIllustColumns.illustId} = img.${DownloadedImageColumns.illustId}';
     String whereClause = '';
     List<dynamic> whereArgs = [];
 
     if (filterType == 'user' && userId != null) {
       whereClause = 'WHERE di.${DownloadedIllustColumns.userId} = ?';
       whereArgs.add(userId);
+    } else if (filterType == 'tag' && tagName != null && tagName.isNotEmpty) {
+      final tag = await getTagByName(tagName);
+      if (tag != null) {
+        // 使用 CTE 找到等价组的所有标签 ID，确保统计与 searchIllustsByTagId 一致
+        final query = '''
+          WITH TargetGroup AS (
+            SELECT ${DownloadedTagsColumns.id} as id, COALESCE(${DownloadedTagsColumns.referencedTagId}, ${DownloadedTagsColumns.id}) as main_id 
+            FROM ${DownloadedTagsColumns.tableName} 
+            WHERE ${DownloadedTagsColumns.id} = ?
+          ),
+          GroupIds AS (
+            SELECT id FROM ${DownloadedTagsColumns.tableName}
+            WHERE id = (SELECT main_id FROM TargetGroup)
+            OR ${DownloadedTagsColumns.referencedTagId} = (SELECT main_id FROM TargetGroup)
+          )
+          SELECT 
+            COUNT(DISTINCT di.${DownloadedIllustColumns.id}) as illust_count,
+            COUNT(img.${DownloadedImageColumns.id}) as total_image_count,
+            COALESCE(SUM(img.${DownloadedImageColumns.fileSize}), 0) as total_file_size
+          FROM ${DownloadedIllustColumns.tableName} di
+          INNER JOIN ${DownloadedIllustTagsColumns.tableName} dit ON di.${DownloadedIllustColumns.illustId} = dit.${DownloadedIllustTagsColumns.illustId}
+          LEFT JOIN ${DownloadedImageColumns.tableName} img ON di.${DownloadedIllustColumns.illustId} = img.${DownloadedImageColumns.illustId}
+          WHERE dit.${DownloadedIllustTagsColumns.tagId} IN (SELECT id FROM GroupIds)
+        ''';
+        final result = await db.rawQuery(query, [tag.id]);
+        if (result.isNotEmpty) {
+          return {
+            'illust_count': result.first['illust_count'] as int? ?? 0,
+            'image_count': result.first['total_image_count'] as int? ?? 0,
+            'file_size': result.first['total_file_size'] as int? ?? 0,
+          };
+        }
+        return {'illust_count': 0, 'image_count': 0, 'file_size': 0};
+      } else {
+        return {'illust_count': 0, 'image_count': 0, 'file_size': 0};
+      }
     } else if (filterType == 'search' &&
         searchKeyword != null &&
         searchKeyword.isNotEmpty) {
@@ -2493,7 +2532,7 @@ class DownloadDatabaseProvider {
         COUNT(img.${DownloadedImageColumns.id}) as total_image_count,
         COALESCE(SUM(img.${DownloadedImageColumns.fileSize}), 0) as total_file_size
       FROM ${DownloadedIllustColumns.tableName} di
-      LEFT JOIN ${DownloadedImageColumns.tableName} img ON di.${DownloadedIllustColumns.illustId} = img.${DownloadedImageColumns.illustId}
+      $joinClause
       $whereClause
     ''';
 

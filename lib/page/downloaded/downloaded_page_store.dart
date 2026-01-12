@@ -392,16 +392,27 @@ abstract class _DownloadedPageStoreBase with Store {
     try {
       String filterType = 'all';
       int? userId;
+      String? searchKeyword;
+      String? tagName;
 
       if (_filterUserId != null) {
         filterType = 'user';
         userId = _filterUserId;
+      } else if (_filterTagName != null && _filterTagName!.isNotEmpty) {
+        filterType = 'tag';
+        tagName = _filterTagName;
+      } else if (_searchKeyword != null && _searchKeyword!.isNotEmpty) {
+        filterType = 'search';
+        searchKeyword = _searchKeyword;
+      } else if (_downloadFilter == DownloadFilter.incomplete) {
+        filterType = 'incomplete';
       }
 
       final stats = await downloadStore.getFilteredStats(
         filterType: filterType,
         userId: userId,
-        searchKeyword: null,
+        searchKeyword: searchKeyword,
+        tagName: tagName,
       );
 
       _stats = stats;

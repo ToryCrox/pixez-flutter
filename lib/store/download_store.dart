@@ -555,11 +555,13 @@ abstract class _DownloadStoreBase with Store {
     String filterType = 'all',
     int? userId,
     String? searchKeyword,
+    String? tagName,
   }) async {
     return await _dbProvider.getFilteredStats(
       filterType: filterType,
       userId: userId,
       searchKeyword: searchKeyword,
+      tagName: tagName,
     );
   }
 
