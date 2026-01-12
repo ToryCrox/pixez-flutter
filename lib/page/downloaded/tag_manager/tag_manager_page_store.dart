@@ -43,28 +43,38 @@ abstract class _TagManagerPageStore with Store {
     }
 
     // 3. Sort
-    switch (sortType) {
-      case 0: // Count Desc
-        result.sort((a, b) => b.tag.count.compareTo(a.tag.count));
-        break;
-      case 1: // Name Asc
-        result.sort((a, b) => a.tag.displayName.compareTo(b.tag.displayName));
-        break;
-      case 2: // Last Used Desc
-        result.sort((a, b) => (b.tag.lastUsedTime ?? 0).compareTo(a.tag.lastUsedTime ?? 0));
-        break;
-      case 3: // Display Order Desc
-        result.sort((a, b) => b.tag.displayOrder.compareTo(a.tag.displayOrder));
-        break;
-      case 4: // Category Asc
-        result.sort((a, b) {
-           int catCompare = a.tag.category.compareTo(b.tag.category);
-           if (catCompare != 0) return catCompare;
-           // Secondary sort by count desc
-           return b.tag.count.compareTo(a.tag.count);
-        });
-        break;
+    int compareTags(TagDisplayData a, TagDisplayData b) {
+      switch (sortType) {
+        case 0: // Count Desc
+          int countCompare = b.tag.count.compareTo(a.tag.count);
+          if (countCompare != 0) return countCompare;
+          break;
+        case 1: // Name Asc
+          int nameCompare = a.tag.displayName.compareTo(b.tag.displayName);
+          if (nameCompare != 0) return nameCompare;
+          break;
+        case 2: // Last Used Desc
+          int timeCompare = (b.tag.lastUsedTime ?? 0).compareTo(a.tag.lastUsedTime ?? 0);
+          if (timeCompare != 0) return timeCompare;
+          break;
+        case 3: // Priority / Display Order Desc
+          // Primary sort is priority here, handled below
+          break;
+        case 4: // Category / Priority Asc
+          int catCompare = a.tag.category.compareTo(b.tag.category);
+          if (catCompare != 0) return catCompare;
+          break;
+      }
+      
+      // Default / Secondary sort: Priority (displayOrder) DESC
+      int priorityCompare = b.tag.displayOrder.compareTo(a.tag.displayOrder);
+      if (priorityCompare != 0) return priorityCompare;
+      
+      // Tertiary sort: Count DESC
+      return b.tag.count.compareTo(a.tag.count);
     }
+
+    result.sort(compareTags);
 
     return result;
   }

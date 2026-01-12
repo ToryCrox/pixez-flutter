@@ -37,7 +37,7 @@ abstract class _TagManagerStore with Store {
     try {
       // Load ALL tags from DB (no db-side sorting/filtering needed if we do it locally, 
       // but initial load might want a default sort. Let's just load all.)
-      final list = await _dbProvider.getTags(sortType: 0, filterCategory: -1);
+      final list = await _dbProvider.getTags();
       tags = ObservableList.of(list);
     } catch (e) {
       Log.e('Load tags error', error: e);

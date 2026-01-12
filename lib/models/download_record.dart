@@ -2896,32 +2896,10 @@ class DownloadDatabaseProvider {
     return maps.map((e) => e[DownloadedTagsColumns.name] as String).toList();
   }
 
-  Future<List<TagDisplayData>> getTags({
-    int sortType = 0, // 0: count desc, 1: name asc, 2: last_used desc, 3: display_order desc
-    int filterCategory = -1, // -1: all
-  }) async {
-      String orderBy = '${DownloadedTagsColumns.displayOrder} DESC, ${DownloadedTagsColumns.count} DESC';
-      
-      if (sortType == 1) {
-        orderBy = '${DownloadedTagsColumns.displayOrder} DESC, ${DownloadedTagsColumns.name} ASC';
-      } else if (sortType == 2) {
-         orderBy = '${DownloadedTagsColumns.displayOrder} DESC, ${DownloadedTagsColumns.lastUsedTime} DESC';
-      }
-
-      String? where;
-      List<dynamic>? whereArgs;
-
-      if (filterCategory >= 0) {
-        where = '${DownloadedTagsColumns.category} = ?';
-        whereArgs = [filterCategory];
-      }
-
-      // Optimized query: No JOIN needed for count, it's a column now.
+  Future<List<TagDisplayData>> getTags() async {
+      // Fetch all tags. Sorting and filtering are handled by the frontend store.
       final List<Map<String, dynamic>> maps = await db.query(
         DownloadedTagsColumns.tableName,
-        where: where,
-        whereArgs: whereArgs,
-        orderBy: orderBy,
       );
       
       List<TagDisplayData> result = [];
