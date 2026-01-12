@@ -43,12 +43,14 @@ class DownloadedPage extends StatefulWidget {
   final int? initialUserId;
   final String? initialUserName;
   final String? initialSearchKeyword;
+  final String? initialTagName;
 
   const DownloadedPage({
     Key? key,
     this.initialUserId,
     this.initialUserName,
     this.initialSearchKeyword,
+    this.initialTagName,
   }) : super(key: key);
 
   @override
@@ -78,8 +80,9 @@ class _DownloadedPageState extends State<DownloadedPage> {
       initialUserId: widget.initialUserId,
       initialUserName: widget.initialUserName,
       initialSearchKeyword: widget.initialSearchKeyword,
+      initialTagName: widget.initialTagName,
     );
-     // Set text controller if search keyword provided
+     // Set text controller if search keyword is provided (but not tags, as tags are shown in title)
     if (widget.initialSearchKeyword?.isNotEmpty == true) {
       _searchController.text = widget.initialSearchKeyword!;
     }
@@ -142,7 +145,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
   }
 
   Widget _buildAppBarTitle() {
-    final title = _store.filterUserName ?? '已下载';
+    final title = _store.filterUserName ?? _store.filterTagName ?? '已下载';
     final stats = _store.stats;
 
     if (stats == null) {

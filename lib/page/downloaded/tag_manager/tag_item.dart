@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:pixez/models/download_record.dart';
+import 'package:pixez/page/downloaded/tag_manager/tag_equivalence_dialog.dart';
 import 'package:pixez/page/downloaded/tag_manager/tag_edit_dialog.dart';
 import 'package:pixez/component/pixiv_image.dart';
 import 'package:pixez/page/downloaded/downloaded_page.dart';
@@ -108,16 +109,35 @@ class TagItem extends StatelessWidget {
                           ],
                         ),
                         const SizedBox(height: 2),
-                        // Second line: Translation
+                        // Second line: Translation + Equivalence Icon
                         Builder(builder: (context) {
                           final translation = (data.tag.customTranslatedName?.isNotEmpty == true)
                               ? data.tag.customTranslatedName!
                               : data.tag.translatedName;
-                          return Text(
-                            translation,
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                          
+                          return Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  translation,
+                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              if (data.hasEquivalentTags)
+                                Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    onTap: () => _showEquivalenceDialog(context),
+                                    borderRadius: BorderRadius.circular(4),
+                                    child: const Padding(
+                                      padding: EdgeInsets.symmetric(horizontal: 4),
+                                      child: Icon(Icons.link, size: 14, color: Colors.blue),
+                                    ),
+                                  ),
+                                ),
+                            ],
                           );
                         }),
                       ],
@@ -149,6 +169,14 @@ class TagItem extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+
+  void _showEquivalenceDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      useRootNavigator: false,
+      builder: (context) => TagEquivalenceDialog(tagId: data.tag.id),
     );
   }
 
@@ -264,7 +292,7 @@ class TagItem extends StatelessWidget {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => DownloadedPage(
-          initialSearchKeyword: data.tag.name,
+          initialTagName: data.tag.name,
         ),
       ),
     );

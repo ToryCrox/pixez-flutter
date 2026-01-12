@@ -57,7 +57,7 @@ abstract class _DownloadedPageStoreBase with Store {
   Timer? _searchDebounce;
 
   // ===== 私有可观察状态 =====
-  
+
   @readonly
   ObservableList<DownloadedIllust> _illusts = ObservableList();
 
@@ -65,7 +65,8 @@ abstract class _DownloadedPageStoreBase with Store {
   ObservableMap<int, int> _downloadedCounts = ObservableMap();
 
   @readonly
-  ObservableMap<int, DownloadTaskStatus> _illustDownloadStatus = ObservableMap();
+  ObservableMap<int, DownloadTaskStatus> _illustDownloadStatus =
+      ObservableMap();
 
   @readonly
   ObservableMap<int, int> _fileSizes = ObservableMap();
@@ -83,8 +84,10 @@ abstract class _DownloadedPageStoreBase with Store {
   int _page = 0;
 
   @readonly
-  @readonly
   String? _searchKeyword;
+
+  @readonly
+  String? _filterTagName;
 
   @readonly
   bool _isSearching = false;
@@ -106,6 +109,8 @@ abstract class _DownloadedPageStoreBase with Store {
 
   @readonly
   Map<String, int>? _stats;
+
+  String? get filterTagName => _filterTagName;
 
   // ===== 计算属性 =====
 
@@ -157,18 +162,24 @@ abstract class _DownloadedPageStoreBase with Store {
   // ===== 初始化与销毁 =====
 
   /// 初始化 Store
-  void init({int? initialUserId, String? initialUserName, String? initialSearchKeyword}) {
+  void init({
+    int? initialUserId,
+    String? initialUserName,
+    String? initialSearchKeyword,
+    String? initialTagName,
+  }) {
     if (initialUserId != null) {
       _filterUserId = initialUserId;
       _filterUserName = initialUserName;
     }
-    
-    // 初始化搜索状态
-    if (initialSearchKeyword?.isNotEmpty == true) {
+
+    if (initialTagName != null) {
+      _filterTagName = initialTagName;
+    } else if (initialSearchKeyword != null) {
       _searchKeyword = initialSearchKeyword;
       _isSearching = true;
     }
-    
+
     _loadPersistedState();
     loadData();
     loadStats();
@@ -255,6 +266,14 @@ abstract class _DownloadedPageStoreBase with Store {
           offset: 0,
           orderBy: orderBy,
         );
+      }
+      if (_filterTagName != null && _filterTagName!.isNotEmpty) {
+        illusts = await downloadStore.searchDownloadedByTagName(
+          _filterTagName!,
+          limit: _pageSize,
+          offset: 0,
+          orderBy: orderBy,
+        );
       } else if (_filterUserId != null) {
         illusts = await downloadStore.getDownloadedByUser(
           _filterUserId!,
@@ -277,8 +296,10 @@ abstract class _DownloadedPageStoreBase with Store {
         );
       }
       final timeSpent = DateTime.now().difference(t1);
-      Log.i(() =>
-          'loadData cost ${timeSpent.inMilliseconds}ms, count ${illusts.length}');
+      Log.i(
+        () =>
+            'loadData cost ${timeSpent.inMilliseconds}ms, count ${illusts.length}',
+      );
       if (timeSpent.inMilliseconds > 300) {
         BotToast.showText(text: 'loadData cost ${timeSpent.inMilliseconds}ms');
       }
@@ -313,6 +334,14 @@ abstract class _DownloadedPageStoreBase with Store {
 
       if (_downloadFilter == DownloadFilter.incomplete) {
         moreIllusts = await downloadStore.getIncompleteDownloaded(
+          limit: _pageSize,
+          offset: offset,
+          orderBy: orderBy,
+        );
+      }
+      if (_filterTagName != null && _filterTagName!.isNotEmpty) {
+        moreIllusts = await downloadStore.searchDownloadedByTagName(
+          _filterTagName!,
           limit: _pageSize,
           offset: offset,
           orderBy: orderBy,
@@ -383,11 +412,13 @@ abstract class _DownloadedPageStoreBase with Store {
 
   /// 加载关键信息（下载状态和页数）
   Future<void> _loadCriticalInfo(List<DownloadedIllust> illusts) async {
-    final criticalFutures = illusts.map((illust) async {
-      final downloadStatus =
-          await downloadStore.getIllustDownloadStatus(illust.illustId);
-      return MapEntry(illust.illustId, downloadStatus);
-    }).toList();
+    final criticalFutures =
+        illusts.map((illust) async {
+          final downloadStatus = await downloadStore.getIllustDownloadStatus(
+            illust.illustId,
+          );
+          return MapEntry(illust.illustId, downloadStatus);
+        }).toList();
 
     final criticalResults = await Future.wait(criticalFutures);
 
@@ -471,8 +502,19 @@ abstract class _DownloadedPageStoreBase with Store {
   void clearFilterUser() {
     _filterUserId = null;
     _filterUserName = null;
+    _filterTagName = null;
+    _searchKeyword = null;
+    _isSearching = false;
+    _downloadFilter = DownloadFilter.all;
+    _sortType = IllustSortType.downloadTime;
     loadData();
-    loadStats();
+  }
+
+  @action
+  void initFromTag(String tagName) {
+    _filterTagName = tagName;
+    _isSearching = true;
+    loadData();
   }
 
   /// 暂停全部下载

@@ -40,7 +40,7 @@ abstract class _TagManagerStore with Store {
       final list = await _dbProvider.getTags(sortType: 0, filterCategory: -1);
       tags = ObservableList.of(list);
     } catch (e) {
-      print('Load tags error: $e');
+      Log.e('Load tags error', error: e);
     } finally {
       isLoading = false;
     }
@@ -90,6 +90,29 @@ abstract class _TagManagerStore with Store {
   }
 
   @action
+  Future<void> associateTags(int primaryTagId, List<int> aliasTagIds) async {
+    await _dbProvider.associateTags(primaryTagId, aliasTagIds);
+    // Reload to refresh all info
+    await loadTags(force: true);
+  }
+
+  @action
+  Future<void> dissociateTags(List<int> tagIds) async {
+    await _dbProvider.dissociateTags(tagIds);
+    // Reload to refresh all info
+    await loadTags(force: true);
+  }
+
+  /// 根据 ID 查找标签名
+  String? getTagNameById(int id) {
+    try {
+      return tags.firstWhere((t) => t.tag.id == id).tag.name;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @action
   Future<void> batchUpdateCategory(List<int> tagIds, int category) async {
     await _dbProvider.batchUpdateTagCategory(tagIds, category);
     
@@ -119,5 +142,27 @@ abstract class _TagManagerStore with Store {
 
   Future<List<String>> getTagsForIllust(int illustId) async {
     return await _dbProvider.getTagsForIllust(illustId);
+  }
+
+  @action
+  Future<List<DownloadedTag>> expandSelectedTags(List<int> ids) async {
+    return await _dbProvider.getExpandedTags(ids);
+  }
+
+  @action
+  Future<List<DownloadedTag>> getEquivalenceGroup(int tagId) async {
+    return await _dbProvider.getEquivalenceGroup(tagId);
+  }
+
+  @action
+  Future<void> updateEquivalenceGroup(int newPrimaryId, List<int> allTagIds) async {
+    await _dbProvider.updateEquivalenceGroup(newPrimaryId, allTagIds);
+    await loadTags(force: true);
+  }
+
+  @action
+  Future<void> dissociateSingleTag(int tagId) async {
+    await _dbProvider.dissociateTags([tagId]);
+    await loadTags(force: true);
   }
 }

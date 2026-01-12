@@ -446,13 +446,26 @@ abstract class _DownloadStoreBase with Store {
         limit: limit, offset: offset, orderBy: orderBy);
   }
 
-  Future<List<DownloadedIllust>> searchDownloadedByTag(
-    String tag, {
+  Future<List<DownloadedIllust>> searchDownloadedByTagId(
+    int tagId, {
     int? limit,
     int? offset,
     String? orderBy,
   }) async {
-    return await _dbProvider.searchIllustsByTag(tag,
+    return await _dbProvider.searchIllustsByTagId(tagId,
+        limit: limit, offset: offset, orderBy: orderBy);
+  }
+
+  Future<List<DownloadedIllust>> searchDownloadedByTagName(
+    String tagName, {
+    int? limit,
+    int? offset,
+    String? orderBy,
+  }) async {
+    // 先获取标签 ID，再调用按 ID 搜索的方法
+    final tag = await _dbProvider.getTagByName(tagName);
+    if (tag == null) return [];
+    return await searchDownloadedByTagId(tag.id,
         limit: limit, offset: offset, orderBy: orderBy);
   }
 

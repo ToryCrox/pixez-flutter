@@ -446,6 +446,7 @@ class DownloadedTagsColumns {
   static const String lastUsedTime = 'last_used_time';
   static const String count = 'count';
   static const String exampleIllusts = 'example_illusts';
+  static const String referencedTagId = 'referenced_tag_id';
 }
 
 class DownloadedIllustTagsColumns {
@@ -585,28 +586,27 @@ class DownloadedTag {
   final int id;
   final String name;
   final String translatedName;
-  final String? customTranslatedName;
   final int category;
+  final String? customTranslatedName;
+  final int count;
   final bool isBookmarked;
   final int displayOrder;
   final int? lastUsedTime;
-
-  // 关联作品数量
-  final int count;
-  // 关联的作品ID (逗号分隔)
   final String exampleIllusts;
+  final int? referencedTagId;
 
   DownloadedTag({
-    this.id = 0,
+    required this.id,
     required this.name,
     this.translatedName = '',
-    this.customTranslatedName,
     this.category = 0,
+    this.customTranslatedName,
+    this.count = 0,
     this.isBookmarked = false,
     this.displayOrder = 0,
     this.lastUsedTime,
-    this.count = 0,
     this.exampleIllusts = '',
+    this.referencedTagId,
   });
 
   String get displayName =>
@@ -622,7 +622,7 @@ class DownloadedTag {
     if (exampleIllusts.isEmpty) return [];
     return exampleIllusts.split(',').map((e) => int.tryParse(e)).whereType<int>().toList();
   }
-
+  
   factory DownloadedTag.fromJson(Map<String, dynamic> json) {
     return DownloadedTag(
       id: TypeUtil.parseInt(json[DownloadedTagsColumns.id]),
@@ -638,33 +638,52 @@ class DownloadedTag {
       lastUsedTime: json[DownloadedTagsColumns.lastUsedTime] as int?,
       count: TypeUtil.parseInt(json[DownloadedTagsColumns.count]),
       exampleIllusts: TypeUtil.parseString(json[DownloadedTagsColumns.exampleIllusts]),
+      referencedTagId: json[DownloadedTagsColumns.referencedTagId] != null 
+        ? TypeUtil.parseInt(json[DownloadedTagsColumns.referencedTagId]) : null,
     );
   }
-  
-  // 用于copyWith更新
+
+  Map<String, dynamic> toJson() {
+    return {
+      DownloadedTagsColumns.id: id,
+      DownloadedTagsColumns.name: name,
+      DownloadedTagsColumns.translatedName: translatedName,
+      DownloadedTagsColumns.category: category,
+      DownloadedTagsColumns.customTranslatedName: customTranslatedName,
+      DownloadedTagsColumns.count: count,
+      DownloadedTagsColumns.isBookmarked: isBookmarked ? 1 : 0,
+      DownloadedTagsColumns.displayOrder: displayOrder,
+      DownloadedTagsColumns.lastUsedTime: lastUsedTime,
+      DownloadedTagsColumns.exampleIllusts: exampleIllusts,
+      DownloadedTagsColumns.referencedTagId: referencedTagId,
+    };
+  }
+
   DownloadedTag copyWith({
     int? id,
     String? name,
     String? translatedName,
-    String? customTranslatedName,
     int? category,
+    String? customTranslatedName,
+    int? count,
     bool? isBookmarked,
     int? displayOrder,
     int? lastUsedTime,
-    int? count,
     String? exampleIllusts,
+    int? referencedTagId,
   }) {
     return DownloadedTag(
       id: id ?? this.id,
       name: name ?? this.name,
       translatedName: translatedName ?? this.translatedName,
-      customTranslatedName: customTranslatedName ?? this.customTranslatedName,
       category: category ?? this.category,
+      customTranslatedName: customTranslatedName ?? this.customTranslatedName,
+      count: count ?? this.count,
       isBookmarked: isBookmarked ?? this.isBookmarked,
       displayOrder: displayOrder ?? this.displayOrder,
       lastUsedTime: lastUsedTime ?? this.lastUsedTime,
-      count: count ?? this.count,
       exampleIllusts: exampleIllusts ?? this.exampleIllusts,
+      referencedTagId: referencedTagId ?? this.referencedTagId,
     );
   }
 }
@@ -672,8 +691,13 @@ class DownloadedTag {
 class TagDisplayData {
     final DownloadedTag tag;
     final List<DownloadedIllust> previewIllusts;
+    final bool hasEquivalentTags;
     
-    TagDisplayData({required this.tag, required this.previewIllusts});
+    TagDisplayData({
+      required this.tag, 
+      required this.previewIllusts, 
+      this.hasEquivalentTags = false,
+    });
 }
 
 // 数据库Provider
@@ -782,7 +806,7 @@ class DownloadDatabaseProvider {
 
       db = await openDatabase(
         dbPath,
-        version: 10,
+        version: 11,
         onCreate: (Database db, int version) async {
           await db.execute('''
           CREATE TABLE ${DownloadedIllustColumns.tableName} (
@@ -863,7 +887,8 @@ class DownloadDatabaseProvider {
              ${DownloadedTagsColumns.displayOrder} INTEGER DEFAULT 0,
              ${DownloadedTagsColumns.lastUsedTime} INTEGER,
              ${DownloadedTagsColumns.count} INTEGER DEFAULT 0,
-             ${DownloadedTagsColumns.exampleIllusts} TEXT
+             ${DownloadedTagsColumns.exampleIllusts} TEXT,
+             ${DownloadedTagsColumns.referencedTagId} INTEGER
           )
         ''');
 
@@ -910,6 +935,9 @@ class DownloadDatabaseProvider {
         ''');
         await db.execute('''
           CREATE INDEX idx_tags_display_order ON ${DownloadedTagsColumns.tableName}(${DownloadedTagsColumns.displayOrder})
+        ''');
+        await db.execute('''
+          CREATE INDEX idx_tags_referenced_tag ON ${DownloadedTagsColumns.tableName}(${DownloadedTagsColumns.referencedTagId})
         ''');
         // 关联表索引
         await db.execute('''
@@ -1082,6 +1110,17 @@ class DownloadDatabaseProvider {
           ''');
           await db.execute('''
             CREATE INDEX IF NOT EXISTS idx_illust_tags_illust ON ${DownloadedIllustTagsColumns.tableName}(${DownloadedIllustTagsColumns.illustId})
+          ''');
+        }
+        if (oldVersion < 11) {
+          // 为标签表添加关联字段
+          await db.execute('''
+            ALTER TABLE ${DownloadedTagsColumns.tableName}
+            ADD COLUMN ${DownloadedTagsColumns.referencedTagId} INTEGER
+          ''');
+          // 添加关联字段索引
+          await db.execute('''
+            CREATE INDEX IF NOT EXISTS idx_tags_referenced_tag ON ${DownloadedTagsColumns.tableName}(${DownloadedTagsColumns.referencedTagId})
           ''');
         }
       },
@@ -1357,15 +1396,23 @@ class DownloadDatabaseProvider {
     if (tagResults.isEmpty) return [];
     
     final tagId = tagResults.first[DownloadedTagsColumns.id] as int;
-    final orderDirection = (orderBy != null && orderBy.contains('DESC')) ? 'DESC' : 'ASC';
+    return await searchIllustsByTagId(tagId, limit: limit, offset: offset, orderBy: orderBy);
+  }
 
+  Future<List<DownloadedIllust>> searchIllustsByTagId(
+    int tagId, {
+    int? limit,
+    int? offset,
+    String? orderBy,
+  }) async {
     // 如果按文件大小排序，需要使用 JOIN 查询
     if (orderBy != null && orderBy.contains('total_file_size')) {
+      final orderDirection = orderBy.contains('DESC') ? 'DESC' : 'ASC';
       var query = '''
         SELECT di.*, COALESCE(SUM(img.${DownloadedImageColumns.fileSize}), 0) as total_file_size
         FROM ${DownloadedIllustColumns.tableName} di
+        LEFT JOIN ${DownloadedImageColumns.tableName} img ON di.${DownloadedImageColumns.illustId} = img.${DownloadedImageColumns.illustId}
         INNER JOIN ${DownloadedIllustTagsColumns.tableName} dit ON di.${DownloadedIllustColumns.illustId} = dit.${DownloadedIllustTagsColumns.illustId}
-        LEFT JOIN ${DownloadedImageColumns.tableName} img ON di.${DownloadedIllustColumns.illustId} = img.${DownloadedImageColumns.illustId}
         WHERE dit.${DownloadedIllustTagsColumns.tagId} = ?
         GROUP BY di.${DownloadedIllustColumns.id}
         ORDER BY total_file_size $orderDirection
@@ -1386,11 +1433,24 @@ class DownloadDatabaseProvider {
     final orderByClause =
         orderBy ?? 'di.${DownloadedIllustColumns.downloadTime} DESC';
     
+    // 等价类查询逻辑：
+    // 1. 找到该标签关联的主标签ID (可能是它自己，也可能是它引用的 referencedTagId)
+    // 2. 找到所有引用该主标签的标签ID (包括主标签本身)
+    // 3. 查询这些标签关联的作品
     var query = '''
+      WITH TargetGroup AS (
+        SELECT id, COALESCE(referenced_tag_id, id) as main_id 
+        FROM ${DownloadedTagsColumns.tableName} 
+        WHERE ${DownloadedTagsColumns.id} = ?
+      )
       SELECT di.* 
       FROM ${DownloadedIllustColumns.tableName} di
       INNER JOIN ${DownloadedIllustTagsColumns.tableName} dit ON di.${DownloadedIllustColumns.illustId} = dit.${DownloadedIllustTagsColumns.illustId}
-      WHERE dit.${DownloadedIllustTagsColumns.tagId} = ?
+      WHERE dit.${DownloadedIllustTagsColumns.tagId} IN (
+        SELECT id FROM ${DownloadedTagsColumns.tableName}
+        WHERE id = (SELECT main_id FROM TargetGroup)
+        OR ${DownloadedTagsColumns.referencedTagId} = (SELECT main_id FROM TargetGroup)
+      )
       ORDER BY $orderByClause
     ''';
     
@@ -1406,6 +1466,115 @@ class DownloadDatabaseProvider {
     
     final maps = await db.rawQuery(query, args);
     return maps.map((e) => DownloadedIllust.fromJson(e)).toList();
+  }
+
+  /// 建立标签关联关系（等价标签）
+  Future<void> associateTags(int primaryTagId, List<int> aliasTagIds) async {
+    await db.transaction((txn) async {
+      // 1. 更新所有别名标签，将其 referenced_tag_id 设为主标签 ID
+      // 注意：如果被选作别名的标签本身已经是某些标签的主标签，暂时不处理深层嵌套，仅支持一级关联
+      final placeholders = List.filled(aliasTagIds.length, '?').join(',');
+      await txn.update(
+        DownloadedTagsColumns.tableName,
+        {DownloadedTagsColumns.referencedTagId: primaryTagId},
+        where: '${DownloadedTagsColumns.id} IN ($placeholders)',
+        whereArgs: aliasTagIds,
+      );
+      
+      // 2. 将主标签的 referenced_tag_id 设为 NULL (确保其为主标签)
+      await txn.update(
+        DownloadedTagsColumns.tableName,
+        {DownloadedTagsColumns.referencedTagId: null},
+        where: '${DownloadedTagsColumns.id} = ?',
+        whereArgs: [primaryTagId],
+      );
+    });
+  }
+
+  /// 解除标签关联关系
+  Future<void> dissociateTags(List<int> tagIds) async {
+    final placeholders = List.filled(tagIds.length, '?').join(',');
+    await db.update(
+      DownloadedTagsColumns.tableName,
+      {DownloadedTagsColumns.referencedTagId: null},
+      where: '${DownloadedTagsColumns.id} IN ($placeholders)',
+      whereArgs: tagIds,
+    );
+  }
+
+  /// 获取包含该标签在内的完整等价组
+  Future<List<DownloadedTag>> getEquivalenceGroup(int tagId) async {
+    final List<Map<String, dynamic>> maps = await db.rawQuery('''
+      WITH TargetGroup AS (
+        SELECT id, COALESCE(referenced_tag_id, id) as main_id 
+        FROM ${DownloadedTagsColumns.tableName} 
+        WHERE id = ?
+      )
+      SELECT * FROM ${DownloadedTagsColumns.tableName}
+      WHERE id = (SELECT main_id FROM TargetGroup)
+      OR referenced_tag_id = (SELECT main_id FROM TargetGroup)
+    ''', [tagId]);
+    return maps.map((e) => DownloadedTag.fromJson(e)).toList();
+  }
+
+  /// 获取一组标签及其各自所属等价组的所有成员（全组闭包查询）
+  Future<List<DownloadedTag>> getExpandedTags(List<int> ids) async {
+    if (ids.isEmpty) return [];
+    final placeholders = List.filled(ids.length, '?').join(',');
+    
+    // 逻辑：
+    // 1. 找到所有选中标签的“最终根节点” (Root Primary)
+    // 2. 找到所有指向这些根节点的别名，以及根节点本身
+    final List<Map<String, dynamic>> maps = await db.rawQuery('''
+      WITH Roots AS (
+        SELECT DISTINCT COALESCE(referenced_tag_id, id) as root_id 
+        FROM ${DownloadedTagsColumns.tableName} 
+        WHERE id IN ($placeholders)
+      )
+      SELECT * FROM ${DownloadedTagsColumns.tableName}
+      WHERE id IN (SELECT root_id FROM Roots)
+      OR referenced_tag_id IN (SELECT root_id FROM Roots)
+    ''', ids);
+    
+    return maps.map((e) => DownloadedTag.fromJson(e)).toList();
+  }
+
+  /// 更新等价组内的主标签及成员关系
+  Future<void> updateEquivalenceGroup(int newPrimaryId, List<int> allTagIds) async {
+    await db.transaction((txn) async {
+      // 1. 先将组内所有成员的引用置空
+      final placeholders = List.filled(allTagIds.length, '?').join(',');
+      await txn.update(
+        DownloadedTagsColumns.tableName,
+        {DownloadedTagsColumns.referencedTagId: null},
+        where: 'id IN ($placeholders)',
+        whereArgs: allTagIds,
+      );
+      
+      // 2. 将非主标签的成员指向新的主标签
+      final aliasIds = allTagIds.where((id) => id != newPrimaryId).toList();
+      if (aliasIds.isNotEmpty) {
+        final aliasPlaceholders = List.filled(aliasIds.length, '?').join(',');
+        await txn.update(
+          DownloadedTagsColumns.tableName,
+          {DownloadedTagsColumns.referencedTagId: newPrimaryId},
+          where: 'id IN ($aliasPlaceholders)',
+          whereArgs: aliasIds,
+        );
+      }
+    });
+  }
+
+  Future<DownloadedTag?> getTagByName(String name) async {
+    final maps = await db.query(
+      DownloadedTagsColumns.tableName,
+      where: '${DownloadedTagsColumns.name} = ?',
+      whereArgs: [name],
+    );
+    if (maps.isNotEmpty) {
+      return DownloadedTag.fromJson(maps.first);
+    }
+    return null;
   }
 
   Future<List<DownloadedIllust>> searchIllusts(
@@ -1577,9 +1746,11 @@ class DownloadDatabaseProvider {
     // 按 illust_id 分组，减少 OR 条件的数量
     final groupedByIllustId = <int, Set<int>>{};
     for (final item in illustParts) {
-      final illustId = item['illustId']!;
-      final part = item['part']!;
-      groupedByIllustId.putIfAbsent(illustId, () => <int>{}).add(part);
+      final illustId = item['illustId'];
+      final part = item['part'];
+      if (illustId != null && part != null) {
+        groupedByIllustId.putIfAbsent(illustId, () => <int>{}).add(part);
+      }
     }
 
     // 分批处理 illust_id，每批最多 50 个 illust_id
@@ -2614,7 +2785,7 @@ class DownloadDatabaseProvider {
     if (tagIds.isEmpty) return;
     
     // Batch update using WHERE IN
-    final batchSize = 500;
+    const batchSize = 500;
     for (int i = 0; i < tagIds.length; i += batchSize) {
       final end = (i + batchSize < tagIds.length) ? i + batchSize : tagIds.length;
       final batchIds = tagIds.sublist(i, end);
@@ -2749,18 +2920,35 @@ class DownloadDatabaseProvider {
         }
       }
 
-      // Second pass: associate illusts
+      // Pre-collect all referencedTagIds to determine which tags have equivalent relationships
+      final List<Map<String, dynamic>> refMaps = await db.query(
+        DownloadedTagsColumns.tableName,
+        columns: [DownloadedTagsColumns.referencedTagId],
+        where: '${DownloadedTagsColumns.referencedTagId} IS NOT NULL'
+      );
+      final Set<int> allReferencedIds = refMaps.map((m) => m[DownloadedTagsColumns.referencedTagId] as int).toSet();
+      
+      // Second pass: associate illusts and determine hasEquivalentTags
       for (var entity in tagEntities) {
         List<DownloadedIllust> previewIllusts = [];
-        for (var id in entity.exampleIllustIds) {
-           if (illustMap.containsKey(id)) {
-             previewIllusts.add(illustMap[id]!);
-           }
+        for (var illustId in entity.exampleIllustIds) {
+          if (illustMap.containsKey(illustId)) {
+            previewIllusts.add(illustMap[illustId]!);
+          }
         }
         // sort by date desc
         previewIllusts.sort((a, b) => b.createDate.compareTo(a.createDate));
         
-        result.add(TagDisplayData(tag: entity, previewIllusts: previewIllusts));
+        // A tag has equivalent tags if:
+        // 1. It is an alias (points to someone else)
+        // 2. It is a primary tag (someone else points to it)
+        bool hasEquivalentTags = entity.referencedTagId != null || allReferencedIds.contains(entity.id);
+        
+        result.add(TagDisplayData(
+          tag: entity, 
+          previewIllusts: previewIllusts,
+          hasEquivalentTags: hasEquivalentTags,
+        ));
       }
 
       return result;

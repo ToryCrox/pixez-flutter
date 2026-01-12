@@ -120,7 +120,9 @@ class _TagManagerPageState extends State<TagManagerPage> {
                               data: data,
                               isSelectionMode: _pageStore.isSelectionMode,
                               isSelected: _pageStore.selectedTagIds.contains(data.tag.id),
-                              onSelectionToggle: () => _pageStore.toggleTagSelection(data.tag.id),
+                              onSelectionToggle: () {
+                                _pageStore.toggleTagSelection(data.tag.id);
+                              },
                               onSelectionModeToggle: (value) => _pageStore.toggleSelectionMode(value),
                             );
                         });
@@ -188,12 +190,26 @@ class _TagManagerPageState extends State<TagManagerPage> {
           onPressed: _pageStore.selectAll,
           child: const Text('全选'),
         ),
-        Observer(builder: (_) => _pageStore.selectedTagIds.isNotEmpty ?
-          TextButton(
-            onPressed: _showClassifyDialog,
-            child: const Text('分类'),
-          ) : const SizedBox.shrink()
-        ),
+        Observer(builder: (_) {
+          if (_pageStore.selectedTagIds.isEmpty) return const SizedBox.shrink();
+          return Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextButton(
+                onPressed: _showAssociateDialog,
+                child: const Text('关联'),
+              ),
+              TextButton(
+                onPressed: _handleDissociate,
+                child: const Text('解链'),
+              ),
+              TextButton(
+                onPressed: _showClassifyDialog,
+                child: const Text('分类'),
+              ),
+            ],
+          );
+        }),
       ],
     );
   }
@@ -251,44 +267,159 @@ class _TagManagerPageState extends State<TagManagerPage> {
       }
   }
   
-  void _showClassifyDialog() {
-      if (_pageStore.selectedTagIds.isEmpty) return;
+  void _showClassifyDialog() async {
+    if (_pageStore.selectedTagIds.isEmpty) return;
 
-      showDialog(
-        context: context, 
-        useRootNavigator: false,
-        builder: (context) {
-           return SimpleDialog(
-             title: Text('将 ${_pageStore.selectedTagIds.length} 个标签分类为'),
-             children: TagCategory.values.map((category) {
-               return _buildClassifyItem(category);
-             }).toList(),
-           );
-        }
-      );
+    // 智能扩展：识别选中标签背后的完整家族
+    final expandedTags = await tagManagerStore.expandSelectedTags(_pageStore.selectedTagIds.toList());
+    final allIds = expandedTags.map((t) => t.id).toList();
+
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      useRootNavigator: false,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('将 ${expandedTags.length} 个标签分类为'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (expandedTags.length > _pageStore.selectedTagIds.length)
+                 Padding(
+                   padding: const EdgeInsets.only(bottom: 12),
+                   child: Text(
+                     '注：已自动包含同组关联标签',
+                     style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.primary),
+                   ),
+                 ),
+              Flexible(
+                child: SingleChildScrollView(
+                  child: Wrap(
+                    spacing: 4,
+                    runSpacing: 4,
+                    children: expandedTags.map((tag) => Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.surfaceVariant,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(tag.name, style: const TextStyle(fontSize: 10)),
+                    )).toList(),
+                  ),
+                ),
+              ),
+              const Divider(height: 24),
+              ...TagCategory.values.map((category) {
+                return ListTile(
+                  title: Text(category.label),
+                  textColor: category.color,
+                  dense: true,
+                  onTap: () async {
+                    Navigator.pop(context);
+                    await tagManagerStore.batchUpdateCategory(allIds, category.value);
+                    _pageStore.toggleSelectionMode(false);
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('全组分类已更新')),
+                      );
+                    }
+                  },
+                );
+              }).toList(),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('取消'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
-  Widget _buildClassifyItem(TagCategory category) {
-      return SimpleDialogOption(
-        onPressed: () async {
-           Navigator.pop(context);
-           await tagManagerStore.batchUpdateCategory(_pageStore.selectedTagIds.toList(), category.value);
-           _pageStore.toggleSelectionMode(false);
-           
-           if (mounted) {
-             ScaffoldMessenger.of(context).showSnackBar(
-               const SnackBar(content: Text('分类已更新')),
-             );
-           }
-        },
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8.0),
-          child: Text(
-             category.label,
-             style: category.color != null ? TextStyle(color: category.color, fontWeight: FontWeight.bold) : null,
-          ),
-        ),
+
+  void _handleDissociate() async {
+    final selectedIds = _pageStore.selectedTagIds.toList();
+    await tagManagerStore.dissociateTags(selectedIds);
+    _pageStore.toggleSelectionMode(false);
+  }
+
+  void _showAssociateDialog() async {
+    final selectedIds = _pageStore.selectedTagIds.toList();
+    if (selectedIds.length < 2) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请至少选择两个标签进行关联'))
       );
+      return;
+    }
+
+    // 智能扩展：获取选中标签及其背后的完整家族成员
+    final expandedTags = await tagManagerStore.expandSelectedTags(selectedIds);
+    final allIds = expandedTags.map((t) => t.id).toList();
+
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        // 默认主标签：如果原组里有根主标签（referencedTagId 为 null），优先选它，否则选第一个
+        int primaryId = expandedTags.any((t) => t.referencedTagId == null)
+            ? expandedTags.firstWhere((t) => t.referencedTagId == null).id
+            : allIds.first;
+
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Text('建立等价关联'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('包含选中的 ${selectedIds.length} 个标签及其关联家族，共 ${expandedTags.length} 个标签：'),
+                  const SizedBox(height: 16),
+                  Flexible(
+                    child: SingleChildScrollView(
+                      child: Column(
+                        children: expandedTags.map((tag) {
+                          return RadioListTile<int>(
+                            title: Text(tag.name),
+                            subtitle: Text(tag.translatedName),
+                            value: tag.id,
+                            groupValue: primaryId,
+                            onChanged: (val) => setState(() => primaryId = val!),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('取消'),
+                ),
+                TextButton(
+                  onPressed: () async {
+                    // 合并式更新：全组成员一并指向新主标签
+                    final aliasIds = allIds.where((id) => id != primaryId).toList();
+                    await tagManagerStore.associateTags(primaryId, aliasIds);
+                    if (context.mounted) {
+                      Navigator.pop(context);
+                      _pageStore.toggleSelectionMode(false);
+                    }
+                  },
+                  child: const Text('确定'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   void _showSyncDialog() {
