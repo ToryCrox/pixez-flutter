@@ -27,7 +27,7 @@ class _TagManagerPageState extends State<TagManagerPage> {
     // Ensure data is loaded (will skip if already exists)
     tagManagerStore.loadTags();
   }
-  
+
   @override
   void dispose() {
     _searchController.dispose();
@@ -46,96 +46,110 @@ class _TagManagerPageState extends State<TagManagerPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Observer(builder: (context) {
-      return Scaffold(
-        appBar: _pageStore.isSelectionMode 
-            ? _buildSelectionAppBar() 
-            : _buildNormalAppBar(),
-        body: Observer(builder: (_) {
-          if (tagManagerStore.isLoading && tagManagerStore.tags.isEmpty) {
-            return const Center(child: CircularProgressIndicator());
-          }
+    return Observer(
+      builder: (context) {
+        return Scaffold(
+          appBar:
+              _pageStore.isSelectionMode
+                  ? _buildSelectionAppBar()
+                  : _buildNormalAppBar(),
+          body: Observer(
+            builder: (_) {
+              if (tagManagerStore.isLoading && tagManagerStore.tags.isEmpty) {
+                return const Center(child: CircularProgressIndicator());
+              }
 
-          final tags = _pageStore.displayTags;
-          
-          return CustomScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            slivers: [
-              SliverPersistentHeader(
-                pinned: true,
-                delegate: SliverChipDelegate(
-                   Container(
-                      alignment: Alignment.center,
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        child: SortGroup(
-                          key: ValueKey(_pageStore.filterCategory),
-                          children: const ['全部', '作品', '角色', '特点', '收藏'],
-                          initIndex: _getFilterIndex(_pageStore.filterCategory),
-                          onChange: (index) {
-                             final category = _getCategoryFromIndex(index);
-                             _pageStore.setFilterCategory(category);
-                          },
+              final tags = _pageStore.displayTags;
+
+              return CustomScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                slivers: [
+                  SliverPersistentHeader(
+                    pinned: true,
+                    delegate: SliverChipDelegate(
+                      Container(
+                        alignment: Alignment.center,
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          child: SortGroup(
+                            key: ValueKey(_pageStore.filterCategory),
+                            children: const ['全部', '作品', '角色', '特点', '收藏'],
+                            initIndex: _getFilterIndex(
+                              _pageStore.filterCategory,
+                            ),
+                            onChange: (index) {
+                              final category = _getCategoryFromIndex(index);
+                              _pageStore.setFilterCategory(category);
+                            },
+                          ),
                         ),
                       ),
-                   ),
-                   height: 52,
-                 ),
-              ),
-              if (tags.isEmpty)
-                SliverFillRemaining(
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Text('没有找到标签'),
-                        if (tagManagerStore.tags.isEmpty) ...[
-                           const SizedBox(height: 16),
-                           ElevatedButton(
-                             onPressed: _showSyncDialog,
-                             child: const Text('从已下载作品同步'),
-                           ),
-                        ]
-                      ],
+                      height: 52,
                     ),
                   ),
-                )
-              else
-                SliverPadding(
-                  padding: const EdgeInsets.all(8.0),
-                  sliver: SliverGrid(
-                    gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                      maxCrossAxisExtent: 200,
-                      childAspectRatio: 0.8,
-                      crossAxisSpacing: 8.0,
-                      mainAxisSpacing: 8.0,
+                  if (tags.isEmpty)
+                    SliverFillRemaining(
+                      child: Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Text('没有找到标签'),
+                            if (tagManagerStore.tags.isEmpty) ...[
+                              const SizedBox(height: 16),
+                              ElevatedButton(
+                                onPressed: _showSyncDialog,
+                                child: const Text('从已下载作品同步'),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    )
+                  else
+                    SliverPadding(
+                      padding: const EdgeInsets.all(8.0),
+                      sliver: SliverGrid(
+                        gridDelegate:
+                            const SliverGridDelegateWithMaxCrossAxisExtent(
+                              maxCrossAxisExtent: 200,
+                              childAspectRatio: 0.8,
+                              crossAxisSpacing: 8.0,
+                              mainAxisSpacing: 8.0,
+                            ),
+                        delegate: SliverChildBuilderDelegate((context, index) {
+                          final data = tags[index];
+                          return Observer(
+                            builder: (_) {
+                              return TagItem(
+                                key: ValueKey(data),
+                                data: data,
+                                isSelectionMode: _pageStore.isSelectionMode,
+                                isSelected: _pageStore.selectedTagIds.contains(
+                                  data.tag.id,
+                                ),
+                                onSelectionToggle: () {
+                                  _pageStore.toggleTagSelection(data.tag.id);
+                                },
+                                onSelectionModeToggle:
+                                    (value) =>
+                                        _pageStore.toggleSelectionMode(value),
+                              );
+                            },
+                          );
+                        }, childCount: tags.length),
+                      ),
                     ),
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) {
-                        final data = tags[index];
-                        return Observer(builder: (_) {
-                           return TagItem(
-                              key: ValueKey(data), 
-                              data: data,
-                              isSelectionMode: _pageStore.isSelectionMode,
-                              isSelected: _pageStore.selectedTagIds.contains(data.tag.id),
-                              onSelectionToggle: () {
-                                _pageStore.toggleTagSelection(data.tag.id);
-                              },
-                              onSelectionModeToggle: (value) => _pageStore.toggleSelectionMode(value),
-                            );
-                        });
-                      },
-                      childCount: tags.length,
-                    ),
-                  ),
-                ),
-            ],
-          );
-        }),
-      );
-    });
+                ],
+              );
+            },
+          ),
+        );
+      },
+    );
   }
 
   PreferredSizeWidget _buildNormalAppBar() {
@@ -165,13 +179,14 @@ class _TagManagerPageState extends State<TagManagerPage> {
             onSelected: (value) {
               _pageStore.setSortType(value);
             },
-            itemBuilder: (context) => [
-              const PopupMenuItem(value: 4, child: Text('按分类排序 (默认)')),
-              const PopupMenuItem(value: 0, child: Text('按数量排序 (降序)')),
-              const PopupMenuItem(value: 1, child: Text('按名称排序 (升序)')),
-              const PopupMenuItem(value: 2, child: Text('按最近使用排序')),
-              const PopupMenuItem(value: 3, child: Text('按手动优先级排序')),
-            ],
+            itemBuilder:
+                (context) => [
+                  const PopupMenuItem(value: 4, child: Text('按分类排序 (默认)')),
+                  const PopupMenuItem(value: 0, child: Text('按数量排序 (降序)')),
+                  const PopupMenuItem(value: 1, child: Text('按名称排序 (升序)')),
+                  const PopupMenuItem(value: 2, child: Text('按最近使用排序')),
+                  const PopupMenuItem(value: 3, child: Text('按手动优先级排序')),
+                ],
           ),
         ],
       ],
@@ -184,53 +199,57 @@ class _TagManagerPageState extends State<TagManagerPage> {
         icon: const Icon(Icons.close),
         onPressed: () => _pageStore.toggleSelectionMode(false),
       ),
-      title: Observer(builder: (_) => Text('${_pageStore.selectedTagIds.length} 已选择')),
+      title: Observer(
+        builder: (_) => Text('${_pageStore.selectedTagIds.length} 已选择'),
+      ),
       actions: [
-        TextButton(
-          onPressed: _pageStore.selectAll,
-          child: const Text('全选'),
+        TextButton(onPressed: _pageStore.selectAll, child: const Text('全选')),
+        Observer(
+          builder: (_) {
+            if (_pageStore.selectedTagIds.isEmpty)
+              return const SizedBox.shrink();
+            return Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextButton(
+                  onPressed: _showAssociateDialog,
+                  child: const Text('关联'),
+                ),
+                TextButton(
+                  onPressed: _handleDissociate,
+                  child: const Text('解链'),
+                ),
+                TextButton(
+                  onPressed: _showClassifyDialog,
+                  child: const Text('分类'),
+                ),
+              ],
+            );
+          },
         ),
-        Observer(builder: (_) {
-          if (_pageStore.selectedTagIds.isEmpty) return const SizedBox.shrink();
-          return Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextButton(
-                onPressed: _showAssociateDialog,
-                child: const Text('关联'),
-              ),
-              TextButton(
-                onPressed: _handleDissociate,
-                child: const Text('解链'),
-              ),
-              TextButton(
-                onPressed: _showClassifyDialog,
-                child: const Text('分类'),
-              ),
-            ],
-          );
-        }),
       ],
     );
   }
 
   Widget _buildAppBarTitle() {
-    return Observer(builder: (context) {
-      return Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text('标签管理'),
-          const SizedBox(width: 8),
-          Text(
-            '${_pageStore.displayTags.length} 标签',
-            style: TextStyle(
-              fontSize: 12,
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+    return Observer(
+      builder: (context) {
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('标签管理'),
+            const SizedBox(width: 8),
+            Text(
+              '${_pageStore.displayTags.length} 标签',
+              style: TextStyle(
+                fontSize: 12,
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+              ),
             ),
-          ),
-        ],
-      );
-    });
+          ],
+        );
+      },
+    );
   }
 
   Widget _buildSearchField() {
@@ -247,31 +266,45 @@ class _TagManagerPageState extends State<TagManagerPage> {
 
   int _getFilterIndex(int category) {
     switch (category) {
-      case -1: return 0; // All
-      case 1: return 1; // Work
-      case 2: return 2; // Character
-      case 6: return 3; // Feature
-      case 99: return 4; // Bookmark
-      default: return 0;
+      case -1:
+        return 0; // All
+      case 1:
+        return 1; // Work
+      case 2:
+        return 2; // Character
+      case 6:
+        return 3; // Feature
+      case 99:
+        return 4; // Bookmark
+      default:
+        return 0;
     }
   }
 
   int _getCategoryFromIndex(int index) {
-      switch (index) {
-          case 0: return -1;
-          case 1: return TagCategory.work.value;
-          case 2: return TagCategory.character.value;
-          case 3: return TagCategory.feature.value;
-          case 4: return 99;
-          default: return -1;
-      }
+    switch (index) {
+      case 0:
+        return -1;
+      case 1:
+        return TagCategory.work.value;
+      case 2:
+        return TagCategory.character.value;
+      case 3:
+        return TagCategory.feature.value;
+      case 4:
+        return 99;
+      default:
+        return -1;
+    }
   }
-  
+
   void _showClassifyDialog() async {
     if (_pageStore.selectedTagIds.isEmpty) return;
 
     // 智能扩展：识别选中标签背后的完整家族
-    final expandedTags = await tagManagerStore.expandSelectedTags(_pageStore.selectedTagIds.toList());
+    final expandedTags = await tagManagerStore.expandSelectedTags(
+      _pageStore.selectedTagIds.toList(),
+    );
     final allIds = expandedTags.map((t) => t.id).toList();
 
     if (!mounted) return;
@@ -286,26 +319,43 @@ class _TagManagerPageState extends State<TagManagerPage> {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (expandedTags.length > _pageStore.selectedTagIds.length)
-                 Padding(
-                   padding: const EdgeInsets.only(bottom: 12),
-                   child: Text(
-                     '注：已自动包含同组关联标签',
-                     style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.primary),
-                   ),
-                 ),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Text(
+                    '注：已自动包含同组关联标签',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                ),
               Flexible(
                 child: SingleChildScrollView(
                   child: Wrap(
                     spacing: 4,
                     runSpacing: 4,
-                    children: expandedTags.map((tag) => Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.surfaceVariant,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(tag.name, style: const TextStyle(fontSize: 10)),
-                    )).toList(),
+                    children:
+                        expandedTags
+                            .map(
+                              (tag) => Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color:
+                                      Theme.of(
+                                        context,
+                                      ).colorScheme.surfaceVariant,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  tag.name,
+                                  style: const TextStyle(fontSize: 10),
+                                ),
+                              ),
+                            )
+                            .toList(),
                   ),
                 ),
               ),
@@ -317,12 +367,15 @@ class _TagManagerPageState extends State<TagManagerPage> {
                   dense: true,
                   onTap: () async {
                     Navigator.pop(context);
-                    await tagManagerStore.batchUpdateCategory(allIds, category.value);
+                    await tagManagerStore.batchUpdateCategory(
+                      allIds,
+                      category.value,
+                    );
                     _pageStore.toggleSelectionMode(false);
                     if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('全组分类已更新')),
-                      );
+                      ScaffoldMessenger.of(
+                        context,
+                      ).showSnackBar(const SnackBar(content: Text('全组分类已更新')));
                     }
                   },
                 );
@@ -340,7 +393,6 @@ class _TagManagerPageState extends State<TagManagerPage> {
     );
   }
 
-
   void _handleDissociate() async {
     final selectedIds = _pageStore.selectedTagIds.toList();
     await tagManagerStore.dissociateTags(selectedIds);
@@ -350,9 +402,9 @@ class _TagManagerPageState extends State<TagManagerPage> {
   void _showAssociateDialog() async {
     final selectedIds = _pageStore.selectedTagIds.toList();
     if (selectedIds.length < 2) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请至少选择两个标签进行关联'))
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('请至少选择两个标签进行关联')));
       return;
     }
 
@@ -366,9 +418,10 @@ class _TagManagerPageState extends State<TagManagerPage> {
       context: context,
       builder: (context) {
         // 默认主标签：如果原组里有根主标签（referencedTagId 为 null），优先选它，否则选第一个
-        int primaryId = expandedTags.any((t) => t.referencedTagId == null)
-            ? expandedTags.firstWhere((t) => t.referencedTagId == null).id
-            : allIds.first;
+        int primaryId =
+            expandedTags.any((t) => t.referencedTagId == null)
+                ? expandedTags.firstWhere((t) => t.referencedTagId == null).id
+                : allIds.first;
 
         return StatefulBuilder(
           builder: (context, setState) {
@@ -378,20 +431,24 @@ class _TagManagerPageState extends State<TagManagerPage> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('包含选中的 ${selectedIds.length} 个标签及其关联家族，共 ${expandedTags.length} 个标签：'),
+                  Text(
+                    '包含选中的 ${selectedIds.length} 个标签及其关联家族，共 ${expandedTags.length} 个标签：',
+                  ),
                   const SizedBox(height: 16),
                   Flexible(
                     child: SingleChildScrollView(
                       child: Column(
-                        children: expandedTags.map((tag) {
-                          return RadioListTile<int>(
-                            title: Text(tag.name),
-                            subtitle: Text(tag.translatedName),
-                            value: tag.id,
-                            groupValue: primaryId,
-                            onChanged: (val) => setState(() => primaryId = val!),
-                          );
-                        }).toList(),
+                        children:
+                            expandedTags.map((tag) {
+                              return RadioListTile<int>(
+                                title: Text(tag.name),
+                                subtitle: Text(tag.translatedName),
+                                value: tag.id,
+                                groupValue: primaryId,
+                                onChanged:
+                                    (val) => setState(() => primaryId = val!),
+                              );
+                            }).toList(),
                       ),
                     ),
                   ),
@@ -405,7 +462,8 @@ class _TagManagerPageState extends State<TagManagerPage> {
                 TextButton(
                   onPressed: () async {
                     // 合并式更新：全组成员一并指向新主标签
-                    final aliasIds = allIds.where((id) => id != primaryId).toList();
+                    final aliasIds =
+                        allIds.where((id) => id != primaryId).toList();
                     await tagManagerStore.associateTags(primaryId, aliasIds);
                     if (context.mounted) {
                       Navigator.pop(context);
@@ -427,40 +485,44 @@ class _TagManagerPageState extends State<TagManagerPage> {
       context: context,
       barrierDismissible: false,
       builder: (context) {
-        return Observer(builder: (_) {
-          if (tagManagerStore.isSyncing) {
+        return Observer(
+          builder: (_) {
+            if (tagManagerStore.isSyncing) {
+              return AlertDialog(
+                title: const Text('正在同步'),
+                content: Row(
+                  children: [
+                    const CircularProgressIndicator(),
+                    const SizedBox(width: 16),
+                    Expanded(child: Text(tagManagerStore.syncStatus)),
+                  ],
+                ),
+              );
+            }
+
             return AlertDialog(
-              title: const Text('正在同步'),
-              content: Row(
-                children: [
-                   const CircularProgressIndicator(),
-                   const SizedBox(width: 16),
-                   Expanded(child: Text(tagManagerStore.syncStatus)),
-                ],
+              title: const Text('同步标签'),
+              content: const Text(
+                '这将扫描所有已下载的作品并重建标签库。\n现有的自定义设置（翻译、分类等）将被保留。\n是否继续？',
               ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('取消'),
+                ),
+                TextButton(
+                  onPressed: () async {
+                    await tagManagerStore.syncTags();
+                    if (context.mounted) {
+                      Navigator.of(context).pop();
+                    }
+                  },
+                  child: const Text('开始同步'),
+                ),
+              ],
             );
-          }
-          
-          return AlertDialog(
-            title: const Text('同步标签'),
-            content: const Text('这将扫描所有已下载的作品并重建标签库。\n现有的自定义设置（翻译、分类等）将被保留。\n是否继续？'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('取消'),
-              ),
-              TextButton(
-                onPressed: () async {
-                   await tagManagerStore.syncTags();
-                   if (context.mounted) {
-                     Navigator.of(context).pop();
-                   }
-                },
-                child: const Text('开始同步'),
-              ),
-            ],
-          );
-        });
+          },
+        );
       },
     );
   }
@@ -492,7 +554,10 @@ class SliverChipDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   Widget build(
-      BuildContext context, double shrinkOffset, bool overlapsContent) {
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
     return child;
   }
 

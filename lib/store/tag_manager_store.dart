@@ -4,7 +4,6 @@ import 'package:mobx/mobx.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/custom/log.dart';
 import 'package:pixez/models/download_record.dart';
-import 'package:collection/collection.dart';
 
 part 'tag_manager_store.g.dart';
 
@@ -26,6 +25,14 @@ abstract class _TagManagerStore with Store {
 
   @observable
   String syncStatus = '';
+
+  @computed
+  Map<String, TagDisplayData> get tagNameMap => {
+    for (final t in tags) t.tag.name: t,
+  };
+
+  @computed
+  Map<int, TagDisplayData> get tagIdMap => {for (final t in tags) t.tag.id: t};
 
   @action
   Future<void> loadTags({bool force = false}) async {
@@ -111,11 +118,11 @@ abstract class _TagManagerStore with Store {
   }
 
   TagDisplayData? getTagDisplayData(String tagName) {
-    return tags.firstWhereOrNull((t) => t.tag.name == tagName);
+    return tagNameMap[tagName];
   }
 
   TagDisplayData? getTagDisplayDataByID(int tagId) {
-    return tags.firstWhereOrNull((t) => t.tag.id == tagId);
+    return tagIdMap[tagId];
   }
 
   /// 获取标签对应的主标签（如果它本身是别名）
@@ -197,13 +204,19 @@ abstract class _TagManagerStore with Store {
   }
 
   @action
-  Future<void> toggleExampleIllust(int tagId, int illustId, String squareMediumUrl) async {
+  Future<void> toggleExampleIllust(
+    int tagId,
+    int illustId,
+    String squareMediumUrl,
+  ) async {
     final index = tags.indexWhere((t) => t.tag.id == tagId);
     if (index == -1) return;
 
     final oldData = tags[index];
     final exampleIds = List<int>.from(oldData.tag.exampleIllustIds);
-    final List<IllustPreviewData> previewIllusts = List.from(oldData.previewIllusts);
+    final List<IllustPreviewData> previewIllusts = List.from(
+      oldData.previewIllusts,
+    );
 
     if (exampleIds.contains(illustId)) {
       exampleIds.remove(illustId);
@@ -213,16 +226,18 @@ abstract class _TagManagerStore with Store {
       if (exampleIds.length >= 3) {
         exampleIds.removeAt(0);
         if (previewIllusts.isNotEmpty) {
-           previewIllusts.removeAt(0);
+          previewIllusts.removeAt(0);
         }
       }
       exampleIds.add(illustId);
-      previewIllusts.add(IllustPreviewData(illustId: illustId, squareMediumUrl: squareMediumUrl));
+      previewIllusts.add(
+        IllustPreviewData(illustId: illustId, squareMediumUrl: squareMediumUrl),
+      );
     }
 
     final newTag = oldData.tag.copyWith(exampleIllusts: exampleIds.join(','));
     await downloadStore.updateTagExampleIllusts(tagId, exampleIds);
-    
+
     tags[index] = oldData.copyWith(tag: newTag, previewIllusts: previewIllusts);
   }
 
@@ -240,7 +255,7 @@ abstract class _TagManagerStore with Store {
   /// 应用tag变更事件
   void _applyTagChange(TagChangeEvent event) {
     final index = tags.indexWhere((t) => t.tag.id == event.tagId);
-    
+
     if (index == -1) {
       // Tag不在列表中，说明是新tag，需要添加
       final newTag = DownloadedTag(
@@ -249,16 +264,25 @@ abstract class _TagManagerStore with Store {
         count: event.newCount,
         exampleIllusts: event.newExampleIllustIds.join(','),
       );
-      
-      final previews = event.type == TagChangeType.illustAdded && event.squareMediumUrl != null
-          ? [IllustPreviewData(illustId: event.illustId, squareMediumUrl: event.squareMediumUrl!)]
-          : <IllustPreviewData>[];
-      
-      tags.add(TagDisplayData(
-        tag: newTag,
-        previewIllusts: previews,
-        hasEquivalentTags: false,
-      ));
+
+      final previews =
+          event.type == TagChangeType.illustAdded &&
+                  event.squareMediumUrl != null
+              ? [
+                IllustPreviewData(
+                  illustId: event.illustId,
+                  squareMediumUrl: event.squareMediumUrl!,
+                ),
+              ]
+              : <IllustPreviewData>[];
+
+      tags.add(
+        TagDisplayData(
+          tag: newTag,
+          previewIllusts: previews,
+          hasEquivalentTags: false,
+        ),
+      );
       return;
     }
 
@@ -277,12 +301,16 @@ abstract class _TagManagerStore with Store {
     if (event.type == TagChangeType.illustAdded) {
       // 添加新的预览图（如果不足3个）
       if (updatedPreviews.length < 3 && event.squareMediumUrl != null) {
-        final alreadyExists = updatedPreviews.any((p) => p.illustId == event.illustId);
+        final alreadyExists = updatedPreviews.any(
+          (p) => p.illustId == event.illustId,
+        );
         if (!alreadyExists) {
-          updatedPreviews.add(IllustPreviewData(
-            illustId: event.illustId,
-            squareMediumUrl: event.squareMediumUrl!,
-          ));
+          updatedPreviews.add(
+            IllustPreviewData(
+              illustId: event.illustId,
+              squareMediumUrl: event.squareMediumUrl!,
+            ),
+          );
         }
       }
     } else if (event.type == TagChangeType.illustRemoved) {
