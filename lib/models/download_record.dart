@@ -1235,10 +1235,11 @@ class DownloadDatabaseProvider {
           );
           
           if (tagRows.isEmpty) continue; // Should not happen
+          final tagRow = tagRows.first;
           
-          final tagId = tagRows.first[DownloadedTagsColumns.id] as int;
-          final currentCount = tagRows.first[DownloadedTagsColumns.count] as int? ?? 0;
-          final currentExamplesStr = tagRows.first[DownloadedTagsColumns.exampleIllusts] as String? ?? '';
+          final tagId = TypeUtil.parseInt(tagRow[DownloadedTagsColumns.id]);
+          final currentCount = TypeUtil.parseInt(tagRow[DownloadedTagsColumns.count]);
+          final currentExamplesStr = TypeUtil.parseString(tagRow[DownloadedTagsColumns.exampleIllusts]);
 
           // 2. 插入关联关系
            // 检查是否已存在关联
@@ -1276,16 +1277,6 @@ class DownloadDatabaseProvider {
               {
                 DownloadedTagsColumns.count: currentCount + 1,
                 DownloadedTagsColumns.exampleIllusts: examples.join(','),
-                DownloadedTagsColumns.lastUsedTime: DateTime.now().millisecondsSinceEpoch,
-              },
-              where: '${DownloadedTagsColumns.id} = ?',
-              whereArgs: [tagId],
-            );
-          } else {
-             // 关联已存在，仅更新 lastUsedTime
-             await txn.update(
-              DownloadedTagsColumns.tableName,
-              {
                 DownloadedTagsColumns.lastUsedTime: DateTime.now().millisecondsSinceEpoch,
               },
               where: '${DownloadedTagsColumns.id} = ?',
