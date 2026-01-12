@@ -73,7 +73,7 @@ class TagItem extends StatelessWidget {
                             child: Text(
                               data.tag.name,
                               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                color: _getCategoryColor(data.tag.category, context),
+                                color: data.tag.categoryEnum.color,
                                 fontWeight: FontWeight.bold,
                               ),
                               maxLines: 1,
@@ -140,20 +140,6 @@ class TagItem extends StatelessWidget {
     );
   }
 
-  Color? _getCategoryColor(int category, BuildContext context) {
-    // 0: unclassified, 1: work, 2: character, 3: artist
-    switch (category) {
-      case 1: // Work
-        return Colors.blue;
-      case 2: // Character
-        return Colors.pink;
-      case 3: // Artist
-        return Colors.orange;
-      default:
-        // Use default text color
-        return null;
-    }
-  }
 
   void _navigateToSearchResults(BuildContext context) {
     Navigator.of(context).push(

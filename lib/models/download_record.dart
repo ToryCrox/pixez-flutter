@@ -15,6 +15,7 @@
 
 import 'dart:io';
 
+import 'package:flutter/material.dart';
 import 'package:path/path.dart' as path;
 import 'package:pixez/custom/pixiv_url_util.dart';
 import 'package:pixez/custom/type_util.dart';
@@ -559,12 +560,25 @@ class DownloadedAuthor {
 }
 
 enum TagCategory {
-  uncategorized, // 0
-  work, // 1
-  character, // 2
-  artist, // 3
-  general, // 4
-  meta, // 5
+  uncategorized(0, '未分类', null),
+  work(1, '作品', Colors.blue),
+  character(2, '角色', Colors.pink),
+  feature(6, '特点', Colors.green),
+  general(4, '通用', null),
+  meta(5, '元数据', Colors.purple);
+
+  final int value;
+  final String label;
+  final Color? color;
+
+  const TagCategory(this.value, this.label, this.color);
+
+  static TagCategory fromValue(int value) {
+    return TagCategory.values.firstWhere(
+      (e) => e.value == value,
+      orElse: () => TagCategory.uncategorized,
+    );
+  }
 }
 
 class DownloadedTag {
@@ -602,10 +616,7 @@ class DownloadedTag {
               ? translatedName
               : name;
 
-  TagCategory get categoryEnum =>
-      TagCategory.values.length > category && category >= 0
-          ? TagCategory.values[category]
-          : TagCategory.uncategorized;
+  TagCategory get categoryEnum => TagCategory.fromValue(category);
   
   List<int> get exampleIllustIds {
     if (exampleIllusts.isEmpty) return [];

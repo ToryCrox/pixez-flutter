@@ -59,7 +59,7 @@ class _TagEditDialogState extends State<TagEditDialog> {
               spacing: 8.0,
               children: TagCategory.values.where((e) => e != TagCategory.uncategorized).map((category) {
                 return ChoiceChip(
-                  label: Text(_getCategoryLabel(category)),
+                  label: Text(category.label),
                   selected: _selectedCategory == category,
                   onSelected: (bool selected) {
                     setState(() {
@@ -123,21 +123,10 @@ class _TagEditDialogState extends State<TagEditDialog> {
     );
   }
 
-  String _getCategoryLabel(TagCategory category) {
-    switch (category) {
-      case TagCategory.work: return '作品';
-      case TagCategory.character: return '角色';
-      case TagCategory.artist: return '画师';
-      case TagCategory.general: return '一般';
-      case TagCategory.meta: return '元数据';
-      default: return '未分类';
-    }
-  }
-
   void _save() {
     final newTag = widget.tag.copyWith(
       customTranslatedName: _customTranslateController.text.trim(),
-      category: _selectedCategory.index,
+      category: _selectedCategory.value,
       isBookmarked: _isBookmarked,
       displayOrder: _displayOrder,
     );

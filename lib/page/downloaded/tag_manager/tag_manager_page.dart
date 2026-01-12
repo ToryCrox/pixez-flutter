@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:pixez/main.dart';
+import 'package:pixez/models/download_record.dart';
 import 'package:pixez/page/downloaded/tag_manager/tag_item.dart';
 import 'package:pixez/page/downloaded/tag_manager/tag_manager_page_store.dart';
 import 'package:pixez/component/sort_group.dart';
@@ -70,7 +71,7 @@ class _TagManagerPageState extends State<TagManagerPage> {
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         child: SortGroup(
                           key: ValueKey(_pageStore.filterCategory),
-                          children: const ['全部', '作品', '角色', '画师', '收藏'],
+                          children: const ['全部', '作品', '角色', '特点', '收藏'],
                           initIndex: _getFilterIndex(_pageStore.filterCategory),
                           onChange: (index) {
                              final category = _getCategoryFromIndex(index);
@@ -228,22 +229,22 @@ class _TagManagerPageState extends State<TagManagerPage> {
   }
 
   int _getFilterIndex(int category) {
-      switch (category) {
-          case -1: return 0; // All
-          case 1: return 1; // Work
-          case 2: return 2; // Character
-          case 3: return 3; // Artist
-          case 99: return 4; // Bookmark
-          default: return 0; 
-      }
+    switch (category) {
+      case -1: return 0; // All
+      case 1: return 1; // Work
+      case 2: return 2; // Character
+      case 6: return 3; // Feature
+      case 99: return 4; // Bookmark
+      default: return 0;
+    }
   }
 
   int _getCategoryFromIndex(int index) {
       switch (index) {
           case 0: return -1;
-          case 1: return 1;
-          case 2: return 2;
-          case 3: return 3;
+          case 1: return TagCategory.work.value;
+          case 2: return TagCategory.character.value;
+          case 3: return TagCategory.feature.value;
           case 4: return 99;
           default: return -1;
       }
@@ -258,24 +259,19 @@ class _TagManagerPageState extends State<TagManagerPage> {
         builder: (context) {
            return SimpleDialog(
              title: Text('将 ${_pageStore.selectedTagIds.length} 个标签分类为'),
-             children: [
-               _buildClassifyItem(0, '未分类'),
-               _buildClassifyItem(1, '作品 (Work)', Colors.blue),
-               _buildClassifyItem(2, '角色 (Character)', Colors.pink),
-               _buildClassifyItem(3, '画师 (Artist)', Colors.orange),
-               _buildClassifyItem(4, '通用 (General)'),
-               _buildClassifyItem(5, '元数据 (Meta)', Colors.purple),
-             ],
+             children: TagCategory.values.map((category) {
+               return _buildClassifyItem(category);
+             }).toList(),
            );
         }
       );
   }
 
-  Widget _buildClassifyItem(int category, String title, [Color? color]) {
+  Widget _buildClassifyItem(TagCategory category) {
       return SimpleDialogOption(
         onPressed: () async {
            Navigator.pop(context);
-           await tagManagerStore.batchUpdateCategory(_pageStore.selectedTagIds.toList(), category);
+           await tagManagerStore.batchUpdateCategory(_pageStore.selectedTagIds.toList(), category.value);
            _pageStore.toggleSelectionMode(false);
            
            if (mounted) {
@@ -287,8 +283,8 @@ class _TagManagerPageState extends State<TagManagerPage> {
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 8.0),
           child: Text(
-             title,
-             style: color != null ? TextStyle(color: color, fontWeight: FontWeight.bold) : null,
+             category.label,
+             style: category.color != null ? TextStyle(color: category.color, fontWeight: FontWeight.bold) : null,
           ),
         ),
       );
