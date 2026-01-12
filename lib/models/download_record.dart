@@ -2813,8 +2813,8 @@ class DownloadDatabaseProvider {
   // ============ Tag 操作 ============
 
   Future<void> updateTag(DownloadedTag tag) async {
-    // Only update specific columns
-    await db.update(
+    // Try to update specific columns first
+    int count = await db.update(
       DownloadedTagsColumns.tableName,
       {
         DownloadedTagsColumns.customTranslatedName: tag.customTranslatedName,
@@ -2825,6 +2825,15 @@ class DownloadDatabaseProvider {
       where: '${DownloadedTagsColumns.name} = ?',
       whereArgs: [tag.name],
     );
+
+    // If no row was updated, it means the tag doesn't exist, so insert it.
+    if (count == 0) {
+      await db.insert(
+        DownloadedTagsColumns.tableName,
+        tag.toJson(),
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+    }
   }
 
   Future<void> batchUpdateTagCategory(List<int> tagIds, int category) async {

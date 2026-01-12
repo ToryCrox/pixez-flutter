@@ -5,6 +5,7 @@ import 'package:pixez/page/downloaded/tag_manager/tag_equivalence_dialog.dart';
 import 'package:pixez/page/downloaded/tag_manager/tag_edit_dialog.dart';
 import 'package:pixez/component/pixiv_image.dart';
 import 'package:pixez/page/downloaded/downloaded_page.dart';
+import 'package:pixez/page/search/result_page.dart';
 import 'package:pixez/main.dart';
 
 class TagItem extends StatelessWidget {
@@ -53,7 +54,7 @@ class TagItem extends StatelessWidget {
             if (isSelectionMode) {
                onSelectionToggle?.call();
             } else {
-               _navigateToSearchResults(context);
+               _navigateToLocalSearch(context);
             }
           },
           onLongPress: () {
@@ -111,7 +112,8 @@ class TagItem extends StatelessWidget {
                         const SizedBox(height: 2),
                         // Second line: Translation + Equivalence Icon
                         Builder(builder: (context) {
-                          final translation = (data.tag.customTranslatedName?.isNotEmpty == true)
+                          final isCustom = data.tag.customTranslatedName?.isNotEmpty == true;
+                          final translation = isCustom
                               ? data.tag.customTranslatedName!
                               : data.tag.translatedName;
                           
@@ -120,7 +122,9 @@ class TagItem extends StatelessWidget {
                               Expanded(
                                 child: Text(
                                   translation,
-                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey),
+                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: isCustom ? Colors.purple : Colors.grey
+                                  ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
@@ -155,8 +159,8 @@ class TagItem extends StatelessWidget {
                        shape: BoxShape.circle,
                        border: Border.all(color: Colors.white, width: 2),
                      ),
-                     child: Padding(
-                       padding: const EdgeInsets.all(4.0),
+                     child: const Padding(
+                       padding: EdgeInsets.all(4.0),
                        child: Icon(
                          Icons.check,
                          size: 16,
@@ -192,7 +196,28 @@ class TagItem extends StatelessWidget {
         localPosition & const Size(40, 40),
         Offset.zero & overlay.size,
       ),
-      items: [
+      items: <PopupMenuEntry<String>>[
+        const PopupMenuItem(
+          value: 'search_online',
+          child: Row(
+            children: [
+              Icon(Icons.search, size: 20),
+              SizedBox(width: 8),
+              Text('搜索线上结果'),
+            ],
+          ),
+        ),
+        const PopupMenuItem(
+          value: 'search_local',
+          child: Row(
+            children: [
+              Icon(Icons.folder_open, size: 20),
+              SizedBox(width: 8),
+              Text('查看本地下载'),
+            ],
+          ),
+        ),
+        const PopupMenuDivider(),
         PopupMenuItem(
           value: 'bookmark',
           child: Row(
@@ -208,7 +233,7 @@ class TagItem extends StatelessWidget {
           child: Row(
             children: [
               Icon(Icons.copy, size: 20),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               Text('复制标题'),
             ],
           ),
@@ -218,7 +243,7 @@ class TagItem extends StatelessWidget {
           child: Row(
             children: [
               Icon(Icons.translate, size: 20),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               Text('复制翻译'),
             ],
           ),
@@ -228,7 +253,7 @@ class TagItem extends StatelessWidget {
           child: Row(
             children: [
               Icon(Icons.edit, size: 20),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               Text('编辑标签'),
             ],
           ),
@@ -249,6 +274,12 @@ class TagItem extends StatelessWidget {
     if (result == null) return;
 
     switch (result) {
+      case 'search_online':
+        _navigateToOnlineSearch(context);
+        break;
+      case 'search_local':
+        _navigateToLocalSearch(context);
+        break;
       case 'bookmark':
         await tagManagerStore.updateTag(data.tag.copyWith(isBookmarked: !data.tag.isBookmarked));
         break;
@@ -288,11 +319,22 @@ class TagItem extends StatelessWidget {
     );
   }
 
-  void _navigateToSearchResults(BuildContext context) {
+  void _navigateToLocalSearch(BuildContext context) {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => DownloadedPage(
           initialTagName: data.tag.name,
+        ),
+      ),
+    );
+  }
+
+  void _navigateToOnlineSearch(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => ResultPage(
+          word: data.tag.name,
+          translatedName: data.tag.translatedName,
         ),
       ),
     );

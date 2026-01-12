@@ -4,8 +4,11 @@ import 'package:mobx/mobx.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/custom/log.dart';
 import 'package:pixez/models/download_record.dart';
+import 'package:collection/collection.dart';
 
 part 'tag_manager_store.g.dart';
+
+
 
 class TagManagerStore = _TagManagerStore with _$TagManagerStore;
 
@@ -87,6 +90,41 @@ abstract class _TagManagerStore with Store {
       // Trigger list refresh if needed
       tags = ObservableList.of(tags);
     }
+  }
+
+  @action
+  @action
+  Future<void> bookTag(String tagName) async {
+    final index = tags.indexWhere((t) => t.tag.name == tagName);
+    if (index != -1) {
+      final oldData = tags[index];
+      final newTag = oldData.tag.copyWith(isBookmarked: !oldData.tag.isBookmarked);
+      
+      // Optimistically update UI
+      tags[index] = TagDisplayData(
+          tag: newTag,
+          previewIllusts: oldData.previewIllusts,
+          hasEquivalentTags: oldData.hasEquivalentTags
+      );
+      
+      await _dbProvider.updateTag(newTag);
+    } else {
+      // New tag, insert it as bookmarked
+      final newTag = DownloadedTag(
+        id: 0, // ID will be auto-generated or ignored by insert
+        name: tagName,
+        translatedName: '', 
+        isBookmarked: true,
+        count: 0,
+        category: 0
+      );
+      await _dbProvider.updateTag(newTag);
+      await loadTags(force: true);
+    }
+  }
+
+  TagDisplayData? getTagDisplayData(String tagName) {
+    return tags.firstWhereOrNull((t) => t.tag.name == tagName);
   }
 
   @action
