@@ -128,6 +128,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   @override
   void dispose() {
     topStore.dispose();
+    tagManagerStore.dispose();
     subscription.cancel();
     if (Platform.isIOS) WidgetsBinding.instance.removeObserver(this);
     super.dispose();
@@ -243,6 +244,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     await _initDownloadStore(); // 确保在 userSetting.init 之后执行
     // 预加载标签数据，确保详情页能正确显示标签状态（收藏、自定义翻译等）
     tagManagerStore.loadTags();
+    // 启动标签变更监听，自动同步tag统计信息
+    tagManagerStore.startListening();
   }
 
   Widget build(BuildContext context) {

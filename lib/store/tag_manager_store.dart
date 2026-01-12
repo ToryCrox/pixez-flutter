@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:mobx/mobx.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/custom/log.dart';
@@ -10,6 +12,8 @@ class TagManagerStore = _TagManagerStore with _$TagManagerStore;
 
 abstract class _TagManagerStore with Store {
   DownloadDatabaseProvider get _dbProvider => downloadStore.dbProvider;
+
+  StreamSubscription<List<TagChangeEvent>>? _tagChangesSubscription;
 
   @observable
   ObservableList<TagDisplayData> tags = ObservableList<TagDisplayData>();
@@ -177,5 +181,80 @@ abstract class _TagManagerStore with Store {
   Future<void> dissociateSingleTag(int tagId) async {
     await _dbProvider.dissociateTags([tagId]);
     await loadTags(force: true);
+  }
+
+  /// 开始监听tag变更事件
+  void startListening() {
+    _tagChangesSubscription = _dbProvider.tagChanges.listen((events) {
+      runInAction(() {
+        for (final event in events) {
+          _applyTagChange(event);
+        }
+      });
+    });
+  }
+
+  /// 应用tag变更事件
+  void _applyTagChange(TagChangeEvent event) {
+    final index = tags.indexWhere((t) => t.tag.id == event.tagId);
+    
+    if (index == -1) {
+      // Tag不在列表中，说明是新tag，需要添加
+      final newTag = DownloadedTag(
+        id: event.tagId,
+        name: event.tagName,
+        count: event.newCount,
+        exampleIllusts: event.newExampleIllustIds.join(','),
+      );
+      
+      final previews = event.type == TagChangeType.illustAdded && event.squareMediumUrl != null
+          ? [IllustPreviewData(illustId: event.illustId, squareMediumUrl: event.squareMediumUrl!)]
+          : <IllustPreviewData>[];
+      
+      tags.add(TagDisplayData(
+        tag: newTag,
+        previewIllusts: previews,
+        hasEquivalentTags: false,
+      ));
+      return;
+    }
+
+    // Tag在列表中，更新现有数据
+    final oldData = tags[index];
+    DownloadedTag updatedTag = oldData.tag;
+    List<IllustPreviewData> updatedPreviews = List.from(oldData.previewIllusts);
+
+    // 更新 count 和 exampleIllusts
+    updatedTag = updatedTag.copyWith(
+      count: event.newCount,
+      exampleIllusts: event.newExampleIllustIds.join(','),
+    );
+
+    // 更新 previewIllusts
+    if (event.type == TagChangeType.illustAdded) {
+      // 添加新的预览图（如果不足3个）
+      if (updatedPreviews.length < 3 && event.squareMediumUrl != null) {
+        final alreadyExists = updatedPreviews.any((p) => p.illustId == event.illustId);
+        if (!alreadyExists) {
+          updatedPreviews.add(IllustPreviewData(
+            illustId: event.illustId,
+            squareMediumUrl: event.squareMediumUrl!,
+          ));
+        }
+      }
+    } else if (event.type == TagChangeType.illustRemoved) {
+      // 移除对应的预览图
+      updatedPreviews.removeWhere((p) => p.illustId == event.illustId);
+    }
+
+    tags[index] = oldData.copyWith(
+      tag: updatedTag,
+      previewIllusts: updatedPreviews,
+    );
+  }
+
+  /// 清理资源
+  void dispose() {
+    _tagChangesSubscription?.cancel();
   }
 }

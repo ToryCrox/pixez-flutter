@@ -13,6 +13,7 @@
  * this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -29,6 +30,37 @@ import '../custom/log.dart';
 
 /// 支持的图片后缀名
 const kImageExtensions = ['.webp', '.jpg', '.png', '.gif', '.jpeg'];
+
+/// Tag变更类型
+enum TagChangeType {
+  illustAdded,   // 插画被添加到此tag的关联
+  illustRemoved, // 插画从此tag的关联中移除
+}
+
+/// Tag变更事件
+class TagChangeEvent {
+  final int tagId;
+  final String tagName;
+  final TagChangeType type;
+
+  // 发生变化的插画信息
+  final int illustId;
+  final String? squareMediumUrl; // 用于更新 previewIllusts（添加时需要）
+
+  // 更新后的统计信息
+  final int newCount;
+  final List<int> newExampleIllustIds;
+
+  TagChangeEvent({
+    required this.tagId,
+    required this.tagName,
+    required this.type,
+    required this.illustId,
+    this.squareMediumUrl,
+    required this.newCount,
+    required this.newExampleIllustIds,
+  });
+}
 
 // 下载的插画记录
 class DownloadedIllust {
@@ -729,6 +761,10 @@ class DownloadDatabaseProvider {
   String? _ugoiraTempPath;
   String? _dbPath;
 
+  /// Tag变更事件流
+  final _tagChangesController = StreamController<List<TagChangeEvent>>.broadcast();
+  Stream<List<TagChangeEvent>> get tagChanges => _tagChangesController.stream;
+
   String get downloadPath => _downloadPath ?? '';
 
   String get dbPathStr => _dbPath ?? '';
@@ -1207,88 +1243,187 @@ class DownloadDatabaseProvider {
   Future<void> updateTagsRelations(DownloadedIllust illust) async {
     try {
       final illustsObj = illust.toIllusts();
-      if (illustsObj.tags.isEmpty) return;
-
       final illustId = illust.illustId;
-      final newTags = illustsObj.tags; // List<Tag>
-
+      final newTags = illustsObj.tags;
+      final squareMediumUrl = illustsObj.imageUrls.squareMedium;
+      
+      final events = <TagChangeEvent>[];
+      
       await db.transaction((txn) async {
-        for (final tag in newTags) {
-          // 1. 插入或获取 Tag ID
-          // 尝试插入，IGNORE 如果已存在
-          await txn.insert(
-            DownloadedTagsColumns.tableName,
-            {
-              DownloadedTagsColumns.name: tag.name,
-              DownloadedTagsColumns.translatedName: tag.translatedName,
-              // 其他字段默认
-            },
-            conflictAlgorithm: ConflictAlgorithm.ignore,
-          );
-          
-          // 查询获取 ID
-          final List<Map<String, dynamic>> tagRows = await txn.query(
-            DownloadedTagsColumns.tableName,
-            columns: [DownloadedTagsColumns.id, DownloadedTagsColumns.count, DownloadedTagsColumns.exampleIllusts],
-            where: '${DownloadedTagsColumns.name} = ?',
-            whereArgs: [tag.name],
-          );
-          
-          if (tagRows.isEmpty) continue; // Should not happen
-          final tagRow = tagRows.first;
-          
-          final tagId = TypeUtil.parseInt(tagRow[DownloadedTagsColumns.id]);
-          final currentCount = TypeUtil.parseInt(tagRow[DownloadedTagsColumns.count]);
-          final currentExamplesStr = TypeUtil.parseString(tagRow[DownloadedTagsColumns.exampleIllusts]);
-
-          // 2. 插入关联关系
-           // 检查是否已存在关联
-          final existingRelation = await txn.query(
-            DownloadedIllustTagsColumns.tableName,
-            where: '${DownloadedIllustTagsColumns.illustId} = ? AND ${DownloadedIllustTagsColumns.tagId} = ?',
-            whereArgs: [illustId, tagId],
-          );
-
-          if (existingRelation.isEmpty) {
-            // 不存在则插入
-            await txn.insert(
-              DownloadedIllustTagsColumns.tableName,
-              {
-                DownloadedIllustTagsColumns.illustId: illustId,
-                DownloadedIllustTagsColumns.tagId: tagId,
-                DownloadedIllustTagsColumns.source: 0,
-              },
-              conflictAlgorithm: ConflictAlgorithm.ignore,
-            );
-            
-            // 3. 更新 Tag 的 count 和 exampleIllusts
-            // 解析当前的 examples
-            List<String> examples = currentExamplesStr.isNotEmpty 
-                ? currentExamplesStr.split(',') 
-                : [];
-            
-            // 如果不足3个，且当前ID不在列表中，则添加
-            if (examples.length < 3 && !examples.contains(illustId.toString())) {
-               examples.add(illustId.toString());
-            }
-            
-            await txn.update(
-              DownloadedTagsColumns.tableName,
-              {
-                DownloadedTagsColumns.count: currentCount + 1,
-                DownloadedTagsColumns.exampleIllusts: examples.join(','),
-                DownloadedTagsColumns.lastUsedTime: DateTime.now().millisecondsSinceEpoch,
-              },
-              where: '${DownloadedTagsColumns.id} = ?',
-              whereArgs: [tagId],
-            );
+        // 1. 获取现有tag关联
+        final existingTagIds = await _getExistingTagIds(txn, illustId);
+        
+        // 2. 确保新tags存在于数据库
+        await _ensureTagsExist(txn, newTags);
+        
+        // 3. 获取新tags的ID
+        final newTagsData = await _queryTagsByNames(txn, newTags.map((t) => t.name).toList());
+        final newTagIds = newTagsData.keys.toSet();
+        
+        // 4. 计算需要新增和删除的tag
+        final toAdd = newTagIds.difference(existingTagIds);
+        final toRemove = existingTagIds.difference(newTagIds);
+        
+        // 5. 处理新增
+        for (final tagId in toAdd) {
+          final tag = newTagsData[tagId]!;
+          await _addTagRelation(txn, illustId, tagId);
+          final event = await _updateTagStats(txn, tagId, tag, illustId, TagChangeType.illustAdded, squareMediumUrl: squareMediumUrl);
+          events.add(event);
+        }
+        
+        // 6. 处理删除
+        if (toRemove.isNotEmpty) {
+          final removeTagsData = await _queryTagsByIds(txn, toRemove.toList());
+          for (final tagId in toRemove) {
+            final tag = removeTagsData[tagId]!;
+            await _removeTagRelation(txn, illustId, tagId);
+            final event = await _updateTagStats(txn, tagId, tag, illustId, TagChangeType.illustRemoved);
+            events.add(event);
           }
         }
       });
       
+      // 7. 发送事件通知
+      if (events.isNotEmpty) {
+        _tagChangesController.add(events);
+      }
     } catch (e, s) {
       Log.e('Updated tags relations failed: $e', stackTrace: s);
     }
+  }
+
+  /// 获取插画现有的tag ID集合(仅原始tag)
+  Future<Set<int>> _getExistingTagIds(Transaction txn, int illustId) async {
+    final relations = await txn.query(
+      DownloadedIllustTagsColumns.tableName,
+      columns: [DownloadedIllustTagsColumns.tagId],
+      where: '${DownloadedIllustTagsColumns.illustId} = ? AND ${DownloadedIllustTagsColumns.source} = ?',
+      whereArgs: [illustId, 0],
+    );
+    return relations.map((r) => TypeUtil.parseInt(r[DownloadedIllustTagsColumns.tagId])).toSet();
+  }
+
+  /// 确保tags存在于数据库中
+  Future<void> _ensureTagsExist(Transaction txn, List<Tags> tags) async {
+    for (final tag in tags) {
+      await txn.insert(
+        DownloadedTagsColumns.tableName,
+        {
+          DownloadedTagsColumns.name: tag.name,
+          DownloadedTagsColumns.translatedName: tag.translatedName ?? '',
+        },
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+    }
+  }
+
+  /// 根据tag名称批量查询tag数据
+  Future<Map<int, DownloadedTag>> _queryTagsByNames(Transaction txn, List<String> names) async {
+    if (names.isEmpty) return {};
+    
+    final placeholders = List.filled(names.length, '?').join(',');
+    final rows = await txn.query(
+      DownloadedTagsColumns.tableName,
+      where: '${DownloadedTagsColumns.name} IN ($placeholders)',
+      whereArgs: names,
+    );
+    
+    return {for (var row in rows) TypeUtil.parseInt(row[DownloadedTagsColumns.id]): DownloadedTag.fromJson(row)};
+  }
+
+  /// 根据tag ID批量查询tag数据
+  Future<Map<int, DownloadedTag>> _queryTagsByIds(Transaction txn, List<int> ids) async {
+    if (ids.isEmpty) return {};
+    
+    final placeholders = List.filled(ids.length, '?').join(',');
+    final rows = await txn.query(
+      DownloadedTagsColumns.tableName,
+      where: '${DownloadedTagsColumns.id} IN ($placeholders)',
+      whereArgs: ids,
+    );
+    
+    return {for (var row in rows) TypeUtil.parseInt(row[DownloadedTagsColumns.id]): DownloadedTag.fromJson(row)};
+  }
+
+  /// 添加tag关联
+  Future<void> _addTagRelation(Transaction txn, int illustId, int tagId) async {
+    await txn.insert(
+      DownloadedIllustTagsColumns.tableName,
+      {
+        DownloadedIllustTagsColumns.illustId: illustId,
+        DownloadedIllustTagsColumns.tagId: tagId,
+        DownloadedIllustTagsColumns.source: 0,
+      },
+      conflictAlgorithm: ConflictAlgorithm.ignore,
+    );
+  }
+
+  /// 删除tag关联
+  Future<void> _removeTagRelation(Transaction txn, int illustId, int tagId) async {
+    await txn.delete(
+      DownloadedIllustTagsColumns.tableName,
+      where: '${DownloadedIllustTagsColumns.illustId} = ? AND ${DownloadedIllustTagsColumns.tagId} = ?',
+      whereArgs: [illustId, tagId],
+    );
+  }
+
+  /// 更新tag统计信息并返回事件
+  Future<TagChangeEvent> _updateTagStats(
+    Transaction txn,
+    int tagId,
+    DownloadedTag tag,
+    int illustId,
+    TagChangeType changeType, {
+    String? squareMediumUrl,
+  }) async {
+    final tagName = tag.name;
+    final currentCount = tag.count;
+    final examplesStr = tag.exampleIllusts;
+    
+    // 更新示例插画列表
+    final examples = examplesStr.isEmpty ? <String>[] : examplesStr.split(',');
+    final illustIdStr = illustId.toString();
+    
+    // 根据变更类型更新 examples 和 count
+    final int newCount;
+    if (changeType == TagChangeType.illustAdded) {
+      if (examples.length < 3 && !examples.contains(illustIdStr)) {
+        examples.add(illustIdStr);
+      }
+      newCount = currentCount + 1;
+    } else {
+      examples.remove(illustIdStr);
+      newCount = (currentCount - 1).clamp(0, double.infinity).toInt();
+    }
+    
+    // 更新数据库
+    final updateData = {
+      DownloadedTagsColumns.count: newCount,
+      DownloadedTagsColumns.exampleIllusts: examples.join(','),
+    };
+    
+    // 仅在新增时更新 lastUsedTime
+    if (changeType == TagChangeType.illustAdded) {
+      updateData[DownloadedTagsColumns.lastUsedTime] = DateTime.now().millisecondsSinceEpoch;
+    }
+    
+    await txn.update(
+      DownloadedTagsColumns.tableName,
+      updateData,
+      where: '${DownloadedTagsColumns.id} = ?',
+      whereArgs: [tagId],
+    );
+    
+    return TagChangeEvent(
+      tagId: tagId,
+      tagName: tagName,
+      type: changeType,
+      illustId: illustId,
+      squareMediumUrl: squareMediumUrl,
+      newCount: newCount,
+      newExampleIllustIds: examples.map(int.parse).toList(),
+    );
   }
 
   /// 更新动图元数据（用于修复损坏或丢失的元数据）
