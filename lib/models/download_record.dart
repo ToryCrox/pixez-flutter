@@ -2599,6 +2599,25 @@ class DownloadDatabaseProvider {
     );
   }
 
+  Future<void> batchUpdateTagCategory(List<int> tagIds, int category) async {
+    if (tagIds.isEmpty) return;
+    
+    // Batch update using WHERE IN
+    final batchSize = 500;
+    for (int i = 0; i < tagIds.length; i += batchSize) {
+      final end = (i + batchSize < tagIds.length) ? i + batchSize : tagIds.length;
+      final batchIds = tagIds.sublist(i, end);
+      final placeholders = List.filled(batchIds.length, '?').join(',');
+      
+      await db.update(
+        DownloadedTagsColumns.tableName,
+        {DownloadedTagsColumns.category: category},
+        where: '${DownloadedTagsColumns.id} IN ($placeholders)',
+        whereArgs: batchIds,
+      );
+    }
+  }
+
   Future<void> addCustomTagToIllust(int illustId, String tagName) async {
     // 1. Ensure tag exists in downloaded_tags
     await db.rawInsert('''

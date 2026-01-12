@@ -6,13 +6,22 @@ import 'package:pixez/page/downloaded/downloaded_page.dart';
 
 class TagItem extends StatelessWidget {
   final TagDisplayData data;
+  final bool isSelectionMode;
+  final bool isSelected;
+  final VoidCallback? onSelectionToggle;
 
-  const TagItem({super.key, required this.data});
+  const TagItem({
+    super.key,
+    required this.data,
+    this.isSelectionMode = false,
+    this.isSelected = false,
+    this.onSelectionToggle,
+  });
 
   @override
   Widget build(BuildContext context) {
     // 动态计算宽高比，避免瀑布流布局跳动
-    // 根据封面数量决定
+    // 据封面数量决定
     // 0: 仅文字 -> 较小高度
     // 1: 1张大图 -> 16:9 或 4:3
     // 2-3: 组合图 -> 1:1 或 4:3
@@ -20,68 +29,130 @@ class TagItem extends StatelessWidget {
     
     return Card(
       clipBehavior: Clip.antiAlias,
+      // Selection border
+      shape: isSelected
+          ? RoundedRectangleBorder(
+              side: BorderSide(color: Theme.of(context).colorScheme.primary, width: 3),
+              borderRadius: BorderRadius.circular(12),
+            )
+          : null,
       child: InkWell(
-        onTap: () => _navigateToSearchResults(context),
-        onLongPress: () => _showEditDialog(context),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+        onTap: () {
+          if (isSelectionMode) {
+             onSelectionToggle?.call();
+          } else {
+             _navigateToSearchResults(context);
+          }
+        },
+        onLongPress: () {
+             // Avoid opening dialog in selection mode, maybe trigger selection?
+             if (isSelectionMode) {
+                onSelectionToggle?.call();
+             } else {
+                _showEditDialog(context);
+             }
+        },
+        child: Stack(
           children: [
-            Expanded(
-              child: _buildCoverArea(context),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // First line: Name + Count
-                  Row(
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: _buildCoverArea(context),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Expanded(
-                        child: Text(
-                          data.tag.name,
-                          style: Theme.of(context).textTheme.titleMedium,
+                      // First line: Name + Count
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              data.tag.name,
+                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                color: _getCategoryColor(data.tag.category, context),
+                                fontWeight: FontWeight.bold,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (data.tag.isBookmarked) 
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                              child: Icon(
+                                Icons.bookmark, 
+                                size: 16, 
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                            ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${data.tag.count}',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      // Second line: Translation
+                      Builder(builder: (context) {
+                        final translation = (data.tag.customTranslatedName?.isNotEmpty == true)
+                            ? data.tag.customTranslatedName!
+                            : data.tag.translatedName;
+                        return Text(
+                          translation,
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      if (data.tag.isBookmarked) 
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                          child: Icon(
-                            Icons.bookmark, 
-                            size: 16, 
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                        ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${data.tag.count}',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
+                        );
+                      }),
                     ],
                   ),
-                  const SizedBox(height: 2),
-                  // Second line: Translation
-                  Builder(builder: (context) {
-                    final translation = (data.tag.customTranslatedName?.isNotEmpty == true)
-                        ? data.tag.customTranslatedName!
-                        : data.tag.translatedName;
-                    return Text(
-                      translation,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    );
-                  }),
-                ],
-              ),
+                ),
+              ],
             ),
+            if (isSelectionMode)
+               Positioned(
+                 top: 8,
+                 right: 8,
+                 child: Container(
+                   decoration: BoxDecoration(
+                     color: isSelected ? Theme.of(context).colorScheme.primary : Colors.black54,
+                     shape: BoxShape.circle,
+                     border: Border.all(color: Colors.white, width: 2),
+                   ),
+                   child: Padding(
+                     padding: const EdgeInsets.all(4.0),
+                     child: Icon(
+                       Icons.check,
+                       size: 16,
+                       color: Colors.white,
+                     ),
+                   ),
+                 ),
+               ),
           ],
         ),
       ),
     );
+  }
+
+  Color? _getCategoryColor(int category, BuildContext context) {
+    // 0: unclassified, 1: work, 2: character, 3: artist
+    switch (category) {
+      case 1: // Work
+        return Colors.blue;
+      case 2: // Character
+        return Colors.pink;
+      case 3: // Artist
+        return Colors.orange;
+      default:
+        // Use default text color
+        return null;
+    }
   }
 
   void _navigateToSearchResults(BuildContext context) {

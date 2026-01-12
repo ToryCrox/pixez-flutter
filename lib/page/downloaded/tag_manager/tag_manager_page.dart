@@ -47,36 +47,9 @@ class _TagManagerPageState extends State<TagManagerPage> {
   Widget build(BuildContext context) {
     return Observer(builder: (context) {
       return Scaffold(
-        appBar: AppBar(
-          title: _pageStore.isSearching ? _buildSearchField() : _buildAppBarTitle(),
-          actions: [
-            IconButton(
-              icon: Icon(_pageStore.isSearching ? Icons.close : Icons.search),
-              tooltip: _pageStore.isSearching ? '关闭搜索' : '搜索',
-              onPressed: _toggleSearch,
-            ),
-            if (!_pageStore.isSearching) ...[
-              IconButton(
-                icon: const Icon(Icons.sync),
-                tooltip: '同步标签',
-                onPressed: _showSyncDialog,
-              ),
-              PopupMenuButton<int>(
-                icon: const Icon(Icons.sort),
-                tooltip: '排序',
-                onSelected: (value) {
-                  _pageStore.setSortType(value);
-                },
-                itemBuilder: (context) => [
-                  const PopupMenuItem(value: 0, child: Text('按数量排序 (降序)')),
-                  const PopupMenuItem(value: 1, child: Text('按名称排序 (升序)')),
-                  const PopupMenuItem(value: 2, child: Text('按最近使用排序')),
-                  const PopupMenuItem(value: 3, child: Text('按手动优先级排序')),
-                ],
-              ),
-            ],
-          ],
-        ),
+        appBar: _pageStore.isSelectionMode 
+            ? _buildSelectionAppBar() 
+            : _buildNormalAppBar(),
         body: Observer(builder: (_) {
           if (tagManagerStore.isLoading && tagManagerStore.tags.isEmpty) {
             return const Center(child: CircularProgressIndicator());
@@ -140,10 +113,15 @@ class _TagManagerPageState extends State<TagManagerPage> {
                     delegate: SliverChildBuilderDelegate(
                       (context, index) {
                         final data = tags[index];
-                        return TagItem(
-                          key: ValueKey(data), 
-                          data: data,
-                        );
+                        return Observer(builder: (_) {
+                           return TagItem(
+                              key: ValueKey(data), 
+                              data: data,
+                              isSelectionMode: _pageStore.isSelectionMode,
+                              isSelected: _pageStore.selectedTagIds.contains(data.tag.id),
+                              onSelectionToggle: () => _pageStore.toggleTagSelection(data.tag.id),
+                            );
+                        });
                       },
                       childCount: tags.length,
                     ),
@@ -154,6 +132,68 @@ class _TagManagerPageState extends State<TagManagerPage> {
         }),
       );
     });
+  }
+
+  PreferredSizeWidget _buildNormalAppBar() {
+    return AppBar(
+      title: _pageStore.isSearching ? _buildSearchField() : _buildAppBarTitle(),
+      actions: [
+        IconButton(
+          icon: Icon(_pageStore.isSearching ? Icons.close : Icons.search),
+          tooltip: _pageStore.isSearching ? '关闭搜索' : '搜索',
+          onPressed: _toggleSearch,
+        ),
+        if (!_pageStore.isSearching) ...[
+          IconButton(
+            icon: const Icon(Icons.checklist),
+            tooltip: '选择模式',
+            onPressed: () => _pageStore.toggleSelectionMode(true),
+          ),
+          IconButton(
+            icon: const Icon(Icons.sync),
+            tooltip: '同步标签',
+            onPressed: _showSyncDialog,
+          ),
+          PopupMenuButton<int>(
+            icon: const Icon(Icons.sort),
+            tooltip: '排序',
+            initialValue: _pageStore.sortType,
+            onSelected: (value) {
+              _pageStore.setSortType(value);
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(value: 4, child: Text('按分类排序 (默认)')),
+              const PopupMenuItem(value: 0, child: Text('按数量排序 (降序)')),
+              const PopupMenuItem(value: 1, child: Text('按名称排序 (升序)')),
+              const PopupMenuItem(value: 2, child: Text('按最近使用排序')),
+              const PopupMenuItem(value: 3, child: Text('按手动优先级排序')),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+
+  PreferredSizeWidget _buildSelectionAppBar() {
+    return AppBar(
+      leading: IconButton(
+        icon: const Icon(Icons.close),
+        onPressed: () => _pageStore.toggleSelectionMode(false),
+      ),
+      title: Observer(builder: (_) => Text('${_pageStore.selectedTagIds.length} 已选择')),
+      actions: [
+        TextButton(
+          onPressed: _pageStore.selectAll,
+          child: const Text('全选'),
+        ),
+        Observer(builder: (_) => _pageStore.selectedTagIds.isNotEmpty ?
+          TextButton(
+            onPressed: _showClassifyDialog,
+            child: const Text('分类'),
+          ) : const SizedBox.shrink()
+        ),
+      ],
+    );
   }
 
   Widget _buildAppBarTitle() {
@@ -207,6 +247,51 @@ class _TagManagerPageState extends State<TagManagerPage> {
           case 4: return 99;
           default: return -1;
       }
+  }
+  
+  void _showClassifyDialog() {
+      if (_pageStore.selectedTagIds.isEmpty) return;
+
+      showDialog(
+        context: context, 
+        useRootNavigator: false,
+        builder: (context) {
+           return SimpleDialog(
+             title: Text('将 ${_pageStore.selectedTagIds.length} 个标签分类为'),
+             children: [
+               _buildClassifyItem(0, '未分类'),
+               _buildClassifyItem(1, '作品 (Work)', Colors.blue),
+               _buildClassifyItem(2, '角色 (Character)', Colors.pink),
+               _buildClassifyItem(3, '画师 (Artist)', Colors.orange),
+               _buildClassifyItem(4, '通用 (General)'),
+               _buildClassifyItem(5, '元数据 (Meta)', Colors.purple),
+             ],
+           );
+        }
+      );
+  }
+
+  Widget _buildClassifyItem(int category, String title, [Color? color]) {
+      return SimpleDialogOption(
+        onPressed: () async {
+           Navigator.pop(context);
+           await tagManagerStore.batchUpdateCategory(_pageStore.selectedTagIds.toList(), category);
+           _pageStore.toggleSelectionMode(false);
+           
+           if (mounted) {
+             ScaffoldMessenger.of(context).showSnackBar(
+               const SnackBar(content: Text('分类已更新')),
+             );
+           }
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8.0),
+          child: Text(
+             title,
+             style: color != null ? TextStyle(color: color, fontWeight: FontWeight.bold) : null,
+          ),
+        ),
+      );
   }
 
   void _showSyncDialog() {

@@ -90,6 +90,24 @@ abstract class _TagManagerStore with Store {
   }
 
   @action
+  Future<void> batchUpdateCategory(List<int> tagIds, int category) async {
+    await _dbProvider.batchUpdateTagCategory(tagIds, category);
+    
+    // Update local list
+    final tagIdSet = tagIds.toSet();
+    for (int i = 0; i < tags.length; i++) {
+        if (tagIdSet.contains(tags[i].tag.id)) {
+            final oldData = tags[i];
+            tags[i] = TagDisplayData(
+                tag: oldData.tag.copyWith(category: category),
+                previewIllusts: oldData.previewIllusts
+            );
+        }
+    }
+    tags = ObservableList.of(tags);
+  }
+
+  @action
   Future<void> addCustomTagToIllust(int illustId, String tagName) async {
     await _dbProvider.addCustomTagToIllust(illustId, tagName);
   }

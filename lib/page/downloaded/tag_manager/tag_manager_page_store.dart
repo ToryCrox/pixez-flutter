@@ -17,7 +17,7 @@ abstract class _TagManagerPageStore with Store {
   int filterCategory = -1; // -1: All, 1: Work, 2: Character, 99: Bookmarked
 
   @observable
-  int sortType = 0; // 0: count desc, 1: name asc, 2: last_used desc, 3: display_order desc
+  int sortType = 4; // 0: count desc, 1: name asc, 2: last_used desc, 3: display_order desc, 4: category asc
 
   @computed
   List<TagDisplayData> get displayTags {
@@ -56,6 +56,14 @@ abstract class _TagManagerPageStore with Store {
       case 3: // Display Order Desc
         result.sort((a, b) => b.tag.displayOrder.compareTo(a.tag.displayOrder));
         break;
+      case 4: // Category Asc
+        result.sort((a, b) {
+           int catCompare = a.tag.category.compareTo(b.tag.category);
+           if (catCompare != 0) return catCompare;
+           // Secondary sort by count desc
+           return b.tag.count.compareTo(a.tag.count);
+        });
+        break;
     }
 
     return result;
@@ -79,8 +87,43 @@ abstract class _TagManagerPageStore with Store {
     filterCategory = category;
   }
 
+  @observable
+  bool isSelectionMode = false;
+
+  @observable
+  ObservableSet<int> selectedTagIds = ObservableSet<int>();
+
   @action
   void setSortType(int type) {
     sortType = type;
+  }
+
+  @action
+  void toggleSelectionMode(bool value) {
+    isSelectionMode = value;
+    if (!value) {
+      selectedTagIds.clear();
+    }
+  }
+
+  @action
+  void toggleTagSelection(int tagId) {
+    if (selectedTagIds.contains(tagId)) {
+      selectedTagIds.remove(tagId);
+    } else {
+      selectedTagIds.add(tagId);
+    }
+  }
+
+  @action
+  void selectAll() {
+    for (final data in displayTags) {
+      selectedTagIds.add(data.tag.id);
+    }
+  }
+
+  @action
+  void clearSelection() {
+    selectedTagIds.clear();
   }
 }
