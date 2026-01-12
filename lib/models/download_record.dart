@@ -688,9 +688,16 @@ class DownloadedTag {
   }
 }
 
+class IllustPreviewData {
+  final int illustId;
+  final String squareMediumUrl;
+
+  const IllustPreviewData({required this.illustId, required this.squareMediumUrl});
+}
+
 class TagDisplayData {
     final DownloadedTag tag;
-    final List<DownloadedIllust> previewIllusts;
+    final List<IllustPreviewData> previewIllusts;
     final bool hasEquivalentTags;
     
     TagDisplayData({
@@ -2914,7 +2921,7 @@ class DownloadDatabaseProvider {
       }
 
       // Batch query illusts
-      Map<int, DownloadedIllust> illustMap = {};
+      Map<int, IllustPreviewData> illustMap = {};
       if (allIllustIds.isNotEmpty) {
         final List<int> idsList = allIllustIds.toList();
         // Batch size of 200 to be safe (SQLite usually limits params to ~999)
@@ -2927,12 +2934,27 @@ class DownloadDatabaseProvider {
            
            final List<Map<String, dynamic>> illustMaps = await db.query(
              DownloadedIllustColumns.tableName,
+             columns: [
+                DownloadedIllustColumns.illustId,
+                DownloadedIllustColumns.imageUrlsJson,
+             ],
              where: '${DownloadedIllustColumns.illustId} IN ($placeholders)',
              whereArgs: batchIds,
            );
            for (var m in illustMaps) {
-             var illust = DownloadedIllust.fromJson(m);
-             illustMap[illust.illustId] = illust;
+             final illustId = m[DownloadedIllustColumns.illustId] as int;
+             final imageUrlsJson = m[DownloadedIllustColumns.imageUrlsJson] as String;
+
+             String squareMedium = '';
+             if (imageUrlsJson.isNotEmpty) {
+               final map = TypeUtil.parseMap(PixivUrlUtil.decompressPxUrl(imageUrlsJson));
+                 squareMedium = TypeUtil.parseString(map['square_medium']);
+             }
+             
+             illustMap[illustId] = IllustPreviewData(
+               illustId: illustId,
+               squareMediumUrl: squareMedium,
+             );
            }
         }
       }
@@ -2947,14 +2969,14 @@ class DownloadDatabaseProvider {
       
       // Second pass: associate illusts and determine hasEquivalentTags
       for (var entity in tagEntities) {
-        List<DownloadedIllust> previewIllusts = [];
+        List<IllustPreviewData> previewIllusts = [];
         for (var illustId in entity.exampleIllustIds) {
           if (illustMap.containsKey(illustId)) {
             previewIllusts.add(illustMap[illustId]!);
           }
         }
-        // sort by date desc
-        previewIllusts.sort((a, b) => b.createDate.compareTo(a.createDate));
+        // Since we don't have createDate in the lean object, we'll rely on the order of exampleIllustIds 
+        // which was already sorted by date when saved to DB during syncTags.
         
         // A tag has equivalent tags if:
         // 1. It is an alias (points to someone else)

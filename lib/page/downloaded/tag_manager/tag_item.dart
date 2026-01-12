@@ -335,17 +335,9 @@ class TagItem extends StatelessWidget {
     );
   }
 
-  Widget _buildImage(DownloadedIllust illust) {
-    // 逻辑参考 DownloadedAuthorCard
-    final imageUrls = illust.getImageUrls();
-    String coverUrl = imageUrls.squareMedium;
-    if (coverUrl.isEmpty) {
-      final illusts = illust.toIllusts();
-      coverUrl = illusts.imageUrls.squareMedium;
-    }
-    
+  Widget _buildImage(IllustPreviewData illust) {
     return PixivImage(
-      coverUrl,
+      illust.squareMediumUrl,
       fit: BoxFit.cover,
       width: double.infinity,
       height: double.infinity,
