@@ -205,6 +205,10 @@ class TagItem extends StatelessWidget {
   }
 
   void _showEquivalenceDialog(BuildContext context) {
+    if (isSelectionMode) {
+      onAssociate?.call();
+      return;
+    }
     final group = tagManagerStore.getEquivalenceGroup(data.tag.id);
     showDialog(
       context: context,
