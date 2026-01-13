@@ -13,7 +13,7 @@ class TagEquivalenceDialog extends StatefulWidget {
 }
 
 class _TagEquivalenceDialogState extends State<TagEquivalenceDialog> {
-  late List<DownloadedTag> _group;
+  late List<TagDisplayData> _group;
   int? _primaryId;
   bool _isLoading = false;
 
@@ -23,8 +23,8 @@ class _TagEquivalenceDialogState extends State<TagEquivalenceDialog> {
     _group = tagManagerStore.getEquivalenceGroup(widget.tagId);
     if (_group.isNotEmpty) {
       _primaryId =
-          _group.firstWhereOrNull((t) => t.referencedTagId == null)?.id ??
-          _group.first.id;
+          _group.firstWhereOrNull((td) => td.tag.referencedTagId == null)?.tag.id ??
+          _group.first.tag.id;
     }
   }
 
@@ -46,31 +46,31 @@ class _TagEquivalenceDialogState extends State<TagEquivalenceDialog> {
                     const Text('选择一个作为主标签，其他将作为其别名。'),
                     const SizedBox(height: 16),
                     Flexible(
-                      child: RadioGroup<int>(
-                        groupValue: _primaryId,
-                        onChanged: (val) {
-                          if (val != null) setState(() => _primaryId = val);
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: _group.length,
+                        itemBuilder: (context, index) {
+                          final tag = _group[index].tag;
+                          return ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: Radio<int>(
+                              value: tag.id,
+                              groupValue: _primaryId,
+                              onChanged: (val) {
+                                if (val != null) {
+                                  setState(() => _primaryId = val);
+                                }
+                              },
+                            ),
+                            title: Text(tag.name),
+                            subtitle: Text(tag.translatedName),
+                            trailing: IconButton(
+                              icon: const Icon(Icons.link_off, size: 20),
+                              onPressed: () => _dissociate(tag.id),
+                              tooltip: '取消关联',
+                            ),
+                          );
                         },
-                        child: ListView.builder(
-                          shrinkWrap: true,
-                          itemCount: _group.length,
-                          itemBuilder: (context, index) {
-                            final tag = _group[index];
-                            return ListTile(
-                              contentPadding: EdgeInsets.zero,
-                              leading: Radio<int>(
-                                value: tag.id,
-                              ),
-                              title: Text(tag.name),
-                              subtitle: Text(tag.translatedName),
-                              trailing: IconButton(
-                                icon: const Icon(Icons.link_off, size: 20),
-                                onPressed: () => _dissociate(tag.id),
-                                tooltip: '取消关联',
-                              ),
-                            );
-                          },
-                        ),
                       ),
                     ),
                   ],
@@ -107,7 +107,7 @@ class _TagEquivalenceDialogState extends State<TagEquivalenceDialog> {
     if (_primaryId != null) {
       await tagManagerStore.updateEquivalenceGroup(
         _primaryId!,
-        _group.map((t) => t.id).toList(),
+        _group.map((td) => td.tag.id).toList(),
       );
       if (mounted) Navigator.pop(context);
     }

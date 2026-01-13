@@ -613,12 +613,21 @@ class DownloadedTag {
     this.referencedTagId,
   });
 
+
   String get displayName =>
       (customTranslatedName != null && customTranslatedName!.isNotEmpty)
           ? customTranslatedName!
           : (translatedName.isNotEmpty)
               ? translatedName
               : name;
+
+  /// 翻译的名字
+  String get displayTranslatedName =>
+      (customTranslatedName != null && customTranslatedName!.isNotEmpty)
+          ? customTranslatedName!
+          : (translatedName.isNotEmpty)
+              ? translatedName
+              : '';
 
   TagCategory get categoryEnum => TagCategory.fromValue(category);
   

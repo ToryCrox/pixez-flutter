@@ -179,7 +179,7 @@ abstract class _TagManagerStore with Store {
   }
 
   @action
-  List<DownloadedTag> expandSelectedTags(List<int> ids) {
+  List<TagDisplayData> expandSelectedTags(List<int> ids) {
     if (ids.isEmpty) return [];
 
     // 如果 tags 已加载，则直接从内存中计算等价组展开
@@ -196,7 +196,6 @@ abstract class _TagManagerStore with Store {
                 rootIds.contains(t.tag.id) ||
                 (t.tag.referencedTagId != null &&
                     rootIds.contains(t.tag.referencedTagId)))
-            .map((t) => t.tag)
             .toList();
       }
     }
@@ -205,7 +204,7 @@ abstract class _TagManagerStore with Store {
   }
 
   @action
-  List<DownloadedTag> getEquivalenceGroup(int tagId) {
+  List<TagDisplayData> getEquivalenceGroup(int tagId) {
     // 如果 tags 已加载，优先从内存获取
     if (tags.isNotEmpty) {
       final tagData = tagIdMap[tagId];
@@ -214,7 +213,6 @@ abstract class _TagManagerStore with Store {
         return tags
             .where((t) =>
                 t.tag.id == mainId || t.tag.referencedTagId == mainId)
-            .map((t) => t.tag)
             .toList();
       }
     }

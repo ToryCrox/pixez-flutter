@@ -18,7 +18,7 @@ class _TagEditDialogState extends State<TagEditDialog> {
   late TagCategory _selectedCategory;
   late bool _isBookmarked;
   late int _displayOrder;
-  late List<DownloadedTag> _equivalenceGroup;
+  late List<TagDisplayData> _equivalenceGroup;
 
   @override
   void initState() {
@@ -140,7 +140,7 @@ class _TagEditDialogState extends State<TagEditDialog> {
     }
 
     // 排除当前标签
-    final otherTags = _equivalenceGroup.where((t) => t.id != widget.tag.id).toList();
+    final otherTags = _equivalenceGroup.where((td) => td.tag.id != widget.tag.id).toList();
 
     return Padding(
       padding: const EdgeInsets.only(top: 12.0),
@@ -166,7 +166,8 @@ class _TagEditDialogState extends State<TagEditDialog> {
               child: Wrap(
                 spacing: 4,
                 runSpacing: 4,
-                children: otherTags.map((t) {
+                children: otherTags.map((td) {
+                  final t = td.tag;
                   final customName = t.customTranslatedName ?? '';
                   final displayName = customName.isNotEmpty
                       ? customName

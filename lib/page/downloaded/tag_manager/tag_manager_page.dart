@@ -5,7 +5,7 @@ import 'package:pixez/models/download_record.dart';
 import 'package:pixez/page/downloaded/tag_manager/tag_item.dart';
 import 'package:pixez/page/downloaded/tag_manager/tag_manager_page_store.dart';
 import 'package:pixez/component/sort_group.dart';
-import 'package:collection/collection.dart';
+import 'package:pixez/page/downloaded/tag_manager/tag_selection_dialog.dart';
 
 class TagManagerPage extends StatefulWidget {
   const TagManagerPage({super.key});
@@ -308,7 +308,7 @@ class _TagManagerPageState extends State<TagManagerPage> {
     final expandedTags = tagManagerStore.expandSelectedTags(
       _pageStore.selectedTagIds.toList(),
     );
-    final allIds = expandedTags.map((t) => t.id).toList();
+    final allIds = expandedTags.map((t) => t.tag.id).toList();
 
     if (!mounted) return;
 
@@ -353,7 +353,7 @@ class _TagManagerPageState extends State<TagManagerPage> {
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(
-                                  tag.name,
+                                  tag.tag.name,
                                   style: const TextStyle(fontSize: 10),
                                 ),
                               ),
@@ -413,73 +413,26 @@ class _TagManagerPageState extends State<TagManagerPage> {
 
     // 智能扩展：获取选中标签及其背后的完整家族成员
     final expandedTags = tagManagerStore.expandSelectedTags(selectedIds);
-    final allIds = expandedTags.map((t) => t.id).toList();
 
     if (!mounted) return;
 
-    showDialog(
+    final result = await showDialog<bool>(
       context: context,
-      builder: (context) {
-        // 默认主标签：如果原组里有根主标签（referencedTagId 为 null），优先选它，否则选第一个
-        int primaryId =
-            expandedTags.firstWhereOrNull((t) => t.referencedTagId == null)?.id ?? allIds.first;
-
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return AlertDialog(
-              title: const Text('建立等价关联'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '包含选中的 ${selectedIds.length} 个标签及其关联家族，共 ${expandedTags.length} 个标签：',
-                  ),
-                  const SizedBox(height: 16),
-                  Flexible(
-                    child: SingleChildScrollView(
-                      child: RadioGroup<int>(
-                        groupValue: primaryId,
-                        onChanged: (val) => setState(() => primaryId = val!),
-                        child: Column(
-                          children:
-                              expandedTags.map((tag) {
-                                return RadioListTile<int>(
-                                  title: Text(tag.name),
-                                  subtitle: Text(tag.translatedName),
-                                  value: tag.id,
-                                );
-                              }).toList(),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('取消'),
-                ),
-                TextButton(
-                  onPressed: () async {
-                    // 合并式更新：全组成员一并指向新主标签
-                    final aliasIds =
-                        allIds.where((id) => id != primaryId).toList();
-                    await tagManagerStore.associateTags(primaryId, aliasIds);
-                    if (context.mounted) {
-                      Navigator.pop(context);
-                      _pageStore.toggleSelectionMode(false);
-                    }
-                  },
-                  child: const Text('确定'),
-                ),
-              ],
-            );
-          },
-        );
-      },
+      builder:
+          (context) => TagSelectionDialog(
+            comicTags: expandedTags,
+            currentGroup: expandedTags,
+          ),
     );
+
+    if (result == true) {
+      _pageStore.toggleSelectionMode(false);
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('标签关联已更新')));
+      }
+    }
   }
 
   void _showSyncDialog() {
