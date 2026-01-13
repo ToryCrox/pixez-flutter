@@ -45,22 +45,21 @@ class _TagEquivalenceDialogState extends State<TagEquivalenceDialog> {
                   children: [
                     const Text('选择一个作为主标签，其他将作为其别名。'),
                     const SizedBox(height: 16),
-                    if (_group != null)
-                      Flexible(
+                    Flexible(
+                      child: RadioGroup<int>(
+                        groupValue: _primaryId,
+                        onChanged: (val) {
+                          if (val != null) setState(() => _primaryId = val);
+                        },
                         child: ListView.builder(
                           shrinkWrap: true,
-                          itemCount: _group!.length,
+                          itemCount: _group.length,
                           itemBuilder: (context, index) {
-                            final tag = _group![index];
+                            final tag = _group[index];
                             return ListTile(
                               contentPadding: EdgeInsets.zero,
                               leading: Radio<int>(
                                 value: tag.id,
-                                groupValue: _primaryId,
-                                onChanged: (val) {
-                                  if (val != null)
-                                    setState(() => _primaryId = val);
-                                },
                               ),
                               title: Text(tag.name),
                               subtitle: Text(tag.translatedName),
@@ -73,6 +72,7 @@ class _TagEquivalenceDialogState extends State<TagEquivalenceDialog> {
                           },
                         ),
                       ),
+                    ),
                   ],
                 ),
               ),
@@ -82,7 +82,7 @@ class _TagEquivalenceDialogState extends State<TagEquivalenceDialog> {
           child: const Text('关闭'),
         ),
         ElevatedButton(
-          onPressed: _isLoading || _group == null ? null : _save,
+          onPressed: _isLoading ? null : _save,
           child: const Text('确定'),
         ),
       ],
@@ -93,7 +93,7 @@ class _TagEquivalenceDialogState extends State<TagEquivalenceDialog> {
     await tagManagerStore.dissociateSingleTag(id);
     if (!mounted) return;
 
-    if (_group != null && _group!.length <= 2) {
+    if (_group.length <= 2) {
       // If only 2 tags were in the group, removing one breaks the group
       Navigator.pop(context);
     } else {
@@ -104,10 +104,10 @@ class _TagEquivalenceDialogState extends State<TagEquivalenceDialog> {
   }
 
   Future<void> _save() async {
-    if (_primaryId != null && _group != null) {
+    if (_primaryId != null) {
       await tagManagerStore.updateEquivalenceGroup(
         _primaryId!,
-        _group!.map((t) => t.id).toList(),
+        _group.map((t) => t.id).toList(),
       );
       if (mounted) Navigator.pop(context);
     }

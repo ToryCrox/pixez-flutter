@@ -185,7 +185,7 @@ class HttpCacheFileInfo {
           'fileInfo is null, please check httpCode first,'
               ' httpCode: $httpCode, message: $message');
     }
-    return _fileInfo!;
+    return _fileInfo;
   }
 
   HttpCacheFileInfo(this.httpCode, this.message, this._fileInfo);

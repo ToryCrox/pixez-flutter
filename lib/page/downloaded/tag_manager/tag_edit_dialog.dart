@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:pixez/models/download_record.dart';
 import 'package:pixez/main.dart';
-// import 'package:pixez/i18n.dart'; // Unused
+import 'tag_selection_dialog.dart';
 
 class TagEditDialog extends StatefulWidget {
   final DownloadedTag tag;
+  final List<TagDisplayData>? comicTags;
 
-  const TagEditDialog({super.key, required this.tag});
+  const TagEditDialog({super.key, required this.tag, this.comicTags});
 
   @override
   State<TagEditDialog> createState() => _TagEditDialogState();
@@ -133,41 +134,72 @@ class _TagEditDialogState extends State<TagEditDialog> {
   }
 
   Widget _buildEquivalenceGroup() {
-    if (_equivalenceGroup.isEmpty) {
+    // 即使组为空，如果是在漫画详情页打开且有漫画标签，也显示“关联”入口
+    if (_equivalenceGroup.isEmpty && (widget.comicTags == null || widget.comicTags!.isEmpty)) {
       return const SizedBox.shrink();
     }
 
     // 排除当前标签
     final otherTags = _equivalenceGroup.where((t) => t.id != widget.tag.id).toList();
-    if (otherTags.isEmpty) return const SizedBox.shrink();
 
     return Padding(
       padding: const EdgeInsets.only(top: 12.0),
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('关联标签: ', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Wrap(
-              spacing: 4,
-              runSpacing: 4,
-              children: otherTags.map((t) {
-                final customName = t.customTranslatedName ?? '';
-                final displayName = customName.isNotEmpty
-                    ? customName
-                    : (t.translatedName.isNotEmpty ? t.translatedName : t.name);
-                return Chip(
-                  label: Text(displayName, style: const TextStyle(fontSize: 12)),
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  padding: EdgeInsets.zero,
-                );
-              }).toList(),
-            ),
+          Row(
+            children: [
+              const Text('关联标签: ', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+              const Spacer(),
+              if (widget.comicTags != null && widget.comicTags!.isNotEmpty)
+                TextButton.icon(
+                  onPressed: _showTagSelectionDialog,
+                  icon: const Icon(Icons.add_link, size: 16),
+                  label: const Text('添加关联', style: TextStyle(fontSize: 12)),
+                  style: TextButton.styleFrom(padding: EdgeInsets.zero),
+                ),
+            ],
           ),
+          if (otherTags.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 4.0),
+              child: Wrap(
+                spacing: 4,
+                runSpacing: 4,
+                children: otherTags.map((t) {
+                  final customName = t.customTranslatedName ?? '';
+                  final displayName = customName.isNotEmpty
+                      ? customName
+                      : (t.translatedName.isNotEmpty ? t.translatedName : t.name);
+                  return Chip(
+                    label: Text(displayName, style: const TextStyle(fontSize: 12)),
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    padding: EdgeInsets.zero,
+                  );
+                }).toList(),
+              ),
+            ),
         ],
       ),
     );
+  }
+
+  Future<void> _showTagSelectionDialog() async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => TagSelectionDialog(
+        comicTags: widget.comicTags!,
+        currentGroup: _equivalenceGroup,
+        currentTagId: widget.tag.id,
+      ),
+    );
+
+    if (result == true) {
+      // 重新加载等效组
+      setState(() {
+        _equivalenceGroup = tagManagerStore.getEquivalenceGroup(widget.tag.id);
+      });
+    }
   }
 
   void _save() {

@@ -20,7 +20,6 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:pixez/component/pixiv_image.dart';
 import 'package:pixez/i18n.dart';
 import 'package:pixez/models/illust_persist.dart';
-import 'package:pixez/page/hello/hello_page.dart';
 import 'package:pixez/page/history/history_store.dart';
 import 'package:pixez/page/picture/illust_lighting_page.dart';
 import 'package:pixez/page/picture/illust_store.dart';

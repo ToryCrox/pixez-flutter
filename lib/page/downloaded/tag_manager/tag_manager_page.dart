@@ -349,7 +349,7 @@ class _TagManagerPageState extends State<TagManagerPage> {
                                   color:
                                       Theme.of(
                                         context,
-                                      ).colorScheme.surfaceVariant,
+                                      ).colorScheme.surfaceContainerHighest,
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(
@@ -438,18 +438,19 @@ class _TagManagerPageState extends State<TagManagerPage> {
                   const SizedBox(height: 16),
                   Flexible(
                     child: SingleChildScrollView(
-                      child: Column(
-                        children:
-                            expandedTags.map((tag) {
-                              return RadioListTile<int>(
-                                title: Text(tag.name),
-                                subtitle: Text(tag.translatedName),
-                                value: tag.id,
-                                groupValue: primaryId,
-                                onChanged:
-                                    (val) => setState(() => primaryId = val!),
-                              );
-                            }).toList(),
+                      child: RadioGroup<int>(
+                        groupValue: primaryId,
+                        onChanged: (val) => setState(() => primaryId = val!),
+                        child: Column(
+                          children:
+                              expandedTags.map((tag) {
+                                return RadioListTile<int>(
+                                  title: Text(tag.name),
+                                  subtitle: Text(tag.translatedName),
+                                  value: tag.id,
+                                );
+                              }).toList(),
+                        ),
                       ),
                     ),
                   ),

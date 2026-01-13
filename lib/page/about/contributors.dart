@@ -3,7 +3,6 @@ import 'dart:math';
 
 import 'package:bot_toast/bot_toast.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/widgets.dart';
 import 'package:pixez/component/pixiv_image.dart';
 import 'package:pixez/constants.dart';
 import 'package:pixez/main.dart';

@@ -8,7 +8,11 @@ import 'package:pixez/network/api_client.dart';
 
 part 'painter_list_store.g.dart';
 
-class PainterListStore = _PainterListStoreBase with _$PainterListStore;
+class PainterListStore extends _PainterListStoreBase with _$PainterListStore {
+  PainterListStore(EasyRefreshController controller, FutureGet source,
+      {String? cacheKey})
+      : super(controller, source, cacheKey: cacheKey);
+}
 
 abstract class _PainterListStoreBase with Store {
   ObservableList<UserPreviews> users = ObservableList();

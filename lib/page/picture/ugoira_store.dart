@@ -16,7 +16,6 @@
 
 import 'dart:async';
 import 'dart:io';
-import 'package:archive/archive.dart';
 import 'package:bot_toast/bot_toast.dart';
 import 'package:mobx/mobx.dart';
 import 'package:path/path.dart' as path;

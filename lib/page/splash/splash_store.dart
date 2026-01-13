@@ -15,7 +15,6 @@
  */
 
 import 'package:mobx/mobx.dart';
-import 'package:pixez/component/pixiv_image.dart';
 import 'package:pixez/er/hoster.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/models/onezero_response.dart';

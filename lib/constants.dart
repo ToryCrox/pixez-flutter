@@ -14,7 +14,6 @@
  *
  */
 
-import 'dart:io';
 
 class Constants {
   static const String no_h = 'assets/images/h_long.jpg';

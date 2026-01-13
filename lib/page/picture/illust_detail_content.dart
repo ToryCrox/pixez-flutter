@@ -20,9 +20,9 @@ import 'package:pixez/page/user/users_page.dart';
 import 'package:pixez/supportor_plugin.dart';
 import 'package:pixez/component/painter_avatar.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:pixez/store/tag_manager_store.dart';
 import 'package:pixez/page/downloaded/downloaded_page.dart';
 import 'package:pixez/page/downloaded/tag_manager/tag_edit_dialog.dart';
+import 'package:pixez/models/download_record.dart';
 
 class IllustDetailContent extends StatefulWidget {
   final Illusts illusts;
@@ -710,15 +710,22 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
         heroTag: this.hashCode.toString(),
       ),
     );
-    widget.illustStore?.illusts!.user.isFollowed = userStore!.isFollow;
+    widget.illustStore.illusts!.user.isFollowed = userStore!.isFollow;
   }
 
   void _showEditTagDialog(BuildContext context, Tags f) {
     final localTag = tagManagerStore.getTagDisplayData(f.name);
     if (localTag != null && context.mounted) {
+      final comicTagDatas = _illusts.tags
+          .map((t) => tagManagerStore.getTagDisplayData(t.name))
+          .whereType<TagDisplayData>()
+          .toList();
       showDialog(
         context: context,
-        builder: (context) => TagEditDialog(tag: localTag.tag),
+        builder: (context) => TagEditDialog(
+          tag: localTag.tag,
+          comicTags: comicTagDatas,
+        ),
       );
     }
   }
@@ -754,7 +761,7 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
                           heroTag: this.hashCode.toString(),
                         ),
                       );
-                      widget.illustStore?.illusts!.user.isFollowed =
+                      widget.illustStore.illusts!.user.isFollowed =
                           userStore!.isFollow;
                     },
                   ),
@@ -799,14 +806,14 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
                 onPressed: () async {
                   await userStore?.follow();
                   if (userStore?.isFollow != null) {
-                    widget.illustStore?.illusts?.user.isFollowed =
+                    widget.illustStore.illusts?.user.isFollowed =
                         userStore?.isFollow;
                   }
                 },
                 onConfirm: (follow, restrict) {
                   userStore?.followWithRestrict(follow, restrict);
                   if (userStore?.isFollow != null) {
-                    widget.illustStore?.illusts?.user.isFollowed =
+                    widget.illustStore.illusts?.user.isFollowed =
                         userStore?.isFollow;
                   }
                 },

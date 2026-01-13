@@ -28,7 +28,6 @@ import 'package:pixez/models/novel_web_response.dart';
 import 'package:pixez/network/api_client.dart';
 import 'package:pixez/page/novel/viewer/image_text.dart';
 import 'package:flutter/widgets.dart';
-import 'package:pixez/custom/log.dart';
 
 part 'novel_store.g.dart';
 

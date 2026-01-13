@@ -23,7 +23,6 @@ import 'package:pixez/custom/log.dart';
 import 'package:pixez/er/prefer.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/models/download_record.dart';
-import 'package:pixez/store/download_store.dart';
 
 part 'downloaded_authors_page_store.g.dart';
 

@@ -426,6 +426,7 @@ class _HelloPageState extends State<HelloPage> {
               } else {
                 Navigator.of(context).maybePop();
               }
+              return null;
             },
           ),
         },

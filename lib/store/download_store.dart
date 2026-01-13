@@ -34,7 +34,6 @@ import 'package:pixez/er/hoster.dart';
 import 'package:pixez/models/download_record.dart';
 import 'package:pixez/models/illust.dart';
 import 'package:pixez/models/ugoira_metadata_response.dart';
-import 'package:pixez/network/api_client.dart';
 import 'package:pixez/utils/ugoira_downloader.dart';
 import 'package:pixez/utils/webp_encoder.dart';
 

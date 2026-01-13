@@ -25,7 +25,6 @@ import 'package:dio_cache_interceptor/dio_cache_interceptor.dart';
 import 'package:dio_compatibility_layer/dio_compatibility_layer.dart';
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
-import 'package:pixez/component/pixiv_image.dart';
 import 'package:pixez/er/hoster.dart';
 import 'package:pixez/models/follow_detail.dart';
 import 'package:pixez/models/illust_bookmark_tags_response.dart';

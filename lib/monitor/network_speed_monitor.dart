@@ -15,7 +15,6 @@
  */
 
 import 'dart:async';
-import 'package:flutter/foundation.dart';
 
 class NetworkSpeedData {
   final int downloadSpeed;

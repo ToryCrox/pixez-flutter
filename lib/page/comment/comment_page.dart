@@ -34,7 +34,6 @@ import 'package:pixez/page/comment/comment_store.dart';
 import 'package:pixez/page/report/report_items_page.dart';
 import 'package:pixez/supportor_plugin.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:flutter/services.dart';
 import 'package:pixez/custom/log.dart';
 
 enum CommentArtWorkType { ILLUST, NOVEL }

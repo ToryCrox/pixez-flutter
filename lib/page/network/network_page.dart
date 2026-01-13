@@ -202,7 +202,7 @@ class _NetworkPageState extends State<NetworkPage> {
         child: Observer(builder: (_) {
           return SwitchListTile(
             value: userSetting.disableBypassSni,
-            activeColor: Theme.of(context).colorScheme.secondary,
+            activeThumbColor: Theme.of(context).colorScheme.secondary,
             title: Text(I18n.of(context).disable_sni_bypass),
             subtitle: Text(I18n.of(context).disable_sni_bypass_message),
             onChanged: (value) => _handleSniBypassChange(value),
