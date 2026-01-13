@@ -1268,7 +1268,14 @@ class DownloadDatabaseProvider {
         for (final tagId in toAdd) {
           final tag = newTagsData[tagId]!;
           await _addTagRelation(txn, illustId, tagId);
-          final event = await _updateTagStats(txn, tagId, tag, illustId, TagChangeType.illustAdded, squareMediumUrl: squareMediumUrl);
+          final event = await _updateTagStats(
+            txn: txn,
+            tagId: tagId,
+            tag: tag,
+            illustId: illustId,
+            changeType: TagChangeType.illustAdded,
+            squareMediumUrl: squareMediumUrl,
+          );
           events.add(event);
         }
         
@@ -1278,7 +1285,13 @@ class DownloadDatabaseProvider {
           for (final tagId in toRemove) {
             final tag = removeTagsData[tagId]!;
             await _removeTagRelation(txn, illustId, tagId);
-            final event = await _updateTagStats(txn, tagId, tag, illustId, TagChangeType.illustRemoved);
+            final event = await _updateTagStats(
+              txn: txn,
+              tagId: tagId,
+              tag: tag,
+              illustId: illustId,
+              changeType: TagChangeType.illustRemoved,
+            );
             events.add(event);
           }
         }
@@ -1369,33 +1382,36 @@ class DownloadDatabaseProvider {
   }
 
   /// 更新tag统计信息并返回事件
-  Future<TagChangeEvent> _updateTagStats(
-    Transaction txn,
-    int tagId,
-    DownloadedTag tag,
-    int illustId,
-    TagChangeType changeType, {
+  Future<TagChangeEvent> _updateTagStats({
+    required Transaction txn,
+    required int tagId,
+    required DownloadedTag tag,
+    required int illustId,
+    required TagChangeType changeType,
     String? squareMediumUrl,
   }) async {
     final tagName = tag.name;
-    final currentCount = tag.count;
     final examplesStr = tag.exampleIllusts;
     
     // 更新示例插画列表
     final examples = examplesStr.isEmpty ? <String>[] : examplesStr.split(',');
     final illustIdStr = illustId.toString();
     
-    // 根据变更类型更新 examples 和 count
-    final int newCount;
+    // 根据变更类型更新 examples
     if (changeType == TagChangeType.illustAdded) {
       if (examples.length < 3 && !examples.contains(illustIdStr)) {
         examples.add(illustIdStr);
       }
-      newCount = currentCount + 1;
     } else {
       examples.remove(illustIdStr);
-      newCount = (currentCount - 1).clamp(0, double.infinity).toInt();
     }
+
+    // 重新计算作品总数 (Recalculate count from DB to ensure accuracy)
+    final countResult = await txn.rawQuery(
+      'SELECT COUNT(*) as count FROM ${DownloadedIllustTagsColumns.tableName} WHERE ${DownloadedIllustTagsColumns.tagId} = ?',
+      [tagId],
+    );
+    final int newCount = countResult.first['count'] as int? ?? 0;
     
     // 更新数据库
     final updateData = {
@@ -1857,18 +1873,67 @@ class DownloadDatabaseProvider {
   }
 
   Future<int> deleteIllustByIllustId(int illustId) async {
-    // 先删除关联的图片记录
-    await db.delete(
-      DownloadedImageColumns.tableName,
-      where: '${DownloadedImageColumns.illustId} = ?',
-      whereArgs: [illustId],
-    );
-    // 再删除插画记录
-    return await db.delete(
-      DownloadedIllustColumns.tableName,
-      where: '${DownloadedIllustColumns.illustId} = ?',
-      whereArgs: [illustId],
-    );
+    final events = <TagChangeEvent>[];
+    int result = 0;
+
+    await db.transaction((txn) async {
+      // 1. 获取该插画关联的所有 tag ID (包含原始和用户添加的)
+      final tagRelations = await txn.query(
+        DownloadedIllustTagsColumns.tableName,
+        columns: [DownloadedIllustTagsColumns.tagId],
+        where: '${DownloadedIllustTagsColumns.illustId} = ?',
+        whereArgs: [illustId],
+      );
+      final affectedTagIds = tagRelations
+          .map((r) => TypeUtil.parseInt(r[DownloadedIllustTagsColumns.tagId]))
+          .toList();
+
+      // 2. 先删除关联的图片记录
+      await txn.delete(
+        DownloadedImageColumns.tableName,
+        where: '${DownloadedImageColumns.illustId} = ?',
+        whereArgs: [illustId],
+      );
+
+      // 3. 删除插画与标签的关联关系
+      await txn.delete(
+        DownloadedIllustTagsColumns.tableName,
+        where: '${DownloadedIllustTagsColumns.illustId} = ?',
+        whereArgs: [illustId],
+      );
+
+      // 4. 更新每一个受影响标签的统计信息
+      if (affectedTagIds.isNotEmpty) {
+        final tagsData = await _queryTagsByIds(txn, affectedTagIds);
+        for (final tagId in affectedTagIds) {
+          final tag = tagsData[tagId];
+          if (tag == null) continue;
+
+          final event = await _updateTagStats(
+            txn: txn,
+            tagId: tagId,
+            tag: tag,
+            illustId: illustId,
+            changeType: TagChangeType.illustRemoved,
+          );
+          events.add(event);
+        }
+      }
+
+      // 5. 最后删除插画主表记录
+      result = await txn.delete(
+        DownloadedIllustColumns.tableName,
+        where: '${DownloadedIllustColumns.illustId} = ?',
+        whereArgs: [illustId],
+      );
+    });
+
+    // 6. 发送事件通知
+    if (events.isNotEmpty) {
+      _tagChangesController.add(events);
+    }
+
+    return result;
   }
 
   Future<int> getIllustCount() async {
