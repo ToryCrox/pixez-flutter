@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:pixez/models/download_record.dart';
-import 'package:pixez/page/downloaded/tag_manager/tag_equivalence_dialog.dart';
 import 'package:pixez/page/downloaded/tag_manager/tag_edit_dialog.dart';
 import 'package:pixez/component/pixiv_image.dart';
 import 'package:pixez/page/downloaded/downloaded_page.dart';
+import 'package:pixez/page/downloaded/tag_manager/tag_selection_dialog.dart';
 import 'package:pixez/page/search/result_page.dart';
 import 'package:pixez/main.dart';
 
@@ -36,7 +36,7 @@ class TagItem extends StatelessWidget {
     // 1: 1张大图 -> 16:9 或 4:3
     // 2-3: 组合图 -> 1:1 或 4:3
     // 这里简单预设一个比例，实际由内容撑开
-    
+
     return GestureDetector(
       onSecondaryTapDown: (details) {
         _tapPosition = details.globalPosition;
@@ -47,18 +47,22 @@ class TagItem extends StatelessWidget {
       child: Card(
         clipBehavior: Clip.antiAlias,
         // Selection border
-        shape: isSelected
-            ? RoundedRectangleBorder(
-                side: BorderSide(color: Theme.of(context).colorScheme.primary, width: 3),
-                borderRadius: BorderRadius.circular(12),
-              )
-            : null,
+        shape:
+            isSelected
+                ? RoundedRectangleBorder(
+                  side: BorderSide(
+                    color: Theme.of(context).colorScheme.primary,
+                    width: 3,
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                )
+                : null,
         child: InkWell(
           onTap: () {
             if (isSelectionMode) {
-               onSelectionToggle?.call();
+              onSelectionToggle?.call();
             } else {
-               _navigateToLocalSearch(context);
+              _navigateToLocalSearch(context);
             }
           },
           onLongPress: () {
@@ -76,9 +80,7 @@ class TagItem extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Expanded(
-                    child: _buildCoverArea(context),
-                  ),
+                  Expanded(child: _buildCoverArea(context)),
                   Padding(
                     padding: const EdgeInsets.all(8.0),
                     child: Column(
@@ -91,7 +93,9 @@ class TagItem extends StatelessWidget {
                             Expanded(
                               child: Text(
                                 data.tag.name,
-                                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                style: Theme.of(
+                                  context,
+                                ).textTheme.titleMedium?.copyWith(
                                   color: data.tag.categoryEnum.color,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -99,12 +103,14 @@ class TagItem extends StatelessWidget {
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
-                            if (data.tag.isBookmarked) 
+                            if (data.tag.isBookmarked)
                               Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 4.0,
+                                ),
                                 child: Icon(
-                                  Icons.bookmark, 
-                                  size: 16, 
+                                  Icons.bookmark,
+                                  size: 16,
                                   color: Theme.of(context).colorScheme.primary,
                                 ),
                               ),
@@ -117,64 +123,80 @@ class TagItem extends StatelessWidget {
                         ),
                         const SizedBox(height: 2),
                         // Second line: Translation + Equivalence Icon
-                        Builder(builder: (context) {
-                          final isCustom = data.tag.customTranslatedName?.isNotEmpty == true;
-                          final translation = isCustom
-                              ? data.tag.customTranslatedName!
-                              : data.tag.translatedName;
-                          
-                          return Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  translation,
-                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: isCustom ? Colors.purple : Colors.grey
+                        Builder(
+                          builder: (context) {
+                            final isCustom =
+                                data.tag.customTranslatedName?.isNotEmpty ==
+                                true;
+                            final translation =
+                                isCustom
+                                    ? data.tag.customTranslatedName!
+                                    : data.tag.translatedName;
+
+                            return Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    translation,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.bodySmall?.copyWith(
+                                      color:
+                                          isCustom
+                                              ? Colors.purple
+                                              : Colors.grey,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
                                 ),
-                              ),
-                              if (data.hasEquivalentTags)
-                                Material(
-                                  color: Colors.transparent,
-                                  child: InkWell(
-                                    onTap: () => _showEquivalenceDialog(context),
-                                    borderRadius: BorderRadius.circular(4),
-                                    child: const Padding(
-                                      padding: EdgeInsets.symmetric(horizontal: 4),
-                                      child: Icon(Icons.link, size: 14, color: Colors.blue),
+                                if (data.hasEquivalentTags)
+                                  Material(
+                                    color: Colors.transparent,
+                                    child: InkWell(
+                                      onTap:
+                                          () => _showEquivalenceDialog(context),
+                                      borderRadius: BorderRadius.circular(4),
+                                      child: const Padding(
+                                        padding: EdgeInsets.symmetric(
+                                          horizontal: 4,
+                                        ),
+                                        child: Icon(
+                                          Icons.link,
+                                          size: 14,
+                                          color: Colors.blue,
+                                        ),
+                                      ),
                                     ),
                                   ),
-                                ),
-                            ],
-                          );
-                        }),
+                              ],
+                            );
+                          },
+                        ),
                       ],
                     ),
                   ),
                 ],
               ),
               if (isSelectionMode)
-                 Positioned(
-                   top: 8,
-                   right: 8,
-                   child: Container(
-                     decoration: BoxDecoration(
-                       color: isSelected ? Theme.of(context).colorScheme.primary : Colors.black54,
-                       shape: BoxShape.circle,
-                       border: Border.all(color: Colors.white, width: 2),
-                     ),
-                     child: const Padding(
-                       padding: EdgeInsets.all(4.0),
-                       child: Icon(
-                         Icons.check,
-                         size: 16,
-                         color: Colors.white,
-                       ),
-                     ),
-                   ),
-                 ),
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color:
+                          isSelected
+                              ? Theme.of(context).colorScheme.primary
+                              : Colors.black54,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 2),
+                    ),
+                    child: const Padding(
+                      padding: EdgeInsets.all(4.0),
+                      child: Icon(Icons.check, size: 16, color: Colors.white),
+                    ),
+                  ),
+                ),
             ],
           ),
         ),
@@ -183,10 +205,16 @@ class TagItem extends StatelessWidget {
   }
 
   void _showEquivalenceDialog(BuildContext context) {
+    final group = tagManagerStore.getEquivalenceGroup(data.tag.id);
     showDialog(
       context: context,
       useRootNavigator: false,
-      builder: (context) => TagEquivalenceDialog(tagId: data.tag.id),
+      builder:
+          (context) => TagSelectionDialog(
+            comicTags: group,
+            currentGroup: group,
+            currentTagId: data.tag.id,
+          ),
     );
   }
 
@@ -315,15 +343,18 @@ class TagItem extends StatelessWidget {
         _navigateToLocalSearch(context);
         break;
       case 'bookmark':
-        await tagManagerStore.updateTag(data.tag.copyWith(isBookmarked: !data.tag.isBookmarked));
+        await tagManagerStore.updateTag(
+          data.tag.copyWith(isBookmarked: !data.tag.isBookmarked),
+        );
         break;
       case 'copy_title':
         await _copyToClipboard(context, data.tag.name);
         break;
       case 'copy_translation':
-        final translation = (data.tag.customTranslatedName?.isNotEmpty == true)
-            ? data.tag.customTranslatedName!
-            : data.tag.translatedName;
+        final translation =
+            (data.tag.customTranslatedName?.isNotEmpty == true)
+                ? data.tag.customTranslatedName!
+                : data.tag.translatedName;
         await _copyToClipboard(context, translation);
         break;
       case 'edit':
@@ -354,9 +385,7 @@ class TagItem extends StatelessWidget {
   void _navigateToLocalSearch(BuildContext context) {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (context) => DownloadedPage(
-          initialTagName: data.tag.name,
-        ),
+        builder: (context) => DownloadedPage(initialTagName: data.tag.name),
       ),
     );
   }
@@ -364,23 +393,24 @@ class TagItem extends StatelessWidget {
   void _navigateToOnlineSearch(BuildContext context) {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (context) => ResultPage(
-          word: data.tag.name,
-          translatedName: data.tag.translatedName,
-        ),
+        builder:
+            (context) => ResultPage(
+              word: data.tag.name,
+              translatedName: data.tag.translatedName,
+            ),
       ),
     );
   }
 
   Widget _buildCoverArea(BuildContext context) {
     if (data.previewIllusts.isEmpty) {
-        return Container(color: Colors.grey.withOpacity(0.1));
+      return Container(color: Colors.grey.withOpacity(0.1));
     }
-    
+
     if (data.previewIllusts.length == 1) {
       return _buildImage(data.previewIllusts.first);
     }
-    
+
     if (data.previewIllusts.length == 2) {
       return Row(
         children: [
