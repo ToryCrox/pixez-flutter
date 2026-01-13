@@ -108,19 +108,31 @@ class _TagSelectionDialogState extends State<TagSelectionDialog> {
                     return CheckboxListTile(
                       title: Row(
                         children: [
-                          Expanded(child: Text(comicTag.name)),
-                          if (isSelected) 
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(comicTag.name),
+                                if (displayName != null)
+                                  Text(
+                                    displayName,
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                          if (isSelected)
                             Radio<int>(
                               value: comicTag.id,
                               visualDensity: VisualDensity.compact,
                             ),
                         ],
                       ),
-                      subtitle: displayName != null ? Text(displayName) : null,
                       value: isSelected,
-                      secondary: isPrimary 
-                          ? const Icon(Icons.star, color: Colors.orange, size: 16)
-                          : null,
                       onChanged: (val) {
                         setState(() {
                           if (val == true) {
