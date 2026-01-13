@@ -611,9 +611,12 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
   }
 
   Widget buildRow(BuildContext context, Tags f) {
+    final theme = Theme.of(context);
     // Attempt to match custom translation or bookmark status
     final localTag = tagManagerStore.getTagDisplayData(f.name);
     final isBookmarked = localTag?.tag.isBookmarked ?? false;
+    final isClassified = localTag != null && localTag.tag.category != 0;
+
     final customTranslation = localTag?.tag.customTranslatedName;
     final isCustom = customTranslation?.isNotEmpty == true;
     final displayTranslation = isCustom ? customTranslation : f.translatedName;
@@ -648,7 +651,7 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
           height: 25,
           padding: const EdgeInsets.symmetric(horizontal: 14),
           decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.secondaryContainer,
+            color: theme.colorScheme.secondaryContainer,
             borderRadius: const BorderRadius.all(Radius.circular(12.5)),
           ),
           child: Column(
@@ -659,31 +662,35 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
                 overflow: TextOverflow.ellipsis,
                 maxLines: 1,
                 text: TextSpan(
-                  text: "#${f.name}",
                   children: [
                     TextSpan(
-                      text: " ",
-                      style: Theme.of(
-                        context,
-                      ).textTheme.titleSmall!.copyWith(fontSize: 12),
+                      text: isClassified ? "● " : "#",
+                      style: TextStyle(
+                        color: isClassified
+                            ? (localTag.tag.categoryEnum.color ??
+                                theme.colorScheme.primary)
+                            : theme.colorScheme.primary,
+                        fontSize: isClassified ? 10 : 12,
+                      ),
                     ),
-                    if (displayTranslation != null)
+                    TextSpan(text: f.name),
+                    if (displayTranslation != null) ...[
+                      const TextSpan(text: " "),
                       TextSpan(
-                        text: "$displayTranslation",
-                        style: Theme.of(context).textTheme.titleSmall!.copyWith(
-                          fontSize: 12,
-                          color:
-                              (isBookmarked || isCustom) ? Colors.purple : null,
-                          fontWeight: isCustom ? FontWeight.bold : null,
+                        text: displayTranslation,
+                        style: TextStyle(
+                          color: isCustom ? Colors.purple : null,
                         ),
                       ),
+                    ],
                   ],
-                  style: Theme.of(context).textTheme.titleSmall!.copyWith(
+                  style: theme.textTheme.titleSmall!.copyWith(
                     color:
                         isBookmarked
-                            ? Colors.purple
-                            : Theme.of(context).colorScheme.primary,
+                            ? Colors.deepOrange
+                            : theme.colorScheme.primary,
                     fontSize: 12,
+                    fontWeight: isBookmarked ? FontWeight.bold : null,
                   ),
                 ),
               ),
