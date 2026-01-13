@@ -232,30 +232,30 @@ class _WorksPageState extends State<WorksPage> {
 
   SliverChildBuilderDelegate _buildSliverChildBuilderDelegate(
       BuildContext context) {
-    _store.iStores
-        .removeWhere((element) => element.illusts!.hateByUser(ai: false));
+    final stores = _store.displayStores;
+    stores.removeWhere((element) => element.illusts!.hateByUser(ai: false));
     return SliverChildBuilderDelegate((BuildContext context, int index) {
       return IllustCard(
         lightingStore: _store,
-        store: _store.iStores[index],
-        iStores: _store.iStores,
+        store: stores[index],
+        iStores: stores,
         layoutMode: IllustCardLayoutMode.waterfall,
       );
-    }, childCount: _store.iStores.length);
+    }, childCount: stores.length);
   }
 
   SliverChildBuilderDelegate _buildSliverGridChildBuilderDelegate(
       BuildContext context) {
-    _store.iStores
-        .removeWhere((element) => element.illusts!.hateByUser(ai: false));
+    final stores = _store.displayStores;
+    stores.removeWhere((element) => element.illusts!.hateByUser(ai: false));
     return SliverChildBuilderDelegate((BuildContext context, int index) {
       return IllustCard(
         lightingStore: _store,
-        store: _store.iStores[index],
-        iStores: _store.iStores,
+        store: stores[index],
+        iStores: stores,
         layoutMode: IllustCardLayoutMode.grid,
       );
-    }, childCount: _store.iStores.length);
+    }, childCount: stores.length);
   }
 
   int _getCrossAxisCount() {
@@ -314,7 +314,7 @@ class _WorksPageState extends State<WorksPage> {
       icon: Icon(Icons.download, color: Theme.of(context).iconTheme.color),
       tooltip: '批量下载',
       onPressed: () {
-        final availableIllusts = _store.iStores
+        final availableIllusts = _store.displayStores
             .where((store) =>
                 store.illusts != null && !store.illusts!.hateByUser(ai: false))
             .toList();
@@ -330,7 +330,7 @@ class _WorksPageState extends State<WorksPage> {
       onPressed: () {
         // 从作品列表中获取画师用户名
         String? userName;
-        final firstIllust = _store.iStores
+        final firstIllust = _store.displayStores
             .where((store) => store.illusts != null)
             .firstOrNull
             ?.illusts;

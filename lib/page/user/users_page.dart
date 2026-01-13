@@ -77,6 +77,9 @@ class _UsersPageState extends State<UsersPage> with TickerProviderStateMixin {
 
   String restrict = 'public';
 
+  bool _isSearching = false;
+  late TextEditingController _searchController;
+
   @override
   void initState() {
     _workStore = LightingStore(ApiForceSource(
@@ -109,6 +112,11 @@ class _UsersPageState extends State<UsersPage> with TickerProviderStateMixin {
     super.initState();
     userStore.firstFetch();
     muteStore.fetchBanUserIds();
+    _searchController = TextEditingController();
+    _searchController.addListener(() {
+      _workStore.setFilter(_searchController.text);
+      _bookmarkStore.setFilter(_searchController.text);
+    });
   }
 
   @override
@@ -117,6 +125,7 @@ class _UsersPageState extends State<UsersPage> with TickerProviderStateMixin {
     _tabController.dispose();
     _workStore.dispose();
     _bookmarkStore.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -271,8 +280,43 @@ class _UsersPageState extends State<UsersPage> with TickerProviderStateMixin {
             }
             return 300.0;
           }(),
-          leading: CommonBackArea(),
+          title: _isSearching
+              ? TextField(
+                  controller: _searchController,
+                  autofocus: true,
+                  style: Theme.of(context).primaryTextTheme.titleLarge,
+                  cursorColor: Theme.of(context).primaryTextTheme.titleLarge?.color,
+                  decoration: InputDecoration(
+                    hintText: I18n.of(context).search,
+                    border: InputBorder.none,
+                    hintStyle: Theme.of(context)
+                        .primaryTextTheme
+                        .titleMedium
+                        ?.copyWith(color: Colors.white70),
+                  ),
+                )
+              : null,
+          leading: _isSearching
+              ? IconButton(
+                  icon: Icon(Icons.close),
+                  color: Theme.of(context).primaryIconTheme.color,
+                  onPressed: () {
+                    setState(() {
+                      _isSearching = false;
+                      _searchController.clear();
+                    });
+                  })
+              : CommonBackArea(),
           actions: <Widget>[
+            if (!_isSearching)
+              IconButton(
+                icon: Icon(Icons.search),
+                onPressed: () {
+                  setState(() {
+                    _isSearching = true;
+                  });
+                },
+              ),
             Builder(builder: (context) {
               return IconButton(
                   icon: Icon(Icons.share),

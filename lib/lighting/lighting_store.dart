@@ -80,6 +80,48 @@ abstract class _LightingStoreBase with Store {
   GlanceIllustPersistProvider glanceIllustPersistProvider =
       GlanceIllustPersistProvider();
 
+  @observable
+  String? filter;
+
+  @computed
+  List<IllustStore> get displayStores {
+    if (filter == null || filter!.isEmpty) {
+      return iStores;
+    }
+    final lowerFilter = filter!.toLowerCase();
+    return iStores.where((element) {
+      final illust = element.illusts;
+      if (illust == null) return false;
+      if (illust.title.toLowerCase().contains(lowerFilter)) return true;
+      for (final tag in illust.tags) {
+        if (tag.name.toLowerCase().contains(lowerFilter)) return true;
+        if (tag.translatedName?.toLowerCase().contains(lowerFilter) == true)
+          return true;
+        // Check custom translation from TagManagerStore
+        final tagDisplayData = tagManagerStore.getTagDisplayData(tag.name);
+        if (tagDisplayData != null) {
+          if (tagDisplayData.tag.customTranslatedName
+                  ?.toLowerCase()
+                  .contains(lowerFilter) ==
+              true) {
+            return true;
+          }
+          if (tagDisplayData.tag.translatedName
+              .toLowerCase()
+              .contains(lowerFilter)) {
+            return true;
+          }
+        }
+      }
+      return false;
+    }).toList();
+  }
+
+  @action
+  void setFilter(String? value) {
+    filter = value;
+  }
+
   void dispose() {
     // 清理所有 IllustStore 实例的订阅
     for (final illustStore in iStores) {
