@@ -2265,7 +2265,7 @@ class DownloadDatabaseProvider {
         // A tag has equivalent tags if:
         // 1. It is an alias (points to someone else)
         // 2. It is a primary tag (someone else points to it)
-        bool hasEquivalentTags = entity.referencedTagId != null || allReferencedIds.contains(entity.id);
+        bool hasEquivalentTags = entity.referencedTagId != 0 || allReferencedIds.contains(entity.id);
         
         result.add(TagDisplayData(
           tag: entity, 

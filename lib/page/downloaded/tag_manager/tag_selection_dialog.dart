@@ -37,7 +37,7 @@ class _TagSelectionDialogState extends State<TagSelectionDialog> {
     for (final td in group) {
       final t = td.tag;
       _selectedTagIds.add(t.id);
-      if (t.referencedTagId == null) {
+      if (t.referencedTagId == 0) {
         _primaryId = t.id;
       }
     }

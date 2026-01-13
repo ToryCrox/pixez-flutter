@@ -597,7 +597,7 @@ class DownloadedTag {
   final int displayOrder;
   final int? lastUsedTime;
   final String exampleIllusts;
-  final int? referencedTagId;
+  final int referencedTagId;
 
   DownloadedTag({
     required this.id,
@@ -610,7 +610,7 @@ class DownloadedTag {
     this.displayOrder = 0,
     this.lastUsedTime,
     this.exampleIllusts = '',
-    this.referencedTagId,
+    this.referencedTagId = 0,
   });
 
 
@@ -651,8 +651,7 @@ class DownloadedTag {
       lastUsedTime: json[DownloadedTagsColumns.lastUsedTime] as int?,
       count: TypeUtil.parseInt(json[DownloadedTagsColumns.count]),
       exampleIllusts: TypeUtil.parseString(json[DownloadedTagsColumns.exampleIllusts]),
-      referencedTagId: json[DownloadedTagsColumns.referencedTagId] != null 
-        ? TypeUtil.parseInt(json[DownloadedTagsColumns.referencedTagId]) : null,
+      referencedTagId: TypeUtil.parseInt(json[DownloadedTagsColumns.referencedTagId]),
     );
   }
 
@@ -668,7 +667,7 @@ class DownloadedTag {
       DownloadedTagsColumns.displayOrder: displayOrder,
       DownloadedTagsColumns.lastUsedTime: lastUsedTime,
       DownloadedTagsColumns.exampleIllusts: exampleIllusts,
-      DownloadedTagsColumns.referencedTagId: referencedTagId,
+      DownloadedTagsColumns.referencedTagId: referencedTagId == 0 ? null : referencedTagId,
     };
   }
 

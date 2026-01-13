@@ -129,8 +129,8 @@ abstract class _TagManagerStore with Store {
   /// 获取标签对应的主标签（如果它本身是别名）
   DownloadedTag? getMainTag(String tagName) {
     final localData = getTagDisplayData(tagName);
-    if (localData != null && localData.tag.referencedTagId != null) {
-      return getTagDisplayDataByID(localData.tag.referencedTagId!)?.tag;
+    if (localData != null && localData.tag.referencedTagId != 0) {
+      return getTagDisplayDataByID(localData.tag.referencedTagId)?.tag;
     }
     return null;
   }
@@ -175,14 +175,14 @@ abstract class _TagManagerStore with Store {
       final rootIds = ids.map((id) {
         final tagData = tagIdMap[id];
         if (tagData == null) return null;
-        return tagData.tag.referencedTagId ?? tagData.tag.id;
+        return tagData.tag.referencedTagId == 0 ? tagData.tag.id : tagData.tag.referencedTagId;
       }).whereType<int>().toSet();
 
       if (rootIds.isNotEmpty) {
         return tags
             .where((t) =>
                 rootIds.contains(t.tag.id) ||
-                (t.tag.referencedTagId != null &&
+                (t.tag.referencedTagId != 0 &&
                     rootIds.contains(t.tag.referencedTagId)))
             .toList();
       }
@@ -197,10 +197,15 @@ abstract class _TagManagerStore with Store {
     if (tags.isNotEmpty) {
       final tagData = tagIdMap[tagId];
       if (tagData != null) {
-        final mainId = tagData.tag.referencedTagId ?? tagData.tag.id;
+        final mainId = tagData.tag.referencedTagId == 0 ? tagData.tag.id : tagData.tag.referencedTagId;
+        Log.d(() => 'getEquivalenceGroup $tagId, $mainId');
         return tags
             .where((t) =>
                 t.tag.id == mainId || t.tag.referencedTagId == mainId)
+            .map((t) {
+              Log.d(() => 'getEquivalenceGroup ${t.tag.name}, ${t.tag.referencedTagId}, ${t.tag.id}');
+              return t;
+            })
             .toList();
       }
     }
@@ -225,8 +230,8 @@ abstract class _TagManagerStore with Store {
       if (allAffectedIds.contains(tagId)) {
         final oldData = tags[i];
         final newReferencedTagId = 
-            (removedIds?.contains(tagId) ?? false) ? null :
-            (tagId == newPrimaryId ? null : newPrimaryId);
+            (removedIds?.contains(tagId) ?? false) ? 0 :
+            (tagId == newPrimaryId ? 0 : newPrimaryId);
         Log.d(() => 'updateEquivalenceGroup $tagId, $newReferencedTagId');
         final hasEquivalentTags = allTagIds.contains(tagId);
         tags[i] = oldData.copyWith(
