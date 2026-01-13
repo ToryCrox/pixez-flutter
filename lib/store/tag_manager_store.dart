@@ -27,9 +27,10 @@ abstract class _TagManagerStore with Store {
   String syncStatus = '';
 
   @computed
-  Map<String, TagDisplayData> get tagNameMap => {
-    for (final t in tags) t.tag.name: t,
-  };
+  Map<String, TagDisplayData> get tagNameMap {
+    Log.d(() => 'tagNameMap updated ${tags.length}');
+    return {for (final t in tags) t.tag.name: t};
+  }
 
   @computed
   Map<int, TagDisplayData> get tagIdMap => {for (final t in tags) t.tag.id: t};
@@ -227,8 +228,10 @@ abstract class _TagManagerStore with Store {
             (removedIds?.contains(tagId) ?? false) ? null :
             (tagId == newPrimaryId ? null : newPrimaryId);
         Log.d(() => 'updateEquivalenceGroup $tagId, $newReferencedTagId');
+        final hasEquivalentTags = allTagIds.contains(tagId);
         tags[i] = oldData.copyWith(
           tag: oldData.tag.copyWith(referencedTagId: newReferencedTagId),
+          hasEquivalentTags: hasEquivalentTags,
         );
       }
     }
