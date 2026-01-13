@@ -5,6 +5,7 @@ import 'package:pixez/models/download_record.dart';
 import 'package:pixez/page/downloaded/tag_manager/tag_item.dart';
 import 'package:pixez/page/downloaded/tag_manager/tag_manager_page_store.dart';
 import 'package:pixez/component/sort_group.dart';
+import 'package:collection/collection.dart';
 
 class TagManagerPage extends StatefulWidget {
   const TagManagerPage({super.key});
@@ -304,7 +305,7 @@ class _TagManagerPageState extends State<TagManagerPage> {
     if (_pageStore.selectedTagIds.isEmpty) return;
 
     // 智能扩展：识别选中标签背后的完整家族
-    final expandedTags = await tagManagerStore.expandSelectedTags(
+    final expandedTags = tagManagerStore.expandSelectedTags(
       _pageStore.selectedTagIds.toList(),
     );
     final allIds = expandedTags.map((t) => t.id).toList();
@@ -411,7 +412,7 @@ class _TagManagerPageState extends State<TagManagerPage> {
     }
 
     // 智能扩展：获取选中标签及其背后的完整家族成员
-    final expandedTags = await tagManagerStore.expandSelectedTags(selectedIds);
+    final expandedTags = tagManagerStore.expandSelectedTags(selectedIds);
     final allIds = expandedTags.map((t) => t.id).toList();
 
     if (!mounted) return;
@@ -421,9 +422,7 @@ class _TagManagerPageState extends State<TagManagerPage> {
       builder: (context) {
         // 默认主标签：如果原组里有根主标签（referencedTagId 为 null），优先选它，否则选第一个
         int primaryId =
-            expandedTags.any((t) => t.referencedTagId == null)
-                ? expandedTags.firstWhere((t) => t.referencedTagId == null).id
-                : allIds.first;
+            expandedTags.firstWhereOrNull((t) => t.referencedTagId == null)?.id ?? allIds.first;
 
         return StatefulBuilder(
           builder: (context, setState) {

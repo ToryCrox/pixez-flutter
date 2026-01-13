@@ -179,13 +179,47 @@ abstract class _TagManagerStore with Store {
   }
 
   @action
-  Future<List<DownloadedTag>> expandSelectedTags(List<int> ids) async {
-    return await _dbProvider.getExpandedTags(ids);
+  List<DownloadedTag> expandSelectedTags(List<int> ids) {
+    if (ids.isEmpty) return [];
+
+    // 如果 tags 已加载，则直接从内存中计算等价组展开
+    if (tags.isNotEmpty) {
+      final rootIds = ids.map((id) {
+        final tagData = tagIdMap[id];
+        if (tagData == null) return null;
+        return tagData.tag.referencedTagId ?? tagData.tag.id;
+      }).whereType<int>().toSet();
+
+      if (rootIds.isNotEmpty) {
+        return tags
+            .where((t) =>
+                rootIds.contains(t.tag.id) ||
+                (t.tag.referencedTagId != null &&
+                    rootIds.contains(t.tag.referencedTagId)))
+            .map((t) => t.tag)
+            .toList();
+      }
+    }
+
+    return [];
   }
 
   @action
-  Future<List<DownloadedTag>> getEquivalenceGroup(int tagId) async {
-    return await _dbProvider.getEquivalenceGroup(tagId);
+  List<DownloadedTag> getEquivalenceGroup(int tagId) {
+    // 如果 tags 已加载，优先从内存获取
+    if (tags.isNotEmpty) {
+      final tagData = tagIdMap[tagId];
+      if (tagData != null) {
+        final mainId = tagData.tag.referencedTagId ?? tagData.tag.id;
+        return tags
+            .where((t) =>
+                t.tag.id == mainId || t.tag.referencedTagId == mainId)
+            .map((t) => t.tag)
+            .toList();
+      }
+    }
+
+    return [];
   }
 
   @action
