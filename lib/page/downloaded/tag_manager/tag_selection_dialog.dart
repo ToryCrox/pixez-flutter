@@ -187,7 +187,7 @@ class _TagSelectionDialogState extends State<TagSelectionDialog> {
      try {
        final List<int> allIds = _selectedTagIds.toList();
  
-       // 如果选定的主标签不在勾选列表中，自动修正（虽然 UI 已经做了限制，但逻辑上兜底）
+       // 如果选定的主标签不在勾选列表中,自动修正(虽然 UI 已经做了限制,但逻辑上兜底)
        int? finalPrimaryId = _primaryId;
  
        if (finalPrimaryId == null) {
@@ -202,7 +202,17 @@ class _TagSelectionDialogState extends State<TagSelectionDialog> {
           allIds.add(finalPrimaryId);
        }
  
-       await tagManagerStore.updateEquivalenceGroup(finalPrimaryId, allIds);
+       // 计算被移除的标签ID(原来在组内,现在不在选中列表中)
+       final List<int> removedIds = [];
+       if (widget.currentGroup != null) {
+         for (final td in widget.currentGroup!) {
+           if (!allIds.contains(td.tag.id)) {
+             removedIds.add(td.tag.id);
+           }
+         }
+       }
+ 
+       await tagManagerStore.updateEquivalenceGroup(finalPrimaryId, allIds, removedIds);
 
       if (mounted) Navigator.pop(context, true);
     } catch (e) {

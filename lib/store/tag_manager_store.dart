@@ -134,19 +134,6 @@ abstract class _TagManagerStore with Store {
     return null;
   }
 
-  @action
-  Future<void> associateTags(int primaryTagId, List<int> aliasTagIds) async {
-    await _dbProvider.associateTags(primaryTagId, aliasTagIds);
-    // Reload to refresh all info
-    await loadTags(force: true);
-  }
-
-  @action
-  Future<void> dissociateTags(List<int> tagIds) async {
-    await _dbProvider.dissociateTags(tagIds);
-    // Reload to refresh all info
-    await loadTags(force: true);
-  }
 
   @action
   Future<void> batchUpdateCategory(List<int> tagIds, int category) async {
@@ -223,16 +210,28 @@ abstract class _TagManagerStore with Store {
   @action
   Future<void> updateEquivalenceGroup(
     int newPrimaryId,
-    List<int> allTagIds,
-  ) async {
-    await _dbProvider.updateEquivalenceGroup(newPrimaryId, allTagIds);
-    await loadTags(force: true);
-  }
-
-  @action
-  Future<void> dissociateSingleTag(int tagId) async {
-    await _dbProvider.dissociateTags([tagId]);
-    await loadTags(force: true);
+    List<int> allTagIds, [
+    List<int>? removedIds,
+  ]) async {
+    Log.d(() => 'updateEquivalenceGroup $newPrimaryId, $allTagIds, $removedIds');
+    await _dbProvider.updateEquivalenceGroup(newPrimaryId, allTagIds, removedIds);
+    
+    // 直接在内存中更新受影响的标签，避免重新加载所有标签
+    final allAffectedIds = {...allTagIds, if (removedIds != null) ...removedIds};
+    
+    for (int i = 0; i < tags.length; i++) {
+      final tagId = tags[i].tag.id;
+      if (allAffectedIds.contains(tagId)) {
+        final oldData = tags[i];
+        final newReferencedTagId = 
+            (removedIds?.contains(tagId) ?? false) ? null :
+            (tagId == newPrimaryId ? null : newPrimaryId);
+        Log.d(() => 'updateEquivalenceGroup $tagId, $newReferencedTagId');
+        tags[i] = oldData.copyWith(
+          tag: oldData.tag.copyWith(referencedTagId: newReferencedTagId),
+        );
+      }
+    }
   }
 
   @action

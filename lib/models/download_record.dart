@@ -793,17 +793,6 @@ class DownloadDatabaseProvider {
     });
   }
 
-  /// 解除标签关联关系
-  Future<void> dissociateTags(List<int> tagIds) async {
-    final placeholders = List.filled(tagIds.length, '?').join(',');
-    await db.update(
-      DownloadedTagsColumns.tableName,
-      {DownloadedTagsColumns.referencedTagId: null},
-      where: '${DownloadedTagsColumns.id} IN ($placeholders)',
-      whereArgs: tagIds,
-    );
-  }
-
   /// 获取包含该标签在内的完整等价组
   Future<List<DownloadedTag>> getEquivalenceGroup(int tagId) async {
     final List<Map<String, dynamic>> maps = await db.rawQuery('''
@@ -842,8 +831,23 @@ class DownloadDatabaseProvider {
   }
 
   /// 更新等价组内的主标签及成员关系
-  Future<void> updateEquivalenceGroup(int newPrimaryId, List<int> allTagIds) async {
+  Future<void> updateEquivalenceGroup(
+    int newPrimaryId,
+    List<int> allTagIds, [
+    List<int>? removedIds,
+  ]) async {
     await db.transaction((txn) async {
+      // 0. 如果有被移除的标签,先清除它们的引用关系
+      if (removedIds != null && removedIds.isNotEmpty) {
+        final removedPlaceholders = List.filled(removedIds.length, '?').join(',');
+        await txn.update(
+          DownloadedTagsColumns.tableName,
+          {DownloadedTagsColumns.referencedTagId: null},
+          where: 'id IN ($removedPlaceholders)',
+          whereArgs: removedIds,
+        );
+      }
+
       // 1. 先将组内所有成员的引用置空
       final placeholders = List.filled(allTagIds.length, '?').join(',');
       await txn.update(
@@ -852,7 +856,7 @@ class DownloadDatabaseProvider {
         where: 'id IN ($placeholders)',
         whereArgs: allTagIds,
       );
-      
+
       // 2. 将非主标签的成员指向新的主标签
       final aliasIds = allTagIds.where((id) => id != newPrimaryId).toList();
       if (aliasIds.isNotEmpty) {

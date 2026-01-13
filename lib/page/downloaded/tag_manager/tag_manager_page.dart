@@ -122,9 +122,9 @@ class _TagManagerPageState extends State<TagManagerPage> {
                               mainAxisSpacing: 8.0,
                             ),
                         delegate: SliverChildBuilderDelegate((context, index) {
-                          final data = tags[index];
                           return Observer(
                             builder: (_) {
+                              final data = tags[index];
                               return TagItem(
                                 key: ValueKey(data),
                                 data: data,
@@ -217,10 +217,6 @@ class _TagManagerPageState extends State<TagManagerPage> {
                 TextButton(
                   onPressed: _showAssociateDialog,
                   child: const Text('关联'),
-                ),
-                TextButton(
-                  onPressed: _handleDissociate,
-                  child: const Text('解链'),
                 ),
                 TextButton(
                   onPressed: _showClassifyDialog,
@@ -394,12 +390,6 @@ class _TagManagerPageState extends State<TagManagerPage> {
         );
       },
     );
-  }
-
-  void _handleDissociate() async {
-    final selectedIds = _pageStore.selectedTagIds.toList();
-    await tagManagerStore.dissociateTags(selectedIds);
-    _pageStore.toggleSelectionMode(false);
   }
 
   void _showAssociateDialog() async {
