@@ -170,39 +170,43 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
       delegate: SliverChipDelegate(
         Container(
           alignment: Alignment.center,
-          child: Stack(
-            children: [
-              // 居中显示筛选菜单
-              Center(
-                child: SortGroup(
-                  key: ValueKey(_store.sortType),
-                  children: [
-                    '最新下载',
-                    '用户名',
-                    '文件大小',
-                    '插画数量',
-                  ],
-                  onChange: _store.onSortChanged,
-                  initIndex: _store.sortType.index,
-                ),
-              ),
-              // 右侧显示排序方向和显示模式按钮
-              Positioned(
-                right: 8,
-                top: 0,
-                bottom: 0,
-                child: Center(
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _buildSortOrderButton(),
-                      SizedBox(width: 16),
-                      _buildDisplayModeButton(),
-                    ],
+          child: Observer(
+            builder: (_) {
+              return Stack(
+                children: [
+                  // 居中显示筛选菜单
+                  Center(
+                    child: SortGroup(
+                      key: ValueKey(_store.sortType),
+                      children: [
+                        '最新下载',
+                        '用户名',
+                        '文件大小',
+                        '插画数量',
+                      ],
+                      onChange: _store.onSortChanged,
+                      initIndex: _store.sortType.index,
+                    ),
                   ),
-                ),
-              ),
-            ],
+                  // 右侧显示排序方向和显示模式按钮
+                  Positioned(
+                    right: 8,
+                    top: 0,
+                    bottom: 0,
+                    child: Center(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _buildSortOrderButton(),
+                          SizedBox(width: 16),
+                          _buildDisplayModeButton(),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
         ),
         height: 52,
