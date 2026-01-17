@@ -183,6 +183,36 @@ class DownloadedIllust {
     );
   }
 
+  DownloadedIllust copyWith({
+    int? downloadedImageCount,
+    int? totalFileSize,
+  }) {
+    return DownloadedIllust(
+      illustId: illustId,
+      userId: userId,
+      userName: userName,
+      title: title,
+      type: type,
+      caption: caption,
+      createDate: createDate,
+      pageCount: pageCount,
+      width: width,
+      height: height,
+      sanityLevel: sanityLevel,
+      xRestrict: xRestrict,
+      totalView: totalView,
+      totalBookmarks: totalBookmarks,
+      tags: tags,
+      relativePath: relativePath,
+      downloadTime: downloadTime,
+      illustJson: _illustJson,
+      imageUrlsJson: imageUrlsJson,
+      ugoiraMetadataJson: ugoiraMetadataJson,
+      downloadedImageCount: downloadedImageCount ?? this.downloadedImageCount,
+      totalFileSize: totalFileSize ?? this.totalFileSize,
+    );
+  }
+
   factory DownloadedIllust.fromJson(Map<String, dynamic> json) {
     return DownloadedIllust(
       illustId: TypeUtil.parseInt(json[DownloadedIllustColumns.illustId]),

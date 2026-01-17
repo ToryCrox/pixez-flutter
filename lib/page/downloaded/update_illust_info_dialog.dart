@@ -37,7 +37,7 @@ enum UpdateResultType {
 }
 
 class UpdateIllustInfo {
-  final DownloadedIllust illust;
+  DownloadedIllust illust;
   List<ImageUpdateInfo> imageUpdates;
   bool hasChanges = false;
   bool hasBroken = false;
@@ -65,10 +65,10 @@ class UpdateIllustInfo {
     this.totalSizeInDb = 0,
     this.totalSizeScanned = 0,
   }) {
-    _updateFlags();
+    refreshFlags();
   }
 
-  void _updateFlags() {
+  void refreshFlags() {
     hasChanges = imageUpdates.any((e) => e.hasChange);
     hasBroken = imageUpdates.any((e) => e.isBroken || e.isFileNotFound);
 
@@ -99,18 +99,17 @@ class UpdateIllustInfo {
     // 只在扫描完成后检测（imageUpdates 不为空）
     if (imageUpdates.isNotEmpty) {
       final actualCount = imageUpdates.where((e) => !e.isBroken && !e.isFileNotFound).length;
-      final actualTotalSize = totalSizeInDb; // 数据库中的总大小
 
       // 检查是否与物化字段不一致
       hasStatsInconsistency = 
           illust.downloadedImageCount != actualCount ||
-          illust.totalFileSize != actualTotalSize;
+          illust.totalFileSize != totalSizeScanned;
     }
   }
 
   void updateImageUpdates(List<ImageUpdateInfo> updates) {
     imageUpdates = updates;
-    _updateFlags();
+    refreshFlags();
     // 计算总大小
     _calculateTotalSize();
   }
@@ -134,7 +133,7 @@ class UpdateIllustInfo {
       }
     }
     // 重新检测一致性
-    _updateFlags();
+    refreshFlags();
   }
 
   void updateScanProgress(int total, int scanned) {
@@ -382,7 +381,7 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
         _scannedCount++;
         _updateInfos[index].isScanning = false;
         _updateInfos[index].updateImageUpdates(imageUpdates);
-        // isIncomplete 已在 updateImageUpdates -> _updateFlags() 中自动计算
+        // isIncomplete 已在 updateImageUpdates -> refreshFlags() 中自动计算
       });
     }
   }
@@ -611,6 +610,7 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
     try {
       int updatedCount = 0;
       int deletedCount = 0; // 已删除的损坏文件数量
+      int fixedStatsCount = 0; // 修复的统计不一致数量
       List<String> errors = []; // 收集错误信息
 
       for (final updateInfo in _updateInfos) {
@@ -657,6 +657,10 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
           );
         }
 
+        if (updateInfo.hasStatsInconsistency) {
+          fixedStatsCount++;
+        }
+
         // 更新进度
         if (mounted) {
           setState(() {
@@ -665,14 +669,31 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
         }
       }
 
-      // 批量更新插画统计信息（下载图片数量和文件大小）
-      // 包括：有变化的、有损坏文件的、统计不一致的
       final illustIdsToUpdate = _updateInfos
           .where((info) => !info.isScanning && (info.hasChanges || info.hasBroken || info.hasStatsInconsistency))
           .map((info) => info.illust.illustId)
           .toList();
+
+      // 批量统计更新完成后，直接原地更新内存对象以同步状态
       if (illustIdsToUpdate.isNotEmpty) {
         await downloadStore.dbProvider.batchRecalculateIllustStats(illustIdsToUpdate);
+        
+        final updateSet = illustIdsToUpdate.toSet();
+        for (int i = 0; i < _updateInfos.length; i++) {
+          final info = _updateInfos[i];
+          if (updateSet.contains(info.illust.illustId)) {
+            final actualCount = info.imageUpdates.where((e) => !e.isBroken && !e.isFileNotFound).length;
+            final actualSize = info.totalSizeScanned;
+            
+            // 直接更新内部数据，保持原有扫描详细状态
+            info.illust = info.illust.copyWith(
+              downloadedImageCount: actualCount,
+              totalFileSize: actualSize,
+            );
+            info.totalSizeInDb = actualSize;
+            info.refreshFlags();
+          }
+        }
       }
 
       if (mounted) {
@@ -705,10 +726,11 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '已更新 $updatedCount 条记录\n'
+                        '已更新记录: $updatedCount 条\n'
+                        '统计不一致: $fixedStatsCount 个\n'
                         '文件不存在: $fileNotFoundCount 个\n'
                         '图片损坏: $corruptedCount 个\n'
-                        '已删除: $deletedCount 个',
+                        '已删除记录: $deletedCount 条',
                       ),
                       if (errors.isNotEmpty) ...[
                         SizedBox(height: 16),
@@ -1133,7 +1155,7 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
         borderColor: Colors.orange[400]!,
         leadingIcon: Icons.update,
         iconColor: Colors.orange[700]!,
-        statusText: '有变化',
+        statusText: '信息有误',
       );
     } else {
       return (
@@ -1195,7 +1217,7 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
           ),
         ),
       );
-    } else if (isWaiting || isNotScanned) {
+    } else if (isWaiting || isNotScanned || statusText != '') {
       return Padding(
         padding: EdgeInsets.only(left: 8),
         child: Container(
@@ -1414,37 +1436,56 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
                       ],
                     ],
                   ),
-                  if (!isNotScanned &&
-                      (info.totalSizeInDb > 0 ||
-                          info.totalSizeScanned > 0 ||
-                          (isScanning && info.totalImageCount > 0))) ...[
-                    SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Text(
-                          '总大小: ',
-                          style: TextStyle(fontSize: 12, color: Colors.black45),
-                        ),
-                        if (info.totalSizeInDb != info.totalSizeScanned)
+                    if (info.hasStatsInconsistency) ...[
+                      SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Icon(Icons.numbers, size: 12, color: Colors.amber[800]),
+                          SizedBox(width: 4),
                           Text(
-                            '${info.totalSizeInDb.formatFileSize()} → ${info.totalSizeScanned.formatFileSize()}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.orange[700],
-                              fontWeight: FontWeight.w500,
-                            ),
-                          )
-                        else
-                          Text(
-                            '${info.totalSizeInDb.formatFileSize()}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey[600],
-                            ),
+                            '图片数: ${info.illust.downloadedImageCount} → ${info.imageUpdates.where((e) => !e.isBroken && !e.isFileNotFound).length}',
+                            style: TextStyle(fontSize: 12, color: Colors.amber[900], fontWeight: FontWeight.bold),
                           ),
-                      ],
-                    ),
-                  ],
+                          SizedBox(width: 12),
+                          Icon(Icons.sd_storage, size: 12, color: Colors.amber[800]),
+                          SizedBox(width: 4),
+                          Text(
+                            '大小: ${info.illust.totalFileSize.formatFileSize()} → ${info.totalSizeScanned.formatFileSize()}',
+                            style: TextStyle(fontSize: 12, color: Colors.amber[900], fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                    ] else if (!isNotScanned &&
+                        (info.totalSizeInDb > 0 ||
+                            info.totalSizeScanned > 0 ||
+                            (isScanning && info.totalImageCount > 0))) ...[
+                      SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Text(
+                            '总大小: ',
+                            style: TextStyle(fontSize: 12, color: Colors.black45),
+                          ),
+                          if (info.totalSizeInDb != info.totalSizeScanned)
+                            Text(
+                              '${info.totalSizeInDb.formatFileSize()} → ${info.totalSizeScanned.formatFileSize()}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.orange[700],
+                                fontWeight: FontWeight.w500,
+                              ),
+                            )
+                          else
+                            Text(
+                              '${info.totalSizeInDb.formatFileSize()}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
                 ],
               ),
             ),
