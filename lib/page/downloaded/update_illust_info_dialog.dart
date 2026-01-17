@@ -27,6 +27,7 @@ import 'package:pixez/i18n.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/models/download_record.dart';
 import 'package:pixez/page/picture/illust_lighting_page.dart';
+import 'package:scrollview_observer/scrollview_observer.dart';
 
 enum UpdateResultType {
   changed, // 有变化
@@ -48,6 +49,7 @@ class UpdateIllustInfo {
   int scannedImageCount = 0; // 已扫描图片数
   int totalSizeInDb = 0; // 数据库中记录的总大小
   int totalSizeScanned = 0; // 实际扫描的总大小
+
   UpdateResultType get resultType {
     if (hasBroken) return UpdateResultType.broken;
     if (isIncomplete) return UpdateResultType.incomplete;
@@ -193,6 +195,8 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
   UpdateResultType? _filterType;
   String? _errorMessage;
   late int _concurrentCount; // 每个作品内并发扫描的图片数量（从 userSetting 读取）
+  late ListObserverController _observerController;
+  late ScrollController _scrollController;
 
   @override
   void initState() {
@@ -208,6 +212,14 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
             isScanning: false,
           );
         }).toList();
+    _scrollController = ScrollController();
+    _observerController = ListObserverController(controller: _scrollController);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   /// 扫描单张图片
@@ -467,6 +479,16 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
       }
       if (!mounted) return;
 
+      final filteredIndex = i;
+      if (filteredIndex != -1 && _scrollController.hasClients) {
+        _observerController.animateTo(
+          index: filteredIndex,
+          duration: Duration(milliseconds: 50),
+          curve: Curves.easeIn,
+          alignment: 0,
+        );
+      }
+
       await _scanSingleIllust(i);
     }
 
@@ -614,6 +636,12 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
       List<String> errors = []; // 收集错误信息
 
       for (final updateInfo in _updateInfos) {
+        if (!mounted) return;
+
+        // 如果在执行更新时扫描被暂停，建议也停下更新动作（虽然更新通常很快，但为了逻辑一致性）
+        while (_isPaused && mounted) {
+          await Future.delayed(Duration(milliseconds: 100));
+        }
         if (!mounted) return;
 
         // 只更新已扫描完成且有变化的（暂停状态下可以更新已扫描完成的）
@@ -922,13 +950,17 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
                           ],
                         ),
                       )
-                      : ListView.builder(
-                        itemCount: _filteredInfos.length,
-                        itemBuilder: (context, index) {
-                          final info = _filteredInfos[index];
-                          return _buildIllustItem(info);
-                        },
-                      ),
+                      : ListViewObserver(
+                          controller: _observerController,
+                          child: ListView.builder(
+                            controller: _scrollController,
+                            itemCount: _filteredInfos.length,
+                            itemBuilder: (context, index) {
+                              final info = _filteredInfos[index];
+                              return _buildIllustItem(info);
+                            },
+                          ),
+                        ),
             ),
 
             // 底部按钮栏
