@@ -57,6 +57,9 @@ class DownloadedIllust {
   final String _illustJson; // 完整Illusts JSON（私有）
   final String imageUrlsJson; // imageUrls 的 JSON 字符串
   final String ugoiraMetadataJson; // UgoiraMetadata 的 JSON 字符串
+  // 统计字段（物化）
+  final int downloadedImageCount; // 已下载图片数量
+  final int totalFileSize; // 总文件大小（字节）
 
   // Getter 用于数据库序列化
   String get illustJson => _illustJson;
@@ -85,6 +88,8 @@ class DownloadedIllust {
     required String illustJson,
     this.imageUrlsJson = '',
     this.ugoiraMetadataJson = '',
+    this.downloadedImageCount = 0,
+    this.totalFileSize = 0,
   }) : _illustJson = illustJson;
 
   /// 从 imageUrlsJson 解析 ImageUrls 对象
@@ -118,6 +123,8 @@ class DownloadedIllust {
     String relativePath, {
     int? downloadTime,
     String? ugoiraMetadataJson,
+    int? downloadedImageCount,
+    int? totalFileSize,
   }) {
     // 使用 copyWith 将需要移除的字段设置为空/默认值
     final optimizedIllusts = illusts.copyWith(
@@ -170,6 +177,9 @@ class DownloadedIllust {
       imageUrlsJson: PixivUrlUtil.compressPxUrl(
           TypeUtil.parseJsonString(illusts.imageUrls.toJson())),
       ugoiraMetadataJson: ugoiraMetadataJson ?? '',
+      // 如果传入了统计信息则使用，否则默认为 0
+      downloadedImageCount: downloadedImageCount ?? 0,
+      totalFileSize: totalFileSize ?? 0,
     );
   }
 
@@ -201,6 +211,8 @@ class DownloadedIllust {
           json[DownloadedIllustColumns.imageUrlsJson]), // 兼容旧数据
       ugoiraMetadataJson: TypeUtil.parseString(
           json[DownloadedIllustColumns.ugoiraMetadataJson]), // 兼容旧数据
+      downloadedImageCount: TypeUtil.parseInt(json[DownloadedIllustColumns.downloadedImageCount]),
+      totalFileSize: TypeUtil.parseInt(json[DownloadedIllustColumns.totalFileSize]),
     );
   }
 
@@ -227,6 +239,8 @@ class DownloadedIllust {
         TypeUtil.gzipEncodeString(illustJson);
     data[DownloadedIllustColumns.imageUrlsJson] = imageUrlsJson;
     data[DownloadedIllustColumns.ugoiraMetadataJson] = ugoiraMetadataJson;
+    data[DownloadedIllustColumns.downloadedImageCount] = downloadedImageCount;
+    data[DownloadedIllustColumns.totalFileSize] = totalFileSize;
     return data;
   }
 
@@ -409,8 +423,11 @@ class DownloadedIllustColumns {
   static const String relativePath = 'relative_path';
   static const String downloadTime = 'download_time';
   static const String illustJson = 'illust_json';
-  static const String imageUrlsJson = 'image_urls_json'; // 新增：imageUrls JSON
-  static const String ugoiraMetadataJson = 'ugoira_metadata_json'; // 新增：UgoiraMetadata JSON
+  static const String imageUrlsJson = 'image_urls_json';
+  static const String ugoiraMetadataJson = 'ugoira_metadata_json';
+  // 统计字段（物化）
+  static const String downloadedImageCount = 'downloaded_image_count';
+  static const String totalFileSize = 'total_file_size';
 }
 
 class DownloadedImageColumns {

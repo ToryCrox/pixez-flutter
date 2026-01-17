@@ -62,14 +62,8 @@ abstract class _DownloadedPageStoreBase with Store {
   ObservableList<DownloadedIllust> _illusts = ObservableList();
 
   @readonly
-  ObservableMap<int, int> _downloadedCounts = ObservableMap();
-
-  @readonly
   ObservableMap<int, DownloadTaskStatus> _illustDownloadStatus =
       ObservableMap();
-
-  @readonly
-  ObservableMap<int, int> _fileSizes = ObservableMap();
 
   @readonly
   bool _loading = true;
@@ -128,8 +122,8 @@ abstract class _DownloadedPageStoreBase with Store {
 
     return _illusts.where((illust) {
       final status = _illustDownloadStatus[illust.illustId];
-      final downloadedCount = _downloadedCounts[illust.illustId] ?? 0;
-      final isCompleted = downloadedCount >= illust.pageCount;
+      // 直接使用物化字段
+      final isCompleted = illust.downloadedImageCount >= illust.pageCount;
 
       if (_downloadFilter == DownloadFilter.downloading) {
         return !isCompleted ||
@@ -148,7 +142,7 @@ abstract class _DownloadedPageStoreBase with Store {
     }).toList();
   }
 
-  /// 获取排序SQL
+  /// 获取排序SQL（使用物化字段名）
   String? get _sortBy {
     switch (_sortType) {
       case IllustSortType.downloadTime:
@@ -156,9 +150,9 @@ abstract class _DownloadedPageStoreBase with Store {
       case IllustSortType.createDate:
         return '${DownloadedIllustColumns.createDate} ${_sortDesc ? 'DESC' : 'ASC'}';
       case IllustSortType.fileSize:
-        return 'total_file_size ${_sortDesc ? 'DESC' : 'ASC'}';
+        return '${DownloadedIllustColumns.totalFileSize} ${_sortDesc ? 'DESC' : 'ASC'}';
       case IllustSortType.averageFileSize:
-        return 'total_file_size / page_count ${_sortDesc ? 'DESC' : 'ASC'}';
+        return '${DownloadedIllustColumns.totalFileSize} / ${DownloadedIllustColumns.pageCount} ${_sortDesc ? 'DESC' : 'ASC'}';
     }
   }
 
@@ -227,8 +221,6 @@ abstract class _DownloadedPageStoreBase with Store {
     if (status.status == DownloadTaskStatus.deleted) {
       _illusts.removeWhere((e) => e.illustId == status.illusts.illustId);
       _illustDownloadStatus.remove(status.illusts.illustId);
-      _downloadedCounts.remove(status.illusts.illustId);
-      _fileSizes.remove(status.illusts.illustId);
       return;
     }
 
@@ -237,7 +229,6 @@ abstract class _DownloadedPageStoreBase with Store {
       // 不属于当前作者，不添加到列表，但更新状态信息（如果已存在）
       if (_illusts.any((e) => e.illustId == status.illusts.illustId)) {
         _illustDownloadStatus[status.illusts.illustId] = status.status;
-        _downloadedCounts[status.illusts.illustId] = status.completedCount;
       }
       return;
     }
@@ -246,10 +237,6 @@ abstract class _DownloadedPageStoreBase with Store {
       _illusts.insert(0, status.illusts);
     }
     _illustDownloadStatus[status.illusts.illustId] = status.status;
-    _downloadedCounts[status.illusts.illustId] = status.completedCount;
-    if (status.fileSize > 0) {
-      _fileSizes[status.illusts.illustId] = status.fileSize;
-    }
   }
 
   /// 加载数据
@@ -432,25 +419,22 @@ abstract class _DownloadedPageStoreBase with Store {
     }
   }
 
-  /// 加载关键信息（下载状态和页数）
+  /// 加载关键信息（下载任务状态）
+  /// 物化字段已在 DownloadedIllust 对象中，只需获取运行时下载任务状态
   Future<void> _loadCriticalInfo(List<DownloadedIllust> illusts) async {
-    final criticalFutures =
-        illusts.map((illust) async {
-          final downloadStatus = await downloadStore.getIllustDownloadStatus(
-            illust.illustId,
-          );
-          return MapEntry(illust.illustId, downloadStatus);
-        }).toList();
+    final futures = illusts.map((illust) async {
+      // 传入 downloadedIllust 避免重复查询数据库
+      final downloadStatus = await downloadStore.getIllustDownloadStatus(
+        illust.illustId,
+        downloadedIllust: illust,
+      );
+      return MapEntry(illust.illustId, downloadStatus?.status);
+    }).toList();
 
-    final criticalResults = await Future.wait(criticalFutures);
-
-    for (final entry in criticalResults) {
+    final results = await Future.wait(futures);
+    for (final entry in results) {
       if (entry.value != null) {
-        _downloadedCounts[entry.key] = entry.value!.completedCount;
-        _illustDownloadStatus[entry.key] = entry.value!.status;
-        if (entry.value!.fileSize > 0) {
-          _fileSizes[entry.key] = entry.value!.fileSize;
-        }
+        _illustDownloadStatus[entry.key] = entry.value!;
       }
     }
   }

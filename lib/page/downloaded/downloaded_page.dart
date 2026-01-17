@@ -1157,7 +1157,7 @@ class _DownloadedIllustCard extends StatelessWidget {
   }
 
   Widget _buildStatsRow(BuildContext context) {
-    final totalFileSize = store.fileSizes[illust.illustId];
+    final totalFileSize = illust.totalFileSize;  // 使用物化字段
     final isUgoira = illust.isUgoira;
 
     return Row(
@@ -1169,7 +1169,7 @@ class _DownloadedIllustCard extends StatelessWidget {
             child: _buildPageCountIndicator(context, totalFileSize, isUgoira),
           ),
         Spacer(),
-        if (totalFileSize != null && totalFileSize > 0)
+        if (totalFileSize > 0)  // 物化字段不为 null
           Padding(
             padding: EdgeInsets.only(top: 2),
             child: Text(
@@ -1191,8 +1191,7 @@ class _DownloadedIllustCard extends StatelessWidget {
     }
 
     // 普通插画：显示页数
-    final downloadedCount =
-        store.downloadedCounts[illust.illustId] ?? illust.pageCount;
+    final downloadedCount = illust.downloadedImageCount;  // 使用物化字段
     final totalCount = illust.pageCount;
 
     String pageText;
@@ -1240,7 +1239,7 @@ class _DownloadedIllustCard extends StatelessWidget {
 
   /// 构建动图帧数指示器
   Widget _buildUgoiraFrameIndicator(BuildContext context, int? totalFileSize) {
-    final downloadedCount = store.downloadedCounts[illust.illustId] ?? 1;
+    final downloadedCount = illust.downloadedImageCount;  // 使用物化字段
 
     // 动图的 downloadedCount 包含预览图(part=0)和所有帧(part=1,2,3...)
     // 实际帧数 = downloadedCount - 1（如果下载完整的话）

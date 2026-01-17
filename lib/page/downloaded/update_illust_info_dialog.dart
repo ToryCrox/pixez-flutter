@@ -32,6 +32,7 @@ enum UpdateResultType {
   changed, // 有变化
   broken, // 损坏
   incomplete, // 未下载完整
+  inconsistent, // 统计不一致
   unchanged, // 无变化
 }
 
@@ -41,6 +42,7 @@ class UpdateIllustInfo {
   bool hasChanges = false;
   bool hasBroken = false;
   bool isIncomplete = false; // 是否未下载完整（下载的图片数量和illust里面记录的不同）
+  bool hasStatsInconsistency = false; // 物化字段是否不一致
   bool isScanning = false; // 是否正在扫描
   int totalImageCount = 0; // 总图片数
   int scannedImageCount = 0; // 已扫描图片数
@@ -49,6 +51,7 @@ class UpdateIllustInfo {
   UpdateResultType get resultType {
     if (hasBroken) return UpdateResultType.broken;
     if (isIncomplete) return UpdateResultType.incomplete;
+    if (hasStatsInconsistency) return UpdateResultType.inconsistent;
     if (hasChanges) return UpdateResultType.changed;
     return UpdateResultType.unchanged;
   }
@@ -91,6 +94,18 @@ class UpdateIllustInfo {
           imageUpdates.where((e) => !e.isBroken && !e.isFileNotFound).length;
       isIncomplete = downloadedCount < illust.pageCount;
     }
+
+    // 检测物化字段是否一致
+    // 只在扫描完成后检测（imageUpdates 不为空）
+    if (imageUpdates.isNotEmpty) {
+      final actualCount = imageUpdates.where((e) => !e.isBroken && !e.isFileNotFound).length;
+      final actualTotalSize = totalSizeInDb; // 数据库中的总大小
+
+      // 检查是否与物化字段不一致
+      hasStatsInconsistency = 
+          illust.downloadedImageCount != actualCount ||
+          illust.totalFileSize != actualTotalSize;
+    }
   }
 
   void updateImageUpdates(List<ImageUpdateInfo> updates) {
@@ -118,6 +133,8 @@ class UpdateIllustInfo {
         totalSizeInDb += update.originalImage.fileSize;
       }
     }
+    // 重新检测一致性
+    _updateFlags();
   }
 
   void updateScanProgress(int total, int scanned) {
@@ -521,9 +538,9 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
       // 文件删除失败但继续尝试删除数据库记录
     }
 
-    // 删除数据库记录
+    // 删除数据库记录（不自动更新统计，由 _performUpdate 批量更新）
     try {
-      await downloadStore.dbProvider.deleteImage(
+      await downloadStore.dbProvider.deleteImageWithoutStats(
         image.illustId,
         image.part,
       );
@@ -569,12 +586,10 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
     }
 
     if (needUpdate && updateData.isNotEmpty) {
-      await downloadStore.dbProvider.db.update(
-        DownloadedImageColumns.tableName,
+      await downloadStore.dbProvider.updateImageRecord(
+        image.illustId,
+        image.part,
         updateData,
-        where:
-            '${DownloadedImageColumns.illustId} = ? AND ${DownloadedImageColumns.part} = ?',
-        whereArgs: [image.illustId, image.part],
       );
       return true;
     }
@@ -586,7 +601,7 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
     final toUpdateCount =
         _updateInfos
             .where(
-              (info) => !info.isScanning && (info.hasChanges || info.hasBroken),
+              (info) => !info.isScanning && (info.hasChanges || info.hasBroken || info.hasStatsInconsistency),
             )
             .length;
 
@@ -609,7 +624,7 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
         if (updateInfo.isScanning) {
           continue; // 跳过正在扫描的作品
         }
-        if (!updateInfo.hasChanges && !updateInfo.hasBroken) {
+        if (!updateInfo.hasChanges && !updateInfo.hasBroken && !updateInfo.hasStatsInconsistency) {
           continue;
         }
 
@@ -639,8 +654,8 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
           }
         }
 
-        // 更新作者表统计信息（如果有变化或删除了损坏文件）
-        if (updateInfo.hasChanges || hasDeletedBroken) {
+        // 更新作者表统计信息（如果有变化、删除了损坏文件、或统计不一致）
+        if (updateInfo.hasChanges || hasDeletedBroken || updateInfo.hasStatsInconsistency) {
           await downloadStore.dbProvider.updateAuthorStats(
             updateInfo.illust.userId,
           );
@@ -652,6 +667,16 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
             _updatingProgress++;
           });
         }
+      }
+
+      // 批量更新插画统计信息（下载图片数量和文件大小）
+      // 包括：有变化的、有损坏文件的、统计不一致的
+      final illustIdsToUpdate = _updateInfos
+          .where((info) => !info.isScanning && (info.hasChanges || info.hasBroken || info.hasStatsInconsistency))
+          .map((info) => info.illust.illustId)
+          .toList();
+      if (illustIdsToUpdate.isNotEmpty) {
+        await downloadStore.dbProvider.batchRecalculateIllustStats(illustIdsToUpdate);
       }
 
       if (mounted) {
@@ -827,6 +852,8 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
           SizedBox(width: 8),
           _buildFilterChip('损坏', UpdateResultType.broken),
           SizedBox(width: 8),
+          _buildFilterChip('统计不一致', UpdateResultType.inconsistent),
+          SizedBox(width: 8),
           _buildFilterChip('未完整', UpdateResultType.incomplete),
           SizedBox(width: 8),
           _buildFilterChip('无变化', UpdateResultType.unchanged),
@@ -835,8 +862,9 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
             '总计: ${_updateInfos.length} | '
             '有变化: ${_updateInfos.where((e) => e.hasChanges).length} | '
             '损坏: ${_updateInfos.where((e) => e.hasBroken).length} | '
+            '统计不一致: ${_updateInfos.where((e) => e.hasStatsInconsistency).length} | '
             '未完整: ${_updateInfos.where((e) => e.isIncomplete).length} | '
-            '无变化: ${_updateInfos.where((e) => !e.hasChanges && !e.hasBroken).length}',
+            '无变化: ${_updateInfos.where((e) => !e.hasChanges && !e.hasBroken && !e.hasStatsInconsistency).length}',
             style: TextStyle(fontSize: 12, color: Colors.grey[600]),
           ),
         ],
@@ -941,7 +969,7 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
                                   _updateInfos.every(
                                     (e) =>
                                         e.isScanning ||
-                                        (!e.hasChanges && !e.hasBroken),
+                                        (!e.hasChanges && !e.hasBroken && !e.hasStatsInconsistency),
                                   )
                               ? null
                               : _performUpdate,
@@ -965,7 +993,7 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
                           _isUpdating ||
                                   _scannedCount == 0 ||
                                   _updateInfos.every(
-                                    (e) => !e.hasChanges && !e.hasBroken,
+                                    (e) => !e.hasChanges && !e.hasBroken && !e.hasStatsInconsistency,
                                   )
                               ? null
                               : _performUpdate,
@@ -1003,6 +1031,7 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
     bool hasChanges,
     bool hasBroken,
     bool isIncomplete,
+    bool hasStatsInconsistency,
   }) _determineIllustStatus(UpdateIllustInfo info) {
     final isScanning = _isScanning && info.isScanning && !_isPaused;
     final isPaused = _isPaused && info.isScanning;
@@ -1023,6 +1052,7 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
       hasChanges: info.hasChanges,
       hasBroken: info.hasBroken,
       isIncomplete: info.isIncomplete,
+      hasStatsInconsistency: info.hasStatsInconsistency,
     );
   }
 
@@ -1042,6 +1072,7 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
       bool hasChanges,
       bool hasBroken,
       bool isIncomplete,
+      bool hasStatsInconsistency,
     }) status,
   ) {
     if (status.isScanning) {
@@ -1091,6 +1122,14 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
         leadingIcon: Icons.incomplete_circle,
         iconColor: Colors.purple[700]!,
         statusText: '未下载完整',
+      );
+    } else if (status.hasStatsInconsistency) {
+      return (
+        backgroundColor: Colors.amber[50]!,
+        borderColor: Colors.amber[400]!,
+        leadingIcon: Icons.analytics,
+        iconColor: Colors.amber[800]!,
+        statusText: '统计不一致',
       );
     } else if (status.hasChanges) {
       return (
@@ -1322,6 +1361,7 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
           width:
               status.hasChanges ||
                       status.hasBroken ||
+                      status.hasStatsInconsistency ||
                       isIncomplete ||
                       isScanning ||
                       isWaiting ||

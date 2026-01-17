@@ -600,16 +600,20 @@ abstract class _DownloadStoreBase with Store {
   }
 
   /// 获取插画的下载状态
-  Future<IllustDownloadStatus?> getIllustDownloadStatus(int illustId) async {
-    final downloadedIllust = await getDownloadedIllust(illustId);
-    if (downloadedIllust == null) {
+  /// [downloadedIllust] 可选参数，如果已经有 DownloadedIllust 对象则直接传入，避免重复查询数据库
+  Future<IllustDownloadStatus?> getIllustDownloadStatus(
+    int illustId, {
+    DownloadedIllust? downloadedIllust,
+  }) async {
+    final illust = downloadedIllust ?? await getDownloadedIllust(illustId);
+    if (illust == null) {
       return null;
     }
-    final totalCount = downloadedIllust.pageCount;
+    final totalCount = illust.pageCount;
 
-    // 使用优化的数据库查询，一次性获取图片数量和总文件大小
-    final (count: completedCount, totalFileSize: fileSize) =
-        await _dbProvider.getIllustImageStats(illustId);
+    // 使用物化字段，无需查询数据库
+    final completedCount = illust.downloadedImageCount;
+    final fileSize = illust.totalFileSize;
 
     // 优化状态判断：单次遍历，按优先级确定状态
     DownloadTaskStatus status;
@@ -641,7 +645,7 @@ abstract class _DownloadStoreBase with Store {
     }
 
     return IllustDownloadStatus(
-      illusts: downloadedIllust,
+      illusts: illust,
       status: status,
       totalCount: totalCount,
       completedCount: completedCount,
@@ -755,16 +759,14 @@ abstract class _DownloadStoreBase with Store {
       }
     }
 
-    // 检查是否已真正下载完成（有图片记录）
+    // 检查是否已真正下载完成（使用物化字段）
     // 注意：不能只检查 DownloadedIllust 记录，因为记录会在下载开始时插入
-    // 需要检查是否有实际的图片文件记录
-    if (await _dbProvider.isIllustDownloaded(illustId)) {
-      final hasImages = await _dbProvider.getDownloadedImageCount(illustId);
-      if (hasImages > 0) {
-        // 有图片记录，说明已下载完成
-        BotToast.showText(text: '动图已下载');
-        return;
-      }
+    // 需要检查物化字段 downloadedImageCount 是否大于 0
+    final existingIllust = await _dbProvider.getIllustByIllustId(illustId);
+    if (existingIllust != null && existingIllust.downloadedImageCount > 0) {
+      // 有图片记录，说明已下载完成
+      BotToast.showText(text: '动图已下载');
+      return;
     }
 
     // 先插入作品记录到数据库（与普通图片下载保持一致）
@@ -1137,16 +1139,13 @@ abstract class _DownloadStoreBase with Store {
     final downloader = ugoiraDownloader;
 
     try {
-      // 0. 再次检查是否已下载（防止并发下载）
-      // 检查是否有图片记录，而不是只检查 DownloadedIllust 记录
-      // 因为 DownloadedIllust 记录会在下载开始时插入
-      if (await _dbProvider.isIllustDownloaded(illustId)) {
-        final hasImages = await _dbProvider.getDownloadedImageCount(illustId);
-        if (hasImages > 0) {
-          // 有图片记录，说明已真正下载完成
-          await _onDownloadSuccess(task, '');
-          return;
-        }
+      // 0. 再次检查是否已下载（使用物化字段，防止并发下载）
+      // 检查物化字段 downloadedImageCount 是否大于 0
+      final existingIllust = await _dbProvider.getIllustByIllustId(illustId);
+      if (existingIllust != null && existingIllust.downloadedImageCount > 0) {
+        // 有图片记录，说明已真正下载完成
+        await _onDownloadSuccess(task, '');
+        return;
       }
 
       // 1. 使用统一的下载方法获取元数据和帧文件
@@ -1453,6 +1452,8 @@ abstract class _DownloadStoreBase with Store {
         existingIllust.relativePath,
         downloadTime: existingIllust.downloadTime,
         ugoiraMetadataJson: existingIllust.ugoiraMetadataJson,
+        downloadedImageCount: existingIllust.downloadedImageCount,
+        totalFileSize: existingIllust.totalFileSize,
       );
 
       await _dbProvider.updateIllust(updatedIllust);
@@ -1569,6 +1570,8 @@ abstract class _DownloadStoreBase with Store {
               existingIllust.relativePath,
               downloadTime: existingIllust.downloadTime,
               ugoiraMetadataJson: existingIllust.ugoiraMetadataJson,
+              downloadedImageCount: existingIllust.downloadedImageCount,
+              totalFileSize: existingIllust.totalFileSize,
             );
 
             // 估算节省的字节数（用于进度条显示）
@@ -1807,28 +1810,23 @@ abstract class _DownloadStoreBase with Store {
 
   // ============ 文件存在性检查 ============
 
-  /// 检查插画的所有图片是否都已下载
+  /// 检查插画的所有图片是否都已下载（使用物化字段）
   Future<bool> isIllustFullyDownloaded(int illustId) async {
     final illust = await _dbProvider.getIllustByIllustId(illustId);
     if (illust == null) return false;
-
-    final downloadedCount = await _dbProvider.getDownloadedImageCount(illustId);
-    return downloadedCount >= illust.pageCount;
+    return illust.downloadedImageCount >= illust.pageCount;
   }
 
-  /// 获取插画已下载的页数
+  /// 获取插画已下载的页数（使用物化字段）
   Future<int> getDownloadedPageCount(int illustId) async {
-    return await _dbProvider.getDownloadedImageCount(illustId);
+    final illust = await _dbProvider.getIllustByIllustId(illustId);
+    return illust?.downloadedImageCount ?? 0;
   }
 
-  /// 获取插画的总文件大小（字节）
+  /// 获取插画的总文件大小（使用物化字段）
   Future<int> getIllustTotalFileSize(int illustId) async {
-    final images = await _dbProvider.getImagesByIllustId(illustId);
-    int totalSize = 0;
-    for (final image in images) {
-      totalSize += image.fileSize;
-    }
-    return totalSize;
+    final illust = await _dbProvider.getIllustByIllustId(illustId);
+    return illust?.totalFileSize ?? 0;
   }
 
 

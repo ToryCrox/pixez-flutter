@@ -377,7 +377,10 @@ abstract class _IllustStoreBase with Store {
     }
     if (updateCount > 0) {
       if (illusts != null) {
-        downloadStore.dbProvider.updateAuthorStats(id);
+        // 更新插画自身的物化统计字段
+        await downloadStore.dbProvider.batchRecalculateIllustStats([id]);
+        // 更新作者表的统计信息
+        await downloadStore.dbProvider.updateAuthorStats(illusts!.user.id);
       }
     }
   }

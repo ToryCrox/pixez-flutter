@@ -112,10 +112,10 @@ class ApiClient {
     if (manaInterceptor != null) {
       httpClient.interceptors.add(manaInterceptor);
     }
-    if (kDebugMode) {
-      httpClient.interceptors.add(LogInterceptor(
-          responseBody: true, responseHeader: true, requestBody: true));
-    }
+    // if (kDebugMode) {
+    //   httpClient.interceptors.add(LogInterceptor(
+    //       responseBody: true, responseHeader: true, requestBody: true));
+    // }
   }
 
   Future<Response> getUserBookmarkNovel(int user_id, String restrict) async {

@@ -140,7 +140,7 @@ class DownloadDatabaseProvider {
 
       db = await openDatabase(
         dbPath,
-        version: 11,
+        version: 12,
         onCreate: (Database db, int version) async {
           await db.execute('''
           CREATE TABLE ${DownloadedIllustColumns.tableName} (
@@ -164,7 +164,9 @@ class DownloadDatabaseProvider {
             ${DownloadedIllustColumns.downloadTime} INTEGER NOT NULL,
             ${DownloadedIllustColumns.illustJson} TEXT NOT NULL,
             ${DownloadedIllustColumns.imageUrlsJson} TEXT NOT NULL DEFAULT '',
-            ${DownloadedIllustColumns.ugoiraMetadataJson} TEXT NOT NULL DEFAULT ''
+            ${DownloadedIllustColumns.ugoiraMetadataJson} TEXT NOT NULL DEFAULT '',
+            ${DownloadedIllustColumns.downloadedImageCount} INTEGER DEFAULT 0,
+            ${DownloadedIllustColumns.totalFileSize} INTEGER DEFAULT 0
           )
         ''');
 
@@ -280,10 +282,25 @@ class DownloadDatabaseProvider {
         await db.execute('''
           CREATE INDEX idx_illust_tags_illust ON ${DownloadedIllustTagsColumns.tableName}(${DownloadedIllustTagsColumns.illustId})
         ''');
+        // 统计字段索引
+        await db.execute('''
+          CREATE INDEX idx_illust_total_file_size ON ${DownloadedIllustColumns.tableName}(${DownloadedIllustColumns.totalFileSize})
+        ''');
+        await db.execute('''
+          CREATE INDEX idx_illust_downloaded_count ON ${DownloadedIllustColumns.tableName}(${DownloadedIllustColumns.downloadedImageCount})
+        ''');
 
       },
       onUpgrade: (Database db, int oldVersion, int newVersion) async {
         Log.i(() => '升级数据库 $oldVersion -> $newVersion');
+        
+        // v11 -> v12: 添加统计字段和索引
+        if (oldVersion < 12) {
+          await db.execute('ALTER TABLE ${DownloadedIllustColumns.tableName} ADD COLUMN ${DownloadedIllustColumns.downloadedImageCount} INTEGER DEFAULT 0');
+          await db.execute('ALTER TABLE ${DownloadedIllustColumns.tableName} ADD COLUMN ${DownloadedIllustColumns.totalFileSize} INTEGER DEFAULT 0');
+          await db.execute('CREATE INDEX idx_illust_total_file_size ON ${DownloadedIllustColumns.tableName}(${DownloadedIllustColumns.totalFileSize})');
+          await db.execute('CREATE INDEX idx_illust_downloaded_count ON ${DownloadedIllustColumns.tableName}(${DownloadedIllustColumns.downloadedImageCount})');
+        }
       }
     );
     } catch (e, stackTrace) {
@@ -569,29 +586,7 @@ class DownloadDatabaseProvider {
     bool desc = true,
     String? orderBy,
   }) async {
-    // 如果按文件大小排序，需要使用 JOIN 查询
-    if (orderBy != null && orderBy.contains('total_file_size')) {
-      final orderDirection = orderBy.contains('DESC') ? 'DESC' : 'ASC';
-      var query = '''
-        SELECT di.*, COALESCE(SUM(img.${DownloadedImageColumns.fileSize}), 0) as total_file_size
-        FROM ${DownloadedIllustColumns.tableName} di
-        LEFT JOIN ${DownloadedImageColumns.tableName} img ON di.${DownloadedIllustColumns.illustId} = img.${DownloadedImageColumns.illustId}
-        GROUP BY di.${DownloadedIllustColumns.id}
-        ORDER BY $orderBy
-      ''';
-      final args = <dynamic>[];
-      if (limit != null) {
-        query += ' LIMIT ?';
-        args.add(limit);
-      }
-      if (offset != null) {
-        query += ' OFFSET ?';
-        args.add(offset);
-      }
-      final maps = await db.rawQuery(query, args);
-      return maps.map((e) => DownloadedIllust.fromJson(e)).toList();
-    }
-
+    // total_file_size 已物化到表中，无需 JOIN 查询
     final orderByClause = orderBy ??
         '${DownloadedIllustColumns.downloadTime} ${desc ? 'DESC' : 'ASC'}';
     List<Map<String, dynamic>> maps = await db.query(
@@ -609,30 +604,7 @@ class DownloadDatabaseProvider {
     int? offset,
     String? orderBy,
   }) async {
-    // 如果按文件大小排序，需要使用 JOIN 查询
-    if (orderBy != null && orderBy.contains('total_file_size')) {
-      final orderDirection = orderBy.contains('DESC') ? 'DESC' : 'ASC';
-      var query = '''
-        SELECT di.*, COALESCE(SUM(img.${DownloadedImageColumns.fileSize}), 0) as total_file_size
-        FROM ${DownloadedIllustColumns.tableName} di
-        LEFT JOIN ${DownloadedImageColumns.tableName} img ON di.${DownloadedIllustColumns.illustId} = img.${DownloadedImageColumns.illustId}
-        WHERE di.${DownloadedIllustColumns.userId} = ?
-        GROUP BY di.${DownloadedIllustColumns.id}
-        ORDER BY $orderBy
-      ''';
-      final args = <dynamic>[userId];
-      if (limit != null) {
-        query += ' LIMIT ?';
-        args.add(limit);
-      }
-      if (offset != null) {
-        query += ' OFFSET ?';
-        args.add(offset);
-      }
-      final maps = await db.rawQuery(query, args);
-      return maps.map((e) => DownloadedIllust.fromJson(e)).toList();
-    }
-
+    // total_file_size 已物化到表中，无需 JOIN 查询
     final orderByClause =
         orderBy ?? '${DownloadedIllustColumns.downloadTime} DESC';
     List<Map<String, dynamic>> maps = await db.query(
@@ -682,45 +654,6 @@ class DownloadDatabaseProvider {
     // 2. 找到所有引用该主标签的标签ID (包括主标签本身)
     // 3. 查询这些标签关联的作品，并按插画 ID 分组去重
     
-    // 如果按文件大小排序，需要使用 JOIN 查询
-    if (orderBy != null && orderBy.contains('total_file_size')) {
-      final orderDirection = orderBy.contains('DESC') ? 'DESC' : 'ASC';
-      var query = '''
-        WITH TargetGroup AS (
-          SELECT id, COALESCE(referenced_tag_id, id) as main_id 
-          FROM ${DownloadedTagsColumns.tableName} 
-          WHERE ${DownloadedTagsColumns.id} = ?
-        ),
-        RelevantTags AS (
-          SELECT id FROM ${DownloadedTagsColumns.tableName}
-          WHERE id = (SELECT main_id FROM TargetGroup)
-          OR ${DownloadedTagsColumns.referencedTagId} = (SELECT main_id FROM TargetGroup)
-        ),
-        MatchingIds AS (
-          SELECT DISTINCT ${DownloadedIllustTagsColumns.illustId}
-          FROM ${DownloadedIllustTagsColumns.tableName}
-          WHERE ${DownloadedIllustTagsColumns.tagId} IN (SELECT id FROM RelevantTags)
-        )
-        SELECT di.*, COALESCE(SUM(img.${DownloadedImageColumns.fileSize}), 0) as total_file_size
-        FROM ${DownloadedIllustColumns.tableName} di
-        INNER JOIN MatchingIds m ON di.${DownloadedIllustColumns.illustId} = m.${DownloadedIllustTagsColumns.illustId}
-        LEFT JOIN ${DownloadedImageColumns.tableName} img ON di.${DownloadedIllustColumns.illustId} = img.${DownloadedIllustColumns.illustId}
-        GROUP BY di.${DownloadedIllustColumns.id}
-        ORDER BY $exampleCase total_file_size $orderDirection
-      ''';
-      final args = <dynamic>[tagId];
-      if (limit != null) {
-        query += ' LIMIT ?';
-        args.add(limit);
-      }
-      if (offset != null) {
-        query += ' OFFSET ?';
-        args.add(offset);
-      }
-      final maps = await db.rawQuery(query, args);
-      return maps.map((e) => DownloadedIllust.fromJson(e)).toList();
-    }
-
     final orderByClause =
         orderBy ?? 'di.${DownloadedIllustColumns.downloadTime} DESC';
 
@@ -889,30 +822,7 @@ class DownloadDatabaseProvider {
     int? offset,
     String? orderBy,
   }) async {
-    // 如果按文件大小排序，需要使用 JOIN 查询
-    if (orderBy != null && orderBy.contains('total_file_size')) {
-      final orderDirection = orderBy.contains('DESC') ? 'DESC' : 'ASC';
-      var query = '''
-        SELECT di.*, COALESCE(SUM(img.${DownloadedImageColumns.fileSize}), 0) as total_file_size
-        FROM ${DownloadedIllustColumns.tableName} di
-        LEFT JOIN ${DownloadedImageColumns.tableName} img ON di.${DownloadedIllustColumns.illustId} = img.${DownloadedImageColumns.illustId}
-        WHERE di.${DownloadedIllustColumns.title} LIKE ? OR di.${DownloadedIllustColumns.userName} LIKE ? OR di.${DownloadedIllustColumns.tags} LIKE ?
-        GROUP BY di.${DownloadedIllustColumns.id}
-        ORDER BY total_file_size $orderDirection
-      ''';
-      final args = <dynamic>['%$keyword%', '%$keyword%', '%$keyword%'];
-      if (limit != null) {
-        query += ' LIMIT ?';
-        args.add(limit);
-      }
-      if (offset != null) {
-        query += ' OFFSET ?';
-        args.add(offset);
-      }
-      final maps = await db.rawQuery(query, args);
-      return maps.map((e) => DownloadedIllust.fromJson(e)).toList();
-    }
-
+    // total_file_size 已物化到表中，无需 JOIN 查询
     final orderByClause =
         orderBy ?? '${DownloadedIllustColumns.downloadTime} DESC';
     List<Map<String, dynamic>> maps = await db.query(
@@ -928,47 +838,22 @@ class DownloadDatabaseProvider {
   }
 
   /// 获取所有未下载完整的作品（下载的图片数量小于 pageCount）
-  /// 使用 SQL JOIN 和 HAVING 子句优化查询，避免在应用层逐个检查
-  /// 这个查询会扫描所有作品，但使用数据库索引可以大幅提升性能
+  /// 使用物化字段 downloaded_image_count 进行查询，无需 JOIN
   Future<List<DownloadedIllust>> getIncompleteIllusts({
     int? limit,
     int? offset,
     String? orderBy,
   }) async {
-    // 构建基础查询：使用 LEFT JOIN 和 GROUP BY，然后用 HAVING 过滤
-    // 注意：SQLite 中 GROUP BY 后可以使用分组列，所以 di.page_count 在 HAVING 中是可用的
+    // 使用物化字段 downloaded_image_count 直接过滤
+    final orderByClause = orderBy ?? '${DownloadedIllustColumns.downloadTime} DESC';
     var query = '''
-      SELECT di.*, COUNT(img.${DownloadedImageColumns.illustId}) as downloaded_count
-      FROM ${DownloadedIllustColumns.tableName} di
-      LEFT JOIN ${DownloadedImageColumns.tableName} img ON di.${DownloadedIllustColumns.illustId} = img.${DownloadedImageColumns.illustId}
-      GROUP BY di.${DownloadedIllustColumns.id}
-      HAVING COUNT(img.${DownloadedImageColumns.illustId}) < di.${DownloadedIllustColumns.pageCount}
+      SELECT *
+      FROM ${DownloadedIllustColumns.tableName}
+      WHERE ${DownloadedIllustColumns.downloadedImageCount} < ${DownloadedIllustColumns.pageCount}
+      ORDER BY $orderByClause
     ''';
 
     final args = <dynamic>[];
-
-    // 处理排序
-    if (orderBy != null) {
-      if (orderBy.contains('total_file_size')) {
-        // 如果按文件大小或平均文件大小排序，需要重新构建查询
-        query = '''
-          SELECT di.*, 
-                 COALESCE(SUM(img.${DownloadedImageColumns.fileSize}), 0) as total_file_size,
-                 COUNT(img.${DownloadedImageColumns.illustId}) as downloaded_count
-          FROM ${DownloadedIllustColumns.tableName} di
-          LEFT JOIN ${DownloadedImageColumns.tableName} img ON di.${DownloadedIllustColumns.illustId} = img.${DownloadedImageColumns.illustId}
-          GROUP BY di.${DownloadedIllustColumns.id}
-          HAVING COUNT(img.${DownloadedImageColumns.illustId}) < di.${DownloadedIllustColumns.pageCount}
-          ORDER BY $orderBy
-        ''';
-      } else {
-        query += ' ORDER BY $orderBy';
-      }
-    } else {
-      query += ' ORDER BY di.${DownloadedIllustColumns.downloadTime} DESC';
-    }
-
-    // 添加 LIMIT 和 OFFSET
     if (limit != null) {
       query += ' LIMIT ?';
       args.add(limit);
@@ -1064,13 +949,81 @@ class DownloadDatabaseProvider {
 
   // ============ Images 操作 ============
 
-  Future<DownloadedImage> insertImage(DownloadedImage image) async {
-    await db.insert(
+  /// 重新计算并更新插画的统计信息
+  /// 通过查询 downloaded_images 表来确保数据一致性
+  Future<void> recalculateIllustStats(int illustId, {Transaction? txn}) async {
+    final database = txn ?? db;
+    
+    // 查询该插画的所有图片记录
+    final images = await database.query(
       DownloadedImageColumns.tableName,
-      image.toJson(),
-      conflictAlgorithm: ConflictAlgorithm.replace,
+      where: '${DownloadedImageColumns.illustId} = ?',
+      whereArgs: [illustId],
     );
+    
+    // 计算统计信息
+    final imageCount = images.length;
+    final totalSize = images.fold<int>(
+      0,
+      (sum, img) => sum + (TypeUtil.parseInt(img[DownloadedImageColumns.fileSize])),
+    );
+    
+    // 更新插画表
+    await database.update(
+      DownloadedIllustColumns.tableName,
+      {
+        DownloadedIllustColumns.downloadedImageCount: imageCount,
+        DownloadedIllustColumns.totalFileSize: totalSize,
+      },
+      where: '${DownloadedIllustColumns.illustId} = ?',
+      whereArgs: [illustId],
+    );
+  }
+
+  /// 批量重新计算多个插画的统计信息
+  /// 用于 UpdateIllustInfoDialog 扫描完成后批量更新
+  Future<void> batchRecalculateIllustStats(List<int> illustIds) async {
+    await db.transaction((txn) async {
+      for (final illustId in illustIds) {
+        await recalculateIllustStats(illustId, txn: txn);
+      }
+    });
+  }
+
+  Future<DownloadedImage> insertImage(DownloadedImage image) async {
+    await db.transaction((txn) async {
+      await txn.insert(
+        DownloadedImageColumns.tableName,
+        image.toJson(),
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+      // 重新计算统计信息（确保数据一致）
+      await recalculateIllustStats(image.illustId, txn: txn);
+    });
     return image;
+  }
+
+  /// 删除单张图片（会自动更新插画统计信息）
+  Future<void> deleteImage(int illustId, int part) async {
+    await db.transaction((txn) async {
+      await txn.delete(
+        DownloadedImageColumns.tableName,
+        where: '${DownloadedImageColumns.illustId} = ? AND ${DownloadedImageColumns.part} = ?',
+        whereArgs: [illustId, part],
+      );
+      // 重新计算统计信息（确保数据一致）
+      await recalculateIllustStats(illustId, txn: txn);
+    });
+  }
+
+  /// 删除单张图片（不自动更新统计信息）
+  /// 用于批量删除场景，调用方应在批量删除完成后调用 batchRecalculateIllustStats
+  Future<void> deleteImageWithoutStats(int illustId, int part) async {
+    await db.delete(
+      DownloadedImageColumns.tableName,
+      where: '${DownloadedImageColumns.illustId} = ? AND ${DownloadedImageColumns.part} = ?',
+      whereArgs: [illustId, part],
+    );
   }
 
   Future<DownloadedImage?> getImage(int illustId, int part) async {
@@ -1331,6 +1284,22 @@ class DownloadDatabaseProvider {
     );
   }
 
+  /// 更新图片记录的多个字段（不自动更新插画统计信息）
+  /// 用于批量更新场景，调用方应在批量更新完成后调用 batchRecalculateIllustStats
+  Future<int> updateImageRecord(
+    int illustId,
+    int part,
+    Map<String, dynamic> updateData,
+  ) async {
+    return await db.update(
+      DownloadedImageColumns.tableName,
+      updateData,
+      where:
+          '${DownloadedImageColumns.illustId} = ? AND ${DownloadedImageColumns.part} = ?',
+      whereArgs: [illustId, part],
+    );
+  }
+
   /// 获取需要更新宽高的图片列表（宽高为空的记录）
   Future<List<DownloadedImage>> getImagesWithoutDimensions({int? limit}) async {
     List<Map<String, dynamic>> maps = await db.query(
@@ -1342,15 +1311,9 @@ class DownloadDatabaseProvider {
     return maps.map((e) => DownloadedImage.fromJson(e)).toList();
   }
 
-  Future<int> deleteImage(int illustId, int part) async {
-    return await db.delete(
-      DownloadedImageColumns.tableName,
-      where:
-          '${DownloadedImageColumns.illustId} = ? AND ${DownloadedImageColumns.part} = ?',
-      whereArgs: [illustId, part],
-    );
-  }
-
+  /// 获取插画已下载的图片数量
+  /// @deprecated 使用物化字段 DownloadedIllust.downloadedImageCount 替代
+  @Deprecated('使用物化字段 DownloadedIllust.downloadedImageCount 替代')
   Future<int> getDownloadedImageCount(int illustId) async {
     final result = await db.rawQuery(
       'SELECT COUNT(*) as count FROM ${DownloadedImageColumns.tableName} WHERE ${DownloadedImageColumns.illustId} = ?',
@@ -1361,6 +1324,8 @@ class DownloadDatabaseProvider {
 
   /// 获取插画的图片统计信息（数量和总文件大小）
   /// 返回：已下载图片数量和总文件大小（字节）的记录
+  /// @deprecated 使用物化字段 DownloadedIllust.downloadedImageCount 和 totalFileSize 替代
+  @Deprecated('使用物化字段 DownloadedIllust.downloadedImageCount 和 totalFileSize 替代')
   Future<({int count, int totalFileSize})> getIllustImageStats(
       int illustId) async {
     final result = await db.rawQuery(
@@ -1632,17 +1597,13 @@ class DownloadDatabaseProvider {
       }
     }
 
-    // 计算总文件大小
-    final images = await db.rawQuery('''
-      SELECT SUM(${DownloadedImageColumns.fileSize}) as total
-      FROM ${DownloadedImageColumns.tableName}
-      WHERE ${DownloadedImageColumns.illustId} IN (
-        SELECT ${DownloadedIllustColumns.illustId} 
-        FROM ${DownloadedIllustColumns.tableName} 
-        WHERE ${DownloadedIllustColumns.userId} = ?
-      )
+    // 计算总文件大小（使用物化字段，无需子查询）
+    final fileStats = await db.rawQuery('''
+      SELECT COALESCE(SUM(${DownloadedIllustColumns.totalFileSize}), 0) as total
+      FROM ${DownloadedIllustColumns.tableName}
+      WHERE ${DownloadedIllustColumns.userId} = ?
     ''', [userId]);
-    final totalFileSize = images.first['total'] as int? ?? 0;
+    final totalFileSize = fileStats.first['total'] as int? ?? 0;
 
     // 更新或插入作者记录
     await upsertAuthor(
@@ -1679,18 +1640,14 @@ class DownloadDatabaseProvider {
   }
 
   /// 获取作者的图片统计信息（总图片张数和总文件大小）
-  /// 使用优化的SQL查询，一次性获取两个统计值
+  /// 使用物化字段优化查询
   Future<Map<String, int>> getAuthorImageStats(int userId) async {
     final result = await db.rawQuery('''
       SELECT 
-        COUNT(${DownloadedImageColumns.id}) as total_image_count,
-        COALESCE(SUM(${DownloadedImageColumns.fileSize}), 0) as total_file_size
-      FROM ${DownloadedImageColumns.tableName}
-      WHERE ${DownloadedImageColumns.illustId} IN (
-        SELECT ${DownloadedIllustColumns.illustId} 
-        FROM ${DownloadedIllustColumns.tableName} 
-        WHERE ${DownloadedIllustColumns.userId} = ?
-      )
+        COALESCE(SUM(${DownloadedIllustColumns.downloadedImageCount}), 0) as total_image_count,
+        COALESCE(SUM(${DownloadedIllustColumns.totalFileSize}), 0) as total_file_size
+      FROM ${DownloadedIllustColumns.tableName}
+      WHERE ${DownloadedIllustColumns.userId} = ?
     ''', [userId]);
 
     if (result.isNotEmpty) {
@@ -1711,8 +1668,6 @@ class DownloadDatabaseProvider {
     String? searchKeyword,
     String? tagName,
   }) async {
-    String joinClause =
-        'LEFT JOIN ${DownloadedImageColumns.tableName} img ON di.${DownloadedIllustColumns.illustId} = img.${DownloadedImageColumns.illustId}';
     String whereClause = '';
     List<dynamic> whereArgs = [];
 
@@ -1722,7 +1677,7 @@ class DownloadDatabaseProvider {
     } else if (filterType == 'tag' && tagName != null && tagName.isNotEmpty) {
       final tag = await getTagByName(tagName);
       if (tag != null) {
-        // 使用 CTE 找到等价组的所有标签 ID，确保统计与 searchIllustsByTagId 一致
+        // 使用 CTE 找到等价组的所有标签 ID
         final query = '''
           WITH TargetGroup AS (
             SELECT ${DownloadedTagsColumns.id} as id, COALESCE(${DownloadedTagsColumns.referencedTagId}, ${DownloadedTagsColumns.id}) as main_id 
@@ -1740,12 +1695,11 @@ class DownloadDatabaseProvider {
             WHERE ${DownloadedIllustTagsColumns.tagId} IN (SELECT id FROM GroupIds)
           )
           SELECT 
-            COUNT(DISTINCT di.${DownloadedIllustColumns.id}) as illust_count,
-            COUNT(img.${DownloadedImageColumns.id}) as total_image_count,
-            COALESCE(SUM(img.${DownloadedImageColumns.fileSize}), 0) as total_file_size
+            COUNT(di.${DownloadedIllustColumns.illustId}) as illust_count,
+            COALESCE(SUM(di.${DownloadedIllustColumns.downloadedImageCount}), 0) as total_image_count,
+            COALESCE(SUM(di.${DownloadedIllustColumns.totalFileSize}), 0) as total_file_size
           FROM ${DownloadedIllustColumns.tableName} di
           INNER JOIN MatchingIds m ON di.${DownloadedIllustColumns.illustId} = m.${DownloadedIllustTagsColumns.illustId}
-          LEFT JOIN ${DownloadedImageColumns.tableName} img ON di.${DownloadedIllustColumns.illustId} = img.${DownloadedImageColumns.illustId}
         ''';
         final result = await db.rawQuery(query, [tag.id]);
         if (result.isNotEmpty) {
@@ -1767,54 +1721,33 @@ class DownloadDatabaseProvider {
       whereArgs
           .addAll(['%$searchKeyword%', '%$searchKeyword%', '%$searchKeyword%']);
     } else if (filterType == 'incomplete') {
-      // 未下载完整：需要特殊处理，先找出所有未下载完整的作品ID
-      final incompleteIllusts = await db.rawQuery('''
-        SELECT di.${DownloadedIllustColumns.illustId}, di.${DownloadedIllustColumns.pageCount}
-        FROM ${DownloadedIllustColumns.tableName} di
-        LEFT JOIN ${DownloadedImageColumns.tableName} img ON di.${DownloadedIllustColumns.illustId} = img.${DownloadedImageColumns.illustId}
-        GROUP BY di.${DownloadedIllustColumns.id}
-        HAVING COUNT(img.${DownloadedImageColumns.illustId}) < di.${DownloadedIllustColumns.pageCount}
+      // 未下载完整：使用物化字段过滤，无需 JOIN
+      final result = await db.rawQuery('''
+        SELECT 
+          COUNT(*) as illust_count,
+          COALESCE(SUM(${DownloadedIllustColumns.downloadedImageCount}), 0) as total_image_count,
+          COALESCE(SUM(${DownloadedIllustColumns.totalFileSize}), 0) as total_file_size
+        FROM ${DownloadedIllustColumns.tableName}
+        WHERE ${DownloadedIllustColumns.downloadedImageCount} < ${DownloadedIllustColumns.pageCount}
       ''');
 
-      if (incompleteIllusts.isEmpty) {
-        return {'illust_count': 0, 'image_count': 0, 'file_size': 0};
-      }
-
-      final illustIds = incompleteIllusts
-          .map((e) => e[DownloadedIllustColumns.illustId] as int)
-          .toList();
-      final placeholders = List.filled(illustIds.length, '?').join(',');
-
-      // 统计这些作品的图片数量和文件大小
-      final stats = await db.rawQuery('''
-        SELECT 
-          COUNT(DISTINCT di.${DownloadedIllustColumns.id}) as illust_count,
-          COUNT(img.${DownloadedImageColumns.id}) as total_image_count,
-          COALESCE(SUM(img.${DownloadedImageColumns.fileSize}), 0) as total_file_size
-        FROM ${DownloadedIllustColumns.tableName} di
-        LEFT JOIN ${DownloadedImageColumns.tableName} img ON di.${DownloadedIllustColumns.illustId} = img.${DownloadedImageColumns.illustId}
-        WHERE di.${DownloadedIllustColumns.illustId} IN ($placeholders)
-      ''', illustIds);
-
-      if (stats.isNotEmpty) {
+      if (result.isNotEmpty) {
         return {
-          'illust_count': stats.first['illust_count'] as int? ?? 0,
-          'image_count': stats.first['total_image_count'] as int? ?? 0,
-          'file_size': stats.first['total_file_size'] as int? ?? 0,
+          'illust_count': result.first['illust_count'] as int? ?? 0,
+          'image_count': result.first['total_image_count'] as int? ?? 0,
+          'file_size': result.first['total_file_size'] as int? ?? 0,
         };
       }
       return {'illust_count': 0, 'image_count': 0, 'file_size': 0};
     }
 
-    // 对于其他情况，使用标准查询
-    // 统计实际下载的图片数量，而不是 pageCount 总和
+    // 对于其他情况（all, user, search），使用物化字段统计
     final query = '''
       SELECT 
-        COUNT(DISTINCT di.${DownloadedIllustColumns.id}) as illust_count,
-        COUNT(img.${DownloadedImageColumns.id}) as total_image_count,
-        COALESCE(SUM(img.${DownloadedImageColumns.fileSize}), 0) as total_file_size
+        COUNT(*) as illust_count,
+        COALESCE(SUM(di.${DownloadedIllustColumns.downloadedImageCount}), 0) as total_image_count,
+        COALESCE(SUM(di.${DownloadedIllustColumns.totalFileSize}), 0) as total_file_size
       FROM ${DownloadedIllustColumns.tableName} di
-      $joinClause
       $whereClause
     ''';
 
