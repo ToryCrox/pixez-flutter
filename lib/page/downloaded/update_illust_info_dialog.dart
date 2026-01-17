@@ -252,15 +252,11 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
     bool isBroken = false;
 
     if (knownWidth == null && knownHeight == null) {
-      try {
-        final size = await compute(_parseImageSizeSync, actualPath);
-        if (size != null) {
-          newWidth = size.width.toInt();
-          newHeight = size.height.toInt();
-        } else {
-          isBroken = true;
-        }
-      } catch (e) {
+      final size = await _parseImageSizeAsync(actualPath);
+      if (size != null) {
+        newWidth = size.width.toInt();
+        newHeight = size.height.toInt();
+      } else {
         isBroken = true;
       }
     }
@@ -507,10 +503,10 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
     Navigator.pop(context);
   }
 
-  static Size? _parseImageSizeSync(String filePath) {
+  static Future<Size?> _parseImageSizeAsync(String filePath) async {
     try {
       final file = File(filePath);
-      final size = ImageSizeGetter.getSizeResult(FileInput(file));
+      final size = await ImageSizeGetter.getSizeResultAsync(_AsyncFileInput(file));
       return Size(size.size.width.toDouble(), size.size.height.toDouble());
     } catch (e) {
       return null;
@@ -1648,5 +1644,36 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
         ],
       ),
     );
+  }
+}
+
+class _AsyncFileInput extends AsyncImageInput {
+  final File file;
+  const _AsyncFileInput(this.file);
+
+  @override
+  Future<bool> exists() => file.exists();
+
+  @override
+  Future<int> get length => file.length();
+
+  @override
+  Future<List<int>> getRange(int start, int end) async {
+    final raf = await file.open();
+    try {
+      await raf.setPosition(start);
+      final bytes = await raf.read(end - start);
+      return bytes.toList();
+    } finally {
+      await raf.close();
+    }
+  }
+
+  @override
+  Future<bool> supportRangeLoad() async => true;
+
+  @override
+  Future<HaveResourceImageInput> delegateInput() async {
+    return HaveResourceImageInput(innerInput: FileInput(file));
   }
 }
