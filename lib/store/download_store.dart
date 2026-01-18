@@ -322,6 +322,11 @@ abstract class _DownloadStoreBase with Store {
     return await _dbProvider.findImagePath(illustId, part, update: update);
   }
 
+  Future<String?> getLocalImagePathFromImage(DownloadedImage image,
+      {bool update = true}) async {
+    return await _dbProvider.findImagePathForImage(image, update: update);
+  }
+
   /// 获取封面缓存路径（集中存储格式）
   /// 路径格式：databasePath/covers/{illustId}.jpg
   /// databasePath 是 basePath 的上一级目录

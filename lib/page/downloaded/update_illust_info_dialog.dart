@@ -242,9 +242,8 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
     int? knownHeight,
     bool isFastScan = true,
   }) async {
-    final actualPath = await downloadStore.getLocalImagePath(
-      image.illustId,
-      image.part,
+    final actualPath = await downloadStore.getLocalImagePathFromImage(
+      image,
       update: false,
     );
     String? foundExtension;

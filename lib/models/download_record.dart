@@ -1157,7 +1157,7 @@ class DownloadDatabaseProvider {
 
     // 并行处理所有图片，大幅提升性能
     final futures = filteredImages.map((image) async {
-      final foundPath = await _findImagePathForImage(image);
+      final foundPath = await findImagePathForImage(image);
       if (foundPath != null) {
         return MapEntry(
             image.part,
@@ -1185,7 +1185,7 @@ class DownloadDatabaseProvider {
   }
 
   /// 根据图片记录查找实际存在的文件路径（自动检测后缀名）
-  Future<String?> _findImagePathForImage(DownloadedImage image,
+  Future<String?> findImagePathForImage(DownloadedImage image,
       {bool update = true}) async {
     // 使用标准的相对路径和文件名构建路径（对动图帧文件也适用，因为 relativePath 已包含 ugoira 子目录）
     final basePath = getAbsolutePath(
@@ -1449,13 +1449,13 @@ class DownloadDatabaseProvider {
       {bool update = true}) async {
     final image = await getImage(illustId, part);
     if (image == null) return null;
-    return await _findImagePathForImage(image, update: update);
+    return await findImagePathForImage(image, update: update);
   }
 
   Future<LocalImageInfo?> getLocalImageInfoByUrl(String url) async {
     final image = await getImageByOriginalUrl(url);
     if (image == null) return null;
-    final imagePath = await _findImagePathForImage(image);
+    final imagePath = await findImagePathForImage(image);
     if (imagePath == null) return null;
     return LocalImageInfo(
       path: imagePath,
