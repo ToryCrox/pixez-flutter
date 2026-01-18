@@ -1,10 +1,11 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:pixez/component/json_highlighter.dart';
 import 'package:pixez/debug/network_logger.dart';
 
-class NetworkLogDetailPage extends StatelessWidget {
+class NetworkLogDetailPage extends StatefulWidget {
   final NetworkLog log;
 
   const NetworkLogDetailPage({Key? key, required this.log}) : super(key: key);
@@ -27,9 +28,27 @@ class NetworkLogDetailPage extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+  State<NetworkLogDetailPage> createState() => _NetworkLogDetailPageState();
+}
 
+class _NetworkLogDetailPageState extends State<NetworkLogDetailPage> {
+  // 缓存格式化后的结果
+  FormattedBody? _requestBody;
+  Future<FormattedBody>? _responseBodyFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.log.requestBody != null) {
+      _requestBody = _formatBody(widget.log.requestBody);
+    }
+    if (widget.log.responseBody != null) {
+      _responseBodyFuture = compute(_formatBody, widget.log.responseBody);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Column(
       children: [
         AppBar(
@@ -48,31 +67,35 @@ class NetworkLogDetailPage extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildSection(context, '基本信息', [
-                    _buildInfoRow('URL', log.url, selectable: true),
-                    _buildInfoRow('Method', log.method),
-                    _buildInfoRow('Status', log.statusCode?.toString() ?? 'Pending',
-                        valueColor: _getStatusColor(log.statusCode)),
-                    _buildInfoRow('Time', log.formattedRequestTime),
-                    if (log.duration != null)
-                      _buildInfoRow('Duration', '${log.duration!.inMilliseconds} ms'),
+                    _buildInfoRow('URL', widget.log.url, selectable: true),
+                    _buildInfoRow('Method', widget.log.method),
+                    _buildInfoRow('Protocol', widget.log.protocol ?? "Unknown"),
+                    _buildInfoRow(
+                        'Status', widget.log.statusCode?.toString() ?? 'Pending',
+                        valueColor: _getStatusColor(widget.log.statusCode)),
+                    _buildInfoRow('Time', widget.log.formattedRequestTime),
+                    if (widget.log.duration != null)
+                      _buildInfoRow(
+                          'Duration', '${widget.log.duration!.inMilliseconds} ms'),
                   ]),
-                  if (log.error != null)
+                  if (widget.log.error != null)
                     _buildSection(context, '错误信息', [
-                      Text(log.error!, style: const TextStyle(color: Colors.red, fontSize: 12)),
+                      Text(widget.log.error!,
+                          style: const TextStyle(color: Colors.red, fontSize: 12)),
                     ]),
                   _buildSection(context, '请求头 (Request Headers)', [
-                    _buildHeaders(log.requestHeaders),
+                    _buildHeaders(widget.log.requestHeaders),
                   ]),
-                  if (log.requestBody != null)
+                  if (widget.log.requestBody != null && _requestBody != null)
                     _buildSection(context, '请求体 (Request Body)', [
-                      _buildFormattedBody(context, log.requestBody, isDark),
+                      _buildFormattedBodyView(context, _requestBody!),
                     ]),
                   _buildSection(context, '响应头 (Response Headers)', [
-                    _buildHeaders(log.responseHeaders),
+                    _buildHeaders(widget.log.responseHeaders),
                   ]),
-                  if (log.responseBody != null)
+                  if (widget.log.responseBody != null)
                     _buildSection(context, '响应体 (Response Body)', [
-                      _buildFormattedBody(context, log.responseBody, isDark),
+                      _buildAsyncBody(context, _responseBodyFuture!),
                     ]),
                 ],
               ),
@@ -89,7 +112,7 @@ class NetworkLogDetailPage extends StatelessWidget {
       children: [
         Container(
           width: double.infinity,
-          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           color: Theme.of(context).dividerColor.withOpacity(0.05),
           child: Text(
             title,
@@ -101,7 +124,7 @@ class NetworkLogDetailPage extends StatelessWidget {
           ),
         ),
         Padding(
-          padding: EdgeInsets.all(16),
+          padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: children,
@@ -111,7 +134,8 @@ class NetworkLogDetailPage extends StatelessWidget {
     );
   }
 
-  Widget _buildInfoRow(String label, String value, {Color? valueColor, bool selectable = false}) {
+ Widget _buildInfoRow(String label, String value,
+      {Color? valueColor, bool selectable = false}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
       child: Row(
@@ -121,7 +145,8 @@ class NetworkLogDetailPage extends StatelessWidget {
             width: 80,
             child: Text(
               '$label:',
-              style: const TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.w500),
+              style: const TextStyle(
+                  fontSize: 12, color: Colors.grey, fontWeight: FontWeight.w500),
             ),
           ),
           Expanded(
@@ -134,7 +159,7 @@ class NetworkLogDetailPage extends StatelessWidget {
 
   Widget _buildHeaders(Map<String, dynamic>? headers) {
     if (headers == null || headers.isEmpty) {
-      return Text('无', style: TextStyle(fontSize: 12, color: Colors.grey));
+      return const Text('无', style: TextStyle(fontSize: 12, color: Colors.grey));
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -144,8 +169,10 @@ class NetworkLogDetailPage extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('${e.key}: ', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-              Expanded(child: Text('${e.value}', style: TextStyle(fontSize: 12))),
+              Text('${e.key}: ',
+                  style:
+                      const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              Expanded(child: Text('${e.value}', style: const TextStyle(fontSize: 12))),
             ],
           ),
         );
@@ -153,51 +180,94 @@ class NetworkLogDetailPage extends StatelessWidget {
     );
   }
 
-  Widget _buildFormattedBody(BuildContext context, dynamic body, bool isDark) {
-    String content = '';
-    // String language = 'text'; // Not needed with JsonHighlighter
-
-    try {
-      if (body is Map || body is List) {
-        content = JsonEncoder.withIndent('  ').convert(body);
-        // language = 'json';
-      } else if (body is String) {
-        try {
-          final decoded = json.decode(body);
-          content = JsonEncoder.withIndent('  ').convert(decoded);
-          // language = 'json';
-        } catch (_) {
-          content = body;
+  Widget _buildAsyncBody(BuildContext context, Future<FormattedBody> future) {
+    return FutureBuilder<FormattedBody>(
+      future: future,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Padding(
+            padding: EdgeInsets.all(16.0),
+            child: Center(
+                child: SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2))),
+          );
         }
-      } else {
-        content = body.toString();
-      }
-    } catch (e) {
-      content = body.toString();
-    }
+        if (snapshot.hasError) {
+          return Text('Error formatting body: ${snapshot.error}',
+              style: const TextStyle(color: Colors.red));
+        }
+        if (snapshot.hasData) {
+          return _buildFormattedBodyView(context, snapshot.data!);
+        }
+        return const SizedBox.shrink();
+      },
+    );
+  }
 
+  Widget _buildFormattedBodyView(BuildContext context, FormattedBody result) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        IconButton(
-          icon: Icon(Icons.copy, size: 16),
-          onPressed: () {
-            Clipboard.setData(ClipboardData(text: content));
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('已复制到剪贴板')));
-          },
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            if (result.isTruncated)
+              const Padding(
+                padding: EdgeInsets.only(right: 8.0),
+                child: Text(
+                  "内容过长已截断显示",
+                  style: TextStyle(color: Colors.orange, fontSize: 10),
+                ),
+              ),
+            IconButton(
+              icon: const Icon(Icons.copy, size: 16),
+              tooltip: "复制完整内容",
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: result.fullContent));
+                ScaffoldMessenger.of(context)
+                    .showSnackBar(const SnackBar(content: Text('已复制完整内容到剪贴板')));
+              },
+            ),
+          ],
         ),
         Container(
           width: double.infinity,
           decoration: BoxDecoration(
-            color: isDark ? Color(0xFF282C34) : Color(0xFFF9F9F9),
+            color: isDark ? const Color(0xFF282C34) : const Color(0xFFF9F9F9),
             borderRadius: BorderRadius.circular(8),
           ),
-          padding: EdgeInsets.all(8),
-          child: JsonHighlighter(
-            json: content,
-            isDark: isDark,
-            padding: EdgeInsets.zero,
-          ),
+          padding: const EdgeInsets.all(8),
+          child: result.isTruncated
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    JsonHighlighter(
+                      json: result.displayContent,
+                      isDark: isDark,
+                      padding: EdgeInsets.zero,
+                    ),
+                    const Divider(),
+                    Center(
+                      child: TextButton(
+                        onPressed: () {
+                          Clipboard.setData(ClipboardData(text: result.fullContent));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('已复制完整内容到剪贴板')));
+                        },
+                        child: const Text("点击复制完整内容 (显示已截断)",
+                            style: TextStyle(fontSize: 12)),
+                      ),
+                    )
+                  ],
+                )
+              : JsonHighlighter(
+                  json: result.displayContent,
+                  isDark: isDark,
+                  padding: EdgeInsets.zero,
+                ),
         ),
       ],
     );
@@ -209,5 +279,55 @@ class NetworkLogDetailPage extends StatelessWidget {
     if (statusCode >= 400) return Colors.red;
     if (statusCode >= 300) return Colors.orange;
     return Colors.grey;
+  }
+}
+
+/// 格式化结果模型
+class FormattedBody {
+  final String displayContent;
+  final String fullContent;
+  final bool isTruncated;
+
+  FormattedBody({
+    required this.displayContent,
+    required this.fullContent,
+    required this.isTruncated,
+  });
+}
+
+/// 静态方法用于 compute 执行
+FormattedBody _formatBody(dynamic body) {
+  String content = '';
+  try {
+    if (body is Map || body is List) {
+      content = const JsonEncoder.withIndent('  ').convert(body);
+    } else if (body is String) {
+      try {
+        final decoded = json.decode(body);
+        content = const JsonEncoder.withIndent('  ').convert(decoded);
+      } catch (_) {
+        content = body;
+      }
+    } else {
+      content = body.toString();
+    }
+  } catch (e) {
+    content = body.toString();
+  }
+
+  // 截断阈值 50KB
+  const int maxLength = 50 * 1024;
+  if (content.length > maxLength) {
+    return FormattedBody(
+      displayContent: content.substring(0, maxLength),
+      fullContent: content,
+      isTruncated: true,
+    );
+  } else {
+    return FormattedBody(
+      displayContent: content,
+      fullContent: content,
+      isTruncated: false,
+    );
   }
 }

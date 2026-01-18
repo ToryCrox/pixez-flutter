@@ -15,6 +15,7 @@ class NetworkLog {
   final Map<String, dynamic>? responseHeaders;
   final dynamic responseBody;
   final String? error;
+  final String? protocol;
 
   NetworkLog({
     required this.id,
@@ -28,6 +29,7 @@ class NetworkLog {
     this.responseHeaders,
     this.responseBody,
     this.error,
+    this.protocol,
   });
 
   bool get isSuccess => statusCode != null && statusCode! >= 200 && statusCode! < 300;
@@ -77,6 +79,7 @@ class NetworkLogStore extends ChangeNotifier {
     Map<String, dynamic>? responseHeaders,
     dynamic responseBody,
     String? error,
+    String? protocol,
   }) {
     final index = _logs.indexWhere((l) => l.id == id);
     if (index != -1) {
@@ -93,6 +96,7 @@ class NetworkLogStore extends ChangeNotifier {
         responseHeaders: responseHeaders ?? oldLog.responseHeaders,
         responseBody: responseBody ?? oldLog.responseBody,
         error: error ?? oldLog.error,
+        protocol: protocol ?? oldLog.protocol,
       );
       notifyListeners();
     }
@@ -147,6 +151,7 @@ class NetworkLogInterceptor extends Interceptor {
         duration: duration,
         responseHeaders: response.headers.map,
         responseBody: response.data,
+        protocol: response.headers.value('x-protocol-version'),
       );
     }
     super.onResponse(response, handler);
@@ -166,6 +171,7 @@ class NetworkLogInterceptor extends Interceptor {
         responseHeaders: err.response?.headers.map,
         responseBody: err.response?.data,
         error: err.toString(),
+        protocol: err.response?.headers.value('x-protocol-version'),
       );
     }
     super.onError(err, handler);
