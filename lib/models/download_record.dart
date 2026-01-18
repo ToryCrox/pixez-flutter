@@ -140,7 +140,7 @@ class DownloadDatabaseProvider {
 
       db = await openDatabase(
         dbPath,
-        version: 12,
+        version: 13,
         onCreate: (Database db, int version) async {
           await db.execute('''
           CREATE TABLE ${DownloadedIllustColumns.tableName} (
@@ -205,6 +205,7 @@ class DownloadDatabaseProvider {
             ${DownloadedAuthorColumns.userName} TEXT NOT NULL,
             ${DownloadedAuthorColumns.profileImageUrl} TEXT,
             ${DownloadedAuthorColumns.illustCount} INTEGER DEFAULT 0,
+            ${DownloadedAuthorColumns.totalImageCount} INTEGER DEFAULT 0,
             ${DownloadedAuthorColumns.totalFileSize} INTEGER DEFAULT 0,
             ${DownloadedAuthorColumns.lastDownloadTime} INTEGER,
             ${DownloadedAuthorColumns.lastUpdateTime} INTEGER
@@ -263,6 +264,9 @@ class DownloadDatabaseProvider {
           CREATE INDEX idx_author_illust_count ON ${DownloadedAuthorColumns.tableName}(${DownloadedAuthorColumns.illustCount})
         ''');
         await db.execute('''
+          CREATE INDEX idx_author_total_image_count ON ${DownloadedAuthorColumns.tableName}(${DownloadedAuthorColumns.totalImageCount})
+        ''');
+        await db.execute('''
           CREATE INDEX idx_author_total_file_size ON ${DownloadedAuthorColumns.tableName}(${DownloadedAuthorColumns.totalFileSize})
         ''');
         // 标签表索引
@@ -300,6 +304,25 @@ class DownloadDatabaseProvider {
           await db.execute('ALTER TABLE ${DownloadedIllustColumns.tableName} ADD COLUMN ${DownloadedIllustColumns.totalFileSize} INTEGER DEFAULT 0');
           await db.execute('CREATE INDEX idx_illust_total_file_size ON ${DownloadedIllustColumns.tableName}(${DownloadedIllustColumns.totalFileSize})');
           await db.execute('CREATE INDEX idx_illust_downloaded_count ON ${DownloadedIllustColumns.tableName}(${DownloadedIllustColumns.downloadedImageCount})');
+        }
+        
+        // v12 -> v13: 添加作者总图片数量字段
+        if (oldVersion < 13) {
+          Log.i(() => '添加 total_image_count 字段到 downloaded_authors 表');
+          await db.execute('ALTER TABLE ${DownloadedAuthorColumns.tableName} ADD COLUMN ${DownloadedAuthorColumns.totalImageCount} INTEGER DEFAULT 0');
+          await db.execute('CREATE INDEX idx_author_total_image_count ON ${DownloadedAuthorColumns.tableName}(${DownloadedAuthorColumns.totalImageCount})');
+          
+          // 初始化现有记录的 total_image_count 值
+          Log.i(() => '初始化现有作者的 total_image_count 值');
+          await db.execute('''
+            UPDATE ${DownloadedAuthorColumns.tableName} 
+            SET ${DownloadedAuthorColumns.totalImageCount} = (
+              SELECT COALESCE(SUM(${DownloadedIllustColumns.downloadedImageCount}), 0)
+              FROM ${DownloadedIllustColumns.tableName}
+              WHERE ${DownloadedIllustColumns.userId} = ${DownloadedAuthorColumns.tableName}.${DownloadedAuthorColumns.userId}
+            )
+          ''');
+          Log.i(() => 'total_image_count 初始化完成');
         }
       }
     );
@@ -1471,6 +1494,7 @@ class DownloadDatabaseProvider {
     String? userName,
     String? profileImageUrl,
     int illustCount,
+    int totalImageCount,
     int totalFileSize,
     int lastDownloadTime,
   ) async {
@@ -1483,6 +1507,7 @@ class DownloadDatabaseProvider {
           DownloadedAuthorColumns.profileImageUrl:
               PixivUrlUtil.compressPxUrl(profileImageUrl),
         DownloadedAuthorColumns.illustCount: illustCount,
+        DownloadedAuthorColumns.totalImageCount: totalImageCount,
         DownloadedAuthorColumns.totalFileSize: totalFileSize,
         DownloadedAuthorColumns.lastDownloadTime: lastDownloadTime,
         DownloadedAuthorColumns.lastUpdateTime:
@@ -1597,13 +1622,16 @@ class DownloadDatabaseProvider {
       }
     }
 
-    // 计算总文件大小（使用物化字段，无需子查询）
-    final fileStats = await db.rawQuery('''
-      SELECT COALESCE(SUM(${DownloadedIllustColumns.totalFileSize}), 0) as total
+    // 计算总图片数量和总文件大小（使用物化字段）
+    final statsResult = await db.rawQuery('''
+      SELECT 
+        COALESCE(SUM(${DownloadedIllustColumns.downloadedImageCount}), 0) as total_image_count,
+        COALESCE(SUM(${DownloadedIllustColumns.totalFileSize}), 0) as total_file_size
       FROM ${DownloadedIllustColumns.tableName}
       WHERE ${DownloadedIllustColumns.userId} = ?
     ''', [userId]);
-    final totalFileSize = fileStats.first['total'] as int? ?? 0;
+    final totalImageCount = statsResult.first['total_image_count'] as int? ?? 0;
+    final totalFileSize = statsResult.first['total_file_size'] as int? ?? 0;
 
     // 更新或插入作者记录
     await upsertAuthor(
@@ -1611,6 +1639,7 @@ class DownloadDatabaseProvider {
       userName,
       profileImageUrl,
       count,
+      totalImageCount,
       totalFileSize,
       lastDownloadTime,
     );

@@ -27,7 +27,7 @@ import 'package:pixez/page/downloaded/downloaded_page.dart';
 import 'package:pixez/page/user/user_store.dart';
 import 'package:pixez/page/user/users_page.dart';
 
-class DownloadedAuthorCard extends StatefulWidget {
+class DownloadedAuthorCard extends StatelessWidget {
   final DownloadedAuthor author;
   final List<DownloadedIllust> illusts;
   final bool showLatestPublished;
@@ -42,53 +42,14 @@ class DownloadedAuthorCard extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  State<DownloadedAuthorCard> createState() => _DownloadedAuthorCardState();
-}
-
-class _DownloadedAuthorCardState extends State<DownloadedAuthorCard> {
-  int? _totalImageCount;
-  int? _totalFileSize;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadImageStats();
-  }
-
-  @override
-  void didUpdateWidget(DownloadedAuthorCard oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.author.userId != widget.author.userId) {
-      _loadImageStats();
-    }
-  }
-
-  Future<void> _loadImageStats() async {
-    if (!downloadStore.isInitialized) return;
-
-    try {
-      final stats =
-          await downloadStore.getAuthorImageStats(widget.author.userId);
-      if (mounted) {
-        setState(() {
-          _totalImageCount = stats['total_image_count'];
-          _totalFileSize = stats['total_file_size'];
-        });
-      }
-    } catch (e) {
-      // 忽略错误，保持当前状态
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
     return InkWell(
       onTap: () {
         Navigator.of(context).push(
           MaterialPageRoute(
             builder: (context) => DownloadedPage(
-              initialUserId: widget.author.userId,
-              initialUserName: widget.author.userName,
+              initialUserId: author.userId,
+              initialUserName: author.userName,
             ),
           ),
         );
@@ -106,8 +67,6 @@ class _DownloadedAuthorCardState extends State<DownloadedAuthorCard> {
   }
 
   Widget _buildPreviewSection(BuildContext context) {
-    final illusts = widget.illusts;
-
     return SizedBox(
       height: 120, // 固定预览区域高度
       child: Row(
@@ -156,18 +115,18 @@ class _DownloadedAuthorCardState extends State<DownloadedAuthorCard> {
           mainAxisAlignment: MainAxisAlignment.start,
           children: [
             Hero(
-              tag: 'author_${widget.author.userId}_${this.hashCode}',
+              tag: 'author_${author.userId}_${hashCode}',
               child: PainterAvatar(
-                url: widget.author.profileImageUrl ?? '',
-                id: widget.author.userId,
+                url: author.profileImageUrl ?? '',
+                id: author.userId,
                 onTap: () {
                   Navigator.of(context).push(
                     MaterialPageRoute(
                       builder: (context) => UsersPage(
-                        id: widget.author.userId,
-                        userStore: UserStore(widget.author.userId, null, null),
+                        id: author.userId,
+                        userStore: UserStore(author.userId, null, null),
                         heroTag:
-                            'author_${widget.author.userId}_${this.hashCode}',
+                            'author_${author.userId}_$hashCode',
                       ),
                     ),
                   );
@@ -182,7 +141,7 @@ class _DownloadedAuthorCardState extends State<DownloadedAuthorCard> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      widget.author.userName,
+                      author.userName,
                       style: Theme.of(context).textTheme.bodyLarge,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -191,17 +150,16 @@ class _DownloadedAuthorCardState extends State<DownloadedAuthorCard> {
                     Row(
                       children: [
                         Text(
-                          '${widget.author.illustCount} 作品',
+                          '${author.illustCount} 作品',
                           style:
                               Theme.of(context).textTheme.bodySmall?.copyWith(
                                     color: Colors.grey[600],
                                   ),
                         ),
-                        if (_totalImageCount != null &&
-                            _totalImageCount! > 0) ...[
+                        if (author.totalImageCount > 0) ...[
                           SizedBox(width: 8),
                           Text(
-                            '$_totalImageCount 张',
+                            '${author.totalImageCount} 张',
                             style:
                                 Theme.of(context).textTheme.bodySmall?.copyWith(
                                       color: Colors.grey[600],
@@ -210,15 +168,13 @@ class _DownloadedAuthorCardState extends State<DownloadedAuthorCard> {
                         ],
                       ],
                     ),
-                    if (_totalImageCount != null &&
-                        _totalImageCount! > 0 &&
-                        _totalFileSize != null &&
-                        _totalFileSize! > 0) ...[
+                    if (author.totalImageCount > 0 &&
+                        author.totalFileSize > 0) ...[
                       SizedBox(height: 2),
                       Row(
                         children: [
                           Text(
-                            '平均 ${(_totalFileSize! ~/ _totalImageCount!).formatFileSize()}/张',
+                            '平均 ${(author.totalFileSize ~/ author.totalImageCount).formatFileSize()}/张',
                             style:
                                 Theme.of(context).textTheme.bodySmall?.copyWith(
                                       color: Colors.grey[500],
@@ -227,7 +183,7 @@ class _DownloadedAuthorCardState extends State<DownloadedAuthorCard> {
                           ),
                           SizedBox(width: 8),
                           Text(
-                            '总计 ${_totalFileSize!.formatFileSize()}',
+                            '总计 ${author.totalFileSize.formatFileSize()}',
                             style:
                                 Theme.of(context).textTheme.bodySmall?.copyWith(
                                       color: Colors.grey[500],
@@ -236,10 +192,10 @@ class _DownloadedAuthorCardState extends State<DownloadedAuthorCard> {
                           ),
                         ],
                       ),
-                    ] else if (widget.author.totalFileSize > 0) ...[
+                    ] else if (author.totalFileSize > 0) ...[
                       SizedBox(height: 2),
                       Text(
-                        '总计 ${widget.author.totalFileSize.formatFileSize()}',
+                        '总计 ${author.totalFileSize.formatFileSize()}',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: Colors.grey[500],
                               fontSize: 11,
@@ -278,13 +234,10 @@ class _DownloadedAuthorCardState extends State<DownloadedAuthorCard> {
     }
     try {
       BotToast.showText(text: '正在更新作者信息...');
-      await downloadStore.dbProvider.updateAuthorStats(widget.author.userId);
+      await downloadStore.dbProvider.updateAuthorStats(author.userId);
       
-      // 重新加载本地统计数据
-      await _loadImageStats();
-      
-      // 通知父组件刷新整个卡片（包括头像等基本信息）
-      widget.onRefresh?.call();
+      // 通知父组件刷新整个卡片
+      onRefresh?.call();
       
       BotToast.showText(text: '更新完成');
     } catch (e) {
@@ -298,7 +251,7 @@ class _DownloadedAuthorCardState extends State<DownloadedAuthorCard> {
       return;
     }
     try {
-      final dirPath = downloadStore.getAuthorDirectoryPath(widget.author);
+      final dirPath = downloadStore.getAuthorDirectoryPath(author);
       
       if (dirPath == null) {
         BotToast.showText(text: '无法获取下载目录');
@@ -316,3 +269,4 @@ class _DownloadedAuthorCardState extends State<DownloadedAuthorCard> {
     }
   }
 }
+

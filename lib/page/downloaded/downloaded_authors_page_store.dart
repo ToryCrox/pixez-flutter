@@ -30,7 +30,8 @@ enum AuthorSortType {
   lastDownloadTime, // 最新下载
   userName, // 用户名
   fileSize, // 文件大小
-  illustCount, // 插画数量
+  illustCount, // 作品数量 (原"插画数量")
+  imageCount, // 插画数量 (图片数量)
 }
 
 // SharedPreferences 键名
@@ -121,6 +122,8 @@ abstract class _DownloadedAuthorsPageStoreBase with Store {
         return 'total_file_size';
       case AuthorSortType.illustCount:
         return 'illust_count';
+      case AuthorSortType.imageCount:
+        return 'total_image_count';
     }
   }
 

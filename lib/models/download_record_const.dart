@@ -513,6 +513,7 @@ class DownloadedAuthorColumns {
   static const String userName = 'user_name';
   static const String profileImageUrl = 'profile_image_url';
   static const String illustCount = 'illust_count';
+  static const String totalImageCount = 'total_image_count';
   static const String totalFileSize = 'total_file_size';
   static const String lastDownloadTime = 'last_download_time';
   static const String lastUpdateTime = 'last_update_time';
@@ -564,6 +565,7 @@ class DownloadedAuthor {
   String userName;
   String? profileImageUrl;
   int illustCount;
+  int totalImageCount;
   int totalFileSize;
   int lastDownloadTime;
   int lastUpdateTime;
@@ -573,6 +575,7 @@ class DownloadedAuthor {
     required this.userName,
     this.profileImageUrl,
     required this.illustCount,
+    required this.totalImageCount,
     required this.totalFileSize,
     required this.lastDownloadTime,
     required this.lastUpdateTime,
@@ -586,6 +589,8 @@ class DownloadedAuthor {
           TypeUtil.parseString(json[DownloadedAuthorColumns.profileImageUrl])),
       illustCount:
           TypeUtil.parseInt(json[DownloadedAuthorColumns.illustCount]),
+      totalImageCount:
+          TypeUtil.parseInt(json[DownloadedAuthorColumns.totalImageCount]),
       totalFileSize:
           TypeUtil.parseInt(json[DownloadedAuthorColumns.totalFileSize]),
       lastDownloadTime:
@@ -604,6 +609,7 @@ class DownloadedAuthor {
           PixivUrlUtil.compressPxUrl(profileImageUrl!);
     }
     data[DownloadedAuthorColumns.illustCount] = illustCount;
+    data[DownloadedAuthorColumns.totalImageCount] = totalImageCount;
     data[DownloadedAuthorColumns.totalFileSize] = totalFileSize;
     data[DownloadedAuthorColumns.lastDownloadTime] = lastDownloadTime;
     data[DownloadedAuthorColumns.lastUpdateTime] = lastUpdateTime;
