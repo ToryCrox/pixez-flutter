@@ -20,10 +20,9 @@ import 'dart:io';
 
 import 'package:bot_toast/bot_toast.dart';
 import 'package:collection/collection.dart';
-import 'package:flutter/foundation.dart';
+
 import 'package:flutter/material.dart';
-import 'package:image_size_getter/file_input.dart';
-import 'package:image_size_getter/image_size_getter.dart' hide Size;
+import 'package:pixez/utils/image_utils.dart';
 import 'package:mobx/mobx.dart';
 import 'package:path/path.dart' as path hide context;
 import 'package:pixez/component/pixiv_image.dart';
@@ -1702,27 +1701,7 @@ abstract class _DownloadStoreBase with Store {
 
   /// 使用 image_size_getter 解析图片宽高
   Future<Size?> getImageSize(String filePath) async {
-    try {
-      final file = File(filePath);
-      if (!await file.exists()) return null;
-
-      final size = await compute(_parseImageSizeSync, filePath);
-      return size;
-    } catch (e) {
-      Log.e('获取图片尺寸失败: $e');
-      return null;
-    }
-  }
-
-  /// 在 isolate 中同步解析图片尺寸
-  static Size? _parseImageSizeSync(String filePath) {
-    try {
-      final file = File(filePath);
-      final size = ImageSizeGetter.getSizeResult(FileInput(file));
-      return Size(size.size.width.toDouble(), size.size.height.toDouble());
-    } catch (e) {
-      return null;
-    }
+    return await ImageUtils.parseImageSize(filePath);
   }
 
   // ============ 删除接口 ============

@@ -17,8 +17,8 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:image_size_getter/file_input.dart';
-import 'package:image_size_getter/image_size_getter.dart' hide Size;
+
+import 'package:pixez/utils/image_utils.dart';
 import 'package:open_file/open_file.dart';
 import 'package:path/path.dart' as p;
 import 'package:pixez/custom/log.dart';
@@ -284,7 +284,7 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
       newWidth = image.width;
       newHeight = image.height;
     } else if (knownWidth == null && knownHeight == null) {
-      final size = await _parseImageSizeAsync(actualPath);
+      final size = await ImageUtils.parseImageSize(actualPath);
       if (size != null) {
         newWidth = size.width.toInt();
         newHeight = size.height.toInt();
@@ -558,18 +558,6 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
     }
     // 关闭对话框（扫描循环会因为 mounted 检查而自然退出）
     Navigator.pop(context);
-  }
-
-  static Future<Size?> _parseImageSizeAsync(String filePath) async {
-    try {
-      final file = File(filePath);
-      final size = await ImageSizeGetter.getSizeResultAsync(
-        _AsyncFileInput(file),
-      );
-      return Size(size.size.width.toDouble(), size.size.height.toDouble());
-    } catch (e) {
-      return null;
-    }
   }
 
   // 删除损坏或丢失的图片文件和数据库记录
@@ -1822,33 +1810,4 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
   }
 }
 
-class _AsyncFileInput extends AsyncImageInput {
-  final File file;
-  const _AsyncFileInput(this.file);
 
-  @override
-  Future<bool> exists() => file.exists();
-
-  @override
-  Future<int> get length => file.length();
-
-  @override
-  Future<List<int>> getRange(int start, int end) async {
-    final raf = await file.open();
-    try {
-      await raf.setPosition(start);
-      final bytes = await raf.read(end - start);
-      return bytes.toList();
-    } finally {
-      await raf.close();
-    }
-  }
-
-  @override
-  Future<bool> supportRangeLoad() async => true;
-
-  @override
-  Future<HaveResourceImageInput> delegateInput() async {
-    return HaveResourceImageInput(innerInput: FileInput(file));
-  }
-}
