@@ -53,8 +53,8 @@ class UpdateIllustInfo {
   UpdateResultType get resultType {
     if (hasBroken) return UpdateResultType.broken;
     if (isIncomplete) return UpdateResultType.incomplete;
-    if (hasStatsInconsistency) return UpdateResultType.inconsistent;
     if (hasChanges) return UpdateResultType.changed;
+    if (hasStatsInconsistency) return UpdateResultType.inconsistent;
     return UpdateResultType.unchanged;
   }
 
