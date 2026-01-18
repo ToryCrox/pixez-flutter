@@ -207,6 +207,8 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
   late int _concurrentCount; // 每个作品内并发扫描的图片数量（从 userSetting 读取）
   late ListObserverController _observerController;
   late ScrollController _scrollController;
+  bool _isFastScan = true; // 快速扫描模式
+  Duration? _scanDuration; // 扫描耗时
 
   @override
   void initState() {
@@ -238,6 +240,7 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
     DownloadedImage image, {
     int? knownWidth,
     int? knownHeight,
+    bool isFastScan = true,
   }) async {
     final actualPath = await downloadStore.getLocalImagePath(
       image.illustId,
@@ -272,7 +275,15 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
     int? newHeight = knownHeight;
     bool isBroken = false;
 
-    if (knownWidth == null && knownHeight == null) {
+    // 快速扫描逻辑：如果文件大小一致，且之前有宽高记录，则认为没有变化
+    if (isFastScan &&
+        newFileSize != null &&
+        newFileSize == image.fileSize &&
+        (image.width ?? 0) > 0 &&
+        (image.height ?? 0) > 0) {
+      newWidth = image.width;
+      newHeight = image.height;
+    } else if (knownWidth == null && knownHeight == null) {
       final size = await _parseImageSizeAsync(actualPath);
       if (size != null) {
         newWidth = size.width.toInt();
@@ -370,6 +381,7 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
             image,
             knownWidth: useKnownSize ? knownWidth : null,
             knownHeight: useKnownSize ? knownHeight : null,
+            isFastScan: _isFastScan,
           ),
         );
       }
@@ -480,6 +492,7 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
       _isScanning = true;
       _isPaused = false;
       _scannedCount = 0;
+      _scanDuration = null; // 重置耗时
       // 重置所有作品的扫描状态，但不设置为正在扫描
       for (var info in _updateInfos) {
         info.isScanning = false; // 初始状态为 false，只有开始扫描时才设置为 true
@@ -487,6 +500,8 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
         info.updateScanProgress(0, 0);
       }
     });
+
+    final stopwatch = Stopwatch()..start();
 
     // 顺序扫描作品，每个作品内的图片会并发扫描
     for (int i = 0; i < _updateInfos.length; i++) {
@@ -512,8 +527,10 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
     }
 
     if (mounted) {
+      stopwatch.stop();
       setState(() {
         _isScanning = false;
+        _scanDuration = stopwatch.elapsed;
         // 扫描完成后，确保所有作品的扫描状态都被重置
         for (var info in _updateInfos) {
           info.isScanning = false;
@@ -885,6 +902,38 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
                       },
             ),
           ),
+          SizedBox(width: 16),
+          // 快速扫描选项
+          Row(
+            children: [
+              Checkbox(
+                value: _isFastScan,
+                onChanged:
+                    _isScanning || _isUpdating
+                        ? null
+                        : (value) {
+                          if (value != null) {
+                            setState(() {
+                              _isFastScan = value;
+                            });
+                          }
+                        },
+              ),
+              Text(
+                '快速扫描',
+                style: TextStyle(fontSize: 14),
+                // 添加 tooltip 解释快速扫描
+              ),
+              Tooltip(
+                message: '如果文件大小未发生变化，则跳过图片尺寸校验。\n这将显著加快扫描速度。',
+                child: Icon(
+                  Icons.help_outline,
+                  size: 16,
+                  color: Colors.grey[600],
+                ),
+              ),
+            ],
+          ),
           Spacer(),
           if (_isScanning || _isUpdating)
             Padding(
@@ -929,6 +978,7 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
           _buildFilterChip('无变化', UpdateResultType.unchanged),
           Spacer(),
           Text(
+            '${_scanDuration != null ? '耗时: ${_scanDuration!.inSeconds}s | ' : ''}'
             '总计: ${_updateInfos.length} | '
             '有变化: ${_updateInfos.where((e) => e.hasChanges).length} | '
             '损坏: ${_updateInfos.where((e) => e.hasBroken).length} | '
