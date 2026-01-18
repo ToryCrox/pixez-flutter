@@ -18,6 +18,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/monitor/network_speed_monitor.dart';
+import 'package:pixez/page/debug/network_log_page.dart';
 
 class FloatingNetworkSpeedBall extends StatefulWidget {
   const FloatingNetworkSpeedBall({super.key});
@@ -112,43 +113,46 @@ class _FloatingNetworkSpeedBallState extends State<FloatingNetworkSpeedBall> {
     return Positioned(
       left: displayX,
       bottom: screenSize.height - displayY - 60,
-      child: Material(
-        color: Colors.transparent,
-        child: GestureDetector(
-          onPanStart: (_) {
-            setState(() {
-              _isDragging = true;
-              // 如果是右贴边（特殊值 -1.0），先转换为实际坐标
-              if (_x < 0) {
-                _x = screenSize.width - 88;
-              }
-            });
-          },
-          onPanUpdate: (details) {
-            setState(() {
-              _x += details.delta.dx;
-              _y += details.delta.dy;
+      child: GestureDetector(
+        onPanStart: (_) {
+          setState(() {
+            // 如果是右贴边（特殊值 -1.0），先转换为实际坐标
+            if (_x < 0) {
+              _x = screenSize.width - 88;
+            }
+          });
+        },
+        onPanUpdate: (details) {
+          setState(() {
+            _isDragging = true;
+            _x += details.delta.dx;
+            _y += details.delta.dy;
 
-              _x = _x.clamp(0.0, screenSize.width - 80);
-              _y = _y.clamp(0.0, screenSize.height - 80);
-            });
-          },
-          onPanEnd: (_) {
-            setState(() {
-              _isDragging = false;
-              final centerX = _x + 40;
-              if (centerX < screenSize.width / 2) {
-                // 左贴边
-                _x = 8.0;
-              } else {
-                // 右贴边，保存特殊值 -1.0
-                _x = -1.0;
-              }
-              _savePosition();
-            });
-          },
-          child: _buildBall(isDark),
-        ),
+            _x = _x.clamp(0.0, screenSize.width - 80);
+            _y = _y.clamp(0.0, screenSize.height - 80);
+          });
+        },
+        onPanEnd: (_) {
+          setState(() {
+            _isDragging = false;
+            final centerX = _x + 40;
+            if (centerX < screenSize.width / 2) {
+              // 左贴边
+              _x = 8.0;
+            } else {
+              // 右贴边，保存特殊值 -1.0
+              _x = -1.0;
+            }
+            _savePosition();
+          });
+        },
+        onTap: () {
+          final context = globalNavigatorKey.currentContext;
+          if (context != null) {
+            NetworkLogPage.show(context);
+          }
+        },
+        child: _buildBall(isDark),
       ),
     );
   }

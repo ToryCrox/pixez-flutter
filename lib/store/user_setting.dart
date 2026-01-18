@@ -95,6 +95,7 @@ abstract class _UserSetting with Store {
   static const String SHOW_NETWORK_SPEED_BALL_KEY = "show_network_speed_ball";
   static const String NETWORK_SPEED_BALL_X_KEY = "network_speed_ball_x";
   static const String NETWORK_SPEED_BALL_Y_KEY = "network_speed_ball_y";
+  static const String IS_NETWORK_LOG_COLLECTING_KEY = "is_network_log_collecting";
 
   @observable
   double dragStartX = 0;
@@ -218,6 +219,8 @@ abstract class _UserSetting with Store {
   double networkSpeedBallX = 16.0;
   @observable
   double networkSpeedBallY = 0.0;
+  @observable
+  bool isNetworkLogCollecting = false;
 
   static const String intialFormat = "{illust_id}_p{part}";
 
@@ -257,6 +260,12 @@ abstract class _UserSetting with Store {
     networkSpeedBallY = y;
     await prefs.setDouble(NETWORK_SPEED_BALL_X_KEY, x);
     await prefs.setDouble(NETWORK_SPEED_BALL_Y_KEY, y);
+  }
+
+  @action
+  setNetworkLogCollecting(bool value) async {
+    isNetworkLogCollecting = value;
+    await prefs.setBool(IS_NETWORK_LOG_COLLECTING_KEY, value);
   }
 
   @action
@@ -551,6 +560,7 @@ abstract class _UserSetting with Store {
     showNetworkSpeedBall = prefs.getBool(SHOW_NETWORK_SPEED_BALL_KEY) ?? false;
     networkSpeedBallX = prefs.getDouble(NETWORK_SPEED_BALL_X_KEY) ?? 16.0;
     networkSpeedBallY = prefs.getDouble(NETWORK_SPEED_BALL_Y_KEY) ?? 0.0;
+    isNetworkLogCollecting = prefs.getBool(IS_NETWORK_LOG_COLLECTING_KEY) ?? false;
     if (Platform.isAndroid) {
       try {
         await SecurePlugin.configSecureWindow(nsfwMask);

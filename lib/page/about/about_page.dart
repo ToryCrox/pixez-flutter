@@ -29,6 +29,7 @@ import 'package:pixez/i18n.dart';
 import 'package:pixez/page/about/contributors.dart';
 import 'package:pixez/page/about/thanks_list.dart';
 import 'package:pixez/page/about/update_page.dart';
+import 'package:pixez/page/debug/network_log_page.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
@@ -318,6 +319,14 @@ class _AboutPageState extends State<AboutPage> {
             leading: Icon(Icons.email),
             title: Text(I18n.of(context).feedback),
             subtitle: Text('PxezFeedBack@outlook.com'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.network_check),
+            title: const Text('Network Logs'),
+            subtitle: const Text('View app network requests'),
+            onTap: () {
+              NetworkLogPage.show(context);
+            },
           ),
           ListTile(
             leading: Icon(Icons.stars),
