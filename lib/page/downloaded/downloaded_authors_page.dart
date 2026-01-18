@@ -106,6 +106,27 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
             );
           },
         ),
+        PopupMenuButton<String>(
+          icon: Icon(Icons.more_vert),
+          tooltip: '更多选项',
+          onSelected: (value) {
+            if (value == 'update_all') {
+              _updateAllAuthorsStats();
+            }
+          },
+          itemBuilder: (context) => [
+            PopupMenuItem(
+              value: 'update_all',
+              child: Row(
+                children: [
+                  Icon(Icons.refresh, size: 20),
+                  SizedBox(width: 8),
+                  Text('更新所有作者信息'),
+                ],
+              ),
+            ),
+          ],
+        ),
       ],
     );
   }
@@ -287,6 +308,229 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
       gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
           maxCrossAxisExtent: 600, mainAxisExtent: 210),
     );
+  }
+
+  Future<void> _updateAllAuthorsStats() async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => _UpdateAuthorsDialog(store: _store),
+    );
+  }
+}
+
+/// 批量更新作者信息的对话框
+class _UpdateAuthorsDialog extends StatefulWidget {
+  final DownloadedAuthorsPageStore store;
+
+  const _UpdateAuthorsDialog({required this.store});
+
+  @override
+  State<_UpdateAuthorsDialog> createState() => _UpdateAuthorsDialogState();
+}
+
+class _UpdateAuthorsDialogState extends State<_UpdateAuthorsDialog> {
+  // 对话框状态：idle（初始）、updating（更新中）、completed（完成）、error（错误）
+  String _status = 'idle';
+  int _current = 0;
+  int _total = 0;
+  String? _errorMessage;
+
+  Future<void> _startUpdate() async {
+    setState(() {
+      _status = 'updating';
+      _current = 0;
+      _total = 0;
+    });
+
+    try {
+      await widget.store.updateAllAuthorsStats(
+        onProgress: (current, total) {
+          if (mounted) {
+            setState(() {
+              _current = current;
+              _total = total;
+            });
+          }
+        },
+      );
+      
+      if (mounted) {
+        setState(() {
+          _status = 'completed';
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _status = 'error';
+          _errorMessage = e.toString();
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(_getTitle()),
+      content: _buildContent(),
+      actions: _buildActions(),
+    );
+  }
+
+  String _getTitle() {
+    switch (_status) {
+      case 'idle':
+        return '更新作者信息';
+      case 'updating':
+        return '正在更新...';
+      case 'completed':
+        return '更新完成';
+      case 'error':
+        return '更新失败';
+      default:
+        return '更新作者信息';
+    }
+  }
+
+  Widget _buildContent() {
+    switch (_status) {
+      case 'idle':
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('将重新计算所有作者的统计信息：'),
+            SizedBox(height: 8),
+            Text('• 作品数量', style: TextStyle(fontSize: 14, color: Colors.grey[600])),
+            Text('• 图片数量', style: TextStyle(fontSize: 14, color: Colors.grey[600])),
+            Text('• 文件大小', style: TextStyle(fontSize: 14, color: Colors.grey[600])),
+            SizedBox(height: 16),
+            Text('是否继续？', style: TextStyle(fontWeight: FontWeight.bold)),
+          ],
+        );
+      
+      case 'updating':
+        final progress = _total > 0 ? _current / _total : 0.0;
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            LinearProgressIndicator(value: progress),
+            SizedBox(height: 16),
+            Text(
+              _total == 0 ? '正在准备...' : '进度: $_current / $_total',
+              style: TextStyle(fontSize: 16),
+            ),
+            if (_total > 0) ...[
+              SizedBox(height: 8),
+              Text(
+                '${(progress * 100).toStringAsFixed(1)}%',
+                style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+              ),
+            ],
+          ],
+        );
+      
+      case 'completed':
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.green, size: 48),
+                SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '成功更新',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        '已更新 $_total 位作者的信息',
+                        style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        );
+      
+      case 'error':
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.error, color: Colors.red, size: 48),
+                SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '更新失败',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        _errorMessage ?? '未知错误',
+                        style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        );
+      
+      default:
+        return SizedBox.shrink();
+    }
+  }
+
+  List<Widget> _buildActions() {
+    switch (_status) {
+      case 'idle':
+        return [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text('取消'),
+          ),
+          ElevatedButton(
+            onPressed: _startUpdate,
+            child: Text('开始'),
+          ),
+        ];
+      
+      case 'updating':
+        return [
+          TextButton(
+            onPressed: null, // 更新中不允许取消
+            child: Text('更新中...'),
+          ),
+        ];
+      
+      case 'completed':
+      case 'error':
+        return [
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text('完成'),
+          ),
+        ];
+      
+      default:
+        return [];
+    }
   }
 }
 

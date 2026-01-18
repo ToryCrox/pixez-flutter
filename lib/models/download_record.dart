@@ -1579,6 +1579,15 @@ class DownloadDatabaseProvider {
     return maps.map((e) => DownloadedAuthor.fromJson(e)).toList();
   }
 
+  /// 获取所有作者（不分页）
+  Future<List<DownloadedAuthor>> getAllAuthors() async {
+    final List<Map<String, dynamic>> maps = await db.query(
+      DownloadedAuthorColumns.tableName,
+      orderBy: '${DownloadedAuthorColumns.lastDownloadTime} DESC',
+    );
+    return maps.map((map) => DownloadedAuthor.fromJson(map)).toList();
+  }
+
   /// 更新作者统计信息（从插画表重新计算）
   Future<void> updateAuthorStats(int userId) async {
     // 获取插画数量

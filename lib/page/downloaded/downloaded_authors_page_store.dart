@@ -39,6 +39,8 @@ const String _downloadedAuthorsSortTypeKey = 'downloaded_authors_sort_type';
 const String _downloadedAuthorsShowLatestPublishedKey = 'downloaded_authors_show_latest_published';
 const String _downloadedAuthorsSortDescKey = 'downloaded_authors_sort_desc';
 
+typedef AuthorUpdateProgressCallback = void Function(int current, int total);
+
 class DownloadedAuthorsPageStore = _DownloadedAuthorsPageStoreBase with _$DownloadedAuthorsPageStore;
 
 abstract class _DownloadedAuthorsPageStoreBase with Store {
@@ -253,6 +255,29 @@ abstract class _DownloadedAuthorsPageStoreBase with Store {
     _showLatestPublished = value;
     // 持久化显示模式
     Prefer.setBool(_downloadedAuthorsShowLatestPublishedKey, value);
+  }
+
+  /// 批量更新所有作者的统计信息
+  @action
+  Future<void> updateAllAuthorsStats({
+    AuthorUpdateProgressCallback? onProgress,
+  }) async {
+    if (!downloadStore.isInitialized) {
+      throw Exception('下载功能未初始化');
+    }
+
+    // 从数据库获取所有作者
+    final allAuthors = await downloadStore.dbProvider.getAllAuthors();
+    
+    final total = allAuthors.length;
+    for (int i = 0; i < total; i++) {
+      final author = allAuthors[i];
+      await downloadStore.dbProvider.updateAuthorStats(author.userId);
+      onProgress?.call(i + 1, total);
+    }
+    
+    // 更新完成后刷新列表
+    await loadData(refresh: true);
   }
 
   /// 预加载作者的插画数据（最新下载和最新发布）
