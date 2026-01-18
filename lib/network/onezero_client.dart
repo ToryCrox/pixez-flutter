@@ -18,6 +18,7 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:dio/io.dart';
+import 'package:pixez/debug/network_logger.dart';
 import 'package:pixez/models/onezero_response.dart';
 
 class OnezeroClient {
@@ -32,6 +33,7 @@ class OnezeroClient {
         httpClient.badCertificateCallback = (X509Certificate cert, String host, int port) => true;
         return httpClient;
       });
+      this.httpClient.interceptors.add(NetworkLogInterceptor());
   }
 
   //     @GET("dns-query")

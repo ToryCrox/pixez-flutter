@@ -28,6 +28,7 @@ import 'package:pixez/er/hoster.dart';
 import 'package:pixez/models/account.dart';
 import 'package:pixez/network/oauth_client.dart';
 import 'package:rhttp/rhttp.dart' as r;
+import 'package:pixez/debug/network_logger.dart';
 
 class AccountClient {
   Dio? _httpClient;
@@ -115,6 +116,7 @@ class AccountClient {
       dio.interceptors.add(LogInterceptor(
           responseBody: true, responseHeader: true, requestBody: true));
     }
+    dio.interceptors.add(NetworkLogInterceptor());
     final compatibleClient = await r.RhttpCompatibleClient.create(
         settings: Hoster.createApiClientSettings());
     dio.httpClientAdapter = ConversionLayerAdapter(compatibleClient);

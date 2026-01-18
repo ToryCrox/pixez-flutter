@@ -19,6 +19,7 @@ import 'package:pixez/er/prefer.dart';
 import 'package:pixez/i18n.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/network/api_client.dart';
+import 'package:pixez/debug/network_logger.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
@@ -43,6 +44,7 @@ class Sauce extends _$Sauce {
   late ObservableStream observableStream;
 
   Sauce() {
+    dio.interceptors.add(NetworkLogInterceptor());
     _streamController = StreamController();
     observableStream =
         ObservableStream(_streamController.stream.asBroadcastStream());

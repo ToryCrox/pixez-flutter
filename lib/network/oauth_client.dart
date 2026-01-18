@@ -27,6 +27,7 @@ import 'package:pixez/constants.dart';
 import 'package:pixez/crypto_plugin.dart';
 import 'package:pixez/er/hoster.dart';
 import 'package:pixez/debug/mana_manager.dart';
+import 'package:pixez/debug/network_logger.dart';
 import 'package:rhttp/rhttp.dart' as r;
 
 final OAuthClient oAuthClient = OAuthClient();
@@ -93,6 +94,7 @@ class OAuthClient {
       httpClient.interceptors.add(LogInterceptor(
           responseBody: true, responseHeader: true, requestBody: true));
     }
+    httpClient.interceptors.add(NetworkLogInterceptor());
   }
 
   static String getHash(String string) {
