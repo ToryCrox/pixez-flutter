@@ -262,8 +262,7 @@ abstract class _DownloadedPageStoreBase with Store {
           offset: 0,
           orderBy: orderBy,
         );
-      }
-      if (_filterTagName != null && _filterTagName!.isNotEmpty) {
+      } else if (_filterTagName != null && _filterTagName!.isNotEmpty) {
         illusts = await downloadStore.searchDownloadedByTagName(
           _filterTagName!,
           limit: _pageSize,
@@ -335,8 +334,7 @@ abstract class _DownloadedPageStoreBase with Store {
           offset: offset,
           orderBy: orderBy,
         );
-      }
-      if (_filterTagName != null && _filterTagName!.isNotEmpty) {
+      } else if (_filterTagName != null && _filterTagName!.isNotEmpty) {
         moreIllusts = await downloadStore.searchDownloadedByTagName(
           _filterTagName!,
           limit: _pageSize,
@@ -393,7 +391,9 @@ abstract class _DownloadedPageStoreBase with Store {
       String? searchKeyword;
       String? tagName;
 
-      if (_filterUserId != null) {
+      if (_downloadFilter == DownloadFilter.incomplete) {
+        filterType = 'incomplete';
+      } else if (_filterUserId != null) {
         filterType = 'user';
         userId = _filterUserId;
       } else if (_filterTagName != null && _filterTagName!.isNotEmpty) {
@@ -402,8 +402,6 @@ abstract class _DownloadedPageStoreBase with Store {
       } else if (_searchKeyword != null && _searchKeyword!.isNotEmpty) {
         filterType = 'search';
         searchKeyword = _searchKeyword;
-      } else if (_downloadFilter == DownloadFilter.incomplete) {
-        filterType = 'incomplete';
       }
 
       final stats = await downloadStore.getFilteredStats(

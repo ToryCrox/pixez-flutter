@@ -79,17 +79,26 @@ class UpdateIllustInfo {
     final isUgoira = illust.isUgoira;
     if (isUgoira) {
       // 动图特殊处理：检查预览图(part=0)和帧文件(part>=1)
-      final hasPreview = imageUpdates.any((e) =>
-          e.originalImage.part == 0 && !e.isBroken && !e.isFileNotFound);
-      final frameCount = imageUpdates.where((e) =>
-          e.originalImage.part >= 1 && !e.isBroken && !e.isFileNotFound).length;
+      final hasPreview = imageUpdates.any(
+        (e) => e.originalImage.part == 0 && !e.isBroken && !e.isFileNotFound,
+      );
+      final frameCount =
+          imageUpdates
+              .where(
+                (e) =>
+                    e.originalImage.part >= 1 &&
+                    !e.isBroken &&
+                    !e.isFileNotFound,
+              )
+              .length;
 
       // 获取元数据中的帧数
       final metadata = illust.getUgoiraMetadata();
       final expectedFrames = metadata?.frames.length ?? 0;
 
       // 动图完整：有预览图 且 帧数符合预期
-      isIncomplete = !hasPreview || (expectedFrames > 0 && frameCount < expectedFrames);
+      isIncomplete =
+          !hasPreview || (expectedFrames > 0 && frameCount < expectedFrames);
     } else {
       // 普通插画：比较 pageCount 和实际下载的图片数量
       final downloadedCount =
@@ -100,10 +109,11 @@ class UpdateIllustInfo {
     // 检测物化字段是否一致
     // 只在扫描完成后检测（imageUpdates 不为空）
     if (imageUpdates.isNotEmpty) {
-      final actualCount = imageUpdates.where((e) => !e.isBroken && !e.isFileNotFound).length;
+      final actualCount =
+          imageUpdates.where((e) => !e.isBroken && !e.isFileNotFound).length;
 
       // 检查是否与物化字段不一致
-      hasStatsInconsistency = 
+      hasStatsInconsistency =
           illust.downloadedImageCount != actualCount ||
           illust.totalFileSize != totalSizeScanned;
     }
@@ -122,7 +132,7 @@ class UpdateIllustInfo {
     for (var update in imageUpdates) {
       if (update.newFileSize != null) {
         totalSizeScanned += update.newFileSize!;
-      } else if (!update.isBroken) {
+      } else if (!update.isBroken && !update.isFileNotFound) {
         // 如果文件存在但没有扫描到大小，使用数据库中的大小
         totalSizeScanned += update.originalImage.fileSize;
       }
@@ -350,12 +360,18 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
       for (int j = batchStart; j < batchEnd; j++) {
         final image = images[j];
         // 动图：仅对帧图片(part>=1)使用已知宽高，预览图(part=0)正常扫描
-        final useKnownSize = illust.isUgoira && image.part >= 1 && knownWidth != null && knownHeight != null;
-        futures.add(_scanSingleImage(
-          image,
-          knownWidth: useKnownSize ? knownWidth : null,
-          knownHeight: useKnownSize ? knownHeight : null,
-        ));
+        final useKnownSize =
+            illust.isUgoira &&
+            image.part >= 1 &&
+            knownWidth != null &&
+            knownHeight != null;
+        futures.add(
+          _scanSingleImage(
+            image,
+            knownWidth: useKnownSize ? knownWidth : null,
+            knownHeight: useKnownSize ? knownHeight : null,
+          ),
+        );
       }
 
       // 并发执行当前批次的所有扫描任务
@@ -370,8 +386,11 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
         );
         // 只有当扫描的是帧图片时才提取宽高
         if (firstFrameResult.originalImage.part >= 1) {
-          knownWidth = firstFrameResult.newWidth ?? firstFrameResult.originalImage.width;
-          knownHeight = firstFrameResult.newHeight ?? firstFrameResult.originalImage.height;
+          knownWidth =
+              firstFrameResult.newWidth ?? firstFrameResult.originalImage.width;
+          knownHeight =
+              firstFrameResult.newHeight ??
+              firstFrameResult.originalImage.height;
           batchCount = _concurrentCount;
         }
       }
@@ -527,7 +546,9 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
   static Future<Size?> _parseImageSizeAsync(String filePath) async {
     try {
       final file = File(filePath);
-      final size = await ImageSizeGetter.getSizeResultAsync(_AsyncFileInput(file));
+      final size = await ImageSizeGetter.getSizeResultAsync(
+        _AsyncFileInput(file),
+      );
       return Size(size.size.width.toDouble(), size.size.height.toDouble());
     } catch (e) {
       return null;
@@ -585,8 +606,7 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
     // 更新后缀名
     if (imageUpdate.newExtension != null &&
         imageUpdate.newExtension != image.extension) {
-      updateData[DownloadedImageColumns.extension] =
-          imageUpdate.newExtension;
+      updateData[DownloadedImageColumns.extension] = imageUpdate.newExtension;
       needUpdate = true;
     }
 
@@ -618,7 +638,11 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
     final toUpdateCount =
         _updateInfos
             .where(
-              (info) => !info.isScanning && (info.hasChanges || info.hasBroken || info.hasStatsInconsistency),
+              (info) =>
+                  !info.isScanning &&
+                  (info.hasChanges ||
+                      info.hasBroken ||
+                      info.hasStatsInconsistency),
             )
             .length;
 
@@ -648,12 +672,13 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
         if (updateInfo.isScanning) {
           continue; // 跳过正在扫描的作品
         }
-        if (!updateInfo.hasChanges && !updateInfo.hasBroken && !updateInfo.hasStatsInconsistency) {
+        if (!updateInfo.hasChanges &&
+            !updateInfo.hasBroken &&
+            !updateInfo.hasStatsInconsistency) {
           continue;
         }
 
         bool hasDeletedBroken = false; // 当前作品是否有删除损坏文件
-
 
         for (final imageUpdate in updateInfo.imageUpdates) {
           if (imageUpdate.isBroken || imageUpdate.isFileNotFound) {
@@ -678,15 +703,39 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
           }
         }
 
-        // 更新作者表统计信息（如果有变化、删除了损坏文件、或统计不一致）
-        if (updateInfo.hasChanges || hasDeletedBroken || updateInfo.hasStatsInconsistency) {
+        // 如果有变化、删除了损坏文件、或统计不一致，都需要重新计算统计信息
+        if (updateInfo.hasChanges ||
+            hasDeletedBroken ||
+            updateInfo.hasStatsInconsistency) {
+          // 记录修复的统计不一致数量
+          if (updateInfo.hasStatsInconsistency) {
+            fixedStatsCount++;
+          }
+
+          // 1. 先更新插画自身的数据库统计（确保基础数据准确）
+          await downloadStore.dbProvider.batchRecalculateIllustStats([
+            updateInfo.illust.illustId,
+          ]);
+
+          // 2. 更新内存状态
+          final actualCount =
+              updateInfo.imageUpdates
+                  .where((e) => !e.isBroken && !e.isFileNotFound)
+                  .length;
+          final actualSize = updateInfo.totalSizeScanned;
+
+          // 直接更新内部数据，保持原有扫描详细状态
+          updateInfo.illust = updateInfo.illust.copyWith(
+            downloadedImageCount: actualCount,
+            totalFileSize: actualSize,
+          );
+          updateInfo.totalSizeInDb = actualSize;
+          updateInfo.refreshFlags();
+
+          // 3. 最后基于修正后的作品数据，更新作者的汇总统计
           await downloadStore.dbProvider.updateAuthorStats(
             updateInfo.illust.userId,
           );
-        }
-
-        if (updateInfo.hasStatsInconsistency) {
-          fixedStatsCount++;
         }
 
         // 更新进度
@@ -694,33 +743,6 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
           setState(() {
             _updatingProgress++;
           });
-        }
-      }
-
-      final illustIdsToUpdate = _updateInfos
-          .where((info) => !info.isScanning && (info.hasChanges || info.hasBroken || info.hasStatsInconsistency))
-          .map((info) => info.illust.illustId)
-          .toList();
-
-      // 批量统计更新完成后，直接原地更新内存对象以同步状态
-      if (illustIdsToUpdate.isNotEmpty) {
-        await downloadStore.dbProvider.batchRecalculateIllustStats(illustIdsToUpdate);
-        
-        final updateSet = illustIdsToUpdate.toSet();
-        for (int i = 0; i < _updateInfos.length; i++) {
-          final info = _updateInfos[i];
-          if (updateSet.contains(info.illust.illustId)) {
-            final actualCount = info.imageUpdates.where((e) => !e.isBroken && !e.isFileNotFound).length;
-            final actualSize = info.totalSizeScanned;
-            
-            // 直接更新内部数据，保持原有扫描详细状态
-            info.illust = info.illust.copyWith(
-              downloadedImageCount: actualCount,
-              totalFileSize: actualSize,
-            );
-            info.totalSizeInDb = actualSize;
-            info.refreshFlags();
-          }
         }
       }
 
@@ -841,24 +863,26 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
               value: _concurrentCount,
               underline: SizedBox(),
               isDense: true,
-              items: List.generate(10, (index) => index + 1)
-                  .map(
-                    (value) => DropdownMenuItem(
-                      value: value,
-                      child: Text('$value'),
-                    ),
-                  )
-                  .toList(),
-              onChanged: _isScanning || _isUpdating
-                  ? null
-                  : (value) {
-                      if (value != null) {
-                        setState(() {
-                          _concurrentCount = value;
-                        });
-                        userSetting.setUpdateIllustConcurrentCount(value);
-                      }
-                    },
+              items:
+                  List.generate(10, (index) => index + 1)
+                      .map(
+                        (value) => DropdownMenuItem(
+                          value: value,
+                          child: Text('$value'),
+                        ),
+                      )
+                      .toList(),
+              onChanged:
+                  _isScanning || _isUpdating
+                      ? null
+                      : (value) {
+                        if (value != null) {
+                          setState(() {
+                            _concurrentCount = value;
+                          });
+                          userSetting.setUpdateIllustConcurrentCount(value);
+                        }
+                      },
             ),
           ),
           Spacer(),
@@ -951,16 +975,16 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
                         ),
                       )
                       : ListViewObserver(
-                          controller: _observerController,
-                          child: ListView.builder(
-                            controller: _scrollController,
-                            itemCount: _filteredInfos.length,
-                            itemBuilder: (context, index) {
-                              final info = _filteredInfos[index];
-                              return _buildIllustItem(info);
-                            },
-                          ),
+                        controller: _observerController,
+                        child: ListView.builder(
+                          controller: _scrollController,
+                          itemCount: _filteredInfos.length,
+                          itemBuilder: (context, index) {
+                            final info = _filteredInfos[index];
+                            return _buildIllustItem(info);
+                          },
                         ),
+                      ),
             ),
 
             // 底部按钮栏
@@ -1019,7 +1043,9 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
                                   _updateInfos.every(
                                     (e) =>
                                         e.isScanning ||
-                                        (!e.hasChanges && !e.hasBroken && !e.hasStatsInconsistency),
+                                        (!e.hasChanges &&
+                                            !e.hasBroken &&
+                                            !e.hasStatsInconsistency),
                                   )
                               ? null
                               : _performUpdate,
@@ -1043,7 +1069,10 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
                           _isUpdating ||
                                   _scannedCount == 0 ||
                                   _updateInfos.every(
-                                    (e) => !e.hasChanges && !e.hasBroken && !e.hasStatsInconsistency,
+                                    (e) =>
+                                        !e.hasChanges &&
+                                        !e.hasBroken &&
+                                        !e.hasStatsInconsistency,
                                   )
                               ? null
                               : _performUpdate,
@@ -1082,14 +1111,17 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
     bool hasBroken,
     bool isIncomplete,
     bool hasStatsInconsistency,
-  }) _determineIllustStatus(UpdateIllustInfo info) {
+  })
+  _determineIllustStatus(UpdateIllustInfo info) {
     final isScanning = _isScanning && info.isScanning && !_isPaused;
     final isPaused = _isPaused && info.isScanning;
-    final isWaiting = _isScanning &&
+    final isWaiting =
+        _isScanning &&
         !info.isScanning &&
         info.imageUpdates.isEmpty &&
         !isPaused;
-    final isNotScanned = !_isScanning &&
+    final isNotScanned =
+        !_isScanning &&
         !isScanning &&
         info.imageUpdates.isEmpty &&
         _scannedCount == 0;
@@ -1113,7 +1145,8 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
     IconData leadingIcon,
     Color iconColor,
     String statusText,
-  }) _getStyleConfig(
+  })
+  _getStyleConfig(
     ({
       bool isScanning,
       bool isPaused,
@@ -1123,7 +1156,8 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
       bool hasBroken,
       bool isIncomplete,
       bool hasStatsInconsistency,
-    }) status,
+    })
+    status,
   ) {
     if (status.isScanning) {
       return (
@@ -1290,18 +1324,16 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
             child: InkWell(
               borderRadius: BorderRadius.circular(20),
               onTap: () async {
-                final dirPath = downloadStore.getIllustDirectoryPath(info.illust);
+                final dirPath = downloadStore.getIllustDirectoryPath(
+                  info.illust,
+                );
                 if (dirPath != null) {
                   await OpenFile.open(dirPath);
                 }
               },
               child: Container(
                 padding: EdgeInsets.all(6),
-                child: Icon(
-                  Icons.folder_open,
-                  color: iconColor,
-                  size: 20,
-                ),
+                child: Icon(Icons.folder_open, color: iconColor, size: 20),
               ),
             ),
           ),
@@ -1320,9 +1352,10 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
             onTap: () {
               Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (context) => Scaffold(
-                    body: IllustLightingPage(id: info.illust.illustId),
-                  ),
+                  builder:
+                      (context) => Scaffold(
+                        body: IllustLightingPage(id: info.illust.illustId),
+                      ),
                 ),
               );
             },
@@ -1357,17 +1390,24 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
   String _getIncompleteText(UpdateIllustInfo info) {
     if (info.illust.isUgoira) {
       // 动图：统计帧文件数量(part>=1)
-      final frameCount = info.imageUpdates
-          .where((e) => e.originalImage.part >= 1 && !e.isBroken && !e.isFileNotFound)
-          .length;
+      final frameCount =
+          info.imageUpdates
+              .where(
+                (e) =>
+                    e.originalImage.part >= 1 &&
+                    !e.isBroken &&
+                    !e.isFileNotFound,
+              )
+              .length;
       final metadata = info.illust.getUgoiraMetadata();
       final expectedFrames = metadata?.frames.length ?? 0;
       return '($frameCount/$expectedFrames帧)';
     } else {
       // 普通插画
-      final downloadedCount = info.imageUpdates
-          .where((e) => !e.isBroken && !e.isFileNotFound)
-          .length;
+      final downloadedCount =
+          info.imageUpdates
+              .where((e) => !e.isBroken && !e.isFileNotFound)
+              .length;
       return '($downloadedCount/${info.illust.pageCount})';
     }
   }
@@ -1468,56 +1508,68 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
                       ],
                     ],
                   ),
-                    if (info.hasStatsInconsistency) ...[
-                      SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Icon(Icons.numbers, size: 12, color: Colors.amber[800]),
-                          SizedBox(width: 4),
-                          Text(
-                            '图片数: ${info.illust.downloadedImageCount} → ${info.imageUpdates.where((e) => !e.isBroken && !e.isFileNotFound).length}',
-                            style: TextStyle(fontSize: 12, color: Colors.amber[900], fontWeight: FontWeight.bold),
+                  if (info.hasStatsInconsistency) ...[
+                    SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Icon(Icons.numbers, size: 12, color: Colors.amber[800]),
+                        SizedBox(width: 4),
+                        Text(
+                          '图片数: ${info.illust.downloadedImageCount} → ${info.imageUpdates.where((e) => !e.isBroken && !e.isFileNotFound).length}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.amber[900],
+                            fontWeight: FontWeight.bold,
                           ),
-                          SizedBox(width: 12),
-                          Icon(Icons.sd_storage, size: 12, color: Colors.amber[800]),
-                          SizedBox(width: 4),
-                          Text(
-                            '大小: ${info.illust.totalFileSize.formatFileSize()} → ${info.totalSizeScanned.formatFileSize()}',
-                            style: TextStyle(fontSize: 12, color: Colors.amber[900], fontWeight: FontWeight.bold),
+                        ),
+                        SizedBox(width: 12),
+                        Icon(
+                          Icons.sd_storage,
+                          size: 12,
+                          color: Colors.amber[800],
+                        ),
+                        SizedBox(width: 4),
+                        Text(
+                          '大小: ${info.illust.totalFileSize.formatFileSize()} → ${info.totalSizeScanned.formatFileSize()}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.amber[900],
+                            fontWeight: FontWeight.bold,
                           ),
-                        ],
-                      ),
-                    ] else if (!isNotScanned &&
-                        (info.totalSizeInDb > 0 ||
-                            info.totalSizeScanned > 0 ||
-                            (isScanning && info.totalImageCount > 0))) ...[
-                      SizedBox(height: 4),
-                      Row(
-                        children: [
+                        ),
+                      ],
+                    ),
+                  ] else if (!isNotScanned &&
+                      (info.totalSizeInDb > 0 ||
+                          info.totalSizeScanned > 0 ||
+                          (isScanning && info.totalImageCount > 0))) ...[
+                    SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Text(
+                          '总大小: ',
+                          style: TextStyle(fontSize: 12, color: Colors.black45),
+                        ),
+                        if (info.totalSizeInDb != info.totalSizeScanned)
                           Text(
-                            '总大小: ',
-                            style: TextStyle(fontSize: 12, color: Colors.black45),
-                          ),
-                          if (info.totalSizeInDb != info.totalSizeScanned)
-                            Text(
-                              '${info.totalSizeInDb.formatFileSize()} → ${info.totalSizeScanned.formatFileSize()}',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.orange[700],
-                                fontWeight: FontWeight.w500,
-                              ),
-                            )
-                          else
-                            Text(
-                              '${info.totalSizeInDb.formatFileSize()}',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey[600],
-                              ),
+                            '${info.totalSizeInDb.formatFileSize()} → ${info.totalSizeScanned.formatFileSize()}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.orange[700],
+                              fontWeight: FontWeight.w500,
                             ),
-                        ],
-                      ),
-                    ],
+                          )
+                        else
+                          Text(
+                            '${info.totalSizeInDb.formatFileSize()}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),
