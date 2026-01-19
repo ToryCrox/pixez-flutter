@@ -109,6 +109,21 @@ abstract class _DownloadedPageStoreBase with Store {
 
   String? get filterTagName => _filterTagName;
 
+  // ===== 多选模式状态 =====
+
+  @readonly
+  bool _isMultiSelectMode = false;
+
+  @readonly
+  ObservableSet<int> _selectedIllustIds = ObservableSet();
+
+  // ===== 拖拽设置状态 =====
+  
+  static const String _dragOnlyNonWebpKey = 'drag_only_non_webp';
+
+  @readonly
+  bool _dragOnlyNonWebp = false;
+
   // ===== 计算属性 =====
 
   /// 根据过滤条件筛选后的插画列表
@@ -210,6 +225,11 @@ abstract class _DownloadedPageStoreBase with Store {
     final sortDesc = Prefer.getBool(_downloadedIllustsSortDescKey);
     if (sortDesc != null) {
       _sortDesc = sortDesc;
+    }
+
+    final dragOnlyNonWebp = Prefer.getBool(_dragOnlyNonWebpKey);
+    if (dragOnlyNonWebp != null) {
+      _dragOnlyNonWebp = dragOnlyNonWebp;
     }
   }
 
@@ -563,5 +583,63 @@ abstract class _DownloadedPageStoreBase with Store {
     await loadData();
     await loadStats();
     easyRefreshController?.finishRefresh();
+  }
+
+  // ===== 多选模式 Actions =====
+
+  @action
+  void toggleMultiSelectMode() {
+    _isMultiSelectMode = !_isMultiSelectMode;
+    if (!_isMultiSelectMode) {
+      _selectedIllustIds.clear();
+    }
+  }
+
+  @action
+  void exitMultiSelectMode() {
+    _isMultiSelectMode = false;
+    _selectedIllustIds.clear();
+  }
+
+  @action
+  void enterMultiSelectMode() {
+    _isMultiSelectMode = true;
+  }
+
+  @action
+  void selectItem(int id) {
+    if (_selectedIllustIds.contains(id)) {
+      _selectedIllustIds.remove(id);
+    } else {
+      _selectedIllustIds.add(id);
+    }
+  }
+
+  @action
+  void setItemSelected(int id, bool selected) {
+    if (selected) {
+      _selectedIllustIds.add(id);
+    } else {
+      _selectedIllustIds.remove(id);
+    }
+  }
+
+  @action
+  void selectAll() {
+    // 仅选择当前列表中的项
+    _selectedIllustIds.addAll(filteredIllusts.map((e) => e.illustId));
+  }
+
+  @action
+  void clearSelection() {
+    _selectedIllustIds.clear();
+  }
+
+  // ===== 拖拽设置 Actions =====
+
+  @action
+  void setDragOnlyNonWebp(bool value) {
+    _dragOnlyNonWebp = value;
+    Prefer.setBool(_dragOnlyNonWebpKey, value);
   }
 }

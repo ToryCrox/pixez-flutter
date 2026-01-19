@@ -90,6 +90,7 @@ dependencies:
   flutter_mana_kits: ^1.2.0
 
   sqlite3: any
+  super_drag_and_drop: 0.9.1
 
 dependency_overrides:
   flutter_cache_manager:

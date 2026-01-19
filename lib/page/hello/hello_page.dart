@@ -380,6 +380,7 @@ class _HelloPageState extends State<HelloPage> {
     final list = isWideScreen ? _wideLists : _lists;
     final pageView = PageView.builder(
         key: const ValueKey('hello_page_view'),
+        physics: const NeverScrollableScrollPhysics(),
         itemCount: list.length,
         controller: _pageController,
         onPageChanged: (index) {
