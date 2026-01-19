@@ -124,6 +124,14 @@ abstract class _DownloadedPageStoreBase with Store {
   @readonly
   bool _dragOnlyNonWebp = false;
 
+  @observable
+  bool disableMouseDragScroll = false;
+
+  @action
+  void toggleMouseDragScroll() {
+    disableMouseDragScroll = !disableMouseDragScroll;
+  }
+
   // ===== 计算属性 =====
 
   /// 根据过滤条件筛选后的插画列表

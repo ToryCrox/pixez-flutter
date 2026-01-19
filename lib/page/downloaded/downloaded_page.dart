@@ -14,6 +14,7 @@
  */
 
 import 'package:easy_refresh/easy_refresh.dart';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:pixez/utils/file_utils.dart';
@@ -247,6 +248,11 @@ class _DownloadedPageState extends State<DownloadedPage> {
           checked: _store.dragOnlyNonWebp,
           child: Text('仅拖拽非WebP图片'),
         ),
+        CheckedPopupMenuItem(
+          value: 'toggle_mouse_drag_scroll',
+          checked: _store.disableMouseDragScroll,
+          child: Text('禁用鼠标拖拽滚动'),
+        ),
       ],
     );
   }
@@ -282,6 +288,9 @@ class _DownloadedPageState extends State<DownloadedPage> {
         break;
       case 'optimize_json':
         OptimizeJsonDialog.show(context, downloadStore);
+        break;
+      case 'toggle_mouse_drag_scroll':
+        _store.toggleMouseDragScroll();
         break;
     }
   }
@@ -444,14 +453,26 @@ class _DownloadedPageState extends State<DownloadedPage> {
       header: PixezDefault.header(context),
       footer: PixezDefault.footer(context),
       childBuilder: (context, physics, scrollController) {
-        return CustomScrollView(
-          physics: physics,
-          controller: scrollController,
-          slivers: [
-            _buildSortHeader(),
-            _buildGridView(),
-          ],
-        );
+        return Observer(builder: (context) {
+          return ScrollConfiguration(
+            behavior: _store.disableMouseDragScroll
+                ? ScrollConfiguration.of(context).copyWith(
+                    dragDevices: ScrollConfiguration.of(context)
+                        .dragDevices
+                        .where((k) => k != PointerDeviceKind.mouse)
+                        .toSet(),
+                  )
+                : ScrollConfiguration.of(context),
+            child: CustomScrollView(
+              physics: physics,
+              controller: scrollController,
+              slivers: [
+                _buildSortHeader(),
+                _buildGridView(),
+              ],
+            ),
+          );
+        });
       },
     );
   }
@@ -1029,20 +1050,52 @@ class _DownloadedIllustCard extends StatelessWidget {
       targetIllusts.add(illust);
     }
 
-    // 并行获取所有选中作品的文件路径
-    final futures = targetIllusts.map(_getIllustFileUris);
-    final results = await Future.wait(futures);
-
     final newItems = <DragConfigurationItem>[];
 
-    for (final fileUris in results) {
-      for (final uri in fileUris) {
-        final dragItem = DragItem();
-        dragItem.add(Formats.fileUri(uri));
-        newItems.add(DragConfigurationItem(
-          item: dragItem,
-          image: snapshot,
-        ));
+    if (store.dragOnlyNonWebp) {
+      // 优化：使用批量查询获取所有图片记录，避免循环 await
+      try {
+        final allImages = await downloadStore.dbProvider.getImagesByIllustIds(
+            targetIllusts.map((e) => e.illustId).toList());
+
+        // 按 illustId 分组
+        final imagesMap = <int, List<DownloadedImage>>{};
+        for (final img in allImages) {
+          imagesMap.putIfAbsent(img.illustId, () => []).add(img);
+        }
+
+        for (final targetIllust in targetIllusts) {
+          final images = imagesMap[targetIllust.illustId] ?? [];
+          for (final image in images) {
+            // 过滤非 WebP 图片
+            if (image.extension.toLowerCase() != '.webp') {
+              final fullPath = downloadStore.dbProvider
+                  .getAbsolutePath(image.relativePath, image.getFullFileName());
+              
+              final dragItem = DragItem();
+              dragItem.add(Formats.fileUri(Uri.file(fullPath)));
+              newItems.add(DragConfigurationItem(
+                item: dragItem,
+                image: snapshot,
+              ));
+            }
+          }
+        }
+      } catch (e) {
+        // Fallback or ignore
+      }
+    } else {
+      // 默认拖拽整个文件夹 (无需数据库查询，直接字符串拼接，速度极快)
+      for (final targetIllust in targetIllusts) {
+        final dirPath = downloadStore.getIllustDirectoryPath(targetIllust);
+        if (dirPath != null) {
+          final dragItem = DragItem();
+          dragItem.add(Formats.fileUri(Uri.file(dirPath)));
+          newItems.add(DragConfigurationItem(
+            item: dragItem,
+            image: snapshot,
+          ));
+        }
       }
     }
 
@@ -1055,33 +1108,8 @@ class _DownloadedIllustCard extends StatelessWidget {
     );
   }
 
-  Future<List<Uri>> _getIllustFileUris(DownloadedIllust targetIllust) async {
-    final List<Uri> fileUris = [];
-
-    if (store.dragOnlyNonWebp) {
-      // 仅拖拽非 WebP 图片 -> 从数据库读取，避免磁盘IO
-      try {
-        final images = await downloadStore.dbProvider
-            .getImagesByIllustId(targetIllust.illustId);
-        for (final image in images) {
-          if (image.extension.toLowerCase() != '.webp') {
-            final fullPath = downloadStore.dbProvider
-                .getAbsolutePath(image.relativePath, image.getFullFileName());
-            fileUris.add(Uri.file(fullPath));
-          }
-        }
-      } catch (e) {
-        // Fallback or ignore
-      }
-    } else {
-      // 默认拖拽整个文件夹
-      final dirPath = downloadStore.getIllustDirectoryPath(targetIllust);
-      if (dirPath != null) {
-        fileUris.add(Uri.file(dirPath));
-      }
-    }
-    return fileUris;
-  }
+  // 原始方法已废弃，直接在 _createDragConfiguration 中批量处理
+  // Future<List<Uri>> _getIllustFileUris...
 
   Widget _buildUgoiraBadge(BuildContext context) {
     return Positioned(

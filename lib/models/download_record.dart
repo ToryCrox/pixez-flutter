@@ -1153,6 +1153,30 @@ class DownloadDatabaseProvider {
     return maps.map((e) => DownloadedImage.fromJson(e)).toList();
   }
 
+  Future<List<DownloadedImage>> getImagesByIllustIds(List<int> illustIds) async {
+    if (illustIds.isEmpty) return [];
+    
+    // Split into batches to avoid SQLite parameter limit
+    final result = <DownloadedImage>[];
+    const batchSize = 500;
+    
+    for (int i = 0; i < illustIds.length; i += batchSize) {
+      final end = (i + batchSize < illustIds.length) ? i + batchSize : illustIds.length;
+      final batchIds = illustIds.sublist(i, end);
+      final placeholders = List.filled(batchIds.length, '?').join(',');
+      
+      List<Map<String, dynamic>> maps = await db.query(
+        DownloadedImageColumns.tableName,
+        where: '${DownloadedImageColumns.illustId} IN ($placeholders)',
+        whereArgs: batchIds,
+        orderBy: '${DownloadedImageColumns.illustId}, ${DownloadedImageColumns.part} ASC',
+      );
+      result.addAll(maps.map((e) => DownloadedImage.fromJson(e)));
+    }
+    
+    return result;
+  }
+
   /// 批量获取插画的所有图片信息及其完整路径（自动检测后缀名）
   /// 返回 Map<part, LocalImageInfo>
   ///
