@@ -29,8 +29,7 @@ import 'package:pixez/page/downloaded/downloaded_page_store.dart';
 import 'package:pixez/page/downloaded/tag_manager/tag_manager_page.dart' hide SliverChipDelegate;
 
 import 'package:super_drag_and_drop/super_drag_and_drop.dart';
-import 'dart:io';
-import 'package:path/path.dart' as path;
+
 
 import 'package:pixez/page/downloaded/optimize_json_dialog.dart';
 import 'package:pixez/page/downloaded/update_illust_info_dialog.dart';
@@ -1057,31 +1056,29 @@ class _DownloadedIllustCard extends StatelessWidget {
   }
 
   Future<List<Uri>> _getIllustFileUris(DownloadedIllust targetIllust) async {
-    final dirPath = downloadStore.getIllustDirectoryPath(targetIllust);
-    if (dirPath == null) return [];
-
     final List<Uri> fileUris = [];
 
     if (store.dragOnlyNonWebp) {
-      // 仅拖拽非 WebP 图片 -> 需遍历目录并添加文件 URI
-      final dir = Directory(dirPath);
-      if (await dir.exists()) {
-        try {
-          await for (final entity in dir.list()) {
-            if (entity is File) {
-              final ext = path.extension(entity.path).toLowerCase();
-              if (ext != '.webp') {
-                fileUris.add(Uri.file(entity.path));
-              }
-            }
+      // 仅拖拽非 WebP 图片 -> 从数据库读取，避免磁盘IO
+      try {
+        final images = await downloadStore.dbProvider
+            .getImagesByIllustId(targetIllust.illustId);
+        for (final image in images) {
+          if (image.extension.toLowerCase() != '.webp') {
+            final fullPath = downloadStore.dbProvider
+                .getAbsolutePath(image.relativePath, image.getFullFileName());
+            fileUris.add(Uri.file(fullPath));
           }
-        } catch (e) {
-          // 忽略错误
         }
+      } catch (e) {
+        // Fallback or ignore
       }
     } else {
       // 默认拖拽整个文件夹
-      fileUris.add(Uri.file(dirPath));
+      final dirPath = downloadStore.getIllustDirectoryPath(targetIllust);
+      if (dirPath != null) {
+        fileUris.add(Uri.file(dirPath));
+      }
     }
     return fileUris;
   }
