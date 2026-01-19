@@ -36,7 +36,7 @@ import 'package:pixez/page/picture/illust_store.dart';
 import 'package:pixez/page/picture/picture_list_page.dart';
 import 'package:pixez/page/picture/tag_for_illust_page.dart';
 import 'package:pixez/page/series/illust_series_page.dart';
-import 'package:open_file/open_file.dart';
+import 'package:pixez/utils/file_utils.dart';
 
 /// 插画卡片布局模式
 enum IllustCardLayoutMode {
@@ -404,7 +404,7 @@ class _IllustCardState extends State<IllustCard> {
     try {
       final dirPath = downloadStore.getIllustDownloadDirectory(store.illusts!);
       if (dirPath != null) {
-        await OpenFile.open(dirPath);
+        await FileUtils.openFileOrDirectory(dirPath);
       }
     } catch (e) {
       BotToast.showText(text: '打开文件夹失败: $e');

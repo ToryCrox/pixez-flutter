@@ -7,7 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:logger/logger.dart';
-import 'package:open_file/open_file.dart';
+import 'package:pixez/utils/file_utils.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pixez/custom/log.dart';
 import 'package:pixez/i18n.dart';
@@ -78,7 +78,7 @@ class _LogViewerPageState extends ConsumerState<LogViewerPage> {
       final logPath = '${docDir.path}/pixez/logs';
 
       if (Platform.isWindows || Platform.isLinux) {
-        await OpenFile.open(logPath);
+        await FileUtils.openFileOrDirectory(logPath);
       } else {
         // macOS/iOS: 显示路径提示
         if (!mounted) return;

@@ -19,7 +19,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'package:pixez/utils/image_utils.dart';
-import 'package:open_file/open_file.dart';
+import 'package:pixez/utils/file_utils.dart';
 import 'package:path/path.dart' as p;
 import 'package:pixez/custom/log.dart';
 import 'package:pixez/exts.dart';
@@ -1365,7 +1365,7 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
                   info.illust,
                 );
                 if (dirPath != null) {
-                  await OpenFile.open(dirPath);
+                  await FileUtils.openFileOrDirectory(dirPath);
                 }
               },
               child: Container(

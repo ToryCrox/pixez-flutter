@@ -19,7 +19,7 @@ import 'dart:io';
 import 'package:bot_toast/bot_toast.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:open_file/open_file.dart';
+import 'package:pixez/utils/file_utils.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:pixez/component/pixiv_image.dart';
 import 'package:pixez/custom/log.dart';
@@ -660,7 +660,9 @@ class _IllustDownloadButtonState extends State<IllustDownloadButton> {
     }
     try {
       final dirPath = downloadStore.getIllustDownloadDirectory(widget.illusts);
-      await OpenFile.open(dirPath);
+      if (dirPath != null) {
+        await FileUtils.openFileOrDirectory(dirPath);
+      }
     } catch (e) {
       Log.e('Failed to open download directory: $e');
       BotToast.showText(text: '打开文件夹失败: $e');

@@ -17,7 +17,7 @@ import 'dart:io';
 
 import 'package:bot_toast/bot_toast.dart';
 import 'package:flutter/material.dart';
-import 'package:open_file/open_file.dart';
+import 'package:pixez/utils/file_utils.dart';
 import 'package:pixez/component/painter_avatar.dart';
 import 'package:pixez/component/pixiv_image.dart';
 import 'package:pixez/exts.dart';
@@ -260,7 +260,7 @@ class DownloadedAuthorCard extends StatelessWidget {
 
       final directory = Directory(dirPath);
       if (await directory.exists()) {
-        await OpenFile.open(dirPath);
+        await FileUtils.openFileOrDirectory(dirPath);
       } else {
         BotToast.showText(text: '目录不存在: $dirPath');
       }

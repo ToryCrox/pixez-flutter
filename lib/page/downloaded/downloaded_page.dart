@@ -16,7 +16,7 @@
 import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
-import 'package:open_file/open_file.dart';
+import 'package:pixez/utils/file_utils.dart';
 import 'package:pixez/er/leader.dart';
 import 'package:pixez/exts.dart';
 import 'package:pixez/i18n.dart';
@@ -566,7 +566,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
   Future<void> _openIllustFolder(DownloadedIllust illust) async {
     final dirPath = downloadStore.getIllustDirectoryPath(illust);
     if (dirPath != null) {
-      await OpenFile.open(dirPath);
+      await FileUtils.openFileOrDirectory(dirPath);
     }
   }
 
