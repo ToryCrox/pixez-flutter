@@ -16,6 +16,7 @@
 import 'package:easy_refresh/easy_refresh.dart';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:pixez/utils/file_utils.dart';
 import 'package:pixez/er/leader.dart';
@@ -778,6 +779,20 @@ class _DownloadedPageState extends State<DownloadedPage> {
             icon: Icons.folder_open,
             label: I18n.of(context).save_path,
             onTap: () => _openIllustFolder(illust),
+          ),
+          _buildContextMenuItem(
+            icon: Icons.copy,
+            label: '复制路径',
+            onTap: () {
+              final path = downloadStore.getIllustDirectoryPath(illust);
+              if (path != null) {
+                // 在这里为复制的路径添加双引号，方便在其他地方粘贴使用
+                Clipboard.setData(ClipboardData(text: path));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('路径已复制到剪贴板')),
+                );
+              }
+            },
           ),
           if (isDownloading)
             _buildContextMenuItem(
