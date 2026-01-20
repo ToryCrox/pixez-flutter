@@ -149,7 +149,6 @@ class TagItem extends StatelessWidget {
                                 final parent = data.tag.parentId != 0 
                                     ? tagManagerStore.getTagDisplayDataByID(data.tag.parentId)?.tag : null;
 
-                                if (!hasTranslation && parent == null) return const SizedBox.shrink();
 
                                 String tooltipMessage = '';
                                 if (hasTranslation) tooltipMessage += '翻译: $translation';

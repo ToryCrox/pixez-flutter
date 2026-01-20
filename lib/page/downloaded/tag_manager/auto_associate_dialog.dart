@@ -9,6 +9,31 @@ class AutoAssociateDialog extends StatefulWidget {
 
   const AutoAssociateDialog({super.key, required this.proposals});
 
+  static Future<void> show(
+    BuildContext context, {
+    required List<TagAssociationProposal> proposals,
+  }) async {
+    final List<TagAssociationProposal>? selectedProposals = await showDialog<List<TagAssociationProposal>>(
+      context: context,
+      builder: (context) => AutoAssociateDialog(proposals: proposals),
+    );
+
+    if (selectedProposals != null && selectedProposals.isNotEmpty) {
+      for (final p in selectedProposals) {
+        await tagManagerStore.updateTagParent(
+          p.childTag.id,
+          p.parentTag.id,
+          newName: p.newChildName,
+        );
+      }
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('已成功关联 ${selectedProposals.length} 项')),
+        );
+      }
+    }
+  }
+
   @override
   State<AutoAssociateDialog> createState() => _AutoAssociateDialogState();
 }
@@ -118,7 +143,7 @@ class _AutoAssociateDialogState extends State<AutoAssociateDialog> {
                                 children: [
                                   Expanded(
                                     child: Text(
-                                      '${child.name} (${child.translatedName})',
+                                      '${child.name} (${child.displayTranslatedName})',
                                       style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
                                     ),
                                   ),
@@ -180,10 +205,15 @@ class _AutoAssociateDialogState extends State<AutoAssociateDialog> {
                                         borderRadius: BorderRadius.circular(4),
                                       ),
                                       child: Text(
-                                        '${state.parentTag.name} (${state.parentTag.translatedName})',
+                                        '${state.parentTag.name} (${state.parentTag.displayTranslatedName})',
                                         style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.primary),
                                       ),
                                     ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    '数量: ${state.parentTag.count}',
+                                    style: theme.textTheme.bodySmall,
                                   ),
                                 ],
                               ),

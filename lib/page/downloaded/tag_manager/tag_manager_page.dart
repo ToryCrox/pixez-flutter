@@ -8,7 +8,6 @@ import 'package:pixez/component/sort_group.dart';
 import 'package:pixez/page/downloaded/tag_manager/tag_selection_dialog.dart';
 import 'package:pixez/page/downloaded/tag_manager/parent_selection_dialog.dart';
 import 'package:pixez/page/downloaded/tag_manager/auto_associate_dialog.dart';
-import 'package:pixez/store/tag_manager_store.dart';
 
 class TagManagerPage extends StatefulWidget {
   const TagManagerPage({super.key});
@@ -585,26 +584,7 @@ class _TagManagerPageState extends State<TagManagerPage> {
       }
 
       if (!mounted) return;
-
-      final List<TagAssociationProposal>? selectedProposals = await showDialog<List<TagAssociationProposal>>(
-        context: context,
-        builder: (context) => AutoAssociateDialog(proposals: proposals),
-      );
-
-      if (selectedProposals != null && selectedProposals.isNotEmpty) {
-        for (final p in selectedProposals) {
-           await tagManagerStore.updateTagParent(
-             p.childTag.id, 
-             p.parentTag.id,
-             newName: p.newChildName,
-           );
-        }
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('已成功关联 ${selectedProposals.length} 项')),
-          );
-        }
-      }
+      await AutoAssociateDialog.show(context, proposals: proposals);
     } catch (e) {
       if (mounted) {
         Navigator.of(context).pop(); // 确保关闭加载中
