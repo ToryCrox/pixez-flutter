@@ -22,7 +22,6 @@ import 'package:pixez/component/painter_avatar.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:pixez/page/downloaded/downloaded_page.dart';
 import 'package:pixez/page/downloaded/tag_manager/tag_edit_dialog.dart';
-import 'package:pixez/page/downloaded/tag_manager/parent_selection_dialog.dart';
 import 'package:pixez/models/download_record.dart';
 
 class IllustDetailContent extends StatefulWidget {
@@ -574,9 +573,9 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
             value: 4,
             child: Row(
               children: [
-                Icon(Icons.account_tree, size: 20),
+                Icon(Icons.edit, size: 20),
                 SizedBox(width: 12),
-                Text('设置归属'),
+                Text('编辑标签'),
               ],
             ),
           ),
@@ -608,23 +607,13 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
           _showEditTagDialog(context, f);
           break;
         case 4:
-          _showSetParentDialog(context, f);
+          _showEditTagDialog(context, f);
           break;
       }
       }
     }
 
 
-  void _showSetParentDialog(BuildContext context, Tags f) async {
-    final localTag = tagManagerStore.getTagDisplayData(f.name);
-    if (localTag == null) return;
-    
-    await ParentSelectionDialog.show(
-      context,
-      tag: localTag.tag,
-      currentParentId: localTag.tag.parentId,
-    );
-  }
 
   Widget buildRow(BuildContext context, Tags f) {
     final theme = Theme.of(context);

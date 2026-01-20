@@ -285,16 +285,6 @@ class TagItem extends StatelessWidget {
               ],
             ),
           ),
-          const PopupMenuItem(
-            value: 'set_parent',
-            child: Row(
-              children: [
-                Icon(Icons.account_tree, size: 20),
-                SizedBox(width: 8),
-                Text('设置归属'),
-              ],
-            ),
-          ),
         ],
         const PopupMenuItem(
           value: 'set_parent',
