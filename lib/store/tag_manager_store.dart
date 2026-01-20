@@ -47,6 +47,11 @@ abstract class _TagManagerStore with Store {
     return map;
   }
 
+  /// 获取指定父tag的所有直接子tag
+  List<TagDisplayData> getDirectChildren(int parentId) {
+    return childrenMap[parentId] ?? [];
+  }
+
   @action
   Future<void> loadTags({bool force = false}) async {
     // If not forced and already has data, skip loading

@@ -113,40 +113,6 @@ class _TagManagerPageState extends State<TagManagerPage> {
                         ),
                       ),
                     )
-                  else if (_pageStore.isTreeView &&
-                      _pageStore.searchText.isEmpty &&
-                      _pageStore.filterCategory == -1)
-                    SliverList(
-                      delegate: SliverChildBuilderDelegate((context, index) {
-                        return Observer(
-                          builder: (_) {
-                            final data = tags[index];
-                            return TagItem(
-                              key: ValueKey(data),
-                              data: data,
-                              isSelectionMode: _pageStore.isSelectionMode,
-                              isSelected: _pageStore.selectedTagIds.contains(
-                                data.tag.id,
-                              ),
-                              showAsTreeRow: true,
-                              isExpanded: _pageStore.expandedParentIds.contains(data.tag.id),
-                              onSelectionToggle: () {
-                                _pageStore.toggleTagSelection(data.tag.id);
-                              },
-                              onSelectionModeToggle:
-                                  (value) =>
-                                      _pageStore.toggleSelectionMode(value),
-                              onClassify: _showClassifyDialog,
-                              onAssociate: _showAssociateDialog,
-                              onToggleExpansion: () => _pageStore.toggleParentExpansion(data.tag.id),
-                              onSetParent: _pageStore.isSelectionMode
-                                  ? _showSetParentDialogForSelection
-                                  : _showSetParentDialog,
-                            );
-                          },
-                        );
-                      }, childCount: tags.length),
-                    )
                   else
                     SliverPadding(
                       padding: const EdgeInsets.all(8.0),
@@ -242,9 +208,6 @@ class _TagManagerPageState extends State<TagManagerPage> {
             tooltip: '更多',
             onSelected: (value) {
               switch (value) {
-                case 'tree_view':
-                  _pageStore.toggleTreeView(!_pageStore.isTreeView);
-                  break;
                 case 'auto_associate':
                   _showAutoAssociateDialog();
                   break;
@@ -255,27 +218,12 @@ class _TagManagerPageState extends State<TagManagerPage> {
             },
             itemBuilder:
                 (context) => [
-                  PopupMenuItem(
-                    value: 'tree_view',
-                    child: Row(
-                      children: [
-                        Icon(
-                          _pageStore.isTreeView
-                              ? Icons.view_module
-                              : Icons.account_tree,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(_pageStore.isTreeView ? '切换网格视图' : '切换层级视图'),
-                      ],
-                    ),
-                  ),
                   const PopupMenuItem(
                     value: 'auto_associate',
                     child: Row(
                       children: [
                         Icon(Icons.auto_awesome, size: 20),
-                        const SizedBox(width: 8),
+                        SizedBox(width: 8),
                         Text('智能关联识别'),
                       ],
                     ),
@@ -285,7 +233,7 @@ class _TagManagerPageState extends State<TagManagerPage> {
                     child: Row(
                       children: [
                         Icon(Icons.sync, size: 20),
-                        const SizedBox(width: 8),
+                        SizedBox(width: 8),
                         Text('同步标签库'),
                       ],
                     ),
