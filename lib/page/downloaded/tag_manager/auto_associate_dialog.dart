@@ -53,21 +53,22 @@ class _AutoAssociateDialogState extends State<AutoAssociateDialog> {
   }
 
   Future<void> _changeParent(_ProposalEditState state) async {
-    final resultId = await showDialog<int>(
-      context: context,
-      builder: (context) => ParentSelectionDialog(
-        currentParentId: state.parentTag.id,
-        childTagId: state.proposal.childTag.id,
-      ),
+    await ParentSelectionDialog.show(
+      context,
+      tag: state.proposal.childTag,
+      currentParentId: state.parentTag.id,
+      onUpdated: () {
+        final updatedChild = tagManagerStore.getTagDisplayDataByID(state.proposal.childTag.id)?.tag;
+        if (updatedChild != null && updatedChild.parentId != 0) {
+           final newParent = tagManagerStore.getTagDisplayDataByID(updatedChild.parentId)?.tag;
+           if (newParent != null && mounted) {
+              setState(() {
+                state.parentTag = newParent;
+              });
+           }
+        }
+      }
     );
-
-    if (resultId != null && resultId != 0) {
-      final selectedTag = tagManagerStore.tags.firstWhere((t) => t.tag.id == resultId).tag;
-      final mainTag = tagManagerStore.getMainTagByTag(selectedTag);
-      setState(() {
-        state.parentTag = mainTag ?? selectedTag;
-      });
-    }
   }
 
   @override

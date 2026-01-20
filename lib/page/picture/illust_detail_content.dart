@@ -619,22 +619,11 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
     final localTag = tagManagerStore.getTagDisplayData(f.name);
     if (localTag == null) return;
     
-    final parentId = await showDialog<int>(
-      context: context,
-      builder: (context) => ParentSelectionDialog(
-        currentParentId: localTag.tag.parentId,
-        childTagId: localTag.tag.id,
-      ),
+    await ParentSelectionDialog.show(
+      context,
+      tag: localTag.tag,
+      currentParentId: localTag.tag.parentId,
     );
-
-    if (parentId != null) {
-      await tagManagerStore.updateTagParent(localTag.tag.id, parentId);
-      if (context.mounted) {
-         ScaffoldMessenger.of(context).showSnackBar(
-           const SnackBar(content: Text('已更新归属关系')),
-         );
-      }
-    }
   }
 
   Widget buildRow(BuildContext context, Tags f) {

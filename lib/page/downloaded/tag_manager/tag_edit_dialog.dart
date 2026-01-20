@@ -256,19 +256,18 @@ class _TagEditDialogState extends State<TagEditDialog> {
   }
 
   Future<void> _showParentSelectionDialog() async {
-    final resultId = await showDialog<int>(
-      context: context,
-      builder: (context) => ParentSelectionDialog(
-        currentParentId: _parentId,
-        childTagId: widget.tag.id,
-      ),
+    await ParentSelectionDialog.show(
+      context,
+      tag: widget.tag,
+      currentParentId: _parentId,
+      onUpdated: () {
+        if (mounted) {
+          setState(() {
+            _parentId = tagManagerStore.getTagDisplayDataByID(widget.tag.id)?.tag.parentId ?? 0;
+          });
+        }
+      },
     );
-
-    if (resultId != null) {
-      setState(() {
-        _parentId = resultId;
-      });
-    }
   }
 
   void _save() {

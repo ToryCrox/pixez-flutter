@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:collection/collection.dart';
 import 'package:flutter/services.dart';
 import 'package:pixez/models/download_record.dart';
 import 'package:pixez/page/downloaded/tag_manager/tag_edit_dialog.dart';
@@ -8,6 +7,7 @@ import 'package:pixez/page/downloaded/downloaded_page.dart';
 import 'package:pixez/page/downloaded/tag_manager/tag_selection_dialog.dart';
 import 'package:pixez/page/search/result_page.dart';
 import 'package:pixez/main.dart';
+import 'parent_selection_dialog.dart';
 
 class TagItem extends StatelessWidget {
   final TagDisplayData data;
@@ -423,7 +423,13 @@ class TagItem extends StatelessWidget {
         onAssociate?.call();
         break;
       case 'set_parent':
-        onSetParent?.call();
+        if (context.mounted) {
+          ParentSelectionDialog.show(
+            context,
+            tag: data.tag,
+            currentParentId: data.tag.parentId,
+          );
+        }
         break;
       case 'exit_selection_mode':
         onSelectionModeToggle?.call(false);

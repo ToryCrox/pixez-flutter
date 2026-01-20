@@ -195,22 +195,11 @@ class _TagManagerPageState extends State<TagManagerPage> {
   // ... (existing AppBar methods)
 
   void _showSetParentDialog(DownloadedTag tag) async {
-    final parentId = await showDialog<int>(
-      context: context,
-      builder: (context) => ParentSelectionDialog(
-        currentParentId: tag.parentId,
-        childTagId: tag.id,
-      ),
+    await ParentSelectionDialog.show(
+      context,
+      tag: tag,
+      currentParentId: tag.parentId,
     );
-
-    if (parentId != null) {
-      await tagManagerStore.updateTagParent(tag.id, parentId);
-      if (mounted) {
-         ScaffoldMessenger.of(context).showSnackBar(
-           const SnackBar(content: Text('已更新归属关系')),
-         );
-      }
-    }
   }
 
   // ... (existing methods: _showClassifyDialog, _showAssociateDialog, _showSyncDialog, _showAutoAssociateDialog)

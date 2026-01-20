@@ -3,14 +3,33 @@ import 'package:pixez/main.dart'; // For tagManagerStore
 import 'package:pixez/models/download_record.dart'; // For TagDisplayData
 
 class ParentSelectionDialog extends StatefulWidget {
+  final DownloadedTag tag;
   final int currentParentId;
-  final int childTagId;
 
   const ParentSelectionDialog({
     super.key, 
+    required this.tag,
     required this.currentParentId,
-    required this.childTagId,
   });
+
+  static Future<void> show(BuildContext context, {
+    required DownloadedTag tag, 
+    required int currentParentId,
+    VoidCallback? onUpdated,
+  }) async {
+    final resultId = await showDialog<int>(
+      context: context,
+      builder: (context) => ParentSelectionDialog(
+        tag: tag,
+        currentParentId: currentParentId,
+      ),
+    );
+
+    if (resultId != null) {
+      await tagManagerStore.updateTagParent(tag.id, resultId);
+      onUpdated?.call();
+    }
+  }
 
   @override
   State<ParentSelectionDialog> createState() => _ParentSelectionDialogState();
@@ -28,7 +47,7 @@ class _ParentSelectionDialogState extends State<ParentSelectionDialog> {
     super.initState();
     // Load all Work tags except the child itself (circular dependency prevention)
     _allWorkTags = tagManagerStore.tags.where((t) => 
-      t.tag.category == TagCategory.work.value && t.tag.id != widget.childTagId
+      t.tag.category == TagCategory.work.value && t.tag.id != widget.tag.id
     ).toList();
     
     // Sort logic: By count descending
@@ -42,7 +61,7 @@ class _ParentSelectionDialogState extends State<ParentSelectionDialog> {
 
   Future<void> _loadRecommendations() async {
     try {
-      final recommended = await tagManagerStore.getRecommendedParents(widget.childTagId);
+      final recommended = await tagManagerStore.getRecommendedParents(widget.tag.id);
       if (mounted) {
         setState(() {
           _recommendedParents = recommended;
@@ -86,7 +105,10 @@ class _ParentSelectionDialogState extends State<ParentSelectionDialog> {
         width: double.maxFinite,
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            _buildCurrentTagInfo(context),
+            const SizedBox(height: 16),
             TextField(
               controller: _searchController,
               decoration: const InputDecoration(
@@ -121,14 +143,27 @@ class _ParentSelectionDialogState extends State<ParentSelectionDialog> {
               if (_isLoadingRecommendations)
                 const Center(child: Padding(padding: EdgeInsets.all(8.0), child: SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2)))),
               if (!_isLoadingRecommendations && _recommendedParents.isNotEmpty)
-                ..._recommendedParents.map((tag) => ListTile(
-                  title: Text(tag.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: tag.displayTranslatedName.isNotEmpty 
-                      ? Text(tag.displayTranslatedName, style: const TextStyle(fontSize: 12)) : null,
-                  trailing: Text('${tag.count}', style: Theme.of(context).textTheme.bodySmall),
-                  onTap: () => Navigator.pop(context, tag.id),
-                  dense: true,
-                )),
+                ..._recommendedParents.map((tag) {
+                  final isCurrentParent = tag.id == widget.currentParentId;
+                  final isSelf = tag.id == widget.tag.id;
+                  return ListTile(
+                    title: Row(
+                      children: [
+                        Expanded(child: Text(tag.name, style: const TextStyle(fontWeight: FontWeight.bold))),
+                        if (isSelf) 
+                          _buildBadge(context, '当前标签', Colors.purple),
+                        if (isCurrentParent)
+                          _buildBadge(context, '当前归属', Colors.blue),
+                      ],
+                    ),
+                    subtitle: tag.displayTranslatedName.isNotEmpty 
+                        ? Text(tag.displayTranslatedName, style: const TextStyle(fontSize: 12)) : null,
+                    trailing: Text('${tag.count}', style: Theme.of(context).textTheme.bodySmall),
+                    onTap: isSelf ? null : () => Navigator.pop(context, tag.id),
+                    dense: true,
+                    enabled: !isSelf,
+                  );
+                }),
               const Divider(),
             ],
             Flexible(
@@ -137,23 +172,33 @@ class _ParentSelectionDialogState extends State<ParentSelectionDialog> {
                 itemCount: _filteredTags.length,
                 itemBuilder: (context, index) {
                   final data = _filteredTags[index];
-                  final isSelected = data.tag.id == widget.currentParentId;
+                  final isCurrentParent = data.tag.id == widget.currentParentId;
+                  final isSelf = data.tag.id == widget.tag.id;
                   return ListTile(
-                    title: Text(data.tag.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                    title: Row(
+                      children: [
+                        Expanded(child: Text(data.tag.name, style: const TextStyle(fontWeight: FontWeight.bold))),
+                        if (isSelf) 
+                          _buildBadge(context, '当前标签', Colors.purple),
+                        if (isCurrentParent)
+                          _buildBadge(context, '当前归属', Colors.blue),
+                      ],
+                    ),
                     subtitle: data.tag.displayTranslatedName.isNotEmpty 
                         ? Text(data.tag.displayTranslatedName, style: const TextStyle(fontSize: 12)) : null,
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text('${data.tag.count}', style: Theme.of(context).textTheme.bodySmall),
-                        if (isSelected) ...[
+                        if (isCurrentParent) ...[
                           const SizedBox(width: 8),
                           const Icon(Icons.check, color: Colors.blue, size: 18),
                         ],
                       ],
                     ),
                     dense: true,
-                    onTap: () => Navigator.pop(context, data.tag.id),
+                    enabled: !isSelf,
+                    onTap: isSelf ? null : () => Navigator.pop(context, data.tag.id),
                   );
                 },
               ),
@@ -167,6 +212,67 @@ class _ParentSelectionDialogState extends State<ParentSelectionDialog> {
           child: const Text('取消'),
         ),
       ],
+    );
+  }
+
+  Widget _buildBadge(BuildContext context, String label, Color color) {
+    return Container(
+      margin: const EdgeInsets.only(left: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: color.withOpacity(0.5), width: 0.5),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 10,
+          color: color,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCurrentTagInfo(BuildContext context) {
+    final displayData = tagManagerStore.getTagDisplayDataByID(widget.tag.id);
+    if (displayData == null) return const SizedBox.shrink();
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Theme.of(context).colorScheme.primary.withOpacity(0.2)),
+      ),
+      child: Row(
+        children: [
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  widget.tag.name,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (widget.tag.displayTranslatedName.isNotEmpty && widget.tag.displayTranslatedName != widget.tag.name)
+                  Text(
+                    widget.tag.displayTranslatedName,
+                    style: TextStyle(fontSize: 12, color: Theme.of(context).hintColor),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+              ],
+            ),
+          ),
+          _buildBadge(context, '当前编辑', Colors.purple),
+        ],
+      ),
     );
   }
 }
