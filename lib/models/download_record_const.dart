@@ -685,6 +685,8 @@ class DownloadedTag {
               ? translatedName
               : '';
 
+  bool get isCustomTranslatedName => customTranslatedName?.isNotEmpty == true;
+
   TagCategory get categoryEnum => TagCategory.fromValue(category);
   
   List<int> get exampleIllustIds {

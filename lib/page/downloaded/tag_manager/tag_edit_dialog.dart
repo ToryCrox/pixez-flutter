@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:pixez/models/download_record.dart';
 import 'package:pixez/main.dart';
 import 'tag_selection_dialog.dart';
+import 'parent_selection_dialog.dart';
 
 class TagEditDialog extends StatefulWidget {
   final DownloadedTag tag;
@@ -19,6 +20,7 @@ class _TagEditDialogState extends State<TagEditDialog> {
   late bool _isBookmarked;
   late int _displayOrder;
   late List<TagDisplayData> _equivalenceGroup;
+  late int _parentId;
 
   @override
   void initState() {
@@ -28,6 +30,7 @@ class _TagEditDialogState extends State<TagEditDialog> {
     _isBookmarked = widget.tag.isBookmarked;
     _displayOrder = widget.tag.displayOrder;
     _equivalenceGroup = tagManagerStore.getEquivalenceGroup(widget.tag.id);
+    _parentId = widget.tag.parentId;
   }
 
   @override
@@ -60,6 +63,8 @@ class _TagEditDialogState extends State<TagEditDialog> {
                   border: OutlineInputBorder(),
                 ),
               ),
+              const SizedBox(height: 16),
+              _buildParentRow(),
               _buildEquivalenceGroup(),
               const SizedBox(height: 16),
               const Text('分类', style: TextStyle(fontWeight: FontWeight.bold)),
@@ -203,12 +208,76 @@ class _TagEditDialogState extends State<TagEditDialog> {
     }
   }
 
+  Widget _buildParentRow() {
+    final parent = _parentId != 0 
+        ? tagManagerStore.getTagDisplayDataByID(_parentId)?.tag : null;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('归属作品', style: TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        InkWell(
+          onTap: _showParentSelectionDialog,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              border: Border.all(color: Theme.of(context).dividerColor),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.account_tree, size: 16, color: Colors.blueGrey),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    parent != null ? parent.displayName : '无 (点击设置)',
+                    style: TextStyle(
+                      color: parent != null ? Colors.blue : Colors.grey,
+                    ),
+                  ),
+                ),
+                if (parent != null)
+                  IconButton(
+                    icon: const Icon(Icons.clear, size: 16),
+                    onPressed: () {
+                      setState(() => _parentId = 0);
+                    },
+                    constraints: const BoxConstraints(),
+                    padding: EdgeInsets.zero,
+                  ),
+                const Icon(Icons.chevron_right, size: 16),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _showParentSelectionDialog() async {
+    final resultId = await showDialog<int>(
+      context: context,
+      builder: (context) => ParentSelectionDialog(
+        currentParentId: _parentId,
+        childTagId: widget.tag.id,
+      ),
+    );
+
+    if (resultId != null) {
+      setState(() {
+        _parentId = resultId;
+      });
+    }
+  }
+
   void _save() {
     final newTag = widget.tag.copyWith(
       customTranslatedName: _customTranslateController.text.trim(),
       category: _selectedCategory.value,
       isBookmarked: _isBookmarked,
       displayOrder: _displayOrder,
+      parentId: _parentId,
     );
     tagManagerStore.updateTag(newTag);
     Navigator.of(context).pop();

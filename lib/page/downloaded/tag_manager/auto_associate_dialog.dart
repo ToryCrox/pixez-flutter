@@ -77,7 +77,8 @@ class _AutoAssociateDialogState extends State<AutoAssociateDialog> {
 
     return AlertDialog(
       title: const Text('智能自动关联预览'),
-      content: SizedBox(
+      content: Container(
+        constraints: const BoxConstraints(maxWidth: 800), // Higher limit for sideways layout
         width: MediaQuery.of(context).size.width * 0.9,
         height: MediaQuery.of(context).size.height * 0.7,
         child: Column(

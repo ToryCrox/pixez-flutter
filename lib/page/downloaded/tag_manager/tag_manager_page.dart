@@ -223,46 +223,14 @@ class _TagManagerPageState extends State<TagManagerPage> {
           tooltip: _pageStore.isSearching ? '关闭搜索' : '搜索',
           onPressed: _toggleSearch,
         ),
-          if (!_pageStore.isSearching && !_pageStore.isTreeView)
-            IconButton(
-              icon: const Icon(Icons.account_tree),
-              tooltip: '层级视图',
-              onPressed: () => _pageStore.toggleTreeView(true),
-            )
-          else if (_pageStore.isTreeView)
-            IconButton(
-              icon: const Icon(Icons.view_module),
-              tooltip: '网格视图',
-              onPressed: () => _pageStore.toggleTreeView(false),
-            ),
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert),
-            tooltip: '更多',
-            onSelected: (value) {
-               if (value == 'auto_associate') {
-                 _showAutoAssociateDialog();
-               }
-            },
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'auto_associate',
-                child: Text('智能关联识别'),
-              ),
-            ]
+        if (!_pageStore.isSearching) ...[
+          IconButton(
+            icon: const Icon(Icons.checklist),
+            tooltip: '选择模式',
+            onPressed: () => _pageStore.toggleSelectionMode(true),
           ),
-          if (!_pageStore.isSearching && !_pageStore.isTreeView) ...[
-            IconButton(
-              icon: const Icon(Icons.checklist),
-              tooltip: '选择模式',
-              onPressed: () => _pageStore.toggleSelectionMode(true),
-            ),
-            IconButton(
-              icon: const Icon(Icons.sync),
-              tooltip: '同步标签',
-              onPressed: _showSyncDialog,
-            ),
-            PopupMenuButton<int>(
-              icon: const Icon(Icons.sort),
+          PopupMenuButton<int>(
+            icon: const Icon(Icons.sort),
             tooltip: '排序',
             initialValue: _pageStore.sortType,
             onSelected: (value) {
@@ -275,6 +243,61 @@ class _TagManagerPageState extends State<TagManagerPage> {
                   const PopupMenuItem(value: 1, child: Text('按名称排序 (升序)')),
                   const PopupMenuItem(value: 2, child: Text('按最近使用排序')),
                   const PopupMenuItem(value: 3, child: Text('按手动优先级排序')),
+                ],
+          ),
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert),
+            tooltip: '更多',
+            onSelected: (value) {
+              switch (value) {
+                case 'tree_view':
+                  _pageStore.toggleTreeView(!_pageStore.isTreeView);
+                  break;
+                case 'auto_associate':
+                  _showAutoAssociateDialog();
+                  break;
+                case 'sync':
+                  _showSyncDialog();
+                  break;
+              }
+            },
+            itemBuilder:
+                (context) => [
+                  PopupMenuItem(
+                    value: 'tree_view',
+                    child: Row(
+                      children: [
+                        Icon(
+                          _pageStore.isTreeView
+                              ? Icons.view_module
+                              : Icons.account_tree,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(_pageStore.isTreeView ? '切换网格视图' : '切换层级视图'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'auto_associate',
+                    child: Row(
+                      children: [
+                        Icon(Icons.auto_awesome, size: 20),
+                        const SizedBox(width: 8),
+                        Text('智能关联识别'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'sync',
+                    child: Row(
+                      children: [
+                        Icon(Icons.sync, size: 20),
+                        const SizedBox(width: 8),
+                        Text('同步标签库'),
+                      ],
+                    ),
+                  ),
                 ],
           ),
         ],
@@ -560,46 +583,44 @@ class _TagManagerPageState extends State<TagManagerPage> {
 
 
   void _showAutoAssociateDialog() async {
-    // 显示加载中
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const Center(child: CircularProgressIndicator()),
-    );
+    try {
+      final proposals = await tagManagerStore.scanForAutoAssociations();
 
-    final proposals = await tagManagerStore.scanForAutoAssociations();
-    
-    if (mounted) {
-      Navigator.of(context).pop(); // 关闭加载中
-    }
-
-    if (proposals.isEmpty) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('未发现可自动关联的标签')),
-        );
+      if (proposals.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('未发现可自动关联的标签')),
+          );
+        }
+        return;
       }
-      return;
-    }
 
-    if (!mounted) return;
+      if (!mounted) return;
 
-    final List<TagAssociationProposal>? selectedProposals = await showDialog<List<TagAssociationProposal>>(
-      context: context,
-      builder: (context) => AutoAssociateDialog(proposals: proposals),
-    );
+      final List<TagAssociationProposal>? selectedProposals = await showDialog<List<TagAssociationProposal>>(
+        context: context,
+        builder: (context) => AutoAssociateDialog(proposals: proposals),
+      );
 
-    if (selectedProposals != null && selectedProposals.isNotEmpty) {
-      for (final p in selectedProposals) {
-         await tagManagerStore.updateTagParent(
-           p.childTag.id, 
-           p.parentTag.id,
-           newName: p.newChildName,
-         );
+      if (selectedProposals != null && selectedProposals.isNotEmpty) {
+        for (final p in selectedProposals) {
+           await tagManagerStore.updateTagParent(
+             p.childTag.id, 
+             p.parentTag.id,
+             newName: p.newChildName,
+           );
+        }
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('已成功关联 ${selectedProposals.length} 项')),
+          );
+        }
       }
+    } catch (e) {
       if (mounted) {
+        Navigator.of(context).pop(); // 确保关闭加载中
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('已成功关联 ${selectedProposals.length} 项')),
+          SnackBar(content: Text('关联扫描失败: $e')),
         );
       }
     }

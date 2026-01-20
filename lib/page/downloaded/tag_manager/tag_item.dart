@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:collection/collection.dart';
 import 'package:flutter/services.dart';
 import 'package:pixez/models/download_record.dart';
 import 'package:pixez/page/downloaded/tag_manager/tag_edit_dialog.dart';
@@ -136,57 +137,72 @@ class TagItem extends StatelessWidget {
                           ],
                         ),
                         const SizedBox(height: 2),
-                        // Second line: Translation + Equivalence Icon
-                        Builder(
-                          builder: (context) {
-                            final isCustom =
-                                data.tag.customTranslatedName?.isNotEmpty ==
-                                true;
-                            final translation =
-                                isCustom
-                                    ? data.tag.customTranslatedName!
-                                    : data.tag.translatedName;
+                        // Combined Translation and Parent display
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Builder(
+                              builder: (context) {
+                                final translation = data.tag.displayTranslatedName;
+                                
+                                final hasTranslation = translation.isNotEmpty;
+                                final parent = data.tag.parentId != 0 
+                                    ? tagManagerStore.getTagDisplayDataByID(data.tag.parentId)?.tag : null;
 
-                            return Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    translation,
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.bodySmall?.copyWith(
-                                      color:
-                                          isCustom
-                                              ? Colors.purple
-                                              : Colors.grey,
+                                if (!hasTranslation && parent == null) return const SizedBox.shrink();
+
+                                String tooltipMessage = '';
+                                if (hasTranslation) tooltipMessage += '翻译: $translation';
+                                if (parent != null) {
+                                  if (tooltipMessage.isNotEmpty) tooltipMessage += '\n';
+                                  tooltipMessage += '归属: ${parent.displayName}';
+                                }
+
+                                return Tooltip(
+                                  message: tooltipMessage,
+                                  child: Text.rich(
+                                    TextSpan(
+                                      children: [
+                                        if (hasTranslation)
+                                          TextSpan(
+                                            text: translation,
+                                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                              color: data.tag.isCustomTranslatedName ? Colors.purple : Colors.grey,
+                                            ),
+                                          ),
+                                        if (parent != null) ...[
+                                          if (hasTranslation) const TextSpan(text: ' '),
+                                          TextSpan(
+                                            text: '(${parent.displayName})',
+                                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                              color: Colors.blueGrey,
+                                              fontSize: 10,
+                                            ),
+                                          ),
+                                        ],
+                                      ],
                                     ),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                   ),
+                                );
+                              },
+                            ),
+                          ),
+                          if (data.hasEquivalentTags)
+                            Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: () => _showEquivalenceDialog(context),
+                                borderRadius: BorderRadius.circular(4),
+                                child: const Padding(
+                                  padding: EdgeInsets.symmetric(horizontal: 4),
+                                  child: Icon(Icons.link, size: 14, color: Colors.blue),
                                 ),
-                                if (data.hasEquivalentTags)
-                                  Material(
-                                    color: Colors.transparent,
-                                    child: InkWell(
-                                      onTap:
-                                          () => _showEquivalenceDialog(context),
-                                      borderRadius: BorderRadius.circular(4),
-                                      child: const Padding(
-                                        padding: EdgeInsets.symmetric(
-                                          horizontal: 4,
-                                        ),
-                                        child: Icon(
-                                          Icons.link,
-                                          size: 14,
-                                          color: Colors.blue,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            );
-                          },
-                        ),
+                              ),
+                            ),
+                        ],
+                      ),
                       ],
                     ),
                   ),
@@ -281,6 +297,16 @@ class TagItem extends StatelessWidget {
             ),
           ),
         ],
+        const PopupMenuItem(
+          value: 'set_parent',
+          child: Row(
+            children: [
+              Icon(Icons.account_tree, size: 20),
+              SizedBox(width: 8),
+              Text('设置归属'),
+            ],
+          ),
+        ),
         const PopupMenuItem(
           value: 'search_online',
           child: Row(

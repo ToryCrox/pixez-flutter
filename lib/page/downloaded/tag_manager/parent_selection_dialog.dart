@@ -81,7 +81,8 @@ class _ParentSelectionDialogState extends State<ParentSelectionDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       title: const Text('设置归属作品'),
-      content: SizedBox(
+      content: Container(
+        constraints: const BoxConstraints(maxWidth: 500),
         width: double.maxFinite,
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -96,27 +97,35 @@ class _ParentSelectionDialogState extends State<ParentSelectionDialog> {
             ),
             const SizedBox(height: 8),
             ListTile(
-              leading: const Icon(Icons.clear),
-              title: const Text('无 (清除归属)'),
+              leading: const Icon(Icons.clear, size: 20),
+              title: const Text('无 (清除归属)', style: TextStyle(fontWeight: FontWeight.bold)),
               onTap: () => Navigator.pop(context, 0),
               selected: widget.currentParentId == 0,
+              dense: true,
             ),
             const Divider(),
             if (_searchController.text.isEmpty && (_isLoadingRecommendations || _recommendedParents.isNotEmpty)) ...[
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Text(
-                  '推荐归属',
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(color: Theme.of(context).hintColor),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                child: Row(
+                  children: [
+                    Text(
+                      '推荐归属',
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(color: Theme.of(context).hintColor),
+                    ),
+                    const SizedBox(width: 4),
+                    const Icon(Icons.auto_awesome, size: 12, color: Colors.orange),
+                  ],
                 ),
               ),
               if (_isLoadingRecommendations)
                 const Center(child: Padding(padding: EdgeInsets.all(8.0), child: SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2)))),
               if (!_isLoadingRecommendations && _recommendedParents.isNotEmpty)
                 ..._recommendedParents.map((tag) => ListTile(
-                  title: Text(tag.displayName),
-                  subtitle: Text(tag.name, style: const TextStyle(fontSize: 10)),
-                  trailing: const Icon(Icons.auto_awesome, size: 16, color: Colors.orange),
+                  title: Text(tag.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: tag.displayTranslatedName.isNotEmpty 
+                      ? Text(tag.displayTranslatedName, style: const TextStyle(fontSize: 12)) : null,
+                  trailing: Text('${tag.count}', style: Theme.of(context).textTheme.bodySmall),
                   onTap: () => Navigator.pop(context, tag.id),
                   dense: true,
                 )),
@@ -130,10 +139,19 @@ class _ParentSelectionDialogState extends State<ParentSelectionDialog> {
                   final data = _filteredTags[index];
                   final isSelected = data.tag.id == widget.currentParentId;
                   return ListTile(
-                    title: Text(data.tag.displayName),
-                    subtitle: data.tag.translatedName.isNotEmpty && data.tag.translatedName != data.tag.displayName 
-                      ? Text(data.tag.name) : null,
-                    trailing: isSelected ? const Icon(Icons.check, color: Colors.blue) : null,
+                    title: Text(data.tag.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                    subtitle: data.tag.displayTranslatedName.isNotEmpty 
+                        ? Text(data.tag.displayTranslatedName, style: const TextStyle(fontSize: 12)) : null,
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text('${data.tag.count}', style: Theme.of(context).textTheme.bodySmall),
+                        if (isSelected) ...[
+                          const SizedBox(width: 8),
+                          const Icon(Icons.check, color: Colors.blue, size: 18),
+                        ],
+                      ],
+                    ),
                     dense: true,
                     onTap: () => Navigator.pop(context, data.tag.id),
                   );
