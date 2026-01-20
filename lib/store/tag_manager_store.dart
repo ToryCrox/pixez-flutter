@@ -302,6 +302,7 @@ abstract class _TagManagerStore with Store {
     final index = tags.indexWhere((t) => t.tag.id == childId);
     if (index != -1) {
       final oldData = tags[index];
+      
       // Reuse updateTag which persists to DB
       await updateTag(oldData.tag.copyWith(
         parentId: parentId,
@@ -312,10 +313,15 @@ abstract class _TagManagerStore with Store {
 
   @action
   Future<void> batchUpdateTagParent(List<int> childIds, int parentId, {Map<int, String>? newNames}) async {
+    final affectedParentIds = <int>{};
+    
     for (final childId in childIds) {
       final index = tags.indexWhere((t) => t.tag.id == childId);
       if (index != -1) {
         final oldData = tags[index];
+        final oldParentId = oldData.tag.parentId;
+        if (oldParentId != 0) affectedParentIds.add(oldParentId);
+        
         final newName = newNames?[childId];
         await updateTag(oldData.tag.copyWith(
           parentId: parentId,

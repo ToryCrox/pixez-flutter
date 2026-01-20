@@ -20,9 +20,18 @@ abstract class _TagManagerPageStore with Store {
   @observable
   int sortType = 4; // 0: count desc, 1: name asc, 2: last_used desc, 3: display_order desc, 4: category asc
 
+  @observable
+  int? filterByParentId; // null表示不过滤，否则只显示该父标签的子标签
+
   @computed
   List<TagDisplayData> get displayTags {
     var result = tagManagerStore.tags.toList();
+
+    // 0. 优先处理父标签过滤
+    if (filterByParentId != null) {
+      // 只显示该父标签的所有子标签
+      result = tagManagerStore.getDirectChildren(filterByParentId!);
+    }
 
     // 1. Filter by Search Text
     if (searchText.isNotEmpty) {
@@ -154,5 +163,15 @@ abstract class _TagManagerPageStore with Store {
   @action
   void clearSelection() {
     selectedTagIds.clear();
+  }
+
+  @action
+  void setFilterByParent(int parentId) {
+    filterByParentId = parentId;
+  }
+
+  @action
+  void clearParentFilter() {
+    filterByParentId = null;
   }
 }

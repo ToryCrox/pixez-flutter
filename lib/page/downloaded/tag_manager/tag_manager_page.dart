@@ -146,6 +146,9 @@ class _TagManagerPageState extends State<TagManagerPage> {
                                 onSetParent: _pageStore.isSelectionMode
                                     ? _showSetParentDialogForSelection
                                     : _showSetParentDialog,
+                                onShowChildren: () {
+                                  _pageStore.setFilterByParent(data.tag.id);
+                                },
                               );
                             },
                           );
@@ -174,6 +177,14 @@ class _TagManagerPageState extends State<TagManagerPage> {
   // ... (existing methods: _showClassifyDialog, _showAssociateDialog, _showSyncDialog, _showAutoAssociateDialog)
   PreferredSizeWidget _buildNormalAppBar() {
     return AppBar(
+      // 当有父标签过滤时显示返回按钮
+      leading: _pageStore.filterByParentId != null
+          ? IconButton(
+              icon: const Icon(Icons.arrow_back),
+              tooltip: '返回全部标签',
+              onPressed: _pageStore.clearParentFilter,
+            )
+          : null,
       title: _pageStore.isSearching ? _buildSearchField() : _buildAppBarTitle(),
       actions: [
         IconButton(
@@ -318,13 +329,18 @@ class _TagManagerPageState extends State<TagManagerPage> {
   Widget _buildAppBarTitle() {
     return Observer(
       builder: (context) {
+        // 获取当前过滤的父标签
+        final parentTag = _pageStore.filterByParentId != null
+            ? tagManagerStore.getTagDisplayDataByID(_pageStore.filterByParentId!)?.tag
+            : null;
+        
         return Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('标签管理'),
+            Text(parentTag != null ? parentTag.displayName : '标签管理'),
             const SizedBox(width: 8),
             Text(
-              '${_pageStore.displayTags.length} 标签',
+              '${_pageStore.displayTags.length} ${parentTag != null ? "子标签" : "标签"}',
               style: TextStyle(
                 fontSize: 12,
                 color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),

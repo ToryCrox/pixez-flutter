@@ -20,6 +20,7 @@ class TagItem extends StatelessWidget {
   final bool isExpanded;
   final VoidCallback? onToggleExpansion;
   final ValueChanged<DownloadedTag>? onSetParent;
+  final VoidCallback? onShowChildren; // 点击子标签徽章的回调
 
   const TagItem({
     super.key,
@@ -34,6 +35,7 @@ class TagItem extends StatelessWidget {
     this.isExpanded = false,
     this.onToggleExpansion,
     this.onSetParent,
+    this.onShowChildren,
   });
 
   @override
@@ -205,6 +207,52 @@ class TagItem extends StatelessWidget {
                     ),
                   ),
                 ],
+              ),
+              // 子标签数量徽章
+              Builder(
+                builder: (context) {
+                  final childrenCount = tagManagerStore.getDirectChildren(data.tag.id).length;
+                  if (childrenCount == 0 || isSelectionMode) {
+                    return const SizedBox.shrink();
+                  }
+                  
+                  return Positioned(
+                    top: 4,
+                    left: 4,
+                    child: GestureDetector(
+                      onTap: () => onShowChildren?.call(),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primary,
+                          borderRadius: BorderRadius.circular(10),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Colors.black26,
+                              blurRadius: 2,
+                              offset: Offset(0, 1),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.folder, size: 12, color: Colors.white),
+                            const SizedBox(width: 2),
+                            Text(
+                              '$childrenCount',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
               ),
               if (isSelectionMode)
                 Positioned(
