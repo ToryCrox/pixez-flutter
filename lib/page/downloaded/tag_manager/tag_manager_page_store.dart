@@ -1,6 +1,7 @@
 import 'package:mobx/mobx.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/models/download_record.dart';
+import 'package:pixez/store/tag_manager_store.dart';
 
 part 'tag_manager_page_store.g.dart';
 
@@ -14,13 +15,17 @@ abstract class _TagManagerPageStore with Store {
   String searchText = '';
 
   @observable
-  int filterCategory = -1; // -1: All, 1: Work, 2: Character, 99: Bookmarked
+  int filterCategory = -1; // -1: All, TagCategory.work.value: Work, TagCategory.character.value: Character, 99: Bookmarked
 
   @observable
   int sortType = 4; // 0: count desc, 1: name asc, 2: last_used desc, 3: display_order desc, 4: category asc
 
   @computed
   List<TagDisplayData> get displayTags {
+    if (isTreeView && searchText.isEmpty && filterCategory == -1) {
+       return _buildTreeList();
+    }
+
     var result = tagManagerStore.tags.toList();
 
     // 1. Filter by Search Text
@@ -138,5 +143,74 @@ abstract class _TagManagerPageStore with Store {
   @action
   void clearSelection() {
     selectedTagIds.clear();
+  }
+
+
+  @observable
+  bool isTreeView = false;
+
+  @observable
+  ObservableSet<int> expandedParentIds = ObservableSet<int>();
+
+  @action
+  void toggleTreeView(bool value) {
+    isTreeView = value;
+    // Reset filters if entering tree view?
+    if (value) {
+      filterCategory = -1;
+      searchText = '';
+    }
+  }
+
+  @action
+  void toggleParentExpansion(int parentId) {
+    if (expandedParentIds.contains(parentId)) {
+      expandedParentIds.remove(parentId);
+    } else {
+      expandedParentIds.add(parentId);
+    }
+  }
+
+  List<TagDisplayData> _buildTreeList() {
+    final output = <TagDisplayData>[];
+    
+    // 1. Get all Work tags
+    final works = tagManagerStore.tags.where((t) => t.tag.category == TagCategory.work.value).toList();
+    // Sort
+    _sortTags(works);
+
+    for (final work in works) {
+      output.add(work);
+      if (expandedParentIds.contains(work.tag.id)) {
+        final children = tagManagerStore.childrenMap[work.tag.id];
+        if (children != null) {
+          final indented = children.map((c) => c.copyWith(indentLevel: 1)).toList();
+          _sortTags(indented);
+          output.addAll(indented);
+        }
+      }
+    }
+
+    // 2. Uncategorized (Tags that are NOT Works and have NO Parent)
+    final uncategorized = tagManagerStore.tags.where((t) => 
+      t.tag.category != TagCategory.work.value && t.tag.parentId == 0
+    ).toList();
+    
+    if (uncategorized.isNotEmpty) {
+      // Add a header for Uncategorized?
+      // Or just append them. Currently appending.
+      _sortTags(uncategorized);
+      output.addAll(uncategorized);
+    }
+
+    return output;
+  }
+
+  void _sortTags(List<TagDisplayData> list) {
+    list.sort((a, b) {
+       // Just reuse simple sort logic: Count desc or Name asc?
+       // Let's use name asc for tree view standard
+       return a.tag.displayName.compareTo(b.tag.displayName);
+    });
   }
 }

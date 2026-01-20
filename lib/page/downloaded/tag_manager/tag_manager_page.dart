@@ -6,6 +6,9 @@ import 'package:pixez/page/downloaded/tag_manager/tag_item.dart';
 import 'package:pixez/page/downloaded/tag_manager/tag_manager_page_store.dart';
 import 'package:pixez/component/sort_group.dart';
 import 'package:pixez/page/downloaded/tag_manager/tag_selection_dialog.dart';
+import 'package:pixez/page/downloaded/tag_manager/parent_selection_dialog.dart';
+import 'package:pixez/page/downloaded/tag_manager/auto_associate_dialog.dart';
+import 'package:pixez/store/tag_manager_store.dart';
 
 class TagManagerPage extends StatefulWidget {
   const TagManagerPage({super.key});
@@ -92,6 +95,7 @@ class _TagManagerPageState extends State<TagManagerPage> {
                       height: 52,
                     ),
                   ),
+
                   if (tags.isEmpty)
                     SliverFillRemaining(
                       child: Center(
@@ -110,6 +114,38 @@ class _TagManagerPageState extends State<TagManagerPage> {
                         ),
                       ),
                     )
+                  else if (_pageStore.isTreeView &&
+                      _pageStore.searchText.isEmpty &&
+                      _pageStore.filterCategory == -1)
+                    SliverList(
+                      delegate: SliverChildBuilderDelegate((context, index) {
+                        return Observer(
+                          builder: (_) {
+                            final data = tags[index];
+                            return TagItem(
+                              key: ValueKey(data),
+                              data: data,
+                              isSelectionMode: _pageStore.isSelectionMode,
+                              isSelected: _pageStore.selectedTagIds.contains(
+                                data.tag.id,
+                              ),
+                              showAsTreeRow: true,
+                              isExpanded: _pageStore.expandedParentIds.contains(data.tag.id),
+                              onSelectionToggle: () {
+                                _pageStore.toggleTagSelection(data.tag.id);
+                              },
+                              onSelectionModeToggle:
+                                  (value) =>
+                                      _pageStore.toggleSelectionMode(value),
+                              onClassify: _showClassifyDialog,
+                              onAssociate: _showAssociateDialog,
+                              onToggleExpansion: () => _pageStore.toggleParentExpansion(data.tag.id),
+                              onSetParent: () => _showSetParentDialog(data.tag),
+                            );
+                          },
+                        );
+                      }, childCount: tags.length),
+                    )
                   else
                     SliverPadding(
                       padding: const EdgeInsets.all(8.0),
@@ -127,7 +163,7 @@ class _TagManagerPageState extends State<TagManagerPage> {
                               final data = tags[index];
                               return TagItem(
                                 key: ValueKey(data),
-                                data: data,
+                                data: data, // ...
                                 isSelectionMode: _pageStore.isSelectionMode,
                                 isSelected: _pageStore.selectedTagIds.contains(
                                   data.tag.id,
@@ -140,6 +176,7 @@ class _TagManagerPageState extends State<TagManagerPage> {
                                         _pageStore.toggleSelectionMode(value),
                                 onClassify: _showClassifyDialog,
                                 onAssociate: _showAssociateDialog,
+                                onSetParent: () => _showSetParentDialog(data.tag),
                               );
                             },
                           );
@@ -155,6 +192,28 @@ class _TagManagerPageState extends State<TagManagerPage> {
     );
   }
 
+  // ... (existing AppBar methods)
+
+  void _showSetParentDialog(DownloadedTag tag) async {
+    final parentId = await showDialog<int>(
+      context: context,
+      builder: (context) => ParentSelectionDialog(
+        currentParentId: tag.parentId,
+        childTagId: tag.id,
+      ),
+    );
+
+    if (parentId != null) {
+      await tagManagerStore.updateTagParent(tag.id, parentId);
+      if (mounted) {
+         ScaffoldMessenger.of(context).showSnackBar(
+           const SnackBar(content: Text('已更新归属关系')),
+         );
+      }
+    }
+  }
+
+  // ... (existing methods: _showClassifyDialog, _showAssociateDialog, _showSyncDialog, _showAutoAssociateDialog)
   PreferredSizeWidget _buildNormalAppBar() {
     return AppBar(
       title: _pageStore.isSearching ? _buildSearchField() : _buildAppBarTitle(),
@@ -164,19 +223,46 @@ class _TagManagerPageState extends State<TagManagerPage> {
           tooltip: _pageStore.isSearching ? '关闭搜索' : '搜索',
           onPressed: _toggleSearch,
         ),
-        if (!_pageStore.isSearching) ...[
-          IconButton(
-            icon: const Icon(Icons.checklist),
-            tooltip: '选择模式',
-            onPressed: () => _pageStore.toggleSelectionMode(true),
+          if (!_pageStore.isSearching && !_pageStore.isTreeView)
+            IconButton(
+              icon: const Icon(Icons.account_tree),
+              tooltip: '层级视图',
+              onPressed: () => _pageStore.toggleTreeView(true),
+            )
+          else if (_pageStore.isTreeView)
+            IconButton(
+              icon: const Icon(Icons.view_module),
+              tooltip: '网格视图',
+              onPressed: () => _pageStore.toggleTreeView(false),
+            ),
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert),
+            tooltip: '更多',
+            onSelected: (value) {
+               if (value == 'auto_associate') {
+                 _showAutoAssociateDialog();
+               }
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'auto_associate',
+                child: Text('智能关联识别'),
+              ),
+            ]
           ),
-          IconButton(
-            icon: const Icon(Icons.sync),
-            tooltip: '同步标签',
-            onPressed: _showSyncDialog,
-          ),
-          PopupMenuButton<int>(
-            icon: const Icon(Icons.sort),
+          if (!_pageStore.isSearching && !_pageStore.isTreeView) ...[
+            IconButton(
+              icon: const Icon(Icons.checklist),
+              tooltip: '选择模式',
+              onPressed: () => _pageStore.toggleSelectionMode(true),
+            ),
+            IconButton(
+              icon: const Icon(Icons.sync),
+              tooltip: '同步标签',
+              onPressed: _showSyncDialog,
+            ),
+            PopupMenuButton<int>(
+              icon: const Icon(Icons.sort),
             tooltip: '排序',
             initialValue: _pageStore.sortType,
             onSelected: (value) {
@@ -471,6 +557,53 @@ class _TagManagerPageState extends State<TagManagerPage> {
       },
     );
   }
+
+
+  void _showAutoAssociateDialog() async {
+    // 显示加载中
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    final proposals = await tagManagerStore.scanForAutoAssociations();
+    
+    if (mounted) {
+      Navigator.of(context).pop(); // 关闭加载中
+    }
+
+    if (proposals.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('未发现可自动关联的标签')),
+        );
+      }
+      return;
+    }
+
+    if (!mounted) return;
+
+    final List<TagAssociationProposal>? selectedProposals = await showDialog<List<TagAssociationProposal>>(
+      context: context,
+      builder: (context) => AutoAssociateDialog(proposals: proposals),
+    );
+
+    if (selectedProposals != null && selectedProposals.isNotEmpty) {
+      for (final p in selectedProposals) {
+         await tagManagerStore.updateTagParent(
+           p.childTag.id, 
+           p.parentTag.id,
+           newName: p.newChildName,
+         );
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('已成功关联 ${selectedProposals.length} 项')),
+        );
+      }
+    }
+  }
 }
 
 extension TextEditingControllerExt on TextEditingController {
@@ -511,3 +644,5 @@ class SliverChipDelegate extends SliverPersistentHeaderDelegate {
     return height != oldDelegate.height;
   }
 }
+
+

@@ -498,6 +498,7 @@ class DownloadedTagsColumns {
   static const String count = 'count';
   static const String exampleIllusts = 'example_illusts';
   static const String referencedTagId = 'referenced_tag_id';
+  static const String parentId = 'parent_id';
 }
 
 class DownloadedIllustTagsColumns {
@@ -651,6 +652,7 @@ class DownloadedTag {
   final int? lastUsedTime;
   final String exampleIllusts;
   final int referencedTagId;
+  final int parentId;
 
   DownloadedTag({
     required this.id,
@@ -664,6 +666,7 @@ class DownloadedTag {
     this.lastUsedTime,
     this.exampleIllusts = '',
     this.referencedTagId = 0,
+    this.parentId = 0,
   });
 
 
@@ -705,6 +708,7 @@ class DownloadedTag {
       count: TypeUtil.parseInt(json[DownloadedTagsColumns.count]),
       exampleIllusts: TypeUtil.parseString(json[DownloadedTagsColumns.exampleIllusts]),
       referencedTagId: TypeUtil.parseInt(json[DownloadedTagsColumns.referencedTagId]),
+      parentId: TypeUtil.parseInt(json[DownloadedTagsColumns.parentId]),
     );
   }
 
@@ -721,6 +725,7 @@ class DownloadedTag {
       DownloadedTagsColumns.lastUsedTime: lastUsedTime,
       DownloadedTagsColumns.exampleIllusts: exampleIllusts,
       DownloadedTagsColumns.referencedTagId: referencedTagId == 0 ? null : referencedTagId,
+      DownloadedTagsColumns.parentId: parentId == 0 ? null : parentId,
     };
   }
 
@@ -736,6 +741,7 @@ class DownloadedTag {
     int? lastUsedTime,
     String? exampleIllusts,
     int? referencedTagId,
+    int? parentId,
   }) {
     return DownloadedTag(
       id: id ?? this.id,
@@ -749,6 +755,7 @@ class DownloadedTag {
       lastUsedTime: lastUsedTime ?? this.lastUsedTime,
       exampleIllusts: exampleIllusts ?? this.exampleIllusts,
       referencedTagId: referencedTagId ?? this.referencedTagId,
+      parentId: parentId ?? this.parentId,
     );
   }
 }
@@ -769,17 +776,22 @@ class TagDisplayData {
       required this.tag, 
       required this.previewIllusts, 
       this.hasEquivalentTags = false,
+      this.indentLevel = 0,
     });
+    
+    final int indentLevel;
 
     TagDisplayData copyWith({
       DownloadedTag? tag,
       List<IllustPreviewData>? previewIllusts,
       bool? hasEquivalentTags,
+      int? indentLevel,
     }) {
       return TagDisplayData(
         tag: tag ?? this.tag,
         previewIllusts: previewIllusts ?? this.previewIllusts,
         hasEquivalentTags: hasEquivalentTags ?? this.hasEquivalentTags,
+        indentLevel: indentLevel ?? this.indentLevel,
       );
     }
 }

@@ -22,6 +22,7 @@ import 'package:pixez/component/painter_avatar.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:pixez/page/downloaded/downloaded_page.dart';
 import 'package:pixez/page/downloaded/tag_manager/tag_edit_dialog.dart';
+import 'package:pixez/page/downloaded/tag_manager/parent_selection_dialog.dart';
 import 'package:pixez/models/download_record.dart';
 
 class IllustDetailContent extends StatefulWidget {
@@ -569,13 +570,13 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
           ),
         ),
         if (tagManagerStore.getTagDisplayData(f.name) != null)
-          const PopupMenuItem<int>(
-            value: 3,
+           const PopupMenuItem<int>(
+            value: 4,
             child: Row(
               children: [
-                Icon(Icons.edit, size: 20),
+                Icon(Icons.account_tree, size: 20),
                 SizedBox(width: 12),
-                Text('编辑标签'),
+                Text('设置归属'),
               ],
             ),
           ),
@@ -606,6 +607,32 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
         case 3:
           _showEditTagDialog(context, f);
           break;
+        case 4:
+          _showSetParentDialog(context, f);
+          break;
+      }
+      }
+    }
+
+
+  void _showSetParentDialog(BuildContext context, Tags f) async {
+    final localTag = tagManagerStore.getTagDisplayData(f.name);
+    if (localTag == null) return;
+    
+    final parentId = await showDialog<int>(
+      context: context,
+      builder: (context) => ParentSelectionDialog(
+        currentParentId: localTag.tag.parentId,
+        childTagId: localTag.tag.id,
+      ),
+    );
+
+    if (parentId != null) {
+      await tagManagerStore.updateTagParent(localTag.tag.id, parentId);
+      if (context.mounted) {
+         ScaffoldMessenger.of(context).showSnackBar(
+           const SnackBar(content: Text('已更新归属关系')),
+         );
       }
     }
   }
@@ -620,6 +647,15 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
     final customTranslation = localTag?.tag.customTranslatedName;
     final isCustom = customTranslation?.isNotEmpty == true;
     final displayTranslation = isCustom ? customTranslation : f.translatedName;
+
+    String? parentName;
+    if (localTag != null && localTag.tag.parentId != 0) {
+        final parentData = tagManagerStore.tags.cast<TagDisplayData?>().firstWhere(
+           (t) => t?.tag.id == localTag.tag.parentId, orElse: () => null);
+        if (parentData != null) {
+            parentName = parentData.tag.displayName;
+        }
+    }
 
     return InkWell(
       onLongPress: () async {
@@ -673,6 +709,14 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
                         fontSize: isClassified ? 10 : 12,
                       ),
                     ),
+                    if (parentName != null)
+                        TextSpan(
+                            text: "$parentName > ",
+                             style: theme.textTheme.titleSmall!.copyWith(
+                                color: theme.colorScheme.primary.withOpacity(0.7),
+                                fontSize: 11,
+                             ),
+                        ),
                     TextSpan(text: f.name),
                     if (displayTranslation != null) ...[
                       const TextSpan(text: " "),

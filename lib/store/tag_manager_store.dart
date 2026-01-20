@@ -4,6 +4,7 @@ import 'package:mobx/mobx.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/custom/log.dart';
 import 'package:pixez/models/download_record.dart';
+import 'package:collection/collection.dart';
 
 part 'tag_manager_store.g.dart';
 
@@ -34,6 +35,17 @@ abstract class _TagManagerStore with Store {
 
   @computed
   Map<int, TagDisplayData> get tagIdMap => {for (final t in tags) t.tag.id: t};
+
+  @computed
+  Map<int, List<TagDisplayData>> get childrenMap {
+    final map = <int, List<TagDisplayData>>{};
+    for (final t in tags) {
+      if (t.tag.parentId != 0) {
+        map.putIfAbsent(t.tag.parentId, () => []).add(t);
+      }
+    }
+    return map;
+  }
 
   @action
   Future<void> loadTags({bool force = false}) async {
@@ -280,6 +292,132 @@ abstract class _TagManagerStore with Store {
     tags[index] = oldData.copyWith(tag: newTag, previewIllusts: previewIllusts);
   }
 
+  @action
+  Future<void> updateTagParent(int childId, int parentId, {String? newName}) async {
+    final index = tags.indexWhere((t) => t.tag.id == childId);
+    if (index != -1) {
+      final oldData = tags[index];
+      // Reuse updateTag which persists to DB
+      await updateTag(oldData.tag.copyWith(
+        parentId: parentId,
+        customTranslatedName: newName ?? oldData.tag.customTranslatedName,
+      ));
+    }
+  }
+
+  /// 获取标签推荐的父级（作品）
+  Future<List<DownloadedTag>> getRecommendedParents(int tagId) async {
+    final coOccurring = await _dbProvider.getCoOccurringWorkTags(tagId, limit: 5);
+    // Resolve to main tags and remove duplicates
+    final results = <int, DownloadedTag>{};
+    for (var tag in coOccurring) {
+      final main = getMainTagByTag(tag) ?? tag;
+      if (!results.containsKey(main.id)) {
+        results[main.id] = main;
+      }
+    }
+    return results.values.toList();
+  }
+
+  /// Scan for potential parent-child associations based on naming conventions and co-occurrence
+  /// e.g. "Character (Work)" -> Parent: "Work"
+  Future<List<TagAssociationProposal>> scanForAutoAssociations() async {
+    final proposals = <TagAssociationProposal>[];
+    if (tags.isEmpty) return proposals;
+    
+    // 限制单次扫描显示的建议数量，避免 UI 过载且提升响应速度
+    const int maxProposals = 30;
+
+    // 1. Build Work Tag Map for fast lookup
+    final workMap = <String, DownloadedTag>{};
+    for (var t in tags) {
+      if (t.tag.category == TagCategory.work.value) {
+        workMap[t.tag.name] = t.tag;
+        if (t.tag.translatedName.isNotEmpty) {
+          workMap[t.tag.translatedName] = t.tag;
+        }
+        if (t.tag.customTranslatedName?.isNotEmpty == true) {
+          workMap[t.tag.customTranslatedName!] = t.tag;
+        }
+      }
+    }
+
+    final pattern = RegExp(r'^(.+)[(（](.+)[)）]$');
+
+    // 第一步：执行高效的正则扫描
+    for (final t in tags) {
+      if (proposals.length >= maxProposals) break;
+
+      // 遵守规则：已经有关联的不再扫描，排除作品、通用、元数据
+      final cat = t.tag.category;
+      if (t.tag.parentId != 0 || 
+          cat == TagCategory.work.value || 
+          cat == TagCategory.general.value || 
+          cat == TagCategory.meta.value) continue;
+
+      String nameToCheck = t.tag.displayTranslatedName.isNotEmpty 
+          ? t.tag.displayTranslatedName : t.tag.name;
+
+      var match = pattern.firstMatch(nameToCheck);
+      if (match != null) {
+        final cleanName = match.group(1)!.trim();
+        final matchedWorkName = match.group(2)!.trim();
+        
+        var parentTag = workMap[matchedWorkName];
+        if (parentTag != null) {
+          final mainTag = getMainTagByTag(parentTag) ?? parentTag;
+          proposals.add(TagAssociationProposal(
+            childTag: t.tag,
+            parentTag: mainTag,
+            newChildName: cleanName,
+            suggestionReason: '正则匹配',
+          ));
+        }
+      }
+    }
+
+    // 第二步：如果还没满，执行批量共现分析
+    if (proposals.length < maxProposals) {
+      final potentialBatches = await _dbProvider.getGlobalCoOccurrenceProposals(limit: 100);
+      final existingChildIds = proposals.map((p) => p.childTag.id).toSet();
+      
+      for (var batch in potentialBatches) {
+        if (proposals.length >= maxProposals) break;
+        
+        final childId = batch['child_id'] as int;
+        final parentId = batch['parent_id'] as int;
+        
+        if (existingChildIds.contains(childId)) continue;
+        
+        final childData = tagIdMap[childId];
+        final parentData = tagIdMap[parentId];
+        
+        if (childData != null && parentData != null) {
+          final mainParent = getMainTagByTag(parentData.tag) ?? parentData.tag;
+          proposals.add(TagAssociationProposal(
+            childTag: childData.tag,
+            parentTag: mainParent,
+            newChildName: childData.tag.displayTranslatedName.isNotEmpty 
+                ? childData.tag.displayTranslatedName : childData.tag.name,
+            suggestionReason: '插画共现分析',
+          ));
+          existingChildIds.add(childId);
+        }
+      }
+    }
+
+    return proposals;
+  }
+
+  /// Helper to get main tag for a given tag object
+  DownloadedTag? getMainTagByTag(DownloadedTag tag) {
+    final mainTagInfo = getMainTag(tag.name);
+    if (mainTagInfo == null) return null;
+    
+    // Find the actual DownloadedTag for the main tag name
+    return tags.firstWhereOrNull((t) => t.tag.name == mainTagInfo.name)?.tag;
+  }
+
   /// 开始监听tag变更事件
   void startListening() {
     _tagChangesSubscription = _dbProvider.tagChanges.listen((events) {
@@ -367,4 +505,18 @@ abstract class _TagManagerStore with Store {
   void dispose() {
     _tagChangesSubscription?.cancel();
   }
+}
+
+class TagAssociationProposal {
+  final DownloadedTag childTag;
+  final DownloadedTag parentTag;
+  final String newChildName;
+  final String suggestionReason; // e.g. "正则匹配" or "标签共现"
+
+  TagAssociationProposal({
+    required this.childTag,
+    required this.parentTag,
+    required this.newChildName,
+    this.suggestionReason = '正则匹配',
+  });
 }

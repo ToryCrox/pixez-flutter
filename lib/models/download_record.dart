@@ -140,7 +140,7 @@ class DownloadDatabaseProvider {
 
       db = await openDatabase(
         dbPath,
-        version: 13,
+        version: 14,
         onCreate: (Database db, int version) async {
           await db.execute('''
           CREATE TABLE ${DownloadedIllustColumns.tableName} (
@@ -225,7 +225,8 @@ class DownloadDatabaseProvider {
              ${DownloadedTagsColumns.lastUsedTime} INTEGER,
              ${DownloadedTagsColumns.count} INTEGER DEFAULT 0,
              ${DownloadedTagsColumns.exampleIllusts} TEXT,
-             ${DownloadedTagsColumns.referencedTagId} INTEGER
+             ${DownloadedTagsColumns.referencedTagId} INTEGER,
+             ${DownloadedTagsColumns.parentId} INTEGER
           )
         ''');
 
@@ -279,6 +280,9 @@ class DownloadDatabaseProvider {
         await db.execute('''
           CREATE INDEX idx_tags_referenced_tag ON ${DownloadedTagsColumns.tableName}(${DownloadedTagsColumns.referencedTagId})
         ''');
+        await db.execute('''
+          CREATE INDEX idx_tags_parent ON ${DownloadedTagsColumns.tableName}(${DownloadedTagsColumns.parentId})
+        ''');
         // 关联表索引
         await db.execute('''
           CREATE INDEX idx_illust_tags_tag ON ${DownloadedIllustTagsColumns.tableName}(${DownloadedIllustTagsColumns.tagId})
@@ -323,6 +327,13 @@ class DownloadDatabaseProvider {
             )
           ''');
           Log.i(() => 'total_image_count 初始化完成');
+        }
+
+        // v13 -> v14: 添加标签父子关系字段
+        if (oldVersion < 14) {
+          Log.i(() => '添加 parent_id 字段到 downloaded_tags 表');
+          await db.execute('ALTER TABLE ${DownloadedTagsColumns.tableName} ADD COLUMN ${DownloadedTagsColumns.parentId} INTEGER');
+          await db.execute('CREATE INDEX idx_tags_parent ON ${DownloadedTagsColumns.tableName}(${DownloadedTagsColumns.parentId})');
         }
       }
     );
@@ -690,6 +701,7 @@ class DownloadDatabaseProvider {
         SELECT id FROM ${DownloadedTagsColumns.tableName}
         WHERE id = (SELECT main_id FROM TargetGroup)
         OR ${DownloadedTagsColumns.referencedTagId} = (SELECT main_id FROM TargetGroup)
+        OR ${DownloadedTagsColumns.parentId} = (SELECT main_id FROM TargetGroup)
       ),
       MatchingIds AS (
         SELECT DISTINCT ${DownloadedIllustTagsColumns.illustId}
@@ -714,6 +726,69 @@ class DownloadDatabaseProvider {
     
     final maps = await db.rawQuery(query, args);
     return maps.map((e) => DownloadedIllust.fromJson(e)).toList();
+  }
+
+  /// 查找与指定标签共同出现频率最高的“作品”标签
+  Future<List<DownloadedTag>> getCoOccurringWorkTags(int tagId, {int limit = 5}) async {
+    // 使用 CTE 确保能够找全关联作品（包含等价标签的情况）
+    final query = '''
+      WITH TargetGroup AS (
+        SELECT id, COALESCE(referenced_tag_id, id) as main_id 
+        FROM ${DownloadedTagsColumns.tableName} 
+        WHERE ${DownloadedTagsColumns.id} = ?
+      ),
+      TargetIllusts AS (
+        SELECT DISTINCT dit.${DownloadedIllustTagsColumns.illustId} 
+        FROM ${DownloadedIllustTagsColumns.tableName} dit
+        JOIN ${DownloadedTagsColumns.tableName} t ON dit.${DownloadedIllustTagsColumns.tagId} = t.${DownloadedTagsColumns.id}
+        WHERE t.${DownloadedTagsColumns.id} = (SELECT main_id FROM TargetGroup)
+        OR t.${DownloadedTagsColumns.referencedTagId} = (SELECT main_id FROM TargetGroup)
+      )
+      SELECT t.*, COUNT(*) as co_count
+      FROM ${DownloadedTagsColumns.tableName} t
+      JOIN ${DownloadedIllustTagsColumns.tableName} dit ON t.${DownloadedTagsColumns.id} = dit.${DownloadedIllustTagsColumns.tagId}
+      WHERE dit.${DownloadedIllustTagsColumns.illustId} IN (SELECT illust_id FROM TargetIllusts)
+      AND t.${DownloadedTagsColumns.category} = ${TagCategory.work.value} -- TagCategory.work
+      AND t.${DownloadedTagsColumns.id} != (SELECT main_id FROM TargetGroup)
+      GROUP BY t.${DownloadedTagsColumns.id}
+      ORDER BY co_count DESC
+      LIMIT ?
+    ''';
+    
+    final maps = await db.rawQuery(query, [tagId, limit]);
+    return maps.map((e) => DownloadedTag.fromJson(e)).toList();
+  }
+
+  /// 批量获取所有潜在的标签共现关联建议
+  /// 仅针对当前没有父标签且类别为 角色/未分类/特点 的标签
+  Future<List<Map<String, dynamic>>> getGlobalCoOccurrenceProposals({int limit = 100}) async {
+    final query = '''
+      SELECT 
+        dit_child.${DownloadedIllustTagsColumns.tagId} AS child_id, 
+        dit_parent.${DownloadedIllustTagsColumns.tagId} AS parent_id, 
+        COUNT(*) AS co_count
+      FROM ${DownloadedIllustTagsColumns.tableName} AS dit_child
+      JOIN ${DownloadedIllustTagsColumns.tableName} AS dit_parent 
+        ON dit_child.${DownloadedIllustTagsColumns.illustId} = dit_parent.${DownloadedIllustTagsColumns.illustId}
+      JOIN ${DownloadedTagsColumns.tableName} AS t_child 
+        ON dit_child.${DownloadedIllustTagsColumns.tagId} = t_child.${DownloadedTagsColumns.id}
+      JOIN ${DownloadedTagsColumns.tableName} AS t_parent 
+        ON dit_parent.${DownloadedIllustTagsColumns.tagId} = t_parent.${DownloadedTagsColumns.id}
+      WHERE t_child.${DownloadedTagsColumns.parentId} = 0 
+        AND t_child.${DownloadedTagsColumns.category} IN (
+          ${TagCategory.uncategorized.value}, 
+          ${TagCategory.character.value}, 
+          ${TagCategory.feature.value}
+        )
+        AND t_parent.${DownloadedTagsColumns.category} = ${TagCategory.work.value}      -- 目标是 作品
+        AND dit_child.${DownloadedIllustTagsColumns.tagId} != dit_parent.${DownloadedIllustTagsColumns.tagId}
+      GROUP BY dit_child.${DownloadedIllustTagsColumns.tagId}, dit_parent.${DownloadedIllustTagsColumns.tagId}
+      HAVING co_count > 1 
+      ORDER BY co_count DESC
+      LIMIT ?
+    ''';
+    
+    return await db.rawQuery(query, [limit]);
   }
 
   /// 更新标签的示例插画
@@ -2091,6 +2166,7 @@ class DownloadDatabaseProvider {
         DownloadedTagsColumns.category: tag.category,
         DownloadedTagsColumns.isBookmarked: tag.isBookmarked ? 1 : 0,
         DownloadedTagsColumns.displayOrder: tag.displayOrder,
+        DownloadedTagsColumns.parentId: tag.parentId,
       },
       where: '${DownloadedTagsColumns.name} = ?',
       whereArgs: [tag.name],

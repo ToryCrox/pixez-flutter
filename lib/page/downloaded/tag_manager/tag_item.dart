@@ -16,6 +16,10 @@ class TagItem extends StatelessWidget {
   final Function(bool)? onSelectionModeToggle;
   final VoidCallback? onClassify;
   final VoidCallback? onAssociate;
+  final bool showAsTreeRow;
+  final bool isExpanded;
+  final VoidCallback? onToggleExpansion;
+  final VoidCallback? onSetParent;
 
   const TagItem({
     super.key,
@@ -26,6 +30,10 @@ class TagItem extends StatelessWidget {
     this.onSelectionModeToggle,
     this.onClassify,
     this.onAssociate,
+    this.showAsTreeRow = false,
+    this.isExpanded = false,
+    this.onToggleExpansion,
+    this.onSetParent,
   });
 
   @override
@@ -36,6 +44,12 @@ class TagItem extends StatelessWidget {
     // 1: 1张大图 -> 16:9 或 4:3
     // 2-3: 组合图 -> 1:1 或 4:3
     // 这里简单预设一个比例，实际由内容撑开
+
+    // 38: 这里简单预设一个比例，实际由内容撑开
+    
+    if (showAsTreeRow) {
+      return _buildTreeRow(context);
+    }
 
     return GestureDetector(
       onSecondaryTapDown: (details) {
@@ -256,6 +270,16 @@ class TagItem extends StatelessWidget {
               ],
             ),
           ),
+          const PopupMenuItem(
+            value: 'set_parent',
+            child: Row(
+              children: [
+                Icon(Icons.account_tree, size: 20),
+                SizedBox(width: 8),
+                Text('设置归属'),
+              ],
+            ),
+          ),
         ],
         const PopupMenuItem(
           value: 'search_online',
@@ -372,6 +396,9 @@ class TagItem extends StatelessWidget {
       case 'associate':
         onAssociate?.call();
         break;
+      case 'set_parent':
+        onSetParent?.call();
+        break;
       case 'exit_selection_mode':
         onSelectionModeToggle?.call(false);
         break;
@@ -458,6 +485,104 @@ class TagItem extends StatelessWidget {
     showDialog(
       context: context,
       builder: (context) => TagEditDialog(tag: data.tag),
+    );
+  }
+
+
+  Widget _buildTreeRow(BuildContext context) {
+    final hasChildren = data.tag.category == TagCategory.work.value; // Assuming Works have children possibilities
+    // Or check if it has children in store? But TagItem doesn't access store directly for that.
+    // For visual consistency, we show expand button for all 'Work' tags or if we know it has children.
+    // Since we filtered children in store, we can assume Work tags are expandable.
+    
+    return InkWell(
+      onTap: () {
+        if (isSelectionMode) {
+          onSelectionToggle?.call();
+        } else if (hasChildren && onToggleExpansion != null) {
+          onToggleExpansion!.call();
+        } else {
+          _navigateToLocalSearch(context);
+        }
+      },
+      onLongPress: () {
+          if (!isSelectionMode) {
+              onSelectionModeToggle?.call(true);
+              if (!isSelected) onSelectionToggle?.call();
+          } else {
+              onSelectionToggle?.call();
+          }
+      },
+      onSecondaryTapDown: (details) => _tapPosition = details.globalPosition,
+      onSecondaryTap: () => _showContextMenu(context),
+      child: Container(
+        padding: EdgeInsets.only(left: data.indentLevel * 16.0),
+        color: isSelected ? Theme.of(context).colorScheme.primaryContainer.withOpacity(0.5) : null,
+        child: Row(
+          children: [
+             // Expand Icon for Works
+             if (hasChildren)
+               IconButton(
+                 icon: Icon(isExpanded ? Icons.expand_more : Icons.chevron_right, size: 20),
+                 onPressed: onToggleExpansion,
+                 visualDensity: VisualDensity.compact,
+               )
+             else
+               const SizedBox(width: 40), // Placeholder alignment
+             
+             // Cover (Tiny)
+             if (data.previewIllusts.isNotEmpty)
+               Container(
+                 width: 32, height: 32,
+                 margin: const EdgeInsets.only(right: 8),
+                 child: ClipRRect(
+                   borderRadius: BorderRadius.circular(4),
+                   child: _buildImage(data.previewIllusts.first),
+                 ),
+               ),
+             
+             // Info
+             Expanded(
+               child: Column(
+                 crossAxisAlignment: CrossAxisAlignment.start,
+                 children: [
+                   Text(
+                     '${data.tag.displayName} (${data.tag.count})',
+                     style: TextStyle(
+                        fontWeight: data.indentLevel == 0 ? FontWeight.bold : FontWeight.normal,
+                        color: data.tag.categoryEnum.color,
+                     ),
+                     maxLines: 1, overflow: TextOverflow.ellipsis,
+                   ),
+                   if (data.tag.displayTranslatedName.isNotEmpty && data.tag.displayTranslatedName != data.tag.name)
+                      Text(
+                        data.tag.name, // Show original name as subtitle if translated is used as primary
+                        style: Theme.of(context).textTheme.bodySmall,
+                        maxLines: 1, overflow: TextOverflow.ellipsis,
+                      ),
+                 ],
+               ),
+             ),
+             
+             // Actions
+             if (data.tag.isBookmarked)
+               Icon(Icons.bookmark, size: 16, color: Theme.of(context).colorScheme.primary),
+             
+             IconButton(
+               icon: const Icon(Icons.more_vert, size: 16),
+               onPressed: () {
+                 // Use a simple RenderBox approach to show menu near the button
+                 final renderBox = context.findRenderObject() as RenderBox;
+                 final offset = renderBox.localToGlobal(Offset.zero);
+                 final size = renderBox.size;
+                 // Set tap position for context menu
+                 _tapPosition = offset + Offset(size.width, size.height / 2);
+                 _showContextMenu(context);
+               },
+             ),
+          ],
+        ),
+      ),
     );
   }
 }
