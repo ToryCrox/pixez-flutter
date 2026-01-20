@@ -7,7 +7,6 @@ import 'package:pixez/page/downloaded/downloaded_page.dart';
 import 'package:pixez/page/downloaded/tag_manager/tag_selection_dialog.dart';
 import 'package:pixez/page/search/result_page.dart';
 import 'package:pixez/main.dart';
-import 'parent_selection_dialog.dart';
 
 class TagItem extends StatelessWidget {
   final TagDisplayData data;
@@ -20,7 +19,7 @@ class TagItem extends StatelessWidget {
   final bool showAsTreeRow;
   final bool isExpanded;
   final VoidCallback? onToggleExpansion;
-  final VoidCallback? onSetParent;
+  final ValueChanged<DownloadedTag>? onSetParent;
 
   const TagItem({
     super.key,
@@ -413,11 +412,7 @@ class TagItem extends StatelessWidget {
         break;
       case 'set_parent':
         if (context.mounted) {
-          ParentSelectionDialog.show(
-            context,
-            tag: data.tag,
-            currentParentId: data.tag.parentId,
-          );
+          onSetParent?.call(data.tag);
         }
         break;
       case 'exit_selection_mode':

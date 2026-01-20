@@ -139,7 +139,9 @@ class _TagManagerPageState extends State<TagManagerPage> {
                               onClassify: _showClassifyDialog,
                               onAssociate: _showAssociateDialog,
                               onToggleExpansion: () => _pageStore.toggleParentExpansion(data.tag.id),
-                              onSetParent: () => _showSetParentDialog(data.tag),
+                              onSetParent: _pageStore.isSelectionMode
+                                  ? _showSetParentDialogForSelection
+                                  : _showSetParentDialog,
                             );
                           },
                         );
@@ -175,7 +177,9 @@ class _TagManagerPageState extends State<TagManagerPage> {
                                         _pageStore.toggleSelectionMode(value),
                                 onClassify: _showClassifyDialog,
                                 onAssociate: _showAssociateDialog,
-                                onSetParent: () => _showSetParentDialog(data.tag),
+                                onSetParent: _pageStore.isSelectionMode
+                                    ? _showSetParentDialogForSelection
+                                    : _showSetParentDialog,
                               );
                             },
                           );
@@ -196,7 +200,7 @@ class _TagManagerPageState extends State<TagManagerPage> {
   void _showSetParentDialog(DownloadedTag tag) async {
     await ParentSelectionDialog.show(
       context,
-      tag: tag,
+      tags: [tag],
       currentParentId: tag.parentId,
     );
   }
@@ -312,6 +316,10 @@ class _TagManagerPageState extends State<TagManagerPage> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 TextButton(
+                  onPressed: () => _showSetParentDialogForSelection(),
+                  child: const Text('设置归属'),
+                ),
+                TextButton(
                   onPressed: _showAssociateDialog,
                   child: const Text('关联'),
                 ),
@@ -324,6 +332,38 @@ class _TagManagerPageState extends State<TagManagerPage> {
           },
         ),
       ],
+    );
+  }
+
+  void _showSetParentDialogForSelection([DownloadedTag? activeTag]) async {
+    if (activeTag != null && !_pageStore.selectedTagIds.contains(activeTag.id)) {
+      _pageStore.selectedTagIds.add(activeTag.id);
+    }
+
+    final selectedIds = _pageStore.selectedTagIds.toList();
+    if (selectedIds.isEmpty) return;
+
+    final List<DownloadedTag> selectedTags = [];
+    for (final id in selectedIds) {
+      final tag = tagManagerStore.getTagDisplayDataByID(id)?.tag;
+      if (tag != null) {
+        selectedTags.add(tag);
+      }
+    }
+
+    if (selectedTags.isEmpty) return;
+
+    // 如果选中的标签有不同的归属，默认传 0？或者传第一个？
+    // 这里简单起见传第一个的归属
+    final initialParentId = selectedTags.first.parentId;
+
+    await ParentSelectionDialog.show(
+      context,
+      tags: selectedTags,
+      currentParentId: initialParentId,
+      onUpdated: () {
+        _pageStore.toggleSelectionMode(false);
+      },
     );
   }
 

@@ -258,7 +258,7 @@ class _TagEditDialogState extends State<TagEditDialog> {
   Future<void> _showParentSelectionDialog() async {
     await ParentSelectionDialog.show(
       context,
-      tag: widget.tag,
+      tags: [widget.tag],
       currentParentId: _parentId,
       onUpdated: () {
         if (mounted) {

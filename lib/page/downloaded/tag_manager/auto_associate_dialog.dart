@@ -80,7 +80,7 @@ class _AutoAssociateDialogState extends State<AutoAssociateDialog> {
   Future<void> _changeParent(_ProposalEditState state) async {
     await ParentSelectionDialog.show(
       context,
-      tag: state.proposal.childTag,
+      tags: [state.proposal.childTag],
       currentParentId: state.parentTag.id,
       onUpdated: () {
         final updatedChild = tagManagerStore.getTagDisplayDataByID(state.proposal.childTag.id)?.tag;

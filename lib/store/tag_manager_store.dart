@@ -305,6 +305,21 @@ abstract class _TagManagerStore with Store {
     }
   }
 
+  @action
+  Future<void> batchUpdateTagParent(List<int> childIds, int parentId, {Map<int, String>? newNames}) async {
+    for (final childId in childIds) {
+      final index = tags.indexWhere((t) => t.tag.id == childId);
+      if (index != -1) {
+        final oldData = tags[index];
+        final newName = newNames?[childId];
+        await updateTag(oldData.tag.copyWith(
+          parentId: parentId,
+          customTranslatedName: newName ?? oldData.tag.customTranslatedName,
+        ));
+      }
+    }
+  }
+
   /// 获取标签推荐的父级（作品）
   Future<List<DownloadedTag>> getRecommendedParents(int tagId) async {
     final coOccurring = await _dbProvider.getCoOccurringWorkTags(tagId, limit: 5);
