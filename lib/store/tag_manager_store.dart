@@ -345,8 +345,8 @@ abstract class _TagManagerStore with Store {
     return results.values.toList();
   }
 
-  /// Scan for potential parent-child associations based on naming conventions and co-occurrence
-  /// e.g. "Character (Work)" -> Parent: "Work"
+  /// 扫描潜在的父子标签关联，基于命名规则和共现分析
+  /// 例如 "角色名（作品名）" -> 父标签: "作品名"
   Future<List<TagAssociationProposal>> scanForAutoAssociations() async {
     final proposals = <TagAssociationProposal>[];
     if (tags.isEmpty) return proposals;
@@ -354,7 +354,7 @@ abstract class _TagManagerStore with Store {
     // 限制单次扫描显示的建议数量，避免 UI 过载且提升响应速度
     const int maxProposals = 30;
 
-    // 1. Build Work Tag Map for fast lookup
+    // 1. 构建作品标签映射表，用于快速查找
     final workMap = <String, DownloadedTag>{};
     for (var t in tags) {
       if (t.tag.category == TagCategory.work.value) {
@@ -391,6 +391,7 @@ abstract class _TagManagerStore with Store {
         
         var parentTag = workMap[matchedWorkName];
         if (parentTag != null) {
+          // 优先使用主标签（如果存在等价标签）
           final mainTag = getMainTagByTag(parentTag) ?? parentTag;
           proposals.add(TagAssociationProposal(
             childTag: t.tag,
@@ -419,6 +420,7 @@ abstract class _TagManagerStore with Store {
         final parentData = tagIdMap[parentId];
         
         if (childData != null && parentData != null) {
+          // 优先使用主标签（如果存在等价标签）
           final mainParent = getMainTagByTag(parentData.tag) ?? parentData.tag;
           proposals.add(TagAssociationProposal(
             childTag: childData.tag,

@@ -9,10 +9,19 @@ class AutoAssociateDialog extends StatefulWidget {
 
   const AutoAssociateDialog({super.key, required this.proposals});
 
-  static Future<void> show(
-    BuildContext context, {
-    required List<TagAssociationProposal> proposals,
-  }) async {
+  static Future<void> show(BuildContext context) async {
+    // 执行智能扫描获取关联建议
+    final proposals = await tagManagerStore.scanForAutoAssociations();
+    
+    if (proposals.isEmpty) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('未找到可自动关联的标签')),
+        );
+      }
+      return;
+    }
+
     final List<TagAssociationProposal>? selectedProposals = await showDialog<List<TagAssociationProposal>>(
       context: context,
       builder: (context) => AutoAssociateDialog(proposals: proposals),

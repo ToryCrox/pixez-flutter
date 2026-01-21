@@ -575,28 +575,7 @@ class _TagManagerPageState extends State<TagManagerPage> {
 
 
   void _showAutoAssociateDialog() async {
-    try {
-      final proposals = await tagManagerStore.scanForAutoAssociations();
-
-      if (proposals.isEmpty) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('未发现可自动关联的标签')),
-          );
-        }
-        return;
-      }
-
-      if (!mounted) return;
-      await AutoAssociateDialog.show(context, proposals: proposals);
-    } catch (e) {
-      if (mounted) {
-        Navigator.of(context).pop(); // 确保关闭加载中
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('关联扫描失败: $e')),
-        );
-      }
-    }
+    await AutoAssociateDialog.show(context);
   }
 }
 
