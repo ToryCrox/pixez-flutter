@@ -1,11 +1,14 @@
 import 'package:mobx/mobx.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/models/download_record.dart';
+import 'package:pixez/er/prefer.dart';
 import 'package:pixez/store/tag_manager_store.dart';
 
 part 'tag_manager_page_store.g.dart';
 
 class TagManagerPageStore = _TagManagerPageStore with _$TagManagerPageStore;
+
+const String kTagManagerHideNonPrimary = 'tag_manager_hide_non_primary';
 
 abstract class _TagManagerPageStore with Store {
   @observable
@@ -18,6 +21,20 @@ abstract class _TagManagerPageStore with Store {
   int filterCategory = -1; // -1: All, TagCategory.work.value: Work, TagCategory.character.value: Character, 99: Bookmarked
 
   @observable
+  bool hideNonPrimaryTags = false;
+
+  @action
+  void init() {
+    hideNonPrimaryTags = Prefer.getBool(kTagManagerHideNonPrimary) ?? false;
+  }
+
+  @action
+  Future<void> toggleHideNonPrimaryTags(bool value) async {
+    hideNonPrimaryTags = value;
+    await Prefer.setBool(kTagManagerHideNonPrimary, value);
+  }
+
+  @observable
   int sortType = 4; // 0: count desc, 1: name asc, 2: last_used desc, 3: display_order desc, 4: category asc
 
   @observable
@@ -25,20 +42,28 @@ abstract class _TagManagerPageStore with Store {
 
   @computed
   List<TagDisplayData> get displayTags {
-    var result = tagManagerStore.tags.toList();
+    Iterable<TagDisplayData> result = tagManagerStore.tags;
 
     // 0. 优先处理父标签过滤
     if (filterByParentId != null) {
       // 只显示该父标签的所有子标签
-      result = tagManagerStore.getDirectChildren(filterByParentId!);
+      result = tagManagerStore.getDirectChildren(filterByParentId!).map((e) => e);
+    }
+    
+    // 过滤非主标签
+    if (hideNonPrimaryTags) {
+       result = result.where((data) => data.tag.referencedTagId == 0);
     }
 
     // 1. Filter by Search Text
     if (searchText.isNotEmpty) {
       final lowerSearch = searchText.toLowerCase();
-      final matchedSet = <int>{}; // 用于去重的Set
+      final matchedSet = <int>{}; 
       
-      for (final data in result) {
+      // 搜索逻辑需要查找匹配项及其子标签，因此需要先进行一次遍历
+      final sourceList = result.toList();
+      
+      for (final data in sourceList) {
         // 检查当前tag是否匹配
         final isMatch = data.tag.name.toLowerCase().contains(lowerSearch) ||
                data.tag.translatedName.toLowerCase().contains(lowerSearch) ||
@@ -55,19 +80,21 @@ abstract class _TagManagerPageStore with Store {
       }
       
       // 根据去重后的id集合过滤结果
-      result = result.where((data) => matchedSet.contains(data.tag.id)).toList();
+      result = sourceList.where((data) => matchedSet.contains(data.tag.id));
     }
 
     // 2. Filter by Category / Bookmark
     if (filterCategory != -1) {
       if (filterCategory == 99) {
-        result = result.where((data) => data.tag.isBookmarked).toList();
+        result = result.where((data) => data.tag.isBookmarked);
       } else {
-        result = result.where((data) => data.tag.category == filterCategory).toList();
+        result = result.where((data) => data.tag.category == filterCategory);
       }
     }
 
     // 3. Sort
+    final finalResult = result.toList();
+    
     int compareTags(TagDisplayData a, TagDisplayData b) {
       switch (sortType) {
         case 0: // Count Desc
@@ -102,9 +129,9 @@ abstract class _TagManagerPageStore with Store {
       return b.tag.displayName.compareTo(a.tag.displayName);
     }
 
-    result.sort(compareTags);
+    finalResult.sort(compareTags);
 
-    return result;
+    return finalResult;
   }
 
   @action

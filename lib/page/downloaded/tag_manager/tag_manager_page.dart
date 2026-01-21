@@ -29,6 +29,7 @@ class _TagManagerPageState extends State<TagManagerPage> {
     });
     // Ensure data is loaded (will skip if already exists)
     tagManagerStore.loadTags();
+    _pageStore.init();
   }
 
   @override
@@ -69,31 +70,42 @@ class _TagManagerPageState extends State<TagManagerPage> {
                 slivers: [
                   SliverPersistentHeader(
                     pinned: true,
-                    delegate: SliverChipDelegate(
-                      Container(
-                        alignment: Alignment.center,
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          child: SortGroup(
-                            key: ValueKey(_pageStore.filterCategory),
-                            children: const ['全部', '作品', '角色', '特点', '收藏'],
-                            initIndex: _getFilterIndex(
-                              _pageStore.filterCategory,
-                            ),
-                            onChange: (index) {
-                              final category = _getCategoryFromIndex(index);
-                              _pageStore.setFilterCategory(category);
-                            },
-                          ),
-                        ),
-                      ),
-                      height: 52,
-                    ),
-                  ),
+    delegate: SliverChipDelegate(
+      Stack(
+        children: [
+          Container(
+            alignment: Alignment.center,
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(
+                horizontal: 8,
+                vertical: 4,
+              ),
+              child: SortGroup(
+                key: ValueKey(_pageStore.filterCategory),
+                children: const ['全部', '作品', '角色', '特点', '收藏'],
+                initIndex: _getFilterIndex(
+                  _pageStore.filterCategory,
+                ),
+                onChange: (index) {
+                  final category = _getCategoryFromIndex(index);
+                  _pageStore.setFilterCategory(category);
+                },
+              ),
+            ),
+          ),
+          Positioned(
+            right: 8,
+            top: 0,
+            bottom: 0,
+            child: Center(
+              child: _buildDisplayModeButton(),
+            ),
+          ),
+        ],
+      ),
+      height: 52,
+    ),                  ),
 
                   if (tags.isEmpty)
                     SliverFillRemaining(
@@ -574,8 +586,35 @@ class _TagManagerPageState extends State<TagManagerPage> {
   }
 
 
+
   void _showAutoAssociateDialog() async {
     await AutoAssociateDialog.show(context);
+  }
+
+  Widget _buildDisplayModeButton() {
+    return Observer(
+      builder: (_) {
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              "隐藏同义",
+              style: TextStyle(
+                fontSize: 14,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Switch(
+              value: _pageStore.hideNonPrimaryTags,
+              onChanged: (value) {
+                _pageStore.toggleHideNonPrimaryTags(value);
+              },
+            ),
+          ],
+        );
+      },
+    );
   }
 }
 
