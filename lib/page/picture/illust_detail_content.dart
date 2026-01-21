@@ -626,10 +626,10 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
     final isCustom = customTranslation?.isNotEmpty == true;
     final displayTranslation = isCustom ? customTranslation : f.translatedName;
 
+    // 获取父标签的翻译名称
     String? parentName;
     if (localTag != null && localTag.tag.parentId != 0) {
-        final parentData = tagManagerStore.tags.cast<TagDisplayData?>().firstWhere(
-           (t) => t?.tag.id == localTag.tag.parentId, orElse: () => null);
+        final parentData = tagManagerStore.getTagDisplayDataByID(localTag.tag.parentId);
         if (parentData != null) {
             parentName = parentData.tag.displayName;
         }
@@ -657,10 +657,16 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
       mouseCursor: SystemMouseCursors.click,
       borderRadius: const BorderRadius.all(Radius.circular(12.5)),
       child: Tooltip(
-        message:
-            displayTranslation != null
-                ? "${f.name} ($displayTranslation)"
-                : f.name,
+        message: () {
+          final parts = <String>[f.name];
+          if (displayTranslation != null) {
+            parts.add(' ($displayTranslation)');
+          }
+          if (parentName != null && parentName.isNotEmpty) {
+            parts.add('($parentName)');
+          }
+          return parts.join('');
+        }(),
         child: Container(
           height: 25,
           padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -687,14 +693,6 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
                         fontSize: isClassified ? 10 : 12,
                       ),
                     ),
-                    if (parentName != null)
-                        TextSpan(
-                            text: "$parentName > ",
-                             style: theme.textTheme.titleSmall!.copyWith(
-                                color: theme.colorScheme.primary.withOpacity(0.7),
-                                fontSize: 11,
-                             ),
-                        ),
                     TextSpan(text: f.name),
                     if (displayTranslation != null) ...[
                       const TextSpan(text: " "),
@@ -705,6 +703,14 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
                         ),
                       ),
                     ],
+                    if (parentName != null && parentName.isNotEmpty)
+                        TextSpan(
+                            text: "($parentName)",
+                             style: theme.textTheme.titleSmall!.copyWith(
+                                color: theme.colorScheme.primary.withOpacity(0.7),
+                                fontSize: 11,
+                             ),
+                        ),
                   ],
                   style: theme.textTheme.titleSmall!.copyWith(
                     color:
