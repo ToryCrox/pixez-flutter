@@ -55,6 +55,7 @@ abstract class _DownloadedPageStoreBase with Store {
   EasyRefreshController? easyRefreshController;
   StreamSubscription<IllustDownloadStatus>? _downloadStatusSubscription;
   Timer? _searchDebounce;
+  Timer? _statsDebounce;
 
   // ===== 私有可观察状态 =====
 
@@ -219,6 +220,8 @@ abstract class _DownloadedPageStoreBase with Store {
     _downloadStatusSubscription = null;
     _searchDebounce?.cancel();
     _searchDebounce = null;
+    _statsDebounce?.cancel();
+    _statsDebounce = null;
   }
 
   /// 加载持久化的状态
@@ -249,6 +252,7 @@ abstract class _DownloadedPageStoreBase with Store {
     if (status.status == DownloadTaskStatus.deleted) {
       _illusts.removeWhere((e) => e.illustId == status.illusts.illustId);
       _illustDownloadStatus.remove(status.illusts.illustId);
+      _refreshStatsWithDebounce();
       return;
     }
 
@@ -261,10 +265,24 @@ abstract class _DownloadedPageStoreBase with Store {
       return;
     }
 
-    if (!_illusts.any((e) => e.illustId == status.illusts.illustId)) {
+    final index =
+        _illusts.indexWhere((e) => e.illustId == status.illusts.illustId);
+    if (index == -1) {
       _illusts.insert(0, status.illusts);
+    } else {
+      // 如果已在列表中，更新对象以反映物化字段的变化（已下载数、文件大小）
+      _illusts[index] = status.illusts;
     }
     _illustDownloadStatus[status.illusts.illustId] = status.status;
+    _refreshStatsWithDebounce();
+  }
+
+  /// 使用防抖刷新统计信息
+  void _refreshStatsWithDebounce() {
+    _statsDebounce?.cancel();
+    _statsDebounce = Timer(const Duration(milliseconds: 500), () {
+      loadStats();
+    });
   }
 
   /// 加载数据
