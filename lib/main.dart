@@ -23,6 +23,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
+import 'package:worker_manager/worker_manager.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pixez/custom/window_frame.dart';
@@ -98,6 +99,9 @@ main(List<String> args) async {
 
   // 初始化 Mana 调试工具
   ManaManager.instance.initialize();
+
+  // 初始化 Isolate 线程池
+  await workerManager.init();
 
   final app = ProviderScope(child: MyApp(arguments: args));
 

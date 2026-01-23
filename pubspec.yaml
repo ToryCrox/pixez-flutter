@@ -91,6 +91,7 @@ dependencies:
 
   sqlite3: any
   super_drag_and_drop: 0.9.1
+  worker_manager: 7.2.7
 
 dependency_overrides:
   flutter_cache_manager:

@@ -329,9 +329,9 @@ abstract class _DownloadStoreBase with Store {
   }
 
   /// 获取封面缓存路径（分质量目录存储格式）
-  /// 路径格式：databasePath/covers/{quality}/{illustId}.jpg
+  /// 路径格式：databasePath/covers/{quality}/{illustId}.webp
   String getCoverCachePath(int illustId, {String quality = Constants.qualitySquareMedium}) {
-    return path.join(_dbProvider.coverPath, quality, '$illustId.jpg');
+    return path.join(_dbProvider.coverPath, quality, '$illustId.webp');
   }
 
   /// 获取本地图片信息（包含宽高）
