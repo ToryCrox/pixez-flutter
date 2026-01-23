@@ -75,7 +75,7 @@ class _HelloPageState extends State<HelloPage> {
   late StreamSubscription _sub;
   late int index;
   late PageController _pageController;
-  bool? _lastWide;
+  bool? _isWideScreen;
   double? bottomNavigatorHeight = null;
   late List<Widget> _lists;
   late List<Widget> _wideLists;
@@ -152,18 +152,11 @@ class _HelloPageState extends State<HelloPage> {
       bottomNavigatorHeight = MediaQuery.of(context).padding.bottom + 80;
     }
     return LayoutBuilder(builder: (context, constraints) {
-      final wide = constraints.maxWidth > constraints.maxHeight;
-      final list = wide ? _wideLists : _lists;
-      if (_lastWide != null && _lastWide != wide) {
-        // 同步索引并更新 PageController 位置
-        index = index.clamp(0, list.length - 1);
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (_pageController.hasClients) {
-            _pageController.jumpToPage(index);
-          }
-        });
+      if (_isWideScreen == null) {
+        _isWideScreen = constraints.maxWidth > constraints.maxHeight;
       }
-      _lastWide = wide;
+      final wide = _isWideScreen!;
+      final list = wide ? _wideLists : _lists;
       index = index.clamp(0, list.length - 1);
 
       // 更新 windowFrameController 的宽屏状态
