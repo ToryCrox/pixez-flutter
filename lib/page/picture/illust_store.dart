@@ -154,6 +154,27 @@ abstract class _IllustStoreBase with Store {
     state = illusts?.isBookmarked ?? isBookmark ? 2 : 0;
   }
 
+  /// 检查并修复被删除的插画数据
+  @action
+  Future<void> checkAndFixDeleted() async {
+    if (illusts == null || !_isDeletedIllust(illusts!)) return;
+
+    Log.d('检测到插画 ${id} 已被删除，尝试从本地恢复');
+
+    // 1. 尝试从数据库加载已下载的信息
+    if (downloadStore.isInitialized) {
+      final downloadedIllust = await downloadStore.getDownloadedIllust(id);
+      if (downloadedIllust != null) {
+        try {
+          final dbIllusts = downloadedIllust.toIllusts();
+          illusts = dbIllusts;
+        } catch (e) {
+          Log.e('修复被删除插画失败: $e');
+        }
+      }
+    }
+  }
+
   void _initDownloadStatusListener() {
     Log.d(() => {'illust_id': id, 'method': 'initDownloadStatusListener'});
     if (_downloadStatusSubscription != null) {

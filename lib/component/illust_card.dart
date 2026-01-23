@@ -80,38 +80,47 @@ class _IllustCardState extends State<IllustCard> {
     store = widget.store;
     iStores = widget.iStores;
     _lightingStore = widget.lightingStore;
-    tag = this.hashCode.toString();
+    tag = store.id.toString();
+    store.checkAndFixDeleted();
     super.initState();
   }
 
   @override
   void didUpdateWidget(covariant IllustCard oldWidget) {
     super.didUpdateWidget(oldWidget);
-    store = widget.store;
-    iStores = widget.iStores;
-    _lightingStore = widget.lightingStore;
+    if (oldWidget.store != widget.store ||
+        oldWidget.store.illusts != widget.store.illusts) {
+      store = widget.store;
+      iStores = widget.iStores;
+      _lightingStore = widget.lightingStore;
+      tag = store.id.toString();
+      store.checkAndFixDeleted();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (userSetting.hIsNotAllow)
-      for (int i = 0; i < store.illusts!.tags.length; i++) {
-        if (store.illusts!.tags[i].name.startsWith('R-18')) {
-          return InkWell(
-            onTap: () => _buildTap(context),
-            onLongPress: () => _onLongPressSave(),
-            child: Card(
-              margin: EdgeInsets.all(8.0),
-              elevation: 8.0,
-              clipBehavior: Clip.antiAlias,
-              shape: const RoundedRectangleBorder(
-                  borderRadius: BorderRadius.all(Radius.circular(8.0))),
-              child: Image.asset(Constants.no_h),
-            ),
-          );
+    return Observer(builder: (context) {
+      if (store.illusts == null) return const SizedBox.shrink();
+      if (userSetting.hIsNotAllow)
+        for (int i = 0; i < store.illusts!.tags.length; i++) {
+          if (store.illusts!.tags[i].name.startsWith('R-18')) {
+            return InkWell(
+              onTap: () => _buildTap(context),
+              onLongPress: () => _onLongPressSave(),
+              child: Card(
+                margin: EdgeInsets.all(8.0),
+                elevation: 8.0,
+                clipBehavior: Clip.antiAlias,
+                shape: const RoundedRectangleBorder(
+                    borderRadius: BorderRadius.all(Radius.circular(8.0))),
+                child: Image.asset(Constants.no_h),
+              ),
+            );
+          }
         }
-      }
-    return _buildInkWell(context);
+      return _buildInkWell(context);
+    });
   }
 
   _onLongPressSave() async {
@@ -199,7 +208,7 @@ class _IllustCardState extends State<IllustCard> {
         fit: fit,
         // 网格模式添加 header 优化缓存
         httpHeaders: widget.layoutMode == IllustCardLayoutMode.grid
-            ? {'cover': '${store.illusts!.id}'}
+            ? {'cover': '${store.id}'}
             : null,
       ),
     );
