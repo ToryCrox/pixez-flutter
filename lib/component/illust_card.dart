@@ -189,36 +189,12 @@ class _IllustCardState extends State<IllustCard> {
   }
 
   Widget _buildPic(String tag) {
-    // 瀑布流模式：根据设置选择 feedPreviewUrl
-    // 网格模式：固定使用 squareMedium
-    final bool useFeedPreview = widget.layoutMode == IllustCardLayoutMode.waterfall;
-
-    final imageUrl = useFeedPreview
-        ? store.illusts!.feedPreviewUrl
-        : store.illusts!.imageUrls.squareMedium;
+    final imageUrl = store.illusts!.previewUrl;
+    final quality = store.illusts!.previewQuality;
 
     final fit = widget.layoutMode == IllustCardLayoutMode.waterfall
         ? BoxFit.fitWidth
         : BoxFit.cover;
-
-    // 根据使用的布局模式确定图片 URL 和质量标识
-    String quality = Constants.qualitySquareMedium;
-    if (useFeedPreview) {
-      if (userSetting.feedPreviewQuality == Constants.qualityLevelMedium) {
-        quality = Constants.qualityMedium;
-      } else if (userSetting.feedPreviewQuality == Constants.qualityLevelLarge) {
-        quality = Constants.qualityLarge;
-      } else if (userSetting.feedPreviewQuality == Constants.qualityLevelOriginal) {
-        quality = Constants.qualityOriginal;
-      }
-    }
-
-    // 计算建议的内存缓存宽度，避免内存占用过高
-    // 网格模式通常较小，瀑布流可能较宽
-    final double devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
-    final int? memCacheWidth = widget.layoutMode == IllustCardLayoutMode.grid
-        ? (240 * devicePixelRatio).toInt()
-        : (480 * devicePixelRatio).toInt();
 
     return NullHero(
       tag: tag,
@@ -230,7 +206,7 @@ class _IllustCardState extends State<IllustCard> {
           'cover': '${store.id}',
           'quality': quality,
         },
-        memCacheWidth: memCacheWidth,
+        memCacheWidth: 480,
       ),
     );
   }

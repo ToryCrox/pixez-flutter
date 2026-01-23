@@ -22,6 +22,7 @@ import 'package:flutter_displaymode/flutter_displaymode.dart';
 import 'package:mobx/mobx.dart';
 import 'package:pixez/component/picker/utils.dart';
 import 'package:pixez/component/pixiv_image.dart';
+import 'package:pixez/constants.dart';
 import 'package:pixez/custom/log.dart';
 import 'package:pixez/er/hoster.dart';
 import 'package:pixez/er/prefer.dart';
@@ -221,6 +222,27 @@ abstract class _UserSetting with Store {
   double networkSpeedBallY = 0.0;
   @observable
   bool isNetworkLogCollecting = false;
+
+  /// 根据当前布局模式和质量设置获取质量标识
+  @computed
+  String get previewQuality {
+    // 网格模式统一使用 squareMedium
+    if (!useWaterfallFlow) {
+      return Constants.qualitySquareMedium;
+    }
+    
+    // 瀑布流模式根据设置返回对应质量
+    switch (feedPreviewQuality) {
+      case Constants.qualityLevelMedium:
+        return Constants.qualityMedium;
+      case Constants.qualityLevelLarge:
+        return Constants.qualityLarge;
+      case Constants.qualityLevelOriginal:
+        return Constants.qualityOriginal;
+      default:
+        return Constants.qualityMedium;
+    }
+  }
 
   static const String intialFormat = "{illust_id}_p{part}";
 

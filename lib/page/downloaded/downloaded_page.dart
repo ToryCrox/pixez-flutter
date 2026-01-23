@@ -25,6 +25,7 @@ import 'package:pixez/exts.dart';
 import 'package:pixez/i18n.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/models/download_record.dart';
+import 'package:pixez/models/illust.dart';
 import 'package:pixez/page/picture/illust_store.dart';
 import 'package:pixez/page/picture/picture_list_page.dart';
 import 'package:pixez/page/downloaded/downloaded_authors_page.dart';
@@ -884,34 +885,24 @@ class _DownloadedIllustCard extends StatelessWidget {
   Widget _buildThumbnail(BuildContext context) {
     final heroTag = 'downloaded_illust_${illust.illustId}';
 
-    final imageUrls = illust.getImageUrls();
-    String coverUrl = imageUrls.squareMedium;
-    if (coverUrl.isEmpty) {
-      final illusts = illust.toIllusts();
-      coverUrl = illusts.imageUrls.squareMedium;
-    }
+    final String quality = userSetting.previewQuality;
+    String coverUrl;
 
-    // 获取对应布局的质量标识
-    // 目前 DownloadedPage 使用 SliverGrid，固定为网格模式。
-    // 如果将来支持瀑布流模式，可以根据布局模式选择使用 Constants.qualitySquareMedium 或根据 feedPreviewQuality 选择质量。
-    String quality = Constants.qualitySquareMedium;
-    
-    // 预留瀑布流布局的自适应逻辑（目前 useFeedPreview 为 false）
-    /*
-    if (useFeedPreview) {
+    if (!userSetting.useWaterfallFlow) {
+      // 网格模式：直接从 imageUrlsJson 获取 squareMedium，避免解析完整的 illustJson
+      coverUrl = illust.getImageUrls().squareMedium;
+    } else {
+      // 瀑布流模式：根据设置选择对应的 URL
+      final imageUrls = illust.getImageUrls();
       if (userSetting.feedPreviewQuality == Constants.qualityLevelMedium) {
-        quality = Constants.qualityMedium;
+        coverUrl = imageUrls.medium;
       } else if (userSetting.feedPreviewQuality == Constants.qualityLevelLarge) {
-        quality = Constants.qualityLarge;
-      } else if (userSetting.feedPreviewQuality == Constants.qualityLevelOriginal) {
-        quality = Constants.qualityOriginal;
+        coverUrl = imageUrls.large;
+      } else {
+        // 原图质量或兜底：才需要解析完整的 Illusts 对象以获取原图 URL
+        coverUrl = illust.toIllusts().previewUrl;
       }
     }
-    */
-
-    // 计算建议的内存缓存宽度，避免内存占用过高
-    final double devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
-    final int? memCacheWidth = (240 * devicePixelRatio).toInt();
 
     Widget imageWidget = PixivImage(
       coverUrl,
@@ -920,7 +911,7 @@ class _DownloadedIllustCard extends StatelessWidget {
         'cover': '${illust.illustId}',
         'quality': quality,
       },
-      memCacheWidth: memCacheWidth,
+      memCacheWidth: 480,
     );
 
     return Hero(

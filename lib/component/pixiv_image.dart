@@ -64,12 +64,14 @@ class PixivCacheManager extends CacheManager with ImageCacheManager {
   }
 
   PixivCacheManager._(Dio dio)
-      : super(Config(
+    : super(
+        Config(
           key,
           maxNrOfCacheObjects: maxCacheObjects,
           stalePeriod: Duration(days: 365),
           fileService: DioHttpFileService(dio),
-        ));
+        ),
+      );
 
   Future<FileInfo?> _fileInfoFromIoFile(String filePath, String url) async {
     final ioFile = io.File(filePath);
@@ -91,7 +93,11 @@ class PixivCacheManager extends CacheManager with ImageCacheManager {
   /// 只对已下载的插画进行本地封面缓存
   /// 如果本地存在则返回本地文件，否则从网络下载并缓存
   /// 如果图片已被删除（URL 含 limit_unknown_360.png），则从本地第一张图压缩生成封面
-  Future<FileInfo?> _tryLoadOrDownloadCover(String url, int illustId, {String quality = Constants.qualityMedium}) async {
+  Future<FileInfo?> _tryLoadOrDownloadCover(
+    String url,
+    int illustId, {
+    String quality = Constants.qualityMedium,
+  }) async {
     // 1. 如果请求的是 origin 质量，直接从下载目录读取，不经过 cover 目录
     if (quality == Constants.qualityOriginal) {
       final localPath = await downloadStore.getLocalImagePath(illustId, 0);
@@ -102,11 +108,16 @@ class PixivCacheManager extends CacheManager with ImageCacheManager {
       return null; // origin 质量不下载到封面目录
     }
 
-    final coverPath = downloadStore.getCoverCachePath(illustId, quality: quality);
+    final coverPath = downloadStore.getCoverCachePath(
+      illustId,
+      quality: quality,
+    );
 
     // 2. 本地封面缓存存在则直接返回
     if (await io.File(coverPath).exists()) {
-      Log.d(() => '加载本地封面缓存: $illustId, quality: $quality, url: $url, $coverPath');
+      Log.d(
+        () => '加载本地封面缓存: $illustId, quality: $quality, url: $url, $coverPath',
+      );
       return _fileInfoFromIoFile(coverPath, url);
     }
 
@@ -116,13 +127,15 @@ class PixivCacheManager extends CacheManager with ImageCacheManager {
       Log.d(() => '发现旧的 JPG 封面缓存，尝试迁移到 WebP: $oldJpgPath');
       final startTime = DateTime.now();
       final oldSize = await io.File(oldJpgPath).length();
-      
-      final migrationSuccess = await workerManager.execute(() => _migrateJpgToWebp({
-        'jpgPath': oldJpgPath,
-        'webpPath': coverPath,
-        'quality': quality,
-      }));
-      
+
+      final migrationSuccess = await workerManager.execute(
+        () => _migrateJpgToWebp({
+          'jpgPath': oldJpgPath,
+          'webpPath': coverPath,
+          'quality': quality,
+        }),
+      );
+
       if (migrationSuccess) {
         Log.d(() {
           final newSize = io.File(coverPath).lengthSync();
@@ -146,7 +159,12 @@ class PixivCacheManager extends CacheManager with ImageCacheManager {
     // 5. 检查是否为已删除图片（limit_unknown_360.png）
     if (url.contains('limit_unknown_360.png')) {
       Log.d(() => '图片已删除，尝试从本地第一张图生成封面: $illustId');
-      return await _generateCoverFromLocalImage(illustId, coverPath, url, quality: quality);
+      return await _generateCoverFromLocalImage(
+        illustId,
+        coverPath,
+        url,
+        quality: quality,
+      );
     }
 
     // 6. 从网络下载并保存
@@ -160,7 +178,12 @@ class PixivCacheManager extends CacheManager with ImageCacheManager {
       // 检查下载后的文件名是否为占位图（以防 URL 未包含但实际返回了占位图）
       if (url.contains('limit_unknown')) {
         Log.d(() => '下载到占位图，尝试从本地第一张图生成封面: $illustId');
-        return await _generateCoverFromLocalImage(illustId, coverPath, url, quality: quality);
+        return await _generateCoverFromLocalImage(
+          illustId,
+          coverPath,
+          url,
+          quality: quality,
+        );
       }
 
       // 下载文件（需要 headers 才能访问 Pixiv）
@@ -169,12 +192,14 @@ class PixivCacheManager extends CacheManager with ImageCacheManager {
       // 无论下载的是什么格式，都进行压缩处理并存为 WebP
       final startTime = DateTime.now();
       final oldSize = await file.length();
-      
-      final success = await workerManager.execute(() => _processCoverImage({
-        'sourcePath': file.path,
-        'targetPath': coverPath,
-        'quality': quality,
-      }));
+
+      final success = await workerManager.execute(
+        () => _processCoverImage({
+          'sourcePath': file.path,
+          'targetPath': coverPath,
+          'quality': quality,
+        }),
+      );
 
       if (success) {
         Log.d(() {
@@ -192,13 +217,22 @@ class PixivCacheManager extends CacheManager with ImageCacheManager {
     } catch (e) {
       Log.e('下载封面失败: $illustId, $e');
       // 下载失败时也尝试从本地生成
-      return await _generateCoverFromLocalImage(illustId, coverPath, url, quality: quality);
+      return await _generateCoverFromLocalImage(
+        illustId,
+        coverPath,
+        url,
+        quality: quality,
+      );
     }
   }
 
   /// 从本地第一张图生成封面
   Future<FileInfo?> _generateCoverFromLocalImage(
-      int illustId, String coverPath, String url, {String quality = Constants.qualityMedium}) async {
+    int illustId,
+    String coverPath,
+    String url, {
+    String quality = Constants.qualityMedium,
+  }) async {
     try {
       // 获取本地第一张图路径
       final firstImagePath = await downloadStore.getLocalImagePath(illustId, 0);
@@ -216,16 +250,18 @@ class PixivCacheManager extends CacheManager with ImageCacheManager {
       // 根据质量决定处理方式
       // 如果请求的是 Original，且本地有原图，则直接复制（虽然这种情况在 _tryLoadOrDownloadCover 已处理，但作为兜底）
       if (quality == Constants.qualityOriginal) {
-         await io.File(firstImagePath).copy(coverPath);
-         return _fileInfoFromIoFile(coverPath, url);
+        await io.File(firstImagePath).copy(coverPath);
+        return _fileInfoFromIoFile(coverPath, url);
       }
 
       // 使用 workerManager 在后台线程处理图片（裁剪/压缩）
-      final success = await workerManager.execute(() => _processCoverImage({
-        'sourcePath': firstImagePath,
-        'targetPath': coverPath,
-        'quality': quality,
-      }));
+      final success = await workerManager.execute(
+        () => _processCoverImage({
+          'sourcePath': firstImagePath,
+          'targetPath': coverPath,
+          'quality': quality,
+        }),
+      );
 
       if (success) {
         Log.d(() => '从本地图生成封面成功: $illustId, quality: $quality');
@@ -262,7 +298,11 @@ class PixivCacheManager extends CacheManager with ImageCacheManager {
   }
 
   /// 内部 WebP 编码方法（封装 WebPEncoder）
-  static Future<bool> _encodeToWebp(img.Image image, String targetPath, String quality) async {
+  static Future<bool> _encodeToWebp(
+    img.Image image,
+    String targetPath,
+    String quality,
+  ) async {
     // 根据质量决定参数
     int webpQuality = 75;
     if (quality == Constants.qualityLarge) {
@@ -320,11 +360,13 @@ class PixivCacheManager extends CacheManager with ImageCacheManager {
       if (quality == Constants.qualitySquareMedium) {
         // 仅在 square_medium 模式下裁剪为正方形
         final size = image.width < image.height ? image.width : image.height;
-        processed = img.copyCrop(image,
-            x: (image.width - size) ~/ 2,
-            y: (image.height - size) ~/ 2,
-            width: size,
-            height: size);
+        processed = img.copyCrop(
+          image,
+          x: (image.width - size) ~/ 2,
+          y: (image.height - size) ~/ 2,
+          width: size,
+          height: size,
+        );
       } else {
         // 其他（Waterfall）模式保持原始比例
         processed = image;
@@ -394,7 +436,11 @@ class PixivCacheManager extends CacheManager with ImageCacheManager {
       if (illustId != null) {
         try {
           final quality = headers?['quality'] ?? Constants.qualityMedium;
-          final coverResult = await _tryLoadOrDownloadCover(url, illustId, quality: quality);
+          final coverResult = await _tryLoadOrDownloadCover(
+            url,
+            illustId,
+            quality: quality,
+          );
           if (coverResult != null) {
             yield coverResult;
             return;
@@ -468,10 +514,12 @@ class PixivImage extends StatefulWidget {
   static Future<void> generatePixivCache() async {
     final dio = Dio();
     final client = await r.RhttpCompatibleClient.createSync(
-        settings: (userSetting.disableBypassSni ||
-                userSetting.pictureSource != ImageHost)
-            ? null
-            : Hoster.createImageClientSettings());
+      settings:
+          (userSetting.disableBypassSni ||
+                  userSetting.pictureSource != ImageHost)
+              ? null
+              : Hoster.createImageClientSettings(),
+    );
     dio.httpClientAdapter = ConversionLayerAdapter(client);
     // 添加网络速度监控拦截器
     dio.interceptors.add(NetworkSpeedInterceptor());
@@ -511,7 +559,8 @@ class _PixivImageState extends State<PixivImage> {
         oldWidget.memCacheHeight != widget.memCacheHeight ||
         oldWidget.localImageInfo != widget.localImageInfo) {
       Log.d(
-          "url: ${oldWidget.url} -> ${widget.url}, localImageInfo: ${oldWidget.localImageInfo} => ${widget.localImageInfo}");
+        "url: ${oldWidget.url} -> ${widget.url}, localImageInfo: ${oldWidget.localImageInfo} => ${widget.localImageInfo}",
+      );
       setState(() {
         url = widget.url;
         width = widget.width;
@@ -539,9 +588,10 @@ class _PixivImageState extends State<PixivImage> {
     return LayoutBuilder(
       builder: (context, constraints) {
         // 使用 LayoutBuilder 获取实际容器宽度
-        final containerWidth = constraints.maxWidth.isFinite
-            ? constraints.maxWidth
-            : (width ?? MediaQuery.of(context).size.width);
+        final containerWidth =
+            constraints.maxWidth.isFinite
+                ? constraints.maxWidth
+                : (width ?? MediaQuery.of(context).size.width);
 
         // 计算显示尺寸
         double? displayWidth;
@@ -572,18 +622,20 @@ class _PixivImageState extends State<PixivImage> {
           displayWidth = containerWidth;
         }
         return CachedNetworkImage(
-          placeholder: (context, url) =>
-              widget.placeWidget ?? Container(height: height),
-          errorWidget: (context, url, _) => Container(
-            height: height,
-            child: Center(
-              child: TextButton(
-                  onPressed: () {
-                    setState(() {});
-                  },
-                  child: Text(":(")),
-            ),
-          ),
+          placeholder:
+              (context, url) => widget.placeWidget ?? Container(height: height),
+          errorWidget:
+              (context, url, _) => Container(
+                height: height,
+                child: Center(
+                  child: TextButton(
+                    onPressed: () {
+                      setState(() {});
+                    },
+                    child: Text(":("),
+                  ),
+                ),
+              ),
           fadeOutDuration: const Duration(milliseconds: 200),
           fadeInDuration: Duration(milliseconds: 200),
           //imageUrl: 'file://${localInfo.path}',
@@ -618,21 +670,33 @@ class _PixivImageState extends State<PixivImage> {
     final int? effectiveMemCacheHeight = widget.memCacheHeight;
 
     return CachedNetworkImage(
-      placeholder: (context, url) =>
-      widget.placeWidget ?? Container(height: height),
-      errorWidget: (context, url, _) => Container(
-        height: height,
-        child: Center(
-          child: TextButton(
-              onPressed: () {
-                setState(() {});
-              },
-              child: Text(":(")),
-        ),
-      ),
+      placeholder:
+          (context, url) => widget.placeWidget ?? Container(height: height),
+      errorWidget:
+          (context, url, _) => Container(
+            height: height,
+            child: Center(
+              child: TextButton(
+                onPressed: () {
+                  setState(() {});
+                },
+                child: Text(":("),
+              ),
+            ),
+          ),
       fadeOutDuration: widget.fade ? const Duration(milliseconds: 300) : null,
-      memCacheWidth: effectiveMemCacheWidth,
-      memCacheHeight: effectiveMemCacheHeight,
+      memCacheWidth:
+          effectiveMemCacheWidth != null
+              ? (effectiveMemCacheWidth *
+                      MediaQuery.devicePixelRatioOf(context))
+                  .toInt()
+              : null,
+      memCacheHeight:
+          effectiveMemCacheHeight != null
+              ? (effectiveMemCacheHeight *
+                      MediaQuery.devicePixelRatioOf(context))
+                  .toInt()
+              : null,
       imageUrl: url,
       cacheManager: pixivCacheManager,
       height: height,
@@ -648,8 +712,11 @@ class _PixivImageState extends State<PixivImage> {
 
 class PixivProvider {
   static ImageProvider url(String url, {String? preUrl}) {
-    return CachedNetworkImageProvider(url,
-        headers: Hoster.header(url: preUrl), cacheManager: pixivCacheManager);
+    return CachedNetworkImageProvider(
+      url,
+      headers: Hoster.header(url: preUrl),
+      cacheManager: pixivCacheManager,
+    );
   }
 }
 
@@ -667,20 +734,25 @@ class LocalFileImageProvider extends ImageProvider<LocalFileImageProvider> {
 
   @override
   ImageStreamCompleter loadImage(
-      LocalFileImageProvider key, ImageDecoderCallback decode) {
+    LocalFileImageProvider key,
+    ImageDecoderCallback decode,
+  ) {
     return MultiFrameImageStreamCompleter(
       codec: _loadAsync(key, decode),
       scale: key.scale,
       debugLabel: key.filePath,
-      informationCollector: () => <DiagnosticsNode>[
-        DiagnosticsProperty<ImageProvider>('Image provider', this),
-        DiagnosticsProperty<LocalFileImageProvider>('Image key', key),
-      ],
+      informationCollector:
+          () => <DiagnosticsNode>[
+            DiagnosticsProperty<ImageProvider>('Image provider', this),
+            DiagnosticsProperty<LocalFileImageProvider>('Image key', key),
+          ],
     );
   }
 
   Future<ui.Codec> _loadAsync(
-      LocalFileImageProvider key, ImageDecoderCallback decode) async {
+    LocalFileImageProvider key,
+    ImageDecoderCallback decode,
+  ) async {
     final file = io.File(key.filePath);
     final bytes = await file.readAsBytes();
     final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
@@ -747,19 +819,19 @@ class _CustomImageState extends State<CustomImage>
       vsync: this,
       duration: const Duration(milliseconds: 300),
     );
-    _animation = CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeOut,
-    );
+    _animation = CurvedAnimation(parent: _controller, curve: Curves.easeOut);
     _loadImage();
   }
 
   void _loadImage() {
     final ImageConfiguration config = ImageConfiguration(
-      size: widget.width != null || widget.height != null
-          ? Size(
-              widget.width ?? double.infinity, widget.height ?? double.infinity)
-          : null,
+      size:
+          widget.width != null || widget.height != null
+              ? Size(
+                widget.width ?? double.infinity,
+                widget.height ?? double.infinity,
+              )
+              : null,
     );
 
     _imageStream = widget.imageProvider.resolve(config);
@@ -836,10 +908,7 @@ class _CustomImageState extends State<CustomImage>
 
     // 应用淡入效果
     if (widget.fade) {
-      imageWidget = FadeTransition(
-        opacity: _animation,
-        child: imageWidget,
-      );
+      imageWidget = FadeTransition(opacity: _animation, child: imageWidget);
     }
 
     return imageWidget;

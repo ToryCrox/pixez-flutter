@@ -571,12 +571,7 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
                 }
 
                 // 计算建议的质量标识，以匹配 IllustCard 的缓存键
-                String quality = Constants.qualityMedium;
-                if (userSetting.feedPreviewQuality == Constants.qualityLevelLarge) {
-                  quality = Constants.qualityLarge;
-                } else if (userSetting.feedPreviewQuality == Constants.qualityLevelOriginal) {
-                  quality = Constants.qualityOriginal;
-                }
+                String quality = userSetting.previewQuality;
 
                 Widget placeWidget = Container(height: height);
                 return InkWell(
@@ -599,9 +594,9 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
                       localImageInfo: _illustStore.getLocalImageInfo(0),
                       fade: false,
                       width: MediaQuery.of(context).size.width,
-                      placeWidget: (url != data.feedPreviewUrl)
+                      placeWidget: (url != data.previewUrl)
                           ? PixivImage(
-                              data.feedPreviewUrl,
+                              data.previewUrl,
                               width: MediaQuery.of(context).size.width,
                               placeWidget: placeWidget,
                               fade: false,
@@ -675,17 +670,12 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
     final localImageInfo = _illustStore.getLocalImageInfo(index);
 
     // 计算质量标识
-    String quality = Constants.qualityMedium;
-    if (userSetting.feedPreviewQuality == Constants.qualityLevelLarge) {
-      quality = Constants.qualityLarge;
-    } else if (userSetting.feedPreviewQuality == Constants.qualityLevelOriginal) {
-      quality = Constants.qualityOriginal;
-    }
+    String quality = userSetting.previewQuality;
 
     if (illust.type == "manga") {
       imageUrl = illust.managaDetailImageUrl(index);
       placeholderUrl = index == 0
-          ? illust.feedPreviewUrl
+          ? illust.previewUrl
           : illust.metaPages[index].imageUrls!.squareMedium;
       usePlaceholder = index == 0 ? userSetting.mangaQuality >= 1 : false;
 
@@ -695,7 +685,7 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
     } else {
       imageUrl = illust.illustDetailImageUrl(index);
       placeholderUrl = index == 0
-          ? illust.feedPreviewUrl
+          ? illust.previewUrl
           : illust.metaPages[index].imageUrls!.squareMedium;
       usePlaceholder = index == 0 ? userSetting.pictureQuality >= 1 : false;
 

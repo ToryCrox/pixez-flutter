@@ -651,6 +651,14 @@ extension IllustExtension on Illusts {
           ? this.imageUrls.large
           : this.metaSinglePage?.originalImageUrl ??
               this.metaPages[0].imageUrls!.original;
+
+  /// 根据当前布局模式（瀑布流/网格）获取封面 URL
+  String get previewUrl {
+    return userSetting.useWaterfallFlow ? feedPreviewUrl : imageUrls.squareMedium;
+  }
+
+  /// 根据当前布局模式（瀑布流/网格）获取质量标识
+  String get previewQuality => userSetting.previewQuality;
 }
 
 //@JsonSerializable(explicitToJson: true)
