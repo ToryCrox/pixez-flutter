@@ -101,7 +101,7 @@ main(List<String> args) async {
   ManaManager.instance.initialize();
 
   // 初始化 Isolate 线程池
-  await workerManager.init();
+  await workerManager.init(isolatesCount: 3);
 
   final app = ProviderScope(child: MyApp(arguments: args));
 
