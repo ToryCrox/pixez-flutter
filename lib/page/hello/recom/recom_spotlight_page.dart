@@ -23,6 +23,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:pixez/component/illust_card.dart';
 import 'package:pixez/component/pixez_default_header.dart';
+import 'package:pixez/component/pixez_easy_refresh.dart';
 import 'package:pixez/component/pixiv_image.dart';
 import 'package:pixez/exts.dart';
 import 'package:pixez/i18n.dart';
@@ -109,8 +110,9 @@ class _RecomSpolightPageState extends State<RecomSpolightPage>
           ],
           body: ListView(),
         ),
-        EasyRefresh.builder(
+        PixezEasyRefresh.builder(
           controller: _easyRefreshController,
+          scrollController: _scrollController,
           callLoadOverOffset: Platform.isIOS ? 2 : 5,
           header: PixezDefault.header(context),
           footer: PixezDefault.footer(context),
@@ -121,29 +123,34 @@ class _RecomSpolightPageState extends State<RecomSpolightPage>
           onLoad: () async {
             await _lightingStore.fetchNext();
           },
-          childBuilder: (context, physics) => Observer(
-            builder: (context) => _buildWaterFall(context, physics),
+          childBuilder: (context, physics, scrollController) => Observer(
+            builder: (context) => _buildWaterFall(context, physics, scrollController),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildWaterFall(BuildContext context, ScrollPhysics physics) {
+  Widget _buildWaterFall(
+      BuildContext context, ScrollPhysics physics, ScrollController? controller) {
     _lightingStore.iStores
         .removeWhere((element) => element.illusts!.hateByUser());
     return NotificationListener<ScrollNotification>(
       onNotification: (ScrollNotification notification) {
         ScrollMetrics metrics = notification.metrics;
         if (backToTopVisible == metrics.atEdge && mounted) {
-          setState(() {
-            backToTopVisible = !backToTopVisible;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              setState(() {
+                backToTopVisible = !backToTopVisible;
+              });
+            }
           });
         }
         return true;
       },
       child: CustomScrollView(
-        controller: _scrollController,
+        controller: controller,
         physics: physics,
         slivers: [
           SliverToBoxAdapter(

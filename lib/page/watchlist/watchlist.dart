@@ -1,4 +1,4 @@
-import 'package:easy_refresh/easy_refresh.dart';
+import 'package:pixez/component/pixez_easy_refresh.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -31,7 +31,7 @@ class _State extends ConsumerState<WatchlistPage> {
       });
       return null;
     }, []);
-    return EasyRefresh.builder(
+    return PixezEasyRefresh.builder(
       controller: controller,
       header: PixezDefault.header(context),
       footer: PixezDefault.footer(context),
@@ -41,9 +41,10 @@ class _State extends ConsumerState<WatchlistPage> {
       onLoad: () async {
         await ref.read(watchlistStoreProvider.notifier).loadMore();
       },
-      childBuilder: (context, physics) {
+      childBuilder: (context, physics, scrollController) {
         return CustomScrollView(
           physics: physics,
+          controller: scrollController,
           slivers: [
             SliverList(
                 delegate: SliverChildBuilderDelegate(

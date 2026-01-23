@@ -18,6 +18,7 @@ import 'dart:io';
 
 import 'package:bot_toast/bot_toast.dart';
 import 'package:easy_refresh/easy_refresh.dart';
+import 'package:pixez/component/pixez_easy_refresh.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -434,109 +435,112 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
         ),
       );
     if (userStore == null) userStore = UserStore(data.user.id, null, data.user);
-    return EasyRefresh(
+    return PixezEasyRefresh.builder(
       controller: _refreshController,
       header: PixezDefault.header(context),
       footer: PixezDefault.footer(context),
-      onLoad: () {
-        _aboutStore.next();
+      onLoad: () async {
+        await _aboutStore.next();
       },
-      child: CustomScrollView(
-        controller: _scrollController,
-        slivers: [
-          if (userSetting.isBangs || ((data.width / data.height) > 5))
+      childBuilder: (context, physics, scrollController) {
+        return CustomScrollView(
+          physics: physics,
+          controller: scrollController,
+          slivers: [
+            if (userSetting.isBangs || ((data.width / data.height) > 5))
+              SliverToBoxAdapter(
+                  child: Container(height: MediaQuery.of(context).padding.top)),
+            ..._buildPhotoList(data),
             SliverToBoxAdapter(
-                child: Container(height: MediaQuery.of(context).padding.top)),
-          ..._buildPhotoList(data),
-          SliverToBoxAdapter(
-            child: IllustDetailContent(
-              illusts: data,
-              userStore: userStore,
-              illustStore: _illustStore,
-              loadAbout: () {
-                _loadAbout();
-              },
+              child: IllustDetailContent(
+                illusts: data,
+                userStore: userStore,
+                illustStore: _illustStore,
+                loadAbout: () {
+                  _loadAbout();
+                },
+              ),
             ),
-          ),
-          SliverGrid(
-              delegate:
-                  SliverChildBuilderDelegate((BuildContext context, int index) {
-                var list = _aboutStore.illusts
-                    .map((element) => IllustStore(element.id, element))
-                    .toList();
-                final illust = _aboutStore.illusts[index];
-                return InkWell(
-                  onTap: () {
-                    Leader.push(
-                        context,
-                        PictureListPage(
-                          iStores: list,
-                          lightingStore: null,
-                          store: list[index],
-                        ));
-                  },
-                  onLongPress: () async {
-                    if (userSetting.longPressSaveConfirm) {
-                      final result = await showDialog(
-                          context: context,
-                          builder: (context) {
-                            return AlertDialog(
-                              title: Text(I18n.of(context).save),
-                              content: Text(list[index].illusts?.title ?? ""),
-                              actions: <Widget>[
-                                TextButton(
-                                  child: Text(I18n.of(context).cancel),
-                                  onPressed: () {
-                                    Navigator.of(context).pop(false);
-                                  },
-                                ),
-                                TextButton(
-                                  child: Text(I18n.of(context).ok),
-                                  onPressed: () {
-                                    Navigator.of(context).pop(true);
-                                  },
-                                ),
-                              ],
-                            );
-                          });
-                      if (!result) {
-                        return;
+            SliverGrid(
+                delegate:
+                    SliverChildBuilderDelegate((BuildContext context, int index) {
+                  var list = _aboutStore.illusts
+                      .map((element) => IllustStore(element.id, element))
+                      .toList();
+                  final illust = _aboutStore.illusts[index];
+                  return InkWell(
+                    onTap: () {
+                      Leader.push(
+                          context,
+                          PictureListPage(
+                            iStores: list,
+                            lightingStore: null,
+                            store: list[index],
+                          ));
+                    },
+                    onLongPress: () async {
+                      if (userSetting.longPressSaveConfirm) {
+                        final result = await showDialog(
+                            context: context,
+                            builder: (context) {
+                              return AlertDialog(
+                                title: Text(I18n.of(context).save),
+                                content: Text(list[index].illusts?.title ?? ""),
+                                actions: <Widget>[
+                                  TextButton(
+                                    child: Text(I18n.of(context).cancel),
+                                    onPressed: () {
+                                      Navigator.of(context).pop(false);
+                                    },
+                                  ),
+                                  TextButton(
+                                    child: Text(I18n.of(context).ok),
+                                    onPressed: () {
+                                      Navigator.of(context).pop(true);
+                                    },
+                                  ),
+                                ],
+                              );
+                            });
+                        if (!result) {
+                          return;
+                        }
                       }
-                    }
-                    if (userSetting.starAfterSave &&
-                        (_illustStore.state == 0)) {
-                      _illustStore.star(
-                          restrict: userSetting.defaultPrivateLike
-                              ? "private"
-                              : "public");
-                    }
-                    downloadStore.downloadIllust(_aboutStore.illusts[index]);
-                  },
-                  child: Stack(
-                    children: [
-                      PixivImage(
-                        illust.imageUrls.squareMedium,
-                        enableMemoryCache: false,
-                        // 通过 header 传递 illustId，让 PixivCacheManager 识别封面请求
-                        httpHeaders: {'cover': '${illust.id}'},
-                      ),
-                      Positioned(
-                        top: 4,
-                        right: 4,
-                        child: DownloadStatusIndicator(
-                          illustId: illust.id,
-                          pageCount: illust.pageCount,
-                          size: 14,
+                      if (userSetting.starAfterSave &&
+                          (_illustStore.state == 0)) {
+                        _illustStore.star(
+                            restrict: userSetting.defaultPrivateLike
+                                ? "private"
+                                : "public");
+                      }
+                      downloadStore.downloadIllust(_aboutStore.illusts[index]);
+                    },
+                    child: Stack(
+                      children: [
+                        PixivImage(
+                          illust.imageUrls.squareMedium,
+                          enableMemoryCache: false,
+                          // 通过 header 传递 illustId，让 PixivCacheManager 识别封面请求
+                          httpHeaders: {'cover': '${illust.id}'},
                         ),
-                      ),
-                    ],
-                  ),
-                );
-              }, childCount: _aboutStore.illusts.length),
-              gridDelegate:
-                  SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3))
-        ],
-      ),
+                        Positioned(
+                          top: 4,
+                          right: 4,
+                          child: DownloadStatusIndicator(
+                            illustId: illust.id,
+                            pageCount: illust.pageCount,
+                            size: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }, childCount: _aboutStore.illusts.length),
+                gridDelegate:
+                    SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3))
+          ],
+        );
+      },
     );
   }
 

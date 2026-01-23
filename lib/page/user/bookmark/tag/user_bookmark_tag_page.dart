@@ -15,6 +15,7 @@
  */
 
 import 'package:easy_refresh/easy_refresh.dart';
+import 'package:pixez/component/pixez_easy_refresh.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:pixez/i18n.dart';
@@ -73,55 +74,78 @@ class _UserBookmarkTagPageState extends State<UserBookmarkTagPage>
   }
 }
 
-class NewWidget extends StatelessWidget {
+class NewWidget extends StatefulWidget {
   final String restrict;
 
   const NewWidget({Key? key, required this.restrict}) : super(key: key);
 
   @override
-  Widget build(BuildContext context) {
-    final EasyRefreshController _easyRefreshController = EasyRefreshController(
+  State<NewWidget> createState() => _NewWidgetState();
+}
+
+class _NewWidgetState extends State<NewWidget> {
+  late EasyRefreshController _easyRefreshController;
+  late BookMarkTagStore _bookMarkTagStore;
+
+  @override
+  void initState() {
+    super.initState();
+    _easyRefreshController = EasyRefreshController(
         controlFinishLoad: true, controlFinishRefresh: true);
-    BookMarkTagStore _bookMarkTagStore = BookMarkTagStore(
+    _bookMarkTagStore = BookMarkTagStore(
         int.parse(accountStore.now!.userId), _easyRefreshController);
+  }
+
+  @override
+  void dispose() {
+    _easyRefreshController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Observer(builder: (_) {
-      return EasyRefresh(
+      return PixezEasyRefresh.builder(
         controller: _easyRefreshController,
         refreshOnStart: true,
-        child: ListView.builder(
-          itemBuilder: (context, index) {
-            if (index == 0)
-              return ListTile(
-                title: Text(I18n.of(context).all),
-                onTap: () {
-                  Navigator.pop(context, {"tag": null, "restrict": restrict});
-                },
-              );
-            else if (index == 1)
-              return ListTile(
-                title: Text(I18n.of(context).unclassified),
-                onTap: () {
-                  Navigator.pop(
-                      context, {"tag": "未分類", "restrict": restrict}); //日语
-                },
-              );
-            var bookmarkTag = _bookMarkTagStore.bookmarkTags[index - 2];
-            return ListTile(
-              title: Text(bookmarkTag.name),
-              trailing: Text(bookmarkTag.count.toString()),
-              onTap: () {
-                Navigator.pop(
-                    context, {"tag": bookmarkTag.name, "restrict": restrict});
-              },
-            );
-          },
-          itemCount: _bookMarkTagStore.bookmarkTags.length + 2,
-        ),
         onRefresh: () async {
-          await _bookMarkTagStore.fetch(restrict);
+          await _bookMarkTagStore.fetch(widget.restrict);
         },
         onLoad: () async {
           await _bookMarkTagStore.next();
+        },
+        childBuilder: (context, physics, scrollController) {
+          return ListView.builder(
+            physics: physics,
+            controller: scrollController,
+            itemBuilder: (context, index) {
+              if (index == 0)
+                return ListTile(
+                  title: Text(I18n.of(context).all),
+                  onTap: () {
+                    Navigator.pop(context, {"tag": null, "restrict": widget.restrict});
+                  },
+                );
+              else if (index == 1)
+                return ListTile(
+                  title: Text(I18n.of(context).unclassified),
+                  onTap: () {
+                    Navigator.pop(
+                        context, {"tag": "未分類", "restrict": widget.restrict}); //日语
+                  },
+                );
+              var bookmarkTag = _bookMarkTagStore.bookmarkTags[index - 2];
+              return ListTile(
+                title: Text(bookmarkTag.name),
+                trailing: Text(bookmarkTag.count.toString()),
+                onTap: () {
+                  Navigator.pop(
+                      context, {"tag": bookmarkTag.name, "restrict": widget.restrict});
+                },
+              );
+            },
+            itemCount: _bookMarkTagStore.bookmarkTags.length + 2,
+          );
         },
       );
     });

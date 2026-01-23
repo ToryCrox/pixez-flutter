@@ -20,19 +20,41 @@ import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:pixez/component/pixez_default_header.dart';
+import 'package:pixez/component/pixez_easy_refresh.dart';
 import 'package:pixez/component/spotlight_card.dart';
 import 'package:pixez/i18n.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/page/hello/recom/spotlight_store.dart';
 import 'package:waterfall_flow/waterfall_flow.dart';
 
-class SpotLightPage extends StatelessWidget {
+class SpotLightPage extends StatefulWidget {
+  @override
+  _SpotLightPageState createState() => _SpotLightPageState();
+}
+
+class _SpotLightPageState extends State<SpotLightPage> {
+  late ScrollController _controller;
+  late EasyRefreshController _refreshController;
+  late SpotlightStore _spotlightStore;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = ScrollController();
+    _refreshController = EasyRefreshController(
+        controlFinishLoad: true, controlFinishRefresh: true);
+    _spotlightStore = SpotlightStore(_refreshController);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _refreshController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
-    final ScrollController _controller = ScrollController();
-    final EasyRefreshController _refreshController = EasyRefreshController(
-        controlFinishLoad: true, controlFinishRefresh: true);
-    final SpotlightStore _spotlightStore = SpotlightStore(_refreshController);
     return Observer(builder: (_) {
       return Scaffold(
         appBar: AppBar(
@@ -47,21 +69,25 @@ class SpotLightPage extends StatelessWidget {
             )
           ],
         ),
-        body: EasyRefresh(
+        body: PixezEasyRefresh.builder(
             onLoad: () => _spotlightStore.next(),
             onRefresh: () => _spotlightStore.fetch(),
             header: PixezDefault.header(context),
             refreshOnStart: true,
             controller: _refreshController,
-            child: WaterfallFlow.builder(
-              gridDelegate: _buildGridDelegate(context),
-              controller: _controller,
-              itemBuilder: (BuildContext context, int index) {
-                return SpotlightCard(
-                    spotlight: _spotlightStore.articles[index]);
-              },
-              itemCount: _spotlightStore.articles.length,
-            )),
+            scrollController: _controller,
+            childBuilder: (context, physics, scrollController) {
+              return WaterfallFlow.builder(
+                gridDelegate: _buildGridDelegate(context),
+                physics: physics,
+                controller: scrollController,
+                itemBuilder: (BuildContext context, int index) {
+                  return SpotlightCard(
+                      spotlight: _spotlightStore.articles[index]);
+                },
+                itemCount: _spotlightStore.articles.length,
+              );
+            }),
       );
     });
   }

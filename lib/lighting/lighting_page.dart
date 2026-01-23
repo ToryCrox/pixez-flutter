@@ -22,6 +22,7 @@ import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:mobx/mobx.dart';
 import 'package:pixez/component/illust_card.dart';
 import 'package:pixez/component/pixez_default_header.dart';
+import 'package:pixez/component/pixez_easy_refresh.dart';
 import 'package:pixez/exts.dart';
 import 'package:pixez/i18n.dart';
 import 'package:pixez/lighting/lighting_store.dart';
@@ -135,35 +136,22 @@ class _LightingListState extends State<LightingList> {
   Widget _buildWithoutHeader(context) {
     _store.iStores
         .removeWhere((element) => element.illusts!.hateByUser(ai: _ai));
-    return NotificationListener<ScrollNotification>(
-        onNotification: (ScrollNotification notification) {
-          if (widget.isNested == true) {
-            return true;
-          }
-          ScrollMetrics metrics = notification.metrics;
-          if (backToTopVisible == metrics.atEdge && mounted) {
-            setState(() {
-              backToTopVisible = !backToTopVisible;
-            });
-          }
-          return true;
-        },
-        child: EasyRefresh.builder(
-          controller: _refreshController,
-          header: PixezDefault.header(context),
-          footer: PixezDefault.footer(context),
-          scrollController: _scrollController,
-          onRefresh: () {
-            _store.fetch(force: true);
-          },
-          onLoad: () {
-            _store.fetchNext();
-          },
-          childBuilder: (context, physics) => userSetting.useWaterfallFlow
+    return PixezEasyRefresh.builder(
+      controller: _refreshController,
+      header: PixezDefault.header(context),
+      footer: PixezDefault.footer(context),
+      scrollController: _scrollController,
+      onRefresh: () async {
+        await _store.fetch(force: true);
+      },
+      onLoad: () async {
+        await _store.fetchNext();
+      },
+      childBuilder: (context, physics, scrollController) =>
+          userSetting.useWaterfallFlow
               ? WaterfallFlow.builder(
                   physics: physics,
-                  controller:
-                      widget.isNested ?? false ? null : _scrollController,
+                  controller: scrollController,
                   padding: EdgeInsets.all(5.0),
                   itemCount: _store.iStores.length,
                   itemBuilder: (context, index) {
@@ -173,8 +161,7 @@ class _LightingListState extends State<LightingList> {
                 )
               : GridView.builder(
                   physics: physics,
-                  controller:
-                      widget.isNested ?? false ? null : _scrollController,
+                  controller: scrollController,
                   padding: EdgeInsets.all(5.0),
                   itemCount: _store.iStores.length,
                   itemBuilder: (context, index) {
@@ -182,7 +169,7 @@ class _LightingListState extends State<LightingList> {
                   },
                   gridDelegate: _buildSliverGridDelegate(),
                 ),
-        ));
+    );
   }
 
   bool needToBan(Illusts illust) {
@@ -245,52 +232,38 @@ class _LightingListState extends State<LightingList> {
   }
 
   Widget _buildWithHeader(BuildContext context) {
-    return NotificationListener<ScrollNotification>(
-      onNotification: (ScrollNotification notification) {
-        ScrollMetrics metrics = notification.metrics;
-        if (backToTopVisible == metrics.atEdge && mounted) {
-          WidgetsBinding.instance.addPostFrameCallback((t) {
-            setState(() {
-              backToTopVisible = !backToTopVisible;
-            });
-          });
-        }
-        return true;
+    return PixezEasyRefresh.builder(
+      controller: _refreshController,
+      scrollController: _scrollController,
+      header: PixezDefault.header(context),
+      footer: PixezDefault.footer(context, position: IndicatorPosition.locator),
+      onRefresh: () async {
+        await _store.fetch(force: true);
       },
-      child: EasyRefresh.builder(
-        controller: _refreshController,
-        scrollController: _scrollController,
-        header: PixezDefault.header(context),
-        footer:
-            PixezDefault.footer(context, position: IndicatorPosition.locator),
-        onRefresh: () {
-          _store.fetch(force: true);
-        },
-        onLoad: () {
-          _store.fetchNext();
-        },
-        childBuilder: ((context, physics) {
-          return CustomScrollView(
-            physics: physics,
-            controller: widget.isNested ?? false ? null : _scrollController,
-            slivers: [
-              SliverToBoxAdapter(
-                child: Container(child: widget.header),
-              ),
-              userSetting.useWaterfallFlow
-                  ? SliverWaterfallFlow(
-                      gridDelegate: _buildGridDelegate(),
-                      delegate: _buildSliverChildBuilderDelegate(context),
-                    )
-                  : SliverGrid(
-                      gridDelegate: _buildSliverGridDelegate(),
-                      delegate: _buildSliverGridChildBuilderDelegate(context),
-                    ),
-              const FooterLocator.sliver(),
-            ],
-          );
-        }),
-      ),
+      onLoad: () async {
+        await _store.fetchNext();
+      },
+      childBuilder: ((context, physics, scrollController) {
+        return CustomScrollView(
+          physics: physics,
+          controller: scrollController,
+          slivers: [
+            SliverToBoxAdapter(
+              child: Container(child: widget.header),
+            ),
+            userSetting.useWaterfallFlow
+                ? SliverWaterfallFlow(
+                    gridDelegate: _buildGridDelegate(),
+                    delegate: _buildSliverChildBuilderDelegate(context),
+                  )
+                : SliverGrid(
+                    gridDelegate: _buildSliverGridDelegate(),
+                    delegate: _buildSliverGridChildBuilderDelegate(context),
+                  ),
+            const FooterLocator.sliver(),
+          ],
+        );
+      }),
     );
   }
 

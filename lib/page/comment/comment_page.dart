@@ -18,6 +18,7 @@ import 'dart:io';
 
 import 'package:bot_toast/bot_toast.dart';
 import 'package:easy_refresh/easy_refresh.dart';
+import 'package:pixez/component/pixez_easy_refresh.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:pixez/component/comment_emoji_text.dart';
@@ -179,183 +180,209 @@ class _CommentPageState extends State<CommentPage> {
           child: Column(
             children: <Widget>[
               Expanded(
-                child: EasyRefresh(
+                child: PixezEasyRefresh.builder(
                   header: PixezDefault.header(context),
                   controller: easyRefreshController,
-                  onRefresh: () => _store.fetch(),
-                  onLoad: () => _store.next(),
-                  child: Observer(
-                    builder: (context) {
-                      if (_store.errorMessage != null) {
-                        return Container(
-                          child: Center(
-                            child: Text(_store.errorMessage!),
-                          ),
-                        );
-                      }
-                      if (_store.isEmpty) {
-                        return Container(
-                          child: Center(
-                            child: Padding(
-                              padding: const EdgeInsets.all(8.0),
-                              child: Text('[ ]',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .headlineMedium),
-                            ),
-                          ),
-                        );
-                      }
-                      var comments = _store.comments
-                          .where((element) => !commentHateByUser(element))
-                          .toList();
-                      return comments.isNotEmpty
-                          ? ListView.separated(
-                              itemCount: comments.length,
-                              padding: EdgeInsets.only(top: 10),
-                              itemBuilder: (context, index) {
-                                if (banList
-                                    .where((element) => comments[index]
-                                        .comment!
-                                        .contains(element))
-                                    .isNotEmpty)
-                                  return Visibility(
-                                    visible: false,
-                                    child: Container(),
-                                  );
-                                var comment = comments[index];
-                                return Container(
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.max,
-                                    mainAxisAlignment: MainAxisAlignment.start,
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: <Widget>[
-                                      Padding(
-                                        padding: const EdgeInsets.all(8.0),
-                                        child: PainterAvatar(
-                                          url: comments[index]
-                                              .user!
-                                              .profileImageUrls
-                                              .medium,
-                                          id: comments[index].user!.id!,
-                                        ),
-                                      ),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
+                  onRefresh: () async {
+                    await _store.fetch();
+                  },
+                  onLoad: () async {
+                    await _store.next();
+                  },
+                  childBuilder: (context, physics, scrollController) {
+                    return Observer(
+                      builder: (context) {
+                        if (_store.errorMessage != null) {
+                          return CustomScrollView(
+                            physics: physics,
+                            controller: scrollController,
+                            slivers: [
+                              SliverFillRemaining(
+                                child: Center(
+                                  child: Text(_store.errorMessage!),
+                                ),
+                              )
+                            ],
+                          );
+                        }
+                        if (_store.isEmpty) {
+                          return CustomScrollView(
+                            physics: physics,
+                            controller: scrollController,
+                            slivers: [
+                              SliverFillRemaining(
+                                child: Center(
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(8.0),
+                                    child: Text('[ ]',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .headlineMedium),
+                                  ),
+                                ),
+                              )
+                            ],
+                          );
+                        }
+                        var comments = _store.comments
+                            .where((element) => !commentHateByUser(element))
+                            .toList();
+                        if (comments.isEmpty) {
+                          return CustomScrollView(
+                            physics: physics,
+                            controller: scrollController,
+                            slivers: [
+                              SliverFillRemaining(
+                                child: Center(
+                                  child: CircularProgressIndicator(
+                                    color: Theme.of(context).colorScheme.secondary,
+                                  ),
+                                ),
+                              )
+                            ],
+                          );
+                        }
+                        return ListView.separated(
+                          physics: physics,
+                          controller: scrollController,
+                          itemCount: comments.length,
+                          padding: EdgeInsets.only(top: 10),
+                          itemBuilder: (context, index) {
+                            if (banList
+                                .where((element) => comments[index]
+                                    .comment!
+                                    .contains(element))
+                                .isNotEmpty)
+                              return Visibility(
+                                visible: false,
+                                child: Container(),
+                              );
+                            var comment = comments[index];
+                            return Container(
+                              child: Row(
+                                mainAxisSize: MainAxisSize.max,
+                                mainAxisAlignment: MainAxisAlignment.start,
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.start,
+                                children: <Widget>[
+                                  Padding(
+                                    padding: const EdgeInsets.all(8.0),
+                                    child: PainterAvatar(
+                                      url: comments[index]
+                                          .user!
+                                          .profileImageUrls
+                                          .medium,
+                                      id: comments[index].user!.id!,
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      mainAxisSize: MainAxisSize.max,
+                                      children: <Widget>[
+                                        Row(
                                           mainAxisSize: MainAxisSize.max,
+                                          mainAxisAlignment:
+                                              MainAxisAlignment
+                                                  .spaceBetween,
                                           children: <Widget>[
-                                            Row(
-                                              mainAxisSize: MainAxisSize.max,
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment
-                                                      .spaceBetween,
-                                              children: <Widget>[
-                                                Text(
-                                                  comment.user!.name,
-                                                  maxLines: 1,
-                                                  style: TextStyle(
-                                                      color: Theme.of(context)
-                                                          .colorScheme
-                                                          .secondary,
-                                                      overflow: TextOverflow
-                                                          .ellipsis),
-                                                ),
-                                                _buildTrailingRow(
-                                                    comment, context)
-                                              ],
+                                            Text(
+                                              comment.user!.name,
+                                              maxLines: 1,
+                                              style: TextStyle(
+                                                  color: Theme.of(context)
+                                                      .colorScheme
+                                                      .secondary,
+                                                  overflow: TextOverflow
+                                                      .ellipsis),
                                             ),
-                                            if (comment.parentComment?.user !=
-                                                null)
-                                              Text(
-                                                  'To ${comment.parentComment!.user!.name}'),
-                                            if (comment.stamp == null)
-                                              Padding(
-                                                padding: const EdgeInsets.only(
-                                                    right: 4.0),
-                                                child: _buildCommentContent(
-                                                    context, comment),
-                                              ),
-                                            if (comment.stamp != null)
-                                              Padding(
-                                                padding: const EdgeInsets.only(
-                                                    right: 4.0),
-                                                child: PixivImage(
-                                                  comment.stamp!.stamp_url!,
-                                                  height: 100,
-                                                  width: 100,
-                                                ),
-                                              ),
-                                            if (comment.hasReplies == true)
-                                              Padding(
-                                                padding: const EdgeInsets.only(
-                                                    right: 4.0),
-                                                child: ActionChip(
-                                                  label: Text(I18n.of(context)
-                                                      .view_replies),
-                                                  onPressed: () async {
-                                                    Leader.push(
-                                                        context,
-                                                        CommentPage(
-                                                          id: widget.id,
-                                                          isReplay: true,
-                                                          pId: comment.id!,
-                                                          type: widget.type,
-                                                          name: comment
-                                                              .user!.name,
-                                                        ));
-                                                  },
-                                                ),
-                                              ),
-                                            Padding(
-                                              padding: const EdgeInsets.only(
-                                                  top: 8.0),
-                                              child: Text(
-                                                comment.date
-                                                    .toString()
-                                                    .toShortTime(),
-                                                style: Theme.of(context)
-                                                    .textTheme
-                                                    .bodySmall,
-                                              ),
-                                            )
+                                            _buildTrailingRow(
+                                                comment, context)
                                           ],
                                         ),
-                                      )
-                                    ],
-                                  ),
-                                );
-                              },
-                              separatorBuilder:
-                                  (BuildContext context, int index) {
-                                if (banList
-                                    .where((element) => comments[index]
-                                        .comment!
-                                        .contains(element))
-                                    .isNotEmpty)
-                                  return Visibility(
-                                    visible: false,
-                                    child: Container(),
-                                  );
-                                return Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 8.0),
-                                  child: Divider(),
-                                );
-                              },
-                            )
-                          : Container(
-                              child: Center(
-                                child: CircularProgressIndicator(
-                                  color:
-                                      Theme.of(context).colorScheme.secondary,
-                                ),
+                                        if (comment.parentComment?.user !=
+                                            null)
+                                          Text(
+                                              'To ${comment.parentComment!.user!.name}'),
+                                        if (comment.stamp == null)
+                                          Padding(
+                                            padding: const EdgeInsets.only(
+                                                right: 4.0),
+                                            child: _buildCommentContent(
+                                                context, comment),
+                                          ),
+                                        if (comment.stamp != null)
+                                          Padding(
+                                            padding: const EdgeInsets.only(
+                                                right: 4.0),
+                                            child: PixivImage(
+                                              comment.stamp!.stamp_url!,
+                                              height: 100,
+                                              width: 100,
+                                            ),
+                                          ),
+                                        if (comment.hasReplies == true)
+                                          Padding(
+                                            padding: const EdgeInsets.only(
+                                                right: 4.0),
+                                            child: ActionChip(
+                                              label: Text(I18n.of(context)
+                                                  .view_replies),
+                                              onPressed: () async {
+                                                Leader.push(
+                                                    context,
+                                                    CommentPage(
+                                                      id: widget.id,
+                                                      isReplay: true,
+                                                      pId: comment.id!,
+                                                      type: widget.type,
+                                                      name: comment
+                                                          .user!.name,
+                                                    ));
+                                              },
+                                            ),
+                                          ),
+                                        Padding(
+                                          padding: const EdgeInsets.only(
+                                              top: 8.0),
+                                          child: Text(
+                                            comment.date
+                                                .toString()
+                                                .toShortTime(),
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .bodySmall,
+                                          ),
+                                        )
+                                      ],
+                                    ),
+                                  )
+                                ],
                               ),
                             );
-                    },
-                  ),
+                          },
+                          separatorBuilder:
+                              (BuildContext context, int index) {
+                            if (banList
+                                .where((element) => comments[index]
+                                    .comment!
+                                    .contains(element))
+                                .isNotEmpty)
+                              return Visibility(
+                                visible: false,
+                                child: Container(),
+                              );
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8.0),
+                              child: Divider(),
+                            );
+                          },
+                        );
+                      },
+                    );
+                  },
                 ),
               ),
               Align(

@@ -23,6 +23,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:pixez/component/illust_card.dart';
 import 'package:pixez/component/pixez_default_header.dart';
+import 'package:pixez/component/pixez_easy_refresh.dart';
 import 'package:pixez/component/sort_group.dart';
 import 'package:pixez/er/leader.dart';
 import 'package:pixez/exts.dart';
@@ -221,13 +222,14 @@ class _BookMarkNestedPageState extends State<BookMarkNestedPage> {
         bottom: false,
         child: Builder(
           builder: (BuildContext context) {
-            return EasyRefresh.builder(
+            return PixezEasyRefresh.builder(
                 controller: _easyRefreshController,
-                onLoad: () {
-                  _store.fetchNext();
+                scrollController: _scrollController,
+                onLoad: () async {
+                  await _store.fetchNext();
                 },
-                onRefresh: () {
-                  _store.fetch(force: true);
+                onRefresh: () async {
+                  await _store.fetch(force: true);
                 },
                 header: PixezDefault.header(context,
                     position: IndicatorPosition.locator, safeArea: false),
@@ -235,12 +237,13 @@ class _BookMarkNestedPageState extends State<BookMarkNestedPage> {
                   context,
                   position: IndicatorPosition.locator,
                 ),
-                childBuilder: (context, phy) {
+                childBuilder: (context, phy, scrollController) {
                   return Observer(builder: (_) {
                     final userIsMe = accountStore.now != null &&
                         accountStore.now!.userId == widget.id.toString();
                     return CustomScrollView(
                       physics: phy,
+                      controller: scrollController,
                       key: PageStorageKey<String>(widget.portal),
                       slivers: [
                         userIsMe

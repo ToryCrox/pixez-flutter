@@ -14,6 +14,7 @@
  */
 
 import 'package:easy_refresh/easy_refresh.dart';
+import 'package:pixez/component/pixez_easy_refresh.dart';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -36,7 +37,6 @@ import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 import 'package:pixez/page/downloaded/optimize_json_dialog.dart';
 import 'package:pixez/page/downloaded/update_illust_info_dialog.dart';
 import 'package:pixez/store/download_store.dart';
-import 'package:pixez/component/pixez_easy_refresh.dart';
 import 'package:pixez/component/pixez_default_header.dart';
 import 'package:pixez/component/sort_group.dart';
 import 'package:pixez/constants.dart';
