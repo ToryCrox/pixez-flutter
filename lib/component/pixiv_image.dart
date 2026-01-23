@@ -23,6 +23,7 @@ import 'package:dio_compatibility_layer/dio_compatibility_layer.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:file/local.dart';
+import 'package:pixez/constants.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_cache_manager_dio/flutter_cache_manager_dio.dart';
 import 'package:image/image.dart' as img;
@@ -88,28 +89,42 @@ class PixivCacheManager extends CacheManager with ImageCacheManager {
   /// 只对已下载的插画进行本地封面缓存
   /// 如果本地存在则返回本地文件，否则从网络下载并缓存
   /// 如果图片已被删除（URL 含 limit_unknown_360.png），则从本地第一张图压缩生成封面
-  Future<FileInfo?> _tryLoadOrDownloadCover(String url, int illustId) async {
-    final coverPath = downloadStore.getCoverCachePath(illustId);
+  Future<FileInfo?> _tryLoadOrDownloadCover(String url, int illustId, {String quality = Constants.qualityMedium}) async {
+    // 1. 如果请求的是 origin 质量，直接从下载目录读取，不经过 cover 目录
+    if (quality == Constants.qualityOriginal) {
+      final localPath = await downloadStore.getLocalImagePath(illustId, 0);
+      if (localPath != null && await io.File(localPath).exists()) {
+        Log.d(() => '封面请求(origin)命中本地原图: $illustId');
+        return _fileInfoFromIoFile(localPath, url);
+      }
+      return null; // origin 质量不下载到封面目录
+    }
 
-    // 1. 本地封面缓存存在则直接返回
+    final coverPath = downloadStore.getCoverCachePath(illustId, quality: quality);
+
+    // 2. 本地封面缓存存在则直接返回
     if (await io.File(coverPath).exists()) {
-      Log.d(() => '加载本地封面缓存: $illustId, url: $url, $coverPath');
+      Log.d(() => '加载本地封面缓存: $illustId, quality: $quality, url: $url, $coverPath');
       return _fileInfoFromIoFile(coverPath, url);
     }
 
-    // 2. 检查该插画是否已下载，未下载则返回 null，走正常网络加载流程
+    // 3. 检查该插画是否已下载，未下载则返回 null，走正常网络加载流程
     final isDownloaded = await downloadStore.isIllustDownloaded(illustId);
     if (!isDownloaded) {
       return null;
     }
 
-    // 3. 检查是否为已删除图片（limit_unknown_360.png）
+    // 4. 对于其他质量等级（medium, large 等），如果已下载且非正方形，直接读取下载的原图或对应的缩略图
+    // 这里我们先走正常的生成/下载逻辑，以保证 Waterfall 模式下的性能优化（使用压缩后的 medium/large 而非原图）。
+    // 只有 origin 质量才绕过封面目录。
+
+    // 5. 检查是否为已删除图片（limit_unknown_360.png）
     if (url.contains('limit_unknown_360.png')) {
       Log.d(() => '图片已删除，尝试从本地第一张图生成封面: $illustId');
-      return await _generateCoverFromLocalImage(illustId, coverPath, url);
+      return await _generateCoverFromLocalImage(illustId, coverPath, url, quality: quality);
     }
 
-    // 4. 从网络下载并保存
+    // 6. 从网络下载并保存
     try {
       // 确保目录存在
       final dir = io.Directory(path.dirname(coverPath));
@@ -123,23 +138,23 @@ class PixivCacheManager extends CacheManager with ImageCacheManager {
       // 检查下载后的文件名是否为占位图（以防 URL 未包含但实际返回了占位图）
       if (file.path.contains('limit_unknown')) {
         Log.d(() => '下载到占位图，尝试从本地第一张图生成封面: $illustId');
-        return await _generateCoverFromLocalImage(illustId, coverPath, url);
+        return await _generateCoverFromLocalImage(illustId, coverPath, url, quality: quality);
       }
 
       // 复制到封面目录
       await file.copy(coverPath);
-      Log.d(() => '下载封面成功: $illustId, url: $url');
+      Log.d(() => '下载封面成功: $illustId, quality: $quality, url: $url');
       return _fileInfoFromIoFile(coverPath, url);
     } catch (e) {
       Log.e('下载封面失败: $illustId, $e');
       // 下载失败时也尝试从本地生成
-      return await _generateCoverFromLocalImage(illustId, coverPath, url);
+      return await _generateCoverFromLocalImage(illustId, coverPath, url, quality: quality);
     }
   }
 
-  /// 从本地第一张图生成封面（居中裁剪 + 压缩到 360x360）
+  /// 从本地第一张图生成封面
   Future<FileInfo?> _generateCoverFromLocalImage(
-      int illustId, String coverPath, String url) async {
+      int illustId, String coverPath, String url, {String quality = Constants.qualityMedium}) async {
     try {
       // 获取本地第一张图路径
       final firstImagePath = await downloadStore.getLocalImagePath(illustId, 0);
@@ -154,14 +169,22 @@ class PixivCacheManager extends CacheManager with ImageCacheManager {
         await dir.create(recursive: true);
       }
 
-      // 使用 compute 在后台线程处理图片
+      // 根据质量决定处理方式
+      // 如果请求的是 Original，且本地有原图，则直接复制（虽然这种情况在 _tryLoadOrDownloadCover 已处理，但作为兜底）
+      if (quality == Constants.qualityOriginal) {
+         await io.File(firstImagePath).copy(coverPath);
+         return _fileInfoFromIoFile(coverPath, url);
+      }
+
+      // 使用 compute 在后台线程处理图片（裁剪/压缩）
       final success = await compute(_processCoverImage, {
         'sourcePath': firstImagePath,
         'targetPath': coverPath,
+        'quality': quality,
       });
 
       if (success) {
-        Log.d(() => '从本地图生成封面成功: $illustId');
+        Log.d(() => '从本地图生成封面成功: $illustId, quality: $quality');
         return _fileInfoFromIoFile(coverPath, url);
       }
       return null;
@@ -171,29 +194,54 @@ class PixivCacheManager extends CacheManager with ImageCacheManager {
     }
   }
 
-  /// 后台线程处理封面图片（居中裁剪 + 缩放到 360x360 + JPEG 70%）
+  /// 后台线程处理封面图片（居中裁剪(仅限 square_medium) + 缩放 + 压缩）
   static Future<bool> _processCoverImage(Map<String, String> params) async {
     try {
       final sourcePath = params['sourcePath']!;
       final targetPath = params['targetPath']!;
+      final quality = params['quality'] ?? Constants.qualityMedium;
 
       // 读取原图
       final bytes = await io.File(sourcePath).readAsBytes();
       final image = img.decodeImage(bytes);
       if (image == null) return false;
 
-      // 居中裁剪为正方形
-      final size = image.width < image.height ? image.width : image.height;
-      final x = (image.width - size) ~/ 2;
-      final y = (image.height - size) ~/ 2;
-      final cropped =
-          img.copyCrop(image, x: x, y: y, width: size, height: size);
+      img.Image processed;
+      if (quality == Constants.qualitySquareMedium) {
+        // 仅在 square_medium 模式下裁剪为正方形
+        final size = image.width < image.height ? image.width : image.height;
+        processed = img.copyCrop(image,
+            x: (image.width - size) ~/ 2,
+            y: (image.height - size) ~/ 2,
+            width: size,
+            height: size);
+      } else {
+        // 其他（Waterfall）模式保持原始比例
+        processed = image;
+      }
 
-      // 缩放到 360x360
-      final resized = img.copyResize(cropped, width: 360, height: 360);
+      // 根据质量确定最长边和压缩率
+      int maxSideSize = 540;
+      int jpgQuality = 70;
+      if (quality == Constants.qualityLarge) {
+        maxSideSize = 1200;
+        jpgQuality = 90;
+      }
 
-      // 保存为 JPEG，质量 70%
-      final jpegBytes = img.encodeJpg(resized, quality: 70);
+      // 缩放图片（维持比例，缩放最长边）
+      img.Image resized;
+      if (processed.width > maxSideSize || processed.height > maxSideSize) {
+        if (processed.width > processed.height) {
+          resized = img.copyResize(processed, width: maxSideSize);
+        } else {
+          resized = img.copyResize(processed, height: maxSideSize);
+        }
+      } else {
+        resized = processed;
+      }
+
+      // 保存为 JPEG
+      final jpegBytes = img.encodeJpg(resized, quality: jpgQuality);
       await io.File(targetPath).writeAsBytes(jpegBytes);
 
       return true;
@@ -239,7 +287,8 @@ class PixivCacheManager extends CacheManager with ImageCacheManager {
       final illustId = int.tryParse(illustIdStr);
       if (illustId != null) {
         try {
-          final coverResult = await _tryLoadOrDownloadCover(url, illustId);
+          final quality = headers?['quality'] ?? Constants.qualityMedium;
+          final coverResult = await _tryLoadOrDownloadCover(url, illustId, quality: quality);
           if (coverResult != null) {
             yield coverResult;
             return;
@@ -289,6 +338,8 @@ class PixivImage extends StatefulWidget {
   final double? width;
   final String? host;
   final Map<String, String>? httpHeaders; // 自定义 HTTP 头（用于封面标识）
+  final int? memCacheWidth;
+  final int? memCacheHeight;
 
   PixivImage(
     this.url, {
@@ -301,6 +352,8 @@ class PixivImage extends StatefulWidget {
     this.host,
     this.width,
     this.httpHeaders,
+    this.memCacheWidth,
+    this.memCacheHeight,
   });
 
   @override
@@ -347,6 +400,9 @@ class _PixivImageState extends State<PixivImage> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.url != widget.url ||
         oldWidget.height != widget.height ||
+        oldWidget.width != widget.width ||
+        oldWidget.memCacheWidth != widget.memCacheWidth ||
+        oldWidget.memCacheHeight != widget.memCacheHeight ||
         oldWidget.localImageInfo != widget.localImageInfo) {
       Log.d(
           "url: ${oldWidget.url} -> ${widget.url}, localImageInfo: ${oldWidget.localImageInfo} => ${widget.localImageInfo}");
@@ -424,8 +480,6 @@ class _PixivImageState extends State<PixivImage> {
           ),
           fadeOutDuration: const Duration(milliseconds: 200),
           fadeInDuration: Duration(milliseconds: 200),
-          // memCacheWidth: width?.toInt(),
-          // memCacheHeight: height?.toInt(),
           //imageUrl: 'file://${localInfo.path}',
           imageUrl: Uri.file(localInfo.path).toString(),
           cacheManager: pixivCacheManager,
@@ -454,9 +508,12 @@ class _PixivImageState extends State<PixivImage> {
   }
 
   Widget _buildNetworkImage() {
+    final int? effectiveMemCacheWidth = widget.memCacheWidth;
+    final int? effectiveMemCacheHeight = widget.memCacheHeight;
+
     return CachedNetworkImage(
       placeholder: (context, url) =>
-          widget.placeWidget ?? Container(height: height),
+      widget.placeWidget ?? Container(height: height),
       errorWidget: (context, url, _) => Container(
         height: height,
         child: Center(
@@ -468,8 +525,8 @@ class _PixivImageState extends State<PixivImage> {
         ),
       ),
       fadeOutDuration: widget.fade ? const Duration(milliseconds: 300) : null,
-      // memCacheWidth: width?.toInt(),
-      // memCacheHeight: height?.toInt(),
+      memCacheWidth: effectiveMemCacheWidth,
+      memCacheHeight: effectiveMemCacheHeight,
       imageUrl: url,
       cacheManager: pixivCacheManager,
       height: height,

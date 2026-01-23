@@ -188,10 +188,9 @@ class _IllustCardState extends State<IllustCard> {
   }
 
   Widget _buildPic(String tag) {
-    // 瀑布流模式：根据长宽比选择不同 URL
+    // 瀑布流模式：根据设置选择 feedPreviewUrl
     // 网格模式：固定使用 squareMedium
-    final bool useFeedPreview = widget.layoutMode == IllustCardLayoutMode.waterfall &&
-        store.illusts!.height.toDouble() / store.illusts!.width.toDouble() <= 3;
+    final bool useFeedPreview = widget.layoutMode == IllustCardLayoutMode.waterfall;
 
     final imageUrl = useFeedPreview
         ? store.illusts!.feedPreviewUrl
@@ -201,15 +200,36 @@ class _IllustCardState extends State<IllustCard> {
         ? BoxFit.fitWidth
         : BoxFit.cover;
 
+    // 根据使用的布局模式确定图片 URL 和质量标识
+    String quality = Constants.qualitySquareMedium;
+    if (useFeedPreview) {
+      if (userSetting.feedPreviewQuality == Constants.qualityLevelMedium) {
+        quality = Constants.qualityMedium;
+      } else if (userSetting.feedPreviewQuality == Constants.qualityLevelLarge) {
+        quality = Constants.qualityLarge;
+      } else if (userSetting.feedPreviewQuality == Constants.qualityLevelOriginal) {
+        quality = Constants.qualityOriginal;
+      }
+    }
+
+    // 计算建议的内存缓存宽度，避免内存占用过高
+    // 网格模式通常较小，瀑布流可能较宽
+    final double devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
+    final int? memCacheWidth = widget.layoutMode == IllustCardLayoutMode.grid
+        ? (240 * devicePixelRatio).toInt()
+        : (480 * devicePixelRatio).toInt();
+
     return NullHero(
       tag: tag,
       child: PixivImage(
         imageUrl,
         fit: fit,
-        // 网格模式添加 header 优化缓存
-        httpHeaders: widget.layoutMode == IllustCardLayoutMode.grid
-            ? {'cover': '${store.id}'}
-            : null,
+        // 传递封面 ID 和质量标识以支持本地查找
+        httpHeaders: {
+          'cover': '${store.id}',
+          'quality': quality,
+        },
+        memCacheWidth: memCacheWidth,
       ),
     );
   }

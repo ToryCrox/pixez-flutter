@@ -30,4 +30,12 @@ class Constants {
 
   /// 为true表示使用新下载器，否则为false
 
+  static const String qualitySquareMedium = 'square_medium';
+  static const String qualityMedium = 'medium';
+  static const String qualityLarge = 'large';
+  static const String qualityOriginal = 'origin';
+
+  static const int qualityLevelMedium = 0;
+  static const int qualityLevelLarge = 1;
+  static const int qualityLevelOriginal = 2;
 }

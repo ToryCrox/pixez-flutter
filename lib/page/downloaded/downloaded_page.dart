@@ -39,7 +39,7 @@ import 'package:pixez/store/download_store.dart';
 import 'package:pixez/component/pixez_easy_refresh.dart';
 import 'package:pixez/component/pixez_default_header.dart';
 import 'package:pixez/component/sort_group.dart';
-
+import 'package:pixez/constants.dart';
 import '../../component/pixiv_image.dart';
 
 class DownloadedPage extends StatefulWidget {
@@ -891,10 +891,36 @@ class _DownloadedIllustCard extends StatelessWidget {
       coverUrl = illusts.imageUrls.squareMedium;
     }
 
+    // 获取对应布局的质量标识
+    // 目前 DownloadedPage 使用 SliverGrid，固定为网格模式。
+    // 如果将来支持瀑布流模式，可以根据布局模式选择使用 Constants.qualitySquareMedium 或根据 feedPreviewQuality 选择质量。
+    String quality = Constants.qualitySquareMedium;
+    
+    // 预留瀑布流布局的自适应逻辑（目前 useFeedPreview 为 false）
+    /*
+    if (useFeedPreview) {
+      if (userSetting.feedPreviewQuality == Constants.qualityLevelMedium) {
+        quality = Constants.qualityMedium;
+      } else if (userSetting.feedPreviewQuality == Constants.qualityLevelLarge) {
+        quality = Constants.qualityLarge;
+      } else if (userSetting.feedPreviewQuality == Constants.qualityLevelOriginal) {
+        quality = Constants.qualityOriginal;
+      }
+    }
+    */
+
+    // 计算建议的内存缓存宽度，避免内存占用过高
+    final double devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
+    final int? memCacheWidth = (240 * devicePixelRatio).toInt();
+
     Widget imageWidget = PixivImage(
       coverUrl,
       fit: BoxFit.cover,
-      httpHeaders: {'cover': '${illust.illustId}'},
+      httpHeaders: {
+        'cover': '${illust.illustId}',
+        'quality': quality,
+      },
+      memCacheWidth: memCacheWidth,
     );
 
     return Hero(

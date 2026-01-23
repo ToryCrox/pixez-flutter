@@ -26,6 +26,7 @@ import 'package:pixez/utils/image_utils.dart';
 import 'package:mobx/mobx.dart';
 import 'package:path/path.dart' as path hide context;
 import 'package:pixez/component/pixiv_image.dart';
+import 'package:pixez/constants.dart';
 import 'package:pixez/custom/log.dart';
 import 'package:pixez/custom/pixiv_url_util.dart';
 import 'package:pixez/custom/type_util.dart';
@@ -327,11 +328,10 @@ abstract class _DownloadStoreBase with Store {
     return await _dbProvider.findImagePathForImage(image, update: update);
   }
 
-  /// 获取封面缓存路径（集中存储格式）
-  /// 路径格式：databasePath/covers/{illustId}.jpg
-  /// databasePath 是 basePath 的上一级目录
-  String getCoverCachePath(int illustId) {
-    return path.join(_dbProvider.coverPath, '$illustId.jpg');
+  /// 获取封面缓存路径（分质量目录存储格式）
+  /// 路径格式：databasePath/covers/{quality}/{illustId}.jpg
+  String getCoverCachePath(int illustId, {String quality = Constants.qualitySquareMedium}) {
+    return path.join(_dbProvider.coverPath, quality, '$illustId.jpg');
   }
 
   /// 获取本地图片信息（包含宽高）
