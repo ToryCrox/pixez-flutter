@@ -36,6 +36,7 @@ import 'package:pixez/page/picture/illust_store.dart';
 import 'package:pixez/page/picture/picture_list_page.dart';
 import 'package:pixez/page/picture/tag_for_illust_page.dart';
 import 'package:pixez/page/series/illust_series_page.dart';
+import 'package:pixez/page/user/users_page.dart';
 import 'package:pixez/utils/file_utils.dart';
 
 /// 插画卡片布局模式
@@ -474,12 +475,21 @@ class _IllustCardState extends State<IllustCard> {
                   style: Theme.of(context).textTheme.bodyMedium,
                   strutStyle: StrutStyle(forceStrutHeight: true, leading: 0),
                 ),
-                Text(
-                  store.illusts!.user.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall,
-                  strutStyle: StrutStyle(forceStrutHeight: true, leading: 0),
+                InkWell(
+                  onTap: () {
+                    Navigator.of(context).push(MaterialPageRoute(
+                      builder: (context) => UsersPage(
+                        id: store.illusts!.user.id,
+                      ),
+                    ));
+                  },
+                  child: Text(
+                    store.illusts!.user.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall,
+                    strutStyle: StrutStyle(forceStrutHeight: true, leading: 0),
+                  ),
                 ),
               ],
             ),
