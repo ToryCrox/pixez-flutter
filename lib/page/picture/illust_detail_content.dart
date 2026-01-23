@@ -48,6 +48,10 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
   late FocusNode _focusNode;
   late IllustStore? _illustStore;
   String _selectedText = "";
+  
+  // 自定义tag功能状态
+  bool _isDownloaded = false;  // 插画是否已下载
+  List<String> _customTagNames = [];  // 自定义标签名称列表
 
   @override
   void initState() {
@@ -58,6 +62,7 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
     super.initState();
     supportTranslateCheck();
     widget.loadAbout();
+    _checkDownloadStatus();  // 检查下载状态
   }
 
   @override
@@ -75,7 +80,32 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
       setState(() {
         _illusts = widget.illusts;
       });
+      _checkDownloadStatus();  // 重新检查下载状态
     }
+  }
+  
+  // 检查下载状态并加载自定义标签
+  Future<void> _checkDownloadStatus() async {
+    final downloaded = await downloadStore.isIllustDownloaded(_illusts.id);
+    if (downloaded && mounted) {
+      final customTags = await _loadCustomTags();
+      setState(() {
+        _isDownloaded = true;
+        _customTagNames = customTags;
+      });
+    } else if (mounted) {
+      setState(() {
+        _isDownloaded = false;
+        _customTagNames = [];
+      });
+    }
+  }
+  
+  // 加载自定义标签
+  Future<List<String>> _loadCustomTags() async {
+    final allTags = await tagManagerStore.getTagsForIllust(_illusts.id);
+    final originalTagNames = _illusts.tags.map((t) => t.name).toSet();
+    return allTags.where((tag) => !originalTagNames.contains(tag)).toList();
   }
 
   @override
@@ -254,6 +284,18 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
         tagNames.add(mainTag.name);
       }
     }
+    
+    // 添加自定义标签
+    for (final tagName in _customTagNames) {
+      if (!tagNames.contains(tagName)) {
+        final localTag = tagManagerStore.getTagDisplayData(tagName);
+        displayTags.add(Tags(
+          name: tagName, 
+          translatedName: localTag?.tag.translatedName ?? '',
+        ));
+        tagNames.add(tagName);
+      }
+    }
 
     return Padding(
       padding: const EdgeInsets.only(left: 16.0, right: 16.0, top: 8.0),
@@ -289,6 +331,8 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
               ),
             ),
           for (var f in displayTags) buildRow(context, f),
+          // 添加标签按钮（仅已下载插画显示）
+          if (_isDownloaded) _buildAddTagButton(context),
         ],
       ),
     );
@@ -579,6 +623,18 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
               ],
             ),
           ),
+        // 自定义标签删除选项
+        if (_customTagNames.contains(f.name))
+          PopupMenuItem<int>(
+            value: 5,
+            child: Row(
+              children: [
+                Icon(Icons.delete, size: 20, color: Colors.red),
+                SizedBox(width: 12),
+                Text('删除自定义标签', style: TextStyle(color: Colors.red)),
+              ],
+            ),
+          ),
       ],
     );
 
@@ -608,6 +664,11 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
           break;
         case 4:
           _showEditTagDialog(context, f);
+          break;
+        case 5:
+          // 删除自定义标签
+          await tagManagerStore.removeCustomTagFromIllust(_illusts.id, f.name);
+          await _checkDownloadStatus(); // 刷新状态
           break;
       }
       }
@@ -739,6 +800,159 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
       ),
     );
     widget.illustStore.illusts!.user.isFollowed = userStore!.isFollow;
+  }
+  
+  // 添加标签按钮
+  Widget _buildAddTagButton(BuildContext context) {
+    final theme = Theme.of(context);
+    return InkWell(
+      onTap: () => _showTagSelectionDialog(context),
+      child: Container(
+        height: 25,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.primaryContainer.withOpacity(0.5),
+          borderRadius: BorderRadius.circular(12.5),
+          border: Border.all(
+            color: theme.colorScheme.primary.withOpacity(0.3),
+            width: 1,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.add, size: 14, color: theme.colorScheme.primary),
+            SizedBox(width: 4),
+            Text(
+              '添加标签',
+              style: TextStyle(
+                fontSize: 12,
+                color: theme.colorScheme.primary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  // 显示标签选择对话框
+  Future<void> _showTagSelectionDialog(BuildContext context) async {
+    // 获取所有可用标签（排除已有的原始标签和自定义标签）
+    await tagManagerStore.loadTags();
+    final allTags = tagManagerStore.tags;
+    
+    final existingTagNames = [
+      ..._illusts.tags.map((t) => t.name),
+      ..._customTagNames,
+    ].toSet();
+    
+    final availableTags = allTags
+        .where((tagData) =>
+            !existingTagNames.contains(tagData.tag.name) &&
+            tagData.tag.referencedTagId == 0) // 仅显示主标签（排除等效别名标签）
+        .toList();
+    
+    if (!context.mounted) return;
+    
+    // 创建简化的标签选择对话框
+    final selectedTag = await _showTagPickerDialog(context, availableTags);
+    
+    if (selectedTag != null) {
+      await tagManagerStore.addCustomTagToIllust(_illusts.id, selectedTag.tag.name);
+      await _checkDownloadStatus(); // 刷新状态
+    }
+  }
+  
+  // 简化的标签选择对话框
+  Future<TagDisplayData?> _showTagPickerDialog(
+    BuildContext context,
+    List<TagDisplayData> availableTags,
+  ) async {
+    final searchController = TextEditingController();
+    List<TagDisplayData> filteredTags = List.from(availableTags);
+    
+    return await showDialog<TagDisplayData>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            title: Text('选择标签'),
+            content: SizedBox(
+              width: 400,
+              height: 600,
+              child: Column(
+                children: [
+                  // 搜索框
+                  TextField(
+                    controller: searchController,
+                    decoration: InputDecoration(
+                      hintText: '搜索标签',
+                      prefixIcon: Icon(Icons.search),
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (query) {
+                      setState(() {
+                        if (query.isEmpty) {
+                          filteredTags = List.from(availableTags);
+                        } else {
+                          filteredTags = availableTags.where((tagData) {
+                            final name = tagData.tag.name.toLowerCase();
+                            final translatedName = tagData.tag.displayTranslatedName.toLowerCase();
+                            final q = query.toLowerCase();
+                            return name.contains(q) || translatedName.contains(q);
+                          }).toList();
+                        }
+                      });
+                    },
+                  ),
+                  SizedBox(height: 12),
+                  
+                  // 标签列表
+                  Expanded(
+                    child: filteredTags.isEmpty
+                        ? Center(child: Text('没有可用的标签'))
+                        : ListView.builder(
+                            itemCount: filteredTags.length,
+                            itemBuilder: (context, index) {
+                              final tagData = filteredTags[index];
+                              return ListTile(
+                                leading: Icon(
+                                  Icons.local_offer,
+                                  color: tagData.tag.categoryEnum.color,
+                                ),
+                                title: Text(tagData.tag.name),
+                                subtitle: tagData.tag.displayTranslatedName.isNotEmpty
+                                    ? Text(tagData.tag.displayTranslatedName)
+                                    : null,
+                                trailing: Text(
+                                  '${tagData.tag.count}',
+                                  style: TextStyle(color: Colors.grey),
+                                ),
+                                onTap: () {
+                                  searchController.dispose();
+                                  Navigator.pop(context, tagData);
+                                },
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  searchController.dispose();
+                  Navigator.pop(context);
+                },
+                child: Text('取消'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
   }
 
   void _showEditTagDialog(BuildContext context, Tags f) {
