@@ -30,6 +30,7 @@ import 'package:pixez/component/null_hero.dart';
 import 'package:pixez/component/painter_avatar.dart';
 import 'package:pixez/component/pixiv_image.dart';
 import 'package:pixez/component/star_icon.dart';
+import 'package:pixez/constants.dart';
 import 'package:pixez/er/leader.dart';
 import 'package:pixez/custom/log.dart';
 import 'package:pixez/exts.dart';
@@ -846,6 +847,15 @@ class _IllustRowPageState extends State<IllustRowPage>
         if (data.type == "manga") {
           url = data.managaDetailUrl;
         }
+
+        // 计算建议的质量标识，以匹配 IllustCard 的缓存键
+        String quality = Constants.qualityMedium;
+        if (userSetting.feedPreviewQuality == Constants.qualityLevelLarge) {
+          quality = Constants.qualityLarge;
+        } else if (userSetting.feedPreviewQuality == Constants.qualityLevelOriginal) {
+          quality = Constants.qualityOriginal;
+        }
+
         Widget placeWidget = Container(height: height);
         // 移除点击打开大图，保留长按保存
         return InkWell(
@@ -858,11 +868,15 @@ class _IllustRowPageState extends State<IllustRowPage>
               url,
               localImageInfo: _illustStore.getLocalImageInfo(0),
               fade: false,
-              placeWidget: (url != data.imageUrls.medium)
+              placeWidget: (url != data.feedPreviewUrl)
                   ? PixivImage(
-                      data.imageUrls.medium,
+                      data.feedPreviewUrl,
                       placeWidget: placeWidget,
                       fade: false,
+                      httpHeaders: {
+                        'cover': '${data.id}',
+                        'quality': quality,
+                      },
                     )
                   : placeWidget,
             ),
@@ -900,27 +914,53 @@ class _IllustRowPageState extends State<IllustRowPage>
 
   Widget _buildIllustsItem(int index, Illusts illust, double height) {
     final String imageUrl;
-    final String mediumImageUrl;
-    final bool useMediumPlaceHolder;
+    final String placeholderUrl;
+    final bool usePlaceholder;
     final localImageInfo = _illustStore.getLocalImageInfo(index);
+
+    // 计算质量标识
+    String quality = Constants.qualityMedium;
+    if (userSetting.feedPreviewQuality == Constants.qualityLevelLarge) {
+      quality = Constants.qualityLarge;
+    } else if (userSetting.feedPreviewQuality == Constants.qualityLevelOriginal) {
+      quality = Constants.qualityOriginal;
+    }
+
     if (illust.type == "manga") {
       imageUrl = illust.managaDetailImageUrl(index);
-      mediumImageUrl = illust.metaPages[index].imageUrls!.squareMedium;
-      useMediumPlaceHolder = index == 0 && userSetting.mangaQuality >= 1;
+      // 多页插图/漫画的第一页通常在列表中显示的是 feedPreviewUrl
+      placeholderUrl = index == 0
+          ? illust.feedPreviewUrl
+          : illust.metaPages[index].imageUrls!.squareMedium;
+      usePlaceholder = index == 0 ? userSetting.mangaQuality >= 1 : false;
+
+      // 如果不是第一页且使用 squareMedium，更新质量标识
+      if (index != 0) {
+        quality = Constants.qualitySquareMedium;
+      }
     } else {
       imageUrl = illust.illustDetailImageUrl(index);
-      mediumImageUrl = illust.metaPages[index].imageUrls!.squareMedium;
-      useMediumPlaceHolder = index == 0 && userSetting.pictureQuality >= 1;
+      placeholderUrl = index == 0
+          ? illust.feedPreviewUrl
+          : illust.metaPages[index].imageUrls!.squareMedium;
+      usePlaceholder = index == 0 ? userSetting.pictureQuality >= 1 : false;
+
+      if (index != 0) {
+        quality = Constants.qualitySquareMedium;
+      }
     }
 
     Widget child = PixivImage(
       imageUrl,
       localImageInfo: _illustStore.getLocalImageInfo(index),
-      placeWidget: useMediumPlaceHolder
+      placeWidget: usePlaceholder
           ? PixivImage(
-              mediumImageUrl,
+              placeholderUrl,
               fade: false,
-              httpHeaders: {'cover': '${illust.id}'},
+              httpHeaders: {
+                'cover': '${illust.id}',
+                'quality': quality,
+              },
             )
           : Container(
               height: height,

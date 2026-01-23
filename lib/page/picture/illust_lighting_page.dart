@@ -29,6 +29,7 @@ import 'package:pixez/component/painter_avatar.dart';
 import 'package:pixez/component/pixez_default_header.dart';
 import 'package:pixez/component/pixiv_image.dart';
 import 'package:pixez/component/star_icon.dart';
+import 'package:pixez/constants.dart';
 import 'package:pixez/er/leader.dart';
 import 'package:pixez/custom/log.dart';
 import 'package:pixez/i18n.dart';
@@ -542,7 +543,6 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
   List<Widget> _buildPhotoList(Illusts data) {
     final height = ((data.height.toDouble() / data.width) *
         MediaQuery.of(context).size.width);
-    final useLocalImage = Platform.isWindows || Platform.isLinux;
 
     return [
       if (data.type == "ugoira")
@@ -565,6 +565,15 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
                 if (data.type == "manga") {
                   url = data.managaDetailUrl;
                 }
+
+                // 计算建议的质量标识，以匹配 IllustCard 的缓存键
+                String quality = Constants.qualityMedium;
+                if (userSetting.feedPreviewQuality == Constants.qualityLevelLarge) {
+                  quality = Constants.qualityLarge;
+                } else if (userSetting.feedPreviewQuality == Constants.qualityLevelOriginal) {
+                  quality = Constants.qualityOriginal;
+                }
+
                 Widget placeWidget = Container(height: height);
                 return InkWell(
                   onLongPress: () {
@@ -581,34 +590,24 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
                   },
                   child: NullHero(
                     tag: widget.heroString,
-                    child: useLocalImage
-                        ? PixivImage(
-                            url,
-                            localImageInfo: _illustStore.getLocalImageInfo(0),
-                            fade: false,
-                            width: MediaQuery.of(context).size.width,
-                            placeWidget: (url != data.imageUrls.medium)
-                                ? PixivImage(
-                                    data.imageUrls.medium,
-                                    width: MediaQuery.of(context).size.width,
-                                    placeWidget: placeWidget,
-                                    fade: false,
-                                  )
-                                : placeWidget,
-                          )
-                        : PixivImage(
-                            url,
-                            fade: false,
-                            width: MediaQuery.of(context).size.width,
-                            placeWidget: (url != data.imageUrls.medium)
-                                ? PixivImage(
-                                    data.imageUrls.medium,
-                                    width: MediaQuery.of(context).size.width,
-                                    placeWidget: placeWidget,
-                                    fade: false,
-                                  )
-                                : placeWidget,
-                          ),
+                    child: PixivImage(
+                      url,
+                      localImageInfo: _illustStore.getLocalImageInfo(0),
+                      fade: false,
+                      width: MediaQuery.of(context).size.width,
+                      placeWidget: (url != data.feedPreviewUrl)
+                          ? PixivImage(
+                              data.feedPreviewUrl,
+                              width: MediaQuery.of(context).size.width,
+                              placeWidget: placeWidget,
+                              fade: false,
+                              httpHeaders: {
+                                'cover': '${data.id}',
+                                'quality': quality,
+                              },
+                            )
+                          : placeWidget,
+                    ),
                   ),
                 );
               }, childCount: 1))
@@ -667,26 +666,51 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
 
   Widget _buildIllustsItem(int index, Illusts illust, double height) {
     final String imageUrl;
-    final String mediumImageUrl;
-    final bool useMediumPlaceHolder;
+    final String placeholderUrl;
+    final bool usePlaceholder;
     final localImageInfo = _illustStore.getLocalImageInfo(index);
+
+    // 计算质量标识
+    String quality = Constants.qualityMedium;
+    if (userSetting.feedPreviewQuality == Constants.qualityLevelLarge) {
+      quality = Constants.qualityLarge;
+    } else if (userSetting.feedPreviewQuality == Constants.qualityLevelOriginal) {
+      quality = Constants.qualityOriginal;
+    }
+
     if (illust.type == "manga") {
       imageUrl = illust.managaDetailImageUrl(index);
-      mediumImageUrl = illust.metaPages[index].imageUrls!.medium;
-      useMediumPlaceHolder = index == 0 && userSetting.mangaQuality >= 1;
+      placeholderUrl = index == 0
+          ? illust.feedPreviewUrl
+          : illust.metaPages[index].imageUrls!.squareMedium;
+      usePlaceholder = index == 0 ? userSetting.mangaQuality >= 1 : false;
+
+      if (index != 0) {
+        quality = Constants.qualitySquareMedium;
+      }
     } else {
       imageUrl = illust.illustDetailImageUrl(index);
-      mediumImageUrl = illust.metaPages[index].imageUrls!.medium;
-      useMediumPlaceHolder = index == 0 && userSetting.pictureQuality >= 1;
+      placeholderUrl = index == 0
+          ? illust.feedPreviewUrl
+          : illust.metaPages[index].imageUrls!.squareMedium;
+      usePlaceholder = index == 0 ? userSetting.pictureQuality >= 1 : false;
+
+      if (index != 0) {
+        quality = Constants.qualitySquareMedium;
+      }
     }
 
     Widget child = PixivImage(
       imageUrl,
       localImageInfo: localImageInfo,
-      placeWidget: useMediumPlaceHolder && localImageInfo == null
+      placeWidget: usePlaceholder && localImageInfo == null
           ? PixivImage(
-              mediumImageUrl,
+              placeholderUrl,
               fade: false,
+              httpHeaders: {
+                'cover': '${illust.id}',
+                'quality': quality,
+              },
             )
           : Container(
               height: height,
