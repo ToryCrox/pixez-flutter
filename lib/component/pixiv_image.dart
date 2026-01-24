@@ -398,6 +398,76 @@ class PixivCacheManager extends CacheManager with ImageCacheManager {
     }
   }
 
+  /// 后台线程处理头像图片（压缩为 WebP，保持原尺寸）
+  static Future<bool> _processAvatarImage(Map<String, String> params) async {
+    try {
+      final sourcePath = params['sourcePath']!;
+      final targetPath = params['targetPath']!;
+
+      final bytes = await io.File(sourcePath).readAsBytes();
+      final image = img.decodeImage(bytes);
+      if (image == null) return false;
+
+      // 保持原尺寸，仅压缩为 WebP
+      return await _encodeToWebp(image, targetPath, Constants.qualityMedium);
+    } catch (e) {
+      Log.e('处理头像图片异常: $e');
+      return false;
+    }
+  }
+
+  /// 尝试加载或下载作者头像
+  /// 只对已下载作品的作者进行本地缓存
+  Future<FileInfo?> _tryLoadOrDownloadAvatar(String url, int userId) async {
+    // 1. 检查是否为已下载作品的作者
+    final author = await downloadStore.dbProvider.getAuthorByUserId(userId);
+    if (author == null) return null; // 非已下载作者，走网络
+
+    final avatarPath = downloadStore.getAvatarCachePath(userId);
+    final avatarFile = io.File(avatarPath);
+    final dbProfileUrl = author.profileImageUrl;
+
+    // 2. 比对 URL 判断是否需要更新
+    final needUpdate = dbProfileUrl != url;
+
+    // 3. 本地缓存存在且 URL 未变化，直接返回
+    if (!needUpdate && await avatarFile.exists()) {
+      Log.d(() => '加载本地头像缓存: $userId');
+      return _fileInfoFromIoFile(avatarPath, url);
+    }
+
+    // 4. 下载头像
+    try {
+      final dir = io.Directory(path.dirname(avatarPath));
+      if (!await dir.exists()) {
+        await dir.create(recursive: true);
+      }
+
+      final file = await getSingleFile(url, headers: Hoster.header(url: url));
+
+      // 压缩并保存为 WebP
+      final success = await workerManager.execute(
+        () => _processAvatarImage({
+          'sourcePath': file.path,
+          'targetPath': avatarPath,
+        }),
+      );
+
+      if (success) {
+        // 更新数据库中的头像 URL
+        if (needUpdate) {
+          await downloadStore.dbProvider.updateAuthorProfileUrl(userId, url);
+        }
+        Log.d(() => '下载并缓存头像成功: $userId');
+        return _fileInfoFromIoFile(avatarPath, url);
+      }
+    } catch (e) {
+      Log.e('下载头像失败: $userId, $e');
+    }
+
+    return null;
+  }
+
   @override
   Stream<FileResponse> getImageFile(
     String url, {
@@ -451,7 +521,24 @@ class PixivCacheManager extends CacheManager with ImageCacheManager {
       }
     }
 
-    // 3. 从下载目录中查询
+    // 3. 检查 header 中的 avatar 参数（作者头像请求）
+    final avatarUserIdStr = headers?['avatar'];
+    if (avatarUserIdStr != null && downloadStore.isInitialized) {
+      final userId = int.tryParse(avatarUserIdStr);
+      if (userId != null) {
+        try {
+          final avatarResult = await _tryLoadOrDownloadAvatar(url, userId);
+          if (avatarResult != null) {
+            yield avatarResult;
+            return;
+          }
+        } catch (e) {
+          Log.e('加载头像失败: $url, $e');
+        }
+      }
+    }
+
+    // 4. 从下载目录中查询
     if (downloadStore.isInitialized && PixivUrlUtil.isPixivOriginalUrl(url)) {
       try {
         final imageInfo = await downloadStore.getLocalImageInfoByUrl(url);

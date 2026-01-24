@@ -334,6 +334,12 @@ abstract class _DownloadStoreBase with Store {
     return path.join(_dbProvider.coverPath, quality, '$illustId.webp');
   }
 
+  /// 获取头像缓存路径
+  /// 路径格式：databasePath/avatars/{userId}.webp
+  String getAvatarCachePath(int userId) {
+    return path.join(_dbProvider.avatarPath, '$userId.webp');
+  }
+
   /// 获取本地图片信息（包含宽高）
   Future<DownloadedImage?> getLocalImage(int illustId, int part) async {
     return await _dbProvider.getImage(illustId, part);

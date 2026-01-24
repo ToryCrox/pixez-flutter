@@ -37,6 +37,7 @@ class DownloadDatabaseProvider {
   String? _downloadPath;
   String? _basePath;
   String? _coverPath;
+  String? _avatarPath;
   String? _ugoiraTempPath;
   String? _dbPath;
 
@@ -50,6 +51,8 @@ class DownloadDatabaseProvider {
 
   String get coverPath => _coverPath ?? '';
 
+  String get avatarPath => _avatarPath ?? '';
+
   String get ugoiraTempPath => _ugoiraTempPath ?? '';
 
   Future<void> open(String basePath) async {
@@ -57,6 +60,7 @@ class DownloadDatabaseProvider {
     _basePath = basePath;
     _downloadPath = path.join(basePath, 'download');
     _coverPath = path.join(basePath, 'covers');
+    _avatarPath = path.join(basePath, 'avatars');
     _ugoiraTempPath = path.join(basePath, 'ugoira');
     _dbPath = path.join(basePath, 'download.db');
     String dbPath = _dbPath!;
@@ -1644,6 +1648,16 @@ class DownloadDatabaseProvider {
       return DownloadedAuthor.fromJson(maps.first);
     }
     return null;
+  }
+
+  /// 更新作者头像 URL
+  Future<void> updateAuthorProfileUrl(int userId, String newUrl) async {
+    await db.update(
+      DownloadedAuthorColumns.tableName,
+      {DownloadedAuthorColumns.profileImageUrl: PixivUrlUtil.compressPxUrl(newUrl)},
+      where: '${DownloadedAuthorColumns.userId} = ?',
+      whereArgs: [userId],
+    );
   }
 
   /// 获取作者列表，支持排序和搜索

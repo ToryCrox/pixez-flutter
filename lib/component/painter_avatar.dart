@@ -61,7 +61,10 @@ class _PainterAvatarState extends State<PainterAvatar> {
       child: CachedNetworkImage(
         imageUrl: widget.url,
         cacheManager: pixivCacheManager,
-        httpHeaders: Hoster.header(url: widget.url),
+        httpHeaders: {
+          ...Hoster.header(url: widget.url),
+          'avatar': '${widget.id}', // 添加作者 ID 标记，用于头像本地缓存
+        },
         imageBuilder: (context, imageProvider) => Container(
           width: size.width,
           height: size.height,
