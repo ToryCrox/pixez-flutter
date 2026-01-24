@@ -133,6 +133,14 @@ abstract class _DownloadedPageStoreBase with Store {
     disableMouseDragScroll = !disableMouseDragScroll;
   }
 
+  // ===== 未处理标记状态 =====
+
+  @readonly
+  bool _markUnprocessed = false;
+
+  @readonly
+  ObservableSet<int> _unprocessedIllustIds = ObservableSet();
+
   // ===== 计算属性 =====
 
   /// 根据过滤条件筛选后的插画列表
@@ -347,9 +355,14 @@ abstract class _DownloadedPageStoreBase with Store {
       }
 
       _illusts.clear();
+      _unprocessedIllustIds.clear();
       _illusts.addAll(illusts);
       _loading = false;
       _hasMore = illusts.length >= _pageSize;
+
+      // 如果开启了标记未处理，加载未处理状态
+      // 如果开启了标记未处理，加载未处理状态
+      await _checkUnprocessedIllusts(illusts);
 
       // 并行加载关键信息
       await _loadCriticalInfo(illusts);
@@ -416,6 +429,10 @@ abstract class _DownloadedPageStoreBase with Store {
       easyRefreshController?.finishLoad(
         _hasMore ? IndicatorResult.success : IndicatorResult.noMore,
       );
+
+      // 如果开启了标记未处理，加载未处理状态
+      // 如果开启了标记未处理，加载未处理状态
+      await _checkUnprocessedIllusts(moreIllusts);
 
       await _loadCriticalInfo(moreIllusts);
     } catch (e) {
@@ -667,5 +684,40 @@ abstract class _DownloadedPageStoreBase with Store {
   void setDragOnlyNonWebp(bool value) {
     _dragOnlyNonWebp = value;
     Prefer.setBool(_dragOnlyNonWebpKey, value);
+  }
+
+  @action
+  Future<void> toggleMarkUnprocessed(bool value) async {
+    _markUnprocessed = value;
+    if (_markUnprocessed) {
+      if (_illusts.isNotEmpty) {
+        // 分批查询
+        final allIds = _illusts.map((e) => e.illustId).toList();
+        final batchSize = 100;
+        
+        for (var i = 0; i < allIds.length; i += batchSize) {
+           final end = (i + batchSize < allIds.length) ? i + batchSize : allIds.length;
+           final batchIds = allIds.sublist(i, end);
+           
+           final unprocessedIds = await downloadStore.dbProvider.getIllustsWithNonWebpImages(batchIds);
+           runInAction(() {
+             _unprocessedIllustIds.addAll(unprocessedIds);
+           });
+        }
+      }
+    } else {
+      _unprocessedIllustIds.clear();
+    }
+  }
+
+  /// 检查并添加未处理的插画ID
+  Future<void> _checkUnprocessedIllusts(List<DownloadedIllust> illusts) async {
+    if (_markUnprocessed && illusts.isNotEmpty) {
+      final unprocessedIds = await downloadStore.dbProvider
+          .getIllustsWithNonWebpImages(illusts.map((e) => e.illustId).toList());
+      runInAction(() {
+        _unprocessedIllustIds.addAll(unprocessedIds);
+      });
+    }
   }
 }

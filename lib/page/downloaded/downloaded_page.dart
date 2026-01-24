@@ -233,6 +233,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
     return PopupMenuButton<String>(
       icon: Icon(Icons.more_vert),
       onSelected: _onMenuSelected,
+      position: PopupMenuPosition.under,
       itemBuilder: (context) => [
         ..._buildFilterMenuItems(),
         PopupMenuDivider(),
@@ -254,6 +255,11 @@ class _DownloadedPageState extends State<DownloadedPage> {
           value: 'toggle_mouse_drag_scroll',
           checked: _store.disableMouseDragScroll,
           child: Text('禁用鼠标拖拽滚动'),
+        ),
+        CheckedPopupMenuItem(
+          value: 'mark_unprocessed',
+          checked: _store.markUnprocessed,
+          child: Text('标记未处理'),
         ),
       ],
     );
@@ -293,6 +299,9 @@ class _DownloadedPageState extends State<DownloadedPage> {
         break;
       case 'toggle_mouse_drag_scroll':
         _store.toggleMouseDragScroll();
+        break;
+      case 'mark_unprocessed':
+        _store.toggleMarkUnprocessed(!_store.markUnprocessed);
         break;
     }
   }
@@ -978,7 +987,7 @@ class _DownloadedIllustCard extends StatelessWidget {
     final isPending = status == DownloadTaskStatus.pending;
     final isPaused = status == DownloadTaskStatus.paused;
     final isFailed = status == DownloadTaskStatus.failed;
-
+    final isMarked = store.unprocessedIllustIds.contains(illust.illustId);
     return Card(
       clipBehavior: Clip.antiAlias,
       shape: isSelected
@@ -1013,7 +1022,9 @@ class _DownloadedIllustCard extends StatelessWidget {
                 children: [
                   _buildThumbnail(context),
                   _buildFolderButton(context),
+
                   if (illust.isUgoira) _buildUgoiraBadge(context),
+                  if (isMarked) _buildUnprocessedBadge(context),
                   if (store.exampleIllustIds.contains(illust.illustId))
                     _buildExampleBadge(context),
                   if (isDownloading) _buildDownloadingOverlay(),
@@ -1447,6 +1458,29 @@ class _DownloadedIllustCard extends StatelessWidget {
       );
     }
   }
+
+  Widget _buildUnprocessedBadge(BuildContext context) {
+    return Positioned(
+      top: 8,
+      left: 36,
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: Colors.redAccent,
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Text(
+          '未处理',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 10,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildDragPreview(
       BuildContext context, Widget child, bool isSelected) {
     // 如果多选，显示数量角标

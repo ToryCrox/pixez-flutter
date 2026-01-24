@@ -1734,6 +1734,31 @@ class DownloadDatabaseProvider {
     return result.map((e) => e[DownloadedIllustColumns.userId] as int).toSet();
   }
 
+  /// 获取包含非 WebP 图片的插画 ID 集合
+  Future<Set<int>> getIllustsWithNonWebpImages(List<int> illustIds) async {
+    if (illustIds.isEmpty) return {};
+
+    final placeholders = List.filled(illustIds.length, '?').join(',');
+    
+    // 查询条件：
+    // 1. 指定的插画列表
+    // 2. 图片后缀不是 .webp
+    // 3. 作品类型不是 ugoira (动图通常是 zip，单独处理)
+    // 4. part >= 0
+    final result = await db.rawQuery('''
+      SELECT DISTINCT T1.${DownloadedIllustColumns.illustId}
+      FROM ${DownloadedIllustColumns.tableName} AS T1
+      INNER JOIN ${DownloadedImageColumns.tableName} AS T2 
+        ON T1.${DownloadedIllustColumns.illustId} = T2.${DownloadedImageColumns.illustId}
+      WHERE T1.${DownloadedIllustColumns.illustId} IN ($placeholders)
+        AND T2.${DownloadedImageColumns.extension} != '.webp'
+        AND T1.${DownloadedIllustColumns.type} != 'ugoira'
+        AND T2.${DownloadedImageColumns.part} >= 0
+    ''', illustIds);
+
+    return result.map((e) => e[DownloadedIllustColumns.illustId] as int).toSet();
+  }
+
   /// 获取所有作者（不分页）
   Future<List<DownloadedAuthor>> getAllAuthors() async {
     final List<Map<String, dynamic>> maps = await db.query(
