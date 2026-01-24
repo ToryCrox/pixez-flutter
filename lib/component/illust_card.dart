@@ -418,6 +418,9 @@ class _IllustCardState extends State<IllustCard> {
   }
 
   Future<void> _buildInkTap(BuildContext context, String heroTag) async {
+    // 预加载首帧图片信息，避免详情页渲染时的尺寸跳动
+    await store.preloadFirstImage();
+    
     await Navigator.of(context).push(MaterialPageRoute(builder: (_) {
       if (iStores != null) {
         return PictureListPage(

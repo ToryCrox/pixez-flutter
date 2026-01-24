@@ -86,6 +86,17 @@ abstract class _IllustStoreBase with Store {
     return localImageInfos[part];
   }
 
+  /// 预加载首帧图片信息（用于进入详情页前预加载，避免尺寸跳动）
+  Future<void> preloadFirstImage() async {
+    if (!downloadStore.isInitialized) return;
+    if (localImageInfos.containsKey(0)) return;
+    
+    final firstImageInfo = await downloadStore.dbProvider.getLocalImageInfoByPart(id, 0);
+    if (firstImageInfo != null) {
+      localImageInfos[0] = firstImageInfo;
+    }
+  }
+
   /// 判断插画数据是否为被删除的无效数据
   /// 被删除的插画图片 URL 会变成 limit_unknown 占位图
   bool _isDeletedIllust(Illusts data) {
@@ -208,19 +219,20 @@ abstract class _IllustStoreBase with Store {
     errorMessage = null;
     _initDownloadStatusListener();
 
-    // 并行加载首帧图片信息和其余图片信息
-    if (downloadStore.isInitialized) {
-      final t1 = DateTime.now();
-      await Future.wait([
-        // 快速加载第一张图片信息，避免首屏跳动
-        downloadStore.dbProvider.getLocalImageInfoByPart(id, 0).then((info) {
-          if (info != null) localImageInfos[0] = info;
-          BotToast.showText(text: 'load first image: ${DateTime.now().difference(t1).inMilliseconds}ms');
-        }),
-        // 加载其余图片信息
-        _loadLocalImageInfos(),
-      ]);
-    }
+    // // 并行加载首帧图片信息和其余图片信息
+    // if (downloadStore.isInitialized) {
+    //   final t1 = DateTime.now();
+    //   await Future.wait([
+    //     // 快速加载第一张图片信息，避免首屏跳动
+    //     downloadStore.dbProvider.getLocalImageInfoByPart(id, 0).then((info) {
+    //       if (info != null) localImageInfos[0] = info;
+    //       BotToast.showText(text: 'load first image: ${DateTime.now().difference(t1).inMilliseconds}ms');
+    //     }),
+    //     // 加载其余图片信息
+    //     _loadLocalImageInfos(),
+    //   ]);
+    // }
+    await _loadLocalImageInfos();
 
     // 1. 优先从数据库查询已下载的 illust（如果已下载）
     bool isDownloaded = false;

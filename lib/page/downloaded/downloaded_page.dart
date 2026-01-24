@@ -585,6 +585,9 @@ class _DownloadedPageState extends State<DownloadedPage> {
     final currentIndex = _store.filteredIllusts.indexOf(illust);
     final currentStore = iStores[currentIndex];
 
+    // 预加载首帧图片信息，避免详情页渲染时的尺寸跳动
+    await currentStore.preloadFirstImage();
+
     Leader.push(
       context,
       PictureListPage(
