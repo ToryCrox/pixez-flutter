@@ -583,7 +583,7 @@ class PixivCacheManager extends CacheManager with ImageCacheManager {
       final illustId = int.tryParse(illustIdStr);
       if (illustId != null) {
         try {
-          final quality = headers?['quality'] ?? Constants.qualityMedium;
+          final quality = headers?['quality'] ?? Constants.qualitySquareMedium;
           final coverResult = await _tryLoadOrDownloadCover(
             url,
             illustId,

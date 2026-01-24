@@ -17,6 +17,7 @@ import 'dart:io';
 
 import 'package:bot_toast/bot_toast.dart';
 import 'package:flutter/material.dart';
+import 'package:pixez/constants.dart';
 import 'package:pixez/utils/file_utils.dart';
 import 'package:pixez/component/painter_avatar.dart';
 import 'package:pixez/component/pixiv_image.dart';
@@ -101,7 +102,10 @@ class DownloadedAuthorCard extends StatelessWidget {
       width: double.infinity,
       height: double.infinity,
       // 通过 header 传递 illustId，让 PixivCacheManager 识别封面请求
-      httpHeaders: {'cover': '${illust.illustId}'},
+      httpHeaders: {
+        'cover': '${illust.illustId}',
+        'quality': Constants.qualitySquareMedium,
+      },
     );
   }
 
