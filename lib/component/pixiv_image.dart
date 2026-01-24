@@ -415,20 +415,48 @@ class PixivCacheManager extends CacheManager with ImageCacheManager {
         processed = image;
       }
 
-      // 根据质量确定最长边
-      int maxSideSize = 540;
+      // 根据质量确定宽高限制
+      int? maxWidth;
+      int? maxHeight;
+      int? maxSideSize;
+
       if (quality == Constants.qualityLarge) {
-        maxSideSize = 1200;
+        maxWidth = 600;
+        maxHeight = 1200;
+      } else {
+        maxSideSize = 540;
       }
 
-      // 缩放图片（维持比例，缩放最长边）
+      // 缩放图片（维持比例）
       img.Image resized;
-      if (processed.width > maxSideSize || processed.height > maxSideSize) {
-        if (processed.width > processed.height) {
-          resized = img.copyResize(processed, width: maxSideSize);
-        } else {
-          resized = img.copyResize(processed, height: maxSideSize);
+      bool needResize = false;
+      if (maxSideSize != null) {
+        if (processed.width > maxSideSize || processed.height > maxSideSize) {
+          needResize = true;
+          if (processed.width > processed.height) {
+            maxWidth = maxSideSize;
+            maxHeight = null;
+          } else {
+            maxWidth = null;
+            maxHeight = maxSideSize;
+          }
         }
+      } else if (maxWidth != null && maxHeight != null) {
+        if (processed.width > maxWidth || processed.height > maxHeight) {
+          needResize = true;
+          // 计算缩放比例，选择更小的比例以确保都在限制内
+          double widthRatio = maxWidth / processed.width;
+          double heightRatio = maxHeight / processed.height;
+          if (widthRatio < heightRatio) {
+            maxHeight = null; // 由 width 决定
+          } else {
+            maxWidth = null; // 由 height 决定
+          }
+        }
+      }
+
+      if (needResize) {
+        resized = img.copyResize(processed, width: maxWidth, height: maxHeight);
       } else {
         resized = processed;
       }
