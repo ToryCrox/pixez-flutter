@@ -621,6 +621,7 @@ class _PixivImageState extends State<PixivImage> {
           // 没有宽高信息时，使用默认行为
           displayWidth = containerWidth;
         }
+        Log.d(() => 'display local image $displayWidth x $displayHeight');
         return CachedNetworkImage(
           placeholder:
               (context, url) => SizedBox(width: displayWidth, height: displayHeight, child: widget.placeWidget ?? Container(height: height),),

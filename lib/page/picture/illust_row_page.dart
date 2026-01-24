@@ -989,6 +989,7 @@ class _IllustRowPageState extends State<IllustRowPage>
               ? PixivImage(
                 placeholderUrl,
                 fade: false,
+                fit: BoxFit.contain,
                 httpHeaders: {'cover': '${illust.id}', 'quality': quality},
                 memCacheWidth: 480,
               )
