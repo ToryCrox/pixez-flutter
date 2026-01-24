@@ -1569,9 +1569,26 @@ class DownloadDatabaseProvider {
   /// 尝试找到图片文件（自动检测后缀名）
   Future<String?> findImagePath(int illustId, int part,
       {bool update = true}) async {
+    return (await getLocalImageInfoByPart(illustId, part, update: update))?.path;
+  }
+
+  /// 获取指定页面的本地图片信息（路径和宽高）
+  /// 用于快速加载首帧图片，避免等待全部图片加载
+  Future<LocalImageInfo?> getLocalImageInfoByPart(
+    int illustId,
+    int part, {
+    bool update = true,
+  }) async {
     final image = await getImage(illustId, part);
     if (image == null) return null;
-    return await findImagePathForImage(image, update: update);
+    final imagePath = await findImagePathForImage(image);
+    if (imagePath == null) return null;
+    return LocalImageInfo(
+      path: imagePath,
+      width: image.width,
+      height: image.height,
+      fileSize: image.fileSize,
+    );
   }
 
   Future<LocalImageInfo?> getLocalImageInfoByUrl(String url) async {

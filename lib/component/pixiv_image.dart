@@ -623,7 +623,7 @@ class _PixivImageState extends State<PixivImage> {
         }
         return CachedNetworkImage(
           placeholder:
-              (context, url) => widget.placeWidget ?? Container(height: height),
+              (context, url) => SizedBox(width: displayWidth, height: displayHeight, child: widget.placeWidget ?? Container(height: height),),
           errorWidget:
               (context, url, _) => Container(
                 height: height,

@@ -17,6 +17,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:bot_toast/bot_toast.dart';
 import 'package:dio/dio.dart';
 import 'package:mobx/mobx.dart';
 import 'package:pixez/custom/disk_cache.dart';
@@ -207,7 +208,19 @@ abstract class _IllustStoreBase with Store {
     errorMessage = null;
     _initDownloadStatusListener();
 
-    await _loadLocalImageInfos();
+    // 并行加载首帧图片信息和其余图片信息
+    if (downloadStore.isInitialized) {
+      final t1 = DateTime.now();
+      await Future.wait([
+        // 快速加载第一张图片信息，避免首屏跳动
+        downloadStore.dbProvider.getLocalImageInfoByPart(id, 0).then((info) {
+          if (info != null) localImageInfos[0] = info;
+          BotToast.showText(text: 'load first image: ${DateTime.now().difference(t1).inMilliseconds}ms');
+        }),
+        // 加载其余图片信息
+        _loadLocalImageInfos(),
+      ]);
+    }
 
     // 1. 优先从数据库查询已下载的 illust（如果已下载）
     bool isDownloaded = false;
