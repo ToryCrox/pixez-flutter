@@ -429,6 +429,30 @@ class DownloadedImage {
     }
     return null;
   }
+
+  DownloadedImage copyWith({
+    int? illustId,
+    int? part,
+    String? fileName,
+    String? extension,
+    int? fileSize,
+    String? originalUrl,
+    String? relativePath,
+    int? width,
+    int? height,
+  }) {
+    return DownloadedImage(
+      illustId: illustId ?? this.illustId,
+      part: part ?? this.part,
+      fileName: fileName ?? this.fileName,
+      extension: extension ?? this.extension,
+      fileSize: fileSize ?? this.fileSize,
+      originalUrl: originalUrl ?? this.originalUrl,
+      relativePath: relativePath ?? this.relativePath,
+      width: width ?? this.width,
+      height: height ?? this.height,
+    );
+  }
 }
 
 // 表名和列名常量

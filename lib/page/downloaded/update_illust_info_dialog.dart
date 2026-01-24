@@ -23,7 +23,7 @@ import 'package:pixez/utils/file_utils.dart';
 import 'package:path/path.dart' as p;
 import 'package:pixez/custom/log.dart';
 import 'package:pixez/exts.dart';
-import 'package:pixez/i18n.dart';
+
 import 'package:pixez/main.dart';
 import 'package:pixez/models/download_record.dart';
 import 'package:pixez/page/picture/illust_lighting_page.dart';
@@ -49,6 +49,8 @@ class UpdateIllustInfo {
   int scannedImageCount = 0; // 已扫描图片数
   int totalSizeInDb = 0; // 数据库中记录的总大小
   int totalSizeScanned = 0; // 实际扫描的总大小
+  bool isUpdated = false; // 是否已成功更新
+  String? updateError; // 更新失败的错误信息
 
   UpdateResultType get resultType {
     if (hasBroken) return UpdateResultType.broken;
@@ -716,23 +718,18 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
     });
 
     try {
-      int updatedCount = 0;
-      int deletedCount = 0; // 已删除的损坏文件数量
-      int fixedStatsCount = 0; // 修复的统计不一致数量
-      List<String> errors = []; // 收集错误信息
-
       for (final updateInfo in _updateInfos) {
         if (!mounted) return;
 
-        // 如果在执行更新时扫描被暂停，建议也停下更新动作（虽然更新通常很快，但为了逻辑一致性）
+        // 如果在执行更新时扫描被暂停，建议也停下更新动作
         while (_isPaused && mounted) {
           await Future.delayed(Duration(milliseconds: 100));
         }
         if (!mounted) return;
 
-        // 只更新已扫描完成且有变化的（暂停状态下可以更新已扫描完成的）
+        // 只更新已扫描完成且有变化的
         if (updateInfo.isScanning) {
-          continue; // 跳过正在扫描的作品
+          continue;
         }
         if (!updateInfo.hasChanges &&
             !updateInfo.hasBroken &&
@@ -740,64 +737,83 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
           continue;
         }
 
-        bool hasDeletedBroken = false; // 当前作品是否有删除损坏文件
+        try {
+          // 用于并在内存中更新的新列表
+          final newImageUpdates = <ImageUpdateInfo>[];
+          bool hasAnyUpdateSuccess = false;
 
-        for (final imageUpdate in updateInfo.imageUpdates) {
-          if (imageUpdate.isBroken || imageUpdate.isFileNotFound) {
-            // 使用辅助方法删除损坏或不存在的图片
-            final result = await _deleteBrokenImage(imageUpdate);
-            if (result.success) {
-              deletedCount++;
-              hasDeletedBroken = true;
-            } else if (result.error != null) {
-              errors.add(result.error!);
+          for (final imageUpdate in updateInfo.imageUpdates) {
+            // 1. 处理损坏/丢失文件
+            if (imageUpdate.isBroken || imageUpdate.isFileNotFound) {
+              final result = await _deleteBrokenImage(imageUpdate);
+              if (result.success) {
+                hasAnyUpdateSuccess = true;
+                // 删除成功，不加入 newImageUpdates，即从列表中移除
+                continue;
+              } else if (result.error != null) {
+                updateInfo.updateError = result.error;
+                // 删除失败，保留原条目
+                newImageUpdates.add(imageUpdate);
+                continue;
+              }
             }
-            continue;
+
+            // 2. 处理信息变更
+            if (imageUpdate.hasChange) {
+              if (await _updateImageRecord(imageUpdate)) {
+                hasAnyUpdateSuccess = true;
+                // 更新成功，但为了保留 Diff 视图（Showing Old -> New），
+                // 我们不更新 ImageUpdateInfo 中的 originalImage。
+                // 仅标记整个作品为“更新成功”。
+                newImageUpdates.add(imageUpdate);
+              } else {
+                // 更新失败，保留原条目
+                newImageUpdates.add(imageUpdate);
+              }
+              continue;
+            }
+
+            // 3. 无变化的条目，直接保留
+            newImageUpdates.add(imageUpdate);
           }
 
-          if (!imageUpdate.hasChange) {
-            continue;
+          // 如果有变化、删除了损坏文件、或统计不一致，都需要重新计算统计信息
+          if (hasAnyUpdateSuccess ||
+              updateInfo.hasStatsInconsistency) {
+            // 1. 先更新插画自身的数据库统计
+            await downloadStore.dbProvider.batchRecalculateIllustStats([
+              updateInfo.illust.illustId,
+            ]);
+
+            // 2. 更新内存状态
+            // 更新 imageUpdates 列表（主要是为了移除已删除的项）
+            updateInfo.imageUpdates = newImageUpdates;
+            
+            // 为了让头部统计信息显示正确的新值（New），我们需要更新 illust 对象中的统计字段
+            // 但为了保留 Diff 视图（Old -> New），我们不更新 UpdateIllustInfo.totalSizeInDb
+            final actualCount =
+                newImageUpdates
+                    .where((e) => !e.isBroken && !e.isFileNotFound)
+                    .length;
+            final actualSize = updateInfo.totalSizeScanned;
+
+            updateInfo.illust = updateInfo.illust.copyWith(
+              downloadedImageCount: actualCount,
+              totalFileSize: actualSize,
+            );
+            
+            // 标记为更新成功
+            updateInfo.isUpdated = true;
+            updateInfo.updateError = null;
+
+            // 3. 更新作者汇总统计
+            await downloadStore.dbProvider.updateAuthorStats(
+              updateInfo.illust.userId,
+            );
           }
-
-          // 使用辅助方法更新图片记录
-          if (await _updateImageRecord(imageUpdate)) {
-            updatedCount++;
-          }
-        }
-
-        // 如果有变化、删除了损坏文件、或统计不一致，都需要重新计算统计信息
-        if (updateInfo.hasChanges ||
-            hasDeletedBroken ||
-            updateInfo.hasStatsInconsistency) {
-          // 记录修复的统计不一致数量
-          if (updateInfo.hasStatsInconsistency) {
-            fixedStatsCount++;
-          }
-
-          // 1. 先更新插画自身的数据库统计（确保基础数据准确）
-          await downloadStore.dbProvider.batchRecalculateIllustStats([
-            updateInfo.illust.illustId,
-          ]);
-
-          // 2. 更新内存状态
-          final actualCount =
-              updateInfo.imageUpdates
-                  .where((e) => !e.isBroken && !e.isFileNotFound)
-                  .length;
-          final actualSize = updateInfo.totalSizeScanned;
-
-          // 直接更新内部数据，保持原有扫描详细状态
-          updateInfo.illust = updateInfo.illust.copyWith(
-            downloadedImageCount: actualCount,
-            totalFileSize: actualSize,
-          );
-          updateInfo.totalSizeInDb = actualSize;
-          updateInfo.refreshFlags();
-
-          // 3. 最后基于修正后的作品数据，更新作者的汇总统计
-          await downloadStore.dbProvider.updateAuthorStats(
-            updateInfo.illust.userId,
-          );
+        } catch (e, stack) {
+          Log.e('更新作品失败: ${updateInfo.illust.title}', error: e, stackTrace: stack);
+          updateInfo.updateError = e.toString();
         }
 
         // 更新进度
@@ -812,77 +828,6 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
         setState(() {
           _isUpdating = false;
         });
-
-        // 统计文件不存在和图片损坏的数量
-        int fileNotFoundCount = 0;
-        int corruptedCount = 0;
-        for (final updateInfo in _updateInfos) {
-          for (final imageUpdate in updateInfo.imageUpdates) {
-            if (imageUpdate.isFileNotFound) {
-              fileNotFoundCount++;
-            } else if (imageUpdate.isBroken) {
-              corruptedCount++;
-            }
-          }
-        }
-
-        // 显示更新结果
-        showDialog(
-          context: context,
-          builder:
-              (ctx) => AlertDialog(
-                title: Text('更新完成'),
-                content: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '已更新记录: $updatedCount 条\n'
-                        '统计不一致: $fixedStatsCount 个\n'
-                        '文件不存在: $fileNotFoundCount 个\n'
-                        '图片损坏: $corruptedCount 个\n'
-                        '已删除记录: $deletedCount 条',
-                      ),
-                      if (errors.isNotEmpty) ...[
-                        SizedBox(height: 16),
-                        Text(
-                          '错误信息:',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.red,
-                          ),
-                        ),
-                        SizedBox(height: 8),
-                        ...errors.map(
-                          (error) => Padding(
-                            padding: EdgeInsets.only(bottom: 4),
-                            child: Text(
-                              error,
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.red[700],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(ctx),
-                    child: Text(I18n.of(context).ok),
-                  ),
-                ],
-              ),
-        );
-
-        // 如果不在扫描状态，重新扫描以更新显示
-        if (!_isScanning) {
-          await _scanIllusts();
-        }
       }
     } catch (e) {
       if (mounted) {
@@ -1212,6 +1157,8 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
     bool hasBroken,
     bool isIncomplete,
     bool hasStatsInconsistency,
+    bool isUpdated,
+    String? updateError,
   })
   _determineIllustStatus(UpdateIllustInfo info) {
     final isScanning = _isScanning && info.isScanning && !_isPaused;
@@ -1236,6 +1183,8 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
       hasBroken: info.hasBroken,
       isIncomplete: info.isIncomplete,
       hasStatsInconsistency: info.hasStatsInconsistency,
+      isUpdated: info.isUpdated,
+      updateError: info.updateError,
     );
   }
 
@@ -1257,10 +1206,28 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
       bool hasBroken,
       bool isIncomplete,
       bool hasStatsInconsistency,
+      bool isUpdated,
+      String? updateError,
     })
     status,
   ) {
-    if (status.isScanning) {
+    if (status.updateError != null) {
+      return (
+        backgroundColor: Colors.red[50]!,
+        borderColor: Colors.red[400]!,
+        leadingIcon: Icons.error_outline,
+        iconColor: Colors.red[700]!,
+        statusText: '更新失败',
+      );
+    } else if (status.isUpdated) {
+      return (
+        backgroundColor: Colors.green[50]!,
+        borderColor: Colors.green[400]!,
+        leadingIcon: Icons.check_circle_outline,
+        iconColor: Colors.green[700]!,
+        statusText: '更新成功',
+      );
+    } else if (status.isScanning) {
       return (
         backgroundColor: Colors.blue[50]!,
         borderColor: Colors.blue[400]!,
