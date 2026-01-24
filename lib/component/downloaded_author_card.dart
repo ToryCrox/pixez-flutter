@@ -33,6 +33,7 @@ class DownloadedAuthorCard extends StatelessWidget {
   final List<DownloadedIllust> illusts;
   final bool showLatestPublished;
   final VoidCallback? onRefresh;
+  final bool isMarked;
 
   const DownloadedAuthorCard({
     Key? key,
@@ -40,6 +41,7 @@ class DownloadedAuthorCard extends StatelessWidget {
     required this.illusts,
     required this.showLatestPublished,
     this.onRefresh,
+    this.isMarked = false,
   }) : super(key: key);
 
   @override
@@ -220,7 +222,7 @@ class DownloadedAuthorCard extends StatelessWidget {
             IconButton(
               icon: Icon(Icons.folder_open),
               iconSize: 20,
-              color: Theme.of(context).iconTheme.color,
+              color: isMarked ? Colors.red : Theme.of(context).iconTheme.color,
               tooltip: '打开下载目录',
               onPressed: () => _openAuthorDownloadDirectory(context),
             ),

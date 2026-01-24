@@ -82,6 +82,12 @@ abstract class _DownloadedAuthorsPageStoreBase with Store {
   @readonly
   ObservableMap<int, List<List<DownloadedIllust>>> _authorIllustsMap = ObservableMap();
 
+  @readonly
+  bool _markUnprocessed = false;
+
+  @readonly
+  ObservableSet<int> _unprocessedUserIds = ObservableSet();
+
   // ===== 初始化与销毁 =====
 
   @action
@@ -141,6 +147,10 @@ abstract class _DownloadedAuthorsPageStoreBase with Store {
     if (refresh) {
       _page = 0;
       _hasMore = true;
+      if (_searchKeyword == null && !_isSearching) {
+         // 重置未处理状态
+         _unprocessedUserIds.clear();
+      }
     }
 
     _loading = true;
@@ -154,6 +164,13 @@ abstract class _DownloadedAuthorsPageStoreBase with Store {
         offset: _page * _pageSize,
         searchKeyword: _searchKeyword,
       );
+      if (_markUnprocessed && authors.isNotEmpty) {
+        final unprocessedIds = await downloadStore.dbProvider
+            .getAuthorsWithNonWebpImages(authors.map((e) => e.userId).toList());
+        runInAction(() {
+          _unprocessedUserIds.addAll(unprocessedIds);
+        });
+      }
       final timeSpent = DateTime.now().difference(t1);
       Log.i(() => 'loadData cost ${timeSpent.inMilliseconds}ms, count ${authors.length}');
       if (timeSpent.inMilliseconds > 300) {
@@ -224,6 +241,33 @@ abstract class _DownloadedAuthorsPageStoreBase with Store {
       onClear?.call();
       _searchKeyword = null;
       loadData(refresh: true);
+    }
+  }
+
+  @action
+  Future<void> toggleMarkUnprocessed(bool value) async {
+    _markUnprocessed = value;
+    if (_markUnprocessed) {
+      if (_authors.isNotEmpty) {
+        // 仅检查当前已加载作者的状态，避免重新加载整个列表
+        // 注意：如果作者数量非常大，这里可能需要分批处理，但通常前端分页加载数量可控
+        // 为防万一，这里简单分批（每次100个）
+        final allIds = _authors.map((e) => e.userId).toList();
+        final batchSize = 100;
+        
+        for (var i = 0; i < allIds.length; i += batchSize) {
+           final end = (i + batchSize < allIds.length) ? i + batchSize : allIds.length;
+           final batchIds = allIds.sublist(i, end);
+           
+           final unprocessedIds = await downloadStore.dbProvider.getAuthorsWithNonWebpImages(batchIds);
+           runInAction(() {
+             _unprocessedUserIds.addAll(unprocessedIds);
+           });
+        }
+      }
+    } else {
+      // 如果关闭，清空标记
+      _unprocessedUserIds.clear();
     }
   }
 

@@ -109,12 +109,34 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
         PopupMenuButton<String>(
           icon: Icon(Icons.more_vert),
           tooltip: '更多选项',
+          position: PopupMenuPosition.under,
           onSelected: (value) {
             if (value == 'update_all') {
               _updateAllAuthorsStats();
+            } else if (value == 'mark_unprocessed') {
+               _store.toggleMarkUnprocessed(!_store.markUnprocessed);
             }
           },
           itemBuilder: (context) => [
+            PopupMenuItem(
+              value: 'mark_unprocessed',
+              child: Observer(
+                builder: (_) {
+                  return Row(
+                    children: [
+                       Icon(
+                          _store.markUnprocessed
+                              ? Icons.check_box
+                              : Icons.check_box_outline_blank,
+                          size: 20,
+                       ),
+                       SizedBox(width: 8),
+                       Text('标记未处理'),
+                    ],
+                  );
+                },
+              ),
+            ),
             PopupMenuItem(
               value: 'update_all',
               child: Row(
@@ -292,11 +314,14 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
                     ? (_store.showLatestPublished ? illustsData[1] : illustsData[0])
                     : <DownloadedIllust>[];
 
+                final isMarked = _store.unprocessedUserIds.contains(author.userId);
+
                 return DownloadedAuthorCard(
                   author: author,
                   illusts: displayIllusts,
                   showLatestPublished: _store.showLatestPublished,
                   onRefresh: () => _store.refreshSingleAuthor(author.userId),
+                  isMarked: isMarked,
                 );
               },
             );
