@@ -486,6 +486,64 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
     }
   }
 
+  /// 加载非 WebP 插画
+  Future<void> _loadNonWebPIllusts() async {
+    // 显示确认对话框
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: Text('加载非 WebP 插画'),
+            content: Text('将加载所有包含非 WebP 图片的插画（排除动图）进行扫描。是否继续?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: Text('取消'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: Text('确认'),
+              ),
+            ],
+          ),
+    );
+
+    if (confirm != true) return;
+
+    // 加载非 WebP 插画
+    final illusts = await downloadStore.getDownloadedWithNonWebPImages();
+
+    if (illusts.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('没有发现包含非 WebP 图片的插画')));
+      }
+      return;
+    }
+
+    // 更新状态
+    if (mounted) {
+      setState(() {
+        _totalCount = illusts.length;
+        _scannedCount = 0;
+        _updateInfos =
+            illusts.map((illust) {
+              return UpdateIllustInfo(
+                illust: illust,
+                imageUpdates: [],
+                isScanning: false,
+              );
+            }).toList();
+      });
+
+      // 显示加载成功提示
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('已加载 ${illusts.length} 个插画作品')));
+    }
+  }
+
   Future<void> _scanIllusts() async {
     setState(() {
       _isScanning = true;
@@ -1093,6 +1151,12 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
                       onPressed: _isUpdating ? null : _loadAllIllusts,
                       icon: Icon(Icons.cloud_download),
                       label: Text('加载所有插画'),
+                    ),
+                    SizedBox(width: 8),
+                    ElevatedButton.icon(
+                      onPressed: _isUpdating ? null : _loadNonWebPIllusts,
+                      icon: Icon(Icons.image_not_supported),
+                      label: Text('非WebP'),
                     ),
                     SizedBox(width: 8),
                     ElevatedButton.icon(

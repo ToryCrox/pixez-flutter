@@ -636,6 +636,44 @@ class DownloadDatabaseProvider {
     return maps.map((e) => DownloadedIllust.fromJson(e)).toList();
   }
 
+  /// 获取包含非 WebP 图片的插画（排除动图）
+  Future<List<DownloadedIllust>> getIllustsWithNonWebPImages({
+    int? limit,
+    int? offset,
+    String? orderBy,
+  }) async {
+    final orderByClause = orderBy ??
+        'di.${DownloadedIllustColumns.downloadTime} DESC';
+
+    // 查询包含非 .webp 后缀图片的普通插画 (ugoira 除外)
+    // 使用 EXISTS 子查询避免重复记录
+    var query = '''
+      SELECT di.*
+      FROM ${DownloadedIllustColumns.tableName} di
+      WHERE di.${DownloadedIllustColumns.type} != 'ugoira'
+      AND EXISTS (
+        SELECT 1 
+        FROM ${DownloadedImageColumns.tableName} dim 
+        WHERE dim.${DownloadedImageColumns.illustId} = di.${DownloadedIllustColumns.illustId}
+        AND dim.${DownloadedImageColumns.extension} != '.webp'
+      )
+      ORDER BY $orderByClause
+    ''';
+    
+    final args = <dynamic>[];
+    if (limit != null) {
+      query += ' LIMIT ?';
+      args.add(limit);
+    }
+    if (offset != null) {
+       query += ' OFFSET ?';
+       args.add(offset);
+    }
+    
+    final maps = await db.rawQuery(query, args);
+    return maps.map((e) => DownloadedIllust.fromJson(e)).toList();
+  }
+
   Future<List<DownloadedIllust>> getIllustsByUserId(
     int userId, {
     int? limit,

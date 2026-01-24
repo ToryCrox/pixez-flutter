@@ -490,6 +490,19 @@ abstract class _DownloadStoreBase with Store {
         limit: limit, offset: offset, orderBy: orderBy);
   }
 
+  /// 获取包含非 WebP 图片的插画（排除动图）
+  Future<List<DownloadedIllust>> getDownloadedWithNonWebPImages({
+    int? limit,
+    int? offset,
+    String? orderBy,
+  }) async {
+    return await _dbProvider.getIllustsWithNonWebPImages(
+      limit: limit,
+      offset: offset,
+      orderBy: orderBy,
+    );
+  }
+
   /// 获取所有未下载完整的作品（下载的图片数量小于 pageCount）
   /// 使用优化的数据库查询，避免在应用层逐个检查
   Future<List<DownloadedIllust>> getIncompleteDownloaded({
