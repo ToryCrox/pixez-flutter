@@ -198,6 +198,7 @@ class PixivCacheManager extends CacheManager with ImageCacheManager {
           'sourcePath': file.path,
           'targetPath': coverPath,
           'quality': quality,
+          'isLocalOriginal': false, // 下载的封面
         }),
       );
 
@@ -260,6 +261,7 @@ class PixivCacheManager extends CacheManager with ImageCacheManager {
           'sourcePath': firstImagePath,
           'targetPath': coverPath,
           'quality': quality,
+          'isLocalOriginal': true, // 本地原图需缩放
         }),
       );
 
@@ -281,16 +283,13 @@ class PixivCacheManager extends CacheManager with ImageCacheManager {
       final webpPath = params['webpPath']!;
       final quality = params['quality'] ?? Constants.qualityMedium;
 
-      final bytes = await io.File(jpgPath).readAsBytes();
-      final image = img.decodeImage(bytes);
-      if (image == null) return false;
-
-      final success = await _encodeToWebp(image, webpPath, quality);
-      if (success) {
-        await io.File(jpgPath).delete();
-        return true;
-      }
-      return false;
+      // 优化：直接使用文件路径进行编码，避免解码
+      return await _encodeToWebp(
+        targetPath: webpPath,
+        quality: quality,
+        sourcePath: jpgPath,
+        deleteSource: true, // 迁移场景需要删除原 JPG
+      );
     } catch (e) {
       Log.e('迁移封面失败: $e');
       return false;
@@ -298,11 +297,13 @@ class PixivCacheManager extends CacheManager with ImageCacheManager {
   }
 
   /// 内部 WebP 编码方法（封装 WebPEncoder）
-  static Future<bool> _encodeToWebp(
-    img.Image image,
-    String targetPath,
-    String quality,
-  ) async {
+  static Future<bool> _encodeToWebp({
+    img.Image? image,
+    String? sourcePath,
+    required String targetPath,
+    required String quality,
+    bool deleteSource = false,
+  }) async {
     // 根据质量决定参数
     int webpQuality = 75;
     if (quality == Constants.qualityLarge) {
@@ -312,22 +313,39 @@ class PixivCacheManager extends CacheManager with ImageCacheManager {
     // 1. 如果是桌面端，尝试使用 WebPEncoder
     if (io.Platform.isWindows) {
       try {
-        // 先存为临时的 jpg
-        final tempJpg = '$targetPath.temp.jpg';
-        await io.File(tempJpg).writeAsBytes(img.encodeJpg(image));
+        String? inputPath = sourcePath;
+        bool isTemp = false;
 
-        final result = await WebPEncoder.encode(
-          framesPaths: [tempJpg],
-          delays: [100],
-          outputPath: targetPath,
-          quality: webpQuality,
-        );
+        // 如果没有提供路径，则存为临时的 jpg
+        if (inputPath == null && image != null) {
+          inputPath = '$targetPath.temp.jpg';
+          await io.File(inputPath).writeAsBytes(img.encodeJpg(image));
+          isTemp = true;
+        }
 
-        // 删除临时文件
-        await io.File(tempJpg).delete();
+        if (inputPath != null) {
+          final result = await WebPEncoder.encode(
+            framesPaths: [inputPath],
+            delays: [100],
+            outputPath: targetPath,
+            quality: webpQuality,
+          );
 
-        if (result != null) {
-          return true;
+          // 如果是临时文件，清理它
+          if (isTemp) {
+            await io.File(inputPath).delete();
+          }
+
+          if (result != null) {
+            // 只有在明确要求且不是原地替换时才删除
+            if (deleteSource && sourcePath != null && sourcePath != targetPath) {
+              final sourceFile = io.File(sourcePath);
+              if (await sourceFile.exists()) {
+                await sourceFile.delete();
+              }
+            }
+            return true;
+          }
         }
       } catch (e) {
         Log.e('WebPEncoder 编码失败，尝试回退: $e');
@@ -335,21 +353,46 @@ class PixivCacheManager extends CacheManager with ImageCacheManager {
     }
 
     // 2. 兜底方案：保存为 JPG (虽然以后缀名 .webp 保存，但这显然不理想，但目前 image 库限制如此)
-    // 注意：这里由于后缀名已经是 .webp，如果存入的是 jpg 数据，解码器依然能识别，但最好还是希望能生成真正的 webp
-    // 如果用户之前已经确认过，这里存为 jpg 也是一种无奈的方案。
-    // 但按照用户要求，桌面端应该已经有 WebPEncoder。
+    // 如果没有 image 对象（仅有 sourcePath），则需要先读取
+    img.Image? fallbackImage = image;
+    if (fallbackImage == null && sourcePath != null) {
+      final bytes = await io.File(sourcePath).readAsBytes();
+      fallbackImage = img.decodeImage(bytes);
+    }
+
+    if (fallbackImage == null) return false;
+
     Log.w('无法使用 WebPEncoder，回退到 JPG 格式存储 (文件名仍为 .webp)');
-    final jpgBytes = img.encodeJpg(image, quality: webpQuality);
+    final jpgBytes = img.encodeJpg(fallbackImage, quality: webpQuality);
     await io.File(targetPath).writeAsBytes(jpgBytes);
+
+    // 只有在明确要求且不是原地替换时才删除
+    if (deleteSource && sourcePath != null && sourcePath != targetPath) {
+      final sourceFile = io.File(sourcePath);
+      if (await sourceFile.exists()) {
+        await sourceFile.delete();
+      }
+    }
     return true;
   }
 
   /// 后台线程处理封面图片（居中裁剪(仅限 square_medium) + 缩放 + 编码）
-  static Future<bool> _processCoverImage(Map<String, String> params) async {
+  static Future<bool> _processCoverImage(Map<String, dynamic> params) async {
     try {
-      final sourcePath = params['sourcePath']!;
-      final targetPath = params['targetPath']!;
-      final quality = params['quality'] ?? Constants.qualityMedium;
+      final String sourcePath = params['sourcePath']!;
+      final String targetPath = params['targetPath']!;
+      final String quality = params['quality'] ?? Constants.qualityMedium;
+      final bool isLocalOriginal = params['isLocalOriginal'] ?? false;
+
+      // 优化：如果在 Windows 平台且不需要裁剪（Waterfall 模式），且不是处理本地原图
+      // 我们信任 Pixiv 下载回来的封面尺寸已经是合适的（medium 为 540，large 为 1200），直接转码
+      if (!isLocalOriginal ) {
+        return await _encodeToWebp(
+          targetPath: targetPath,
+          quality: quality,
+          sourcePath: sourcePath,
+        );
+      }
 
       // 读取原图
       final bytes = await io.File(sourcePath).readAsBytes();
@@ -391,7 +434,13 @@ class PixivCacheManager extends CacheManager with ImageCacheManager {
       }
 
       // 统一调用编码方法
-      return await _encodeToWebp(resized, targetPath, quality);
+      return await _encodeToWebp(
+        image: resized,
+        targetPath: targetPath,
+        quality: quality,
+        // 如果没有经过修改，透传原图路径，避免生成临时 JPG
+        sourcePath: resized == image ? sourcePath : null,
+      );
     } catch (e) {
       Log.e('处理封面图片异常: $e');
       return false;
@@ -404,12 +453,13 @@ class PixivCacheManager extends CacheManager with ImageCacheManager {
       final sourcePath = params['sourcePath']!;
       final targetPath = params['targetPath']!;
 
-      final bytes = await io.File(sourcePath).readAsBytes();
-      final image = img.decodeImage(bytes);
-      if (image == null) return false;
-
-      // 保持原尺寸，仅压缩为 WebP
-      return await _encodeToWebp(image, targetPath, Constants.qualityMedium);
+      // 头像不需要缩放，直接调用 _encodeToWebp。
+      // _encodeToWebp 内部会自动处理 Windows 平台的路径编码以及非 Windows 平台的解码兜底。
+      return await _encodeToWebp(
+        targetPath: targetPath,
+        quality: Constants.qualityMedium,
+        sourcePath: sourcePath,
+      );
     } catch (e) {
       Log.e('处理头像图片异常: $e');
       return false;
