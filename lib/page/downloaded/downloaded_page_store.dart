@@ -46,6 +46,7 @@ enum IllustSortType {
 // SharedPreferences 键名
 const String _downloadedIllustsSortTypeKey = 'downloaded_illusts_sort_type';
 const String _downloadedIllustsSortDescKey = 'downloaded_illusts_sort_desc';
+const String _downloadedIllustsMarkUnprocessedKey = 'downloaded_illusts_mark_unprocessed';
 
 class DownloadedPageStore = _DownloadedPageStoreBase with _$DownloadedPageStore;
 
@@ -249,6 +250,11 @@ abstract class _DownloadedPageStoreBase with Store {
     final dragOnlyNonWebp = Prefer.getBool(_dragOnlyNonWebpKey);
     if (dragOnlyNonWebp != null) {
       _dragOnlyNonWebp = dragOnlyNonWebp;
+    }
+
+    final markUnprocessed = Prefer.getBool(_downloadedIllustsMarkUnprocessedKey);
+    if (markUnprocessed != null) {
+      _markUnprocessed = markUnprocessed;
     }
   }
 
@@ -689,6 +695,7 @@ abstract class _DownloadedPageStoreBase with Store {
   @action
   Future<void> toggleMarkUnprocessed(bool value) async {
     _markUnprocessed = value;
+    Prefer.setBool(_downloadedIllustsMarkUnprocessedKey, value);
     if (_markUnprocessed) {
       if (_illusts.isNotEmpty) {
         // 分批查询

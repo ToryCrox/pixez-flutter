@@ -38,6 +38,7 @@ enum AuthorSortType {
 const String _downloadedAuthorsSortTypeKey = 'downloaded_authors_sort_type';
 const String _downloadedAuthorsShowLatestPublishedKey = 'downloaded_authors_show_latest_published';
 const String _downloadedAuthorsSortDescKey = 'downloaded_authors_sort_desc';
+const String _downloadedAuthorsMarkUnprocessedKey = 'downloaded_authors_mark_unprocessed';
 
 typedef AuthorUpdateProgressCallback = void Function(int current, int total);
 
@@ -117,6 +118,11 @@ abstract class _DownloadedAuthorsPageStoreBase with Store {
     final sortDesc = Prefer.getBool(_downloadedAuthorsSortDescKey);
     if (sortDesc != null) {
       _sortDesc = sortDesc;
+    }
+
+    final markUnprocessed = Prefer.getBool(_downloadedAuthorsMarkUnprocessedKey);
+    if (markUnprocessed != null) {
+      _markUnprocessed = markUnprocessed;
     }
   }
 
@@ -247,6 +253,7 @@ abstract class _DownloadedAuthorsPageStoreBase with Store {
   @action
   Future<void> toggleMarkUnprocessed(bool value) async {
     _markUnprocessed = value;
+    Prefer.setBool(_downloadedAuthorsMarkUnprocessedKey, value);
     if (_markUnprocessed) {
       if (_authors.isNotEmpty) {
         // 仅检查当前已加载作者的状态，避免重新加载整个列表
