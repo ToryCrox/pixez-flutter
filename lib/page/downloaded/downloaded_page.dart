@@ -28,9 +28,7 @@ import 'package:pixez/models/download_record.dart';
 import 'package:pixez/models/illust.dart';
 import 'package:pixez/page/picture/illust_store.dart';
 import 'package:pixez/page/picture/picture_list_page.dart';
-import 'package:pixez/page/downloaded/downloaded_authors_page.dart';
 import 'package:pixez/page/downloaded/downloaded_page_store.dart';
-import 'package:pixez/page/downloaded/tag_manager/tag_manager_page.dart' hide SliverChipDelegate;
 
 import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 
@@ -140,8 +138,11 @@ class _DownloadedPageState extends State<DownloadedPage> {
         ),
         if (!_store.isSearching) ...[
 
-          _buildAuthorsButton(),
-          _buildTagsButton(),
+          IconButton(
+            icon: const Icon(Icons.update),
+            tooltip: '更新插画信息',
+            onPressed: _showUpdateIllustInfoDialog,
+          ),
           Observer(
             builder: (_) {
               return IconButton(
@@ -217,33 +218,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
 
 
 
-  Widget _buildAuthorsButton() {
-    return IconButton(
-      icon: const Icon(Icons.people),
-      tooltip: '作者列表',
-      onPressed: () {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (context) => DownloadedAuthorsPage(),
-          ),
-        );
-      },
-    );
-  }
 
-  Widget _buildTagsButton() {
-    return IconButton(
-      icon: const Icon(Icons.label),
-      tooltip: '标签管理',
-      onPressed: () {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (context) => const TagManagerPage(),
-          ),
-        );
-      },
-    );
-  }
 
   Widget _buildMoreMenu() {
     return PopupMenuButton<String>(
@@ -1538,3 +1513,27 @@ class _DownloadedIllustCard extends StatelessWidget {
   }
 }
 
+
+class SliverChipDelegate extends SliverPersistentHeaderDelegate {
+  final Widget child;
+  double height = 45;
+
+  SliverChipDelegate(this.child, {this.height = 45});
+
+  @override
+  double get minExtent => height;
+
+  @override
+  double get maxExtent => height;
+
+  @override
+  Widget build(
+      BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return child;
+  }
+
+  @override
+  bool shouldRebuild(SliverChipDelegate oldDelegate) {
+    return height != oldDelegate.height;
+  }
+}
