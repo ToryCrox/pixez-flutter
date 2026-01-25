@@ -339,7 +339,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                 return child;
               },
               themeMode: userSetting.themeMode,
-              theme: ThemeData.light().copyWith(
+              theme: ThemeData(
+                fontFamily: userSetting.fontFamily,
+                brightness: Brightness.light,
                 primaryColor: lightColorScheme.primary,
                 colorScheme: lightColorScheme,
                 scaffoldBackgroundColor: lightColorScheme.surface,
@@ -350,14 +352,22 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                 canvasColor: lightColorScheme.surfaceContainer,
                 dialogTheme: DialogThemeData(
                   backgroundColor: lightColorScheme.surfaceContainer,
+                  titleTextStyle: TextStyle(fontFamily: userSetting.fontFamily, fontSize: 22),
+                  contentTextStyle: TextStyle(fontFamily: userSetting.fontFamily, fontSize: 16),
                 ),
               ),
-              darkTheme: ThemeData.dark().copyWith(
+              darkTheme: ThemeData(
+                fontFamily: userSetting.fontFamily,
+                brightness: Brightness.dark,
                 scaffoldBackgroundColor:
                     userSetting.isAMOLED ? Colors.black : null,
                 // tabBarTheme: TabBarTheme(dividerColor: Colors.transparent),
                 tabBarTheme: TabBarThemeData(dividerColor: Colors.transparent),
                 colorScheme: darkColorScheme,
+                dialogTheme: DialogThemeData(
+                  titleTextStyle: TextStyle(fontFamily: userSetting.fontFamily, fontSize: 22),
+                  contentTextStyle: TextStyle(fontFamily: userSetting.fontFamily, fontSize: 16),
+                ),
               ),
               localizationsDelegates: AppLocalizations.localizationsDelegates,
               supportedLocales: AppLocalizations.supportedLocales,

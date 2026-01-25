@@ -594,6 +594,8 @@ abstract class _UserSetting with Store {
     }
     format = prefs.getString(SAVE_FORMAT_KEY);
     if (format == null || format!.isEmpty) format = intialFormat;
+    
+    fontFamily = prefs.getString(FONT_FAMILY_KEY);
   }
 
   int toRealLanguageNum(int num) {
@@ -768,6 +770,21 @@ abstract class _UserSetting with Store {
   Future<void> setLongPressSaveConfirm(bool value) async {
     await prefs.setBool(LONG_PRESS_SAVE_CONFIRM_KEY, value);
     longPressSaveConfirm = value;
+  }
+
+  static const String FONT_FAMILY_KEY = "font_family";
+
+  @observable
+  String? fontFamily;
+
+  @action
+  setFontFamily(String? value) async {
+    fontFamily = value;
+    if (value == null) {
+      await prefs.remove(FONT_FAMILY_KEY);
+    } else {
+      await prefs.setString(FONT_FAMILY_KEY, value);
+    }
   }
 
   String illustToShareInfoText(Illusts illusts) {

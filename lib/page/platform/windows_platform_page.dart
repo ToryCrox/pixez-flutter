@@ -206,6 +206,84 @@ class _WindowsPlatformPageState extends State<WindowsPlatformPage> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            SizedBox(height: 24),
+            Text(
+              '字体设置',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            SizedBox(height: 12),
+            LayoutBuilder(builder: (context, constraints) {
+               return Autocomplete<String>(
+                initialValue: TextEditingValue(text: userSetting.fontFamily ?? ''),
+                optionsBuilder: (TextEditingValue textEditingValue) {
+                  const List<String> _kOptions = <String>[
+                    'Microsoft YaHei',
+                    'SimHei',
+                    'Segoe UI',
+                    'Consolas',
+                    'Noto Sans Mono CJK SC',
+                    'PingFang SC',
+                    'Heiti SC',
+                    'San Francisco',
+                  ];
+                  if (textEditingValue.text == '') {
+                    return const Iterable<String>.empty();
+                  }
+                  return _kOptions.where((String option) {
+                    return option.toLowerCase().contains(textEditingValue.text.toLowerCase());
+                  });
+                },
+                onSelected: (String selection) {
+                  userSetting.setFontFamily(selection);
+                },
+                fieldViewBuilder: (BuildContext context, TextEditingController textEditingController,
+                    FocusNode focusNode, VoidCallback onFieldSubmitted) {
+                  return Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: textEditingController,
+                          focusNode: focusNode,
+                          decoration: InputDecoration(
+                            hintText: '输入或选择字体名称',
+                            border: OutlineInputBorder(),
+                            suffixIcon: IconButton(
+                              icon: Icon(Icons.clear),
+                              onPressed: () {
+                                textEditingController.clear();
+                                userSetting.setFontFamily(null);
+                              },
+                              tooltip: '重置默字体',
+                            ),
+                          ),
+                          onSubmitted: (String value) {
+                            if (value.trim().isEmpty) {
+                              userSetting.setFontFamily(null);
+                            } else {
+                              userSetting.setFontFamily(value.trim());
+                            }
+                          },
+                        ),
+                      ),
+                      SizedBox(width: 12),
+                      ElevatedButton(
+                        onPressed: () {
+                          final value = textEditingController.text.trim();
+                          if (value.isEmpty) {
+                            userSetting.setFontFamily(null);
+                          } else {
+                            userSetting.setFontFamily(value);
+                          }
+                          BotToast.showText(text: '字体已应用');
+                        },
+                        child: Text('应用'),
+                      ),
+                    ],
+                  );
+                },
+              );
+            }),
+            Divider(height: 32),
             Text(
               '下载路径',
               style: Theme.of(context).textTheme.titleMedium,
