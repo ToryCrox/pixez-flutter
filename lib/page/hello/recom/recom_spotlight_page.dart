@@ -71,7 +71,9 @@ class _RecomSpolightPageState extends State<RecomSpolightPage>
     spotlightStore = SpotlightStore(null);
     _lightingStore = LightingStore(
       ApiForceSource(
-          futureGet: (e) => apiClient.getRecommend(), glanceKey: "recom"),
+          futureGet: (e) => apiClient.getRecommend(),
+          glanceKey: "recom",
+          cacheKey: "recom_illust_cache"),
     )..easyRefreshController = _easyRefreshController;
     super.initState();
     subscription = topStore.topStream.listen((event) {
@@ -82,9 +84,11 @@ class _RecomSpolightPageState extends State<RecomSpolightPage>
   }
 
   Future<void> fetchT() async {
-    await spotlightStore.fetch();
-    _lightingStore.fetch();
-    _recomUserStore.fetch();
+    await Future.wait([
+      spotlightStore.fetch(),
+      _lightingStore.fetch(),
+      _recomUserStore.fetch(),
+    ]);
   }
 
   @override

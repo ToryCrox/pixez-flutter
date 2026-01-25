@@ -19,6 +19,7 @@ import 'package:easy_refresh/easy_refresh.dart';
 import 'package:mobx/mobx.dart';
 import 'package:pixez/models/spotlight_response.dart';
 import 'package:pixez/network/api_client.dart';
+import 'package:pixez/custom/disk_cache.dart';
 part 'spotlight_store.g.dart';
 
 class SpotlightStore = _SpotlightStoreBase with _$SpotlightStore;
@@ -37,12 +38,32 @@ abstract class _SpotlightStoreBase with Store {
     if (_lock) return false;
     _lock = true;
     nextUrl = null;
+
+    // Try to load from cache first
+    if (articles.isEmpty) {
+      try {
+        final cachedData = await DiskCache.readModel(
+            "spotlight_cache", (map) => SpotlightResponse.fromJson(map));
+        if (cachedData != null) {
+          articles.clear();
+          articles.addAll(cachedData.spotlightArticles);
+          nextUrl = cachedData.nextUrl;
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
+
     try {
       Response response = await client.getSpotlightArticles("all");
       final result = SpotlightResponse.fromJson(response.data);
       articles.clear();
       articles.addAll(result.spotlightArticles);
       nextUrl = result.nextUrl;
+
+      // Update cache
+      DiskCache.writeModel("spotlight_cache", response.data);
+
       _controller?.finishRefresh(IndicatorResult.success);
       return true;
     } catch (e) {

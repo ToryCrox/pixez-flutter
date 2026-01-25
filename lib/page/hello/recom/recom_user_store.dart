@@ -14,6 +14,7 @@
  */
 
 import 'package:easy_refresh/easy_refresh.dart';
+import 'package:pixez/custom/disk_cache.dart';
 import 'package:mobx/mobx.dart';
 import 'package:pixez/models/user_preview.dart';
 import 'package:pixez/network/api_client.dart';
@@ -31,12 +32,32 @@ abstract class _RecomUserStoreBase with Store {
   @action
   fetch() async {
     nextUrl = null;
+
+    // Try to load from cache first
+    if (users.isEmpty) {
+      try {
+        final cachedData = await DiskCache.readModel(
+            "recom_user_cache", (map) => UserPreviewsResponse.fromJson(map));
+        if (cachedData != null) {
+          users.clear();
+          users.addAll(cachedData.user_previews);
+          nextUrl = cachedData.next_url;
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
+
     try {
       final result = await apiClient.getUserRecommended();
       final response = UserPreviewsResponse.fromJson(result.data);
       nextUrl = response.next_url;
       users.clear();
       users.addAll(response.user_previews);
+
+      // Update cache
+      DiskCache.writeModel("recom_user_cache", result.data);
+
       controller?.finishRefresh(IndicatorResult.success);
     } catch (e) {
       controller?.finishRefresh(IndicatorResult.fail);
