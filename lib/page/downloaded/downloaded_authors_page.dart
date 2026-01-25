@@ -106,6 +106,22 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
             );
           },
         ),
+        Observer(
+          builder: (_) {
+            return IconButton(
+              icon: Icon(
+                _store.markUnprocessed ? Icons.flag : Icons.outlined_flag,
+                color: _store.markUnprocessed
+                    ? Theme.of(context).colorScheme.primary
+                    : null,
+              ),
+              tooltip: '标记未处理',
+              onPressed: () {
+                _store.toggleMarkUnprocessed(!_store.markUnprocessed);
+              },
+            );
+          },
+        ),
         PopupMenuButton<String>(
           icon: Icon(Icons.more_vert),
           tooltip: '更多选项',
@@ -113,30 +129,9 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
           onSelected: (value) {
             if (value == 'update_all') {
               _updateAllAuthorsStats();
-            } else if (value == 'mark_unprocessed') {
-               _store.toggleMarkUnprocessed(!_store.markUnprocessed);
             }
           },
           itemBuilder: (context) => [
-            PopupMenuItem(
-              value: 'mark_unprocessed',
-              child: Observer(
-                builder: (_) {
-                  return Row(
-                    children: [
-                       Icon(
-                          _store.markUnprocessed
-                              ? Icons.check_box
-                              : Icons.check_box_outline_blank,
-                          size: 20,
-                       ),
-                       SizedBox(width: 8),
-                       Text('标记未处理'),
-                    ],
-                  );
-                },
-              ),
-            ),
             PopupMenuItem(
               value: 'update_all',
               child: Row(

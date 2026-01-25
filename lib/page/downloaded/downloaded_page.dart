@@ -142,6 +142,22 @@ class _DownloadedPageState extends State<DownloadedPage> {
 
           _buildAuthorsButton(),
           _buildTagsButton(),
+          Observer(
+            builder: (_) {
+              return IconButton(
+                icon: Icon(
+                  _store.markUnprocessed ? Icons.flag : Icons.outlined_flag,
+                  color: _store.markUnprocessed
+                      ? Theme.of(context).colorScheme.primary
+                      : null,
+                ),
+                tooltip: '标记未处理',
+                onPressed: () {
+                  _store.toggleMarkUnprocessed(!_store.markUnprocessed);
+                },
+              );
+            },
+          ),
           _buildMoreMenu(),
         ],
       ],
@@ -256,11 +272,6 @@ class _DownloadedPageState extends State<DownloadedPage> {
           checked: _store.disableMouseDragScroll,
           child: Text('禁用鼠标拖拽滚动'),
         ),
-        CheckedPopupMenuItem(
-          value: 'mark_unprocessed',
-          checked: _store.markUnprocessed,
-          child: Text('标记未处理'),
-        ),
       ],
     );
   }
@@ -299,9 +310,6 @@ class _DownloadedPageState extends State<DownloadedPage> {
         break;
       case 'toggle_mouse_drag_scroll':
         _store.toggleMouseDragScroll();
-        break;
-      case 'mark_unprocessed':
-        _store.toggleMarkUnprocessed(!_store.markUnprocessed);
         break;
     }
   }
