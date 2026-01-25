@@ -791,16 +791,16 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
             
             // 为了让头部统计信息显示正确的新值（New），我们需要更新 illust 对象中的统计字段
             // 但为了保留 Diff 视图（Old -> New），我们不更新 UpdateIllustInfo.totalSizeInDb
-            final actualCount =
-                newImageUpdates
-                    .where((e) => !e.isBroken && !e.isFileNotFound)
-                    .length;
-            final actualSize = updateInfo.totalSizeScanned;
+            // final actualCount =
+            //     newImageUpdates
+            //         .where((e) => !e.isBroken && !e.isFileNotFound)
+            //         .length;
+            // final actualSize = updateInfo.totalSizeScanned;
 
-            updateInfo.illust = updateInfo.illust.copyWith(
-              downloadedImageCount: actualCount,
-              totalFileSize: actualSize,
-            );
+            // updateInfo.illust = updateInfo.illust.copyWith(
+            //   downloadedImageCount: actualCount,
+            //   totalFileSize: actualSize,
+            // );
             
             // 标记为更新成功
             updateInfo.isUpdated = true;
