@@ -352,8 +352,16 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                 canvasColor: lightColorScheme.surfaceContainer,
                 dialogTheme: DialogThemeData(
                   backgroundColor: lightColorScheme.surfaceContainer,
-                  titleTextStyle: TextStyle(fontFamily: userSetting.fontFamily, fontSize: 22),
-                  contentTextStyle: TextStyle(fontFamily: userSetting.fontFamily, fontSize: 16),
+                  titleTextStyle: TextStyle(
+                    fontFamily: userSetting.fontFamily, 
+                    fontSize: 22,
+                    color: lightColorScheme.onSurface,
+                  ),
+                  contentTextStyle: TextStyle(
+                    fontFamily: userSetting.fontFamily, 
+                    fontSize: 16,
+                    color: lightColorScheme.onSurfaceVariant,
+                  ),
                 ),
               ),
               darkTheme: ThemeData(
@@ -365,8 +373,16 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                 tabBarTheme: TabBarThemeData(dividerColor: Colors.transparent),
                 colorScheme: darkColorScheme,
                 dialogTheme: DialogThemeData(
-                  titleTextStyle: TextStyle(fontFamily: userSetting.fontFamily, fontSize: 22),
-                  contentTextStyle: TextStyle(fontFamily: userSetting.fontFamily, fontSize: 16),
+                  titleTextStyle: TextStyle(
+                    fontFamily: userSetting.fontFamily, 
+                    fontSize: 22,
+                    color: darkColorScheme.onSurface,
+                  ),
+                  contentTextStyle: TextStyle(
+                    fontFamily: userSetting.fontFamily, 
+                    fontSize: 16,
+                    color: darkColorScheme.onSurfaceVariant,
+                  ),
                 ),
               ),
               localizationsDelegates: AppLocalizations.localizationsDelegates,
