@@ -33,7 +33,7 @@ import 'package:pixez/page/downloaded/downloaded_page_store.dart';
 import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 
 
-import 'package:pixez/page/downloaded/optimize_json_dialog.dart';
+
 import 'package:pixez/page/downloaded/update_illust_info_dialog.dart';
 import 'package:pixez/store/download_store.dart';
 import 'package:pixez/component/pixez_default_header.dart';
@@ -232,20 +232,10 @@ class _DownloadedPageState extends State<DownloadedPage> {
         PopupMenuDivider(),
         ..._buildDownloadControlMenuItems(),
         PopupMenuDivider(),
-         PopupMenuItem(
-          enabled: false,
-          child: Text('拖拽设置', style: TextStyle(
-              fontSize: 12, color: Theme.of(context).disabledColor)),
-        ),
         CheckedPopupMenuItem(
-          value: 'toggle_drag_only_non_webp',
-          checked: _store.dragOnlyNonWebp,
-          child: Text('仅拖拽非WebP图片'),
-        ),
-        CheckedPopupMenuItem(
-          value: 'toggle_mouse_drag_scroll',
-          checked: _store.disableMouseDragScroll,
-          child: Text('禁用鼠标拖拽滚动'),
+          value: 'toggle_enable_drag',
+          checked: _store.enableDrag,
+          child: Text('启用拖拽功能'),
         ),
       ],
     );
@@ -277,14 +267,8 @@ class _DownloadedPageState extends State<DownloadedPage> {
       case 'cancel_all':
         _store.cancelAll();
         break;
-      case 'toggle_drag_only_non_webp':
-        _store.setDragOnlyNonWebp(!_store.dragOnlyNonWebp);
-        break;
-      case 'optimize_json':
-        OptimizeJsonDialog.show(context, downloadStore);
-        break;
-      case 'toggle_mouse_drag_scroll':
-        _store.toggleMouseDragScroll();
+      case 'toggle_enable_drag':
+        _store.toggleEnableDrag();
         break;
     }
   }
@@ -449,7 +433,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
       childBuilder: (context, physics, scrollController) {
         return Observer(builder: (context) {
           return ScrollConfiguration(
-            behavior: _store.disableMouseDragScroll
+            behavior: _store.enableDrag
                 ? ScrollConfiguration.of(context).copyWith(
                     dragDevices: ScrollConfiguration.of(context)
                         .dragDevices
@@ -948,18 +932,21 @@ class _DownloadedIllustCard extends StatelessWidget {
 
         final card = _buildCard(context, status, isSelected);
 
-        // 拖拽逻辑
-        return DragItemWidget(
-          dragItemProvider: _createDragItemProvider,
-          allowedOperations: () => [DropOperation.copy, DropOperation.link],
-          dragBuilder: (context, child) =>
-              _buildDragPreview(context, child, isSelected),
-          child: DraggableWidget(
-            child: card,
-            onDragConfiguration: (config, session) =>
-                _createDragConfiguration(config, session, isSelected),
-          ),
-        );
+        if (store.enableDrag) {
+          return DragItemWidget(
+            dragItemProvider: _createDragItemProvider,
+            allowedOperations: () => [DropOperation.copy, DropOperation.link],
+            dragBuilder: (context, child) =>
+                _buildDragPreview(context, child, isSelected),
+            child: DraggableWidget(
+              child: card,
+              onDragConfiguration: (config, session) =>
+                  _createDragConfiguration(config, session, isSelected),
+            ),
+          );
+        } else {
+          return card;
+        }
       },
     );
   }
@@ -1049,8 +1036,8 @@ class _DownloadedIllustCard extends StatelessWidget {
     );
   }
 
-  Future<DragConfiguration?> _createDragConfiguration(
-      DragConfiguration config, DragSession session, bool isSelected) async {
+  DragConfiguration? _createDragConfiguration(
+      DragConfiguration config, DragSession session, bool isSelected) {
     // 处理多选和文件过滤逻辑
     final selectedIds = <int>[];
     if (store.isMultiSelectMode) {
@@ -1081,50 +1068,23 @@ class _DownloadedIllustCard extends StatelessWidget {
 
     final newItems = <DragConfigurationItem>[];
 
-    if (store.dragOnlyNonWebp) {
-      // 优化：使用批量查询获取所有图片记录，避免循环 await
-      try {
-        final allImages = await downloadStore.dbProvider.getImagesByIllustIds(
-            targetIllusts.map((e) => e.illustId).toList());
+    if (!store.enableDrag) return null;
 
-        // 按 illustId 分组
-        final imagesMap = <int, List<DownloadedImage>>{};
-        for (final img in allImages) {
-          imagesMap.putIfAbsent(img.illustId, () => []).add(img);
-        }
+    if (store.isMultiSelectMode) {
+      // 这里的逻辑保持不变：如果是多选模式且选中了当前项，则拖拽所有选中项
+      // 否则只拖拽当前项（_createDragConfiguration start时已处理 selectedIds）
+    }
 
-        for (final targetIllust in targetIllusts) {
-          final images = imagesMap[targetIllust.illustId] ?? [];
-          for (final image in images) {
-            // 过滤非 WebP 图片
-            if (image.extension.toLowerCase() != '.webp') {
-              final fullPath = downloadStore.dbProvider
-                  .getAbsolutePath(image.relativePath, image.getFullFileName());
-              
-              final dragItem = DragItem();
-              dragItem.add(Formats.fileUri(Uri.file(fullPath)));
-              newItems.add(DragConfigurationItem(
-                item: dragItem,
-                image: snapshot,
-              ));
-            }
-          }
-        }
-      } catch (e) {
-        // Fallback or ignore
-      }
-    } else {
-      // 默认拖拽整个文件夹 (无需数据库查询，直接字符串拼接，速度极快)
-      for (final targetIllust in targetIllusts) {
-        final dirPath = downloadStore.getIllustDirectoryPath(targetIllust);
-        if (dirPath != null) {
-          final dragItem = DragItem();
-          dragItem.add(Formats.fileUri(Uri.file(dirPath)));
-          newItems.add(DragConfigurationItem(
-            item: dragItem,
-            image: snapshot,
-          ));
-        }
+    // 默认拖拽整个文件夹 (无需数据库查询，直接字符串拼接，速度极快)
+    for (final targetIllust in targetIllusts) {
+      final dirPath = downloadStore.getIllustDirectoryPath(targetIllust);
+      if (dirPath != null) {
+        final dragItem = DragItem();
+        dragItem.add(Formats.fileUri(Uri.file(dirPath)));
+        newItems.add(DragConfigurationItem(
+          item: dragItem,
+          image: snapshot,
+        ));
       }
     }
 

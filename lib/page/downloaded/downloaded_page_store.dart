@@ -47,6 +47,7 @@ enum IllustSortType {
 const String _downloadedIllustsSortTypeKey = 'downloaded_illusts_sort_type';
 const String _downloadedIllustsSortDescKey = 'downloaded_illusts_sort_desc';
 const String _downloadedIllustsMarkUnprocessedKey = 'downloaded_illusts_mark_unprocessed';
+const String _enableDragKey = 'enable_drag';
 
 class DownloadedPageStore = _DownloadedPageStoreBase with _$DownloadedPageStore;
 
@@ -121,17 +122,13 @@ abstract class _DownloadedPageStoreBase with Store {
 
   // ===== 拖拽设置状态 =====
   
-  static const String _dragOnlyNonWebpKey = 'drag_only_non_webp';
-
-  @readonly
-  bool _dragOnlyNonWebp = false;
-
   @observable
-  bool disableMouseDragScroll = false;
+  bool enableDrag = false;
 
   @action
-  void toggleMouseDragScroll() {
-    disableMouseDragScroll = !disableMouseDragScroll;
+  void toggleEnableDrag() {
+    enableDrag = !enableDrag;
+    Prefer.setBool(_enableDragKey, enableDrag);
   }
 
   // ===== 未处理标记状态 =====
@@ -247,9 +244,9 @@ abstract class _DownloadedPageStoreBase with Store {
       _sortDesc = sortDesc;
     }
 
-    final dragOnlyNonWebp = Prefer.getBool(_dragOnlyNonWebpKey);
-    if (dragOnlyNonWebp != null) {
-      _dragOnlyNonWebp = dragOnlyNonWebp;
+    final enableDrag = Prefer.getBool(_enableDragKey);
+    if (enableDrag != null) {
+      this.enableDrag = enableDrag;
     }
 
     final markUnprocessed = Prefer.getBool(_downloadedIllustsMarkUnprocessedKey);
@@ -685,12 +682,6 @@ abstract class _DownloadedPageStoreBase with Store {
   }
 
   // ===== 拖拽设置 Actions =====
-
-  @action
-  void setDragOnlyNonWebp(bool value) {
-    _dragOnlyNonWebp = value;
-    Prefer.setBool(_dragOnlyNonWebpKey, value);
-  }
 
   @action
   Future<void> toggleMarkUnprocessed(bool value) async {
