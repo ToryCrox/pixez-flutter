@@ -34,6 +34,7 @@ class DownloadedAuthorCard extends StatelessWidget {
   final bool showLatestPublished;
   final VoidCallback? onRefresh;
   final bool isMarked;
+  final Function(int bookmark)? onBookmarkChanged;
 
   const DownloadedAuthorCard({
     Key? key,
@@ -42,6 +43,7 @@ class DownloadedAuthorCard extends StatelessWidget {
     required this.showLatestPublished,
     this.onRefresh,
     this.isMarked = false,
+    this.onBookmarkChanged,
   }) : super(key: key);
 
   @override
@@ -57,6 +59,7 @@ class DownloadedAuthorCard extends StatelessWidget {
           ),
         );
       },
+      onLongPress: () => _showPriorityDialog(context),
       child: Card(
         clipBehavior: Clip.antiAlias,
         child: Column(
@@ -172,6 +175,18 @@ class DownloadedAuthorCard extends StatelessWidget {
                                     ),
                           ),
                         ],
+                        if (author.bookmark > 0) ...[
+                          SizedBox(width: 8),
+                          Icon(Icons.favorite, size: 12, color: Colors.red),
+                          if (author.bookmark > 1) 
+                            Text(
+                              ' ${author.bookmark}',
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: Colors.red,
+                                    fontSize: 10,
+                                  ),
+                            ),
+                        ],
                       ],
                     ),
                     if (author.totalImageCount > 0 &&
@@ -211,6 +226,19 @@ class DownloadedAuthorCard extends StatelessWidget {
                   ],
                 ),
               ),
+            ),
+            IconButton(
+              icon: Icon(
+                  author.bookmark > 0 ? Icons.favorite : Icons.favorite_border),
+              iconSize: 20,
+              color: author.bookmark > 0
+                  ? Colors.red
+                  : Theme.of(context).iconTheme.color,
+              tooltip: author.bookmark > 0 ? '取消收藏' : '收藏',
+              onPressed: () {
+                final newBookmark = author.bookmark > 0 ? 0 : 1;
+                onBookmarkChanged?.call(newBookmark);
+              },
             ),
             IconButton(
               icon: Icon(Icons.refresh),
@@ -273,6 +301,81 @@ class DownloadedAuthorCard extends StatelessWidget {
     } catch (e) {
       BotToast.showText(text: '打开文件夹失败: $e');
     }
+  }
+
+  void _showPriorityDialog(BuildContext context) {
+    int tempBookmark = author.bookmark;
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: Text('设置已收藏作者/优先级'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('数值越大优先级越高 (0-99)。\n0 表示取消收藏。'),
+                  SizedBox(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('优先级: ${tempBookmark.toInt()}', 
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      if (tempBookmark > 0)
+                        Icon(Icons.favorite, color: Colors.red),
+                    ],
+                  ),
+                  Slider(
+                    value: tempBookmark.toDouble(),
+                    min: 0,
+                    max: 99,
+                    divisions: 99,
+                    label: tempBookmark.toString(),
+                    onChanged: (double value) {
+                      setState(() {
+                        tempBookmark = value.round();
+                      });
+                    },
+                  ),
+                  SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      TextButton(
+                        onPressed: () => setState(() => tempBookmark = 0),
+                        child: Text('取消收藏(0)'),
+                      ),
+                      TextButton(
+                        onPressed: () => setState(() => tempBookmark = 1),
+                        child: Text('默认(1)'),
+                      ),
+                      TextButton(
+                        onPressed: () => setState(() => tempBookmark = 99),
+                        child: Text('置顶(99)'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text('取消'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    onBookmarkChanged?.call(tempBookmark);
+                    Navigator.pop(context);
+                  },
+                  child: Text('确定'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 }
 

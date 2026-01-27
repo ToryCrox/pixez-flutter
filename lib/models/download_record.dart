@@ -144,7 +144,7 @@ class DownloadDatabaseProvider {
 
       db = await openDatabase(
         dbPath,
-        version: 14,
+        version: 15,
         onCreate: (Database db, int version) async {
           await db.execute('''
           CREATE TABLE ${DownloadedIllustColumns.tableName} (
@@ -170,7 +170,8 @@ class DownloadDatabaseProvider {
             ${DownloadedIllustColumns.imageUrlsJson} TEXT NOT NULL DEFAULT '',
             ${DownloadedIllustColumns.ugoiraMetadataJson} TEXT NOT NULL DEFAULT '',
             ${DownloadedIllustColumns.downloadedImageCount} INTEGER DEFAULT 0,
-            ${DownloadedIllustColumns.totalFileSize} INTEGER DEFAULT 0
+            ${DownloadedIllustColumns.totalFileSize} INTEGER DEFAULT 0,
+            ${DownloadedIllustColumns.bookmark} INTEGER DEFAULT 0
           )
         ''');
 
@@ -212,7 +213,8 @@ class DownloadDatabaseProvider {
             ${DownloadedAuthorColumns.totalImageCount} INTEGER DEFAULT 0,
             ${DownloadedAuthorColumns.totalFileSize} INTEGER DEFAULT 0,
             ${DownloadedAuthorColumns.lastDownloadTime} INTEGER,
-            ${DownloadedAuthorColumns.lastUpdateTime} INTEGER
+            ${DownloadedAuthorColumns.lastUpdateTime} INTEGER,
+            ${DownloadedAuthorColumns.bookmark} INTEGER DEFAULT 0
           )
         ''');
 
@@ -273,6 +275,13 @@ class DownloadDatabaseProvider {
         ''');
         await db.execute('''
           CREATE INDEX idx_author_total_file_size ON ${DownloadedAuthorColumns.tableName}(${DownloadedAuthorColumns.totalFileSize})
+        ''');
+        // 收藏字段索引
+        await db.execute('''
+          CREATE INDEX idx_author_bookmark ON ${DownloadedAuthorColumns.tableName}(${DownloadedAuthorColumns.bookmark})
+        ''');
+        await db.execute('''
+          CREATE INDEX idx_illust_bookmark ON ${DownloadedIllustColumns.tableName}(${DownloadedIllustColumns.bookmark})
         ''');
         // 标签表索引
         await db.execute('''
@@ -338,6 +347,15 @@ class DownloadDatabaseProvider {
           Log.i(() => '添加 parent_id 字段到 downloaded_tags 表');
           await db.execute('ALTER TABLE ${DownloadedTagsColumns.tableName} ADD COLUMN ${DownloadedTagsColumns.parentId} INTEGER');
           await db.execute('CREATE INDEX idx_tags_parent ON ${DownloadedTagsColumns.tableName}(${DownloadedTagsColumns.parentId})');
+        }
+
+        // v14 -> v15: 添加 bookmark 字段
+        if (oldVersion < 15) {
+          Log.i(() => '添加 bookmark 字段到 downloaded_authors 和 downloaded_illusts 表');
+          await db.execute('ALTER TABLE ${DownloadedAuthorColumns.tableName} ADD COLUMN ${DownloadedAuthorColumns.bookmark} INTEGER DEFAULT 0');
+          await db.execute('ALTER TABLE ${DownloadedIllustColumns.tableName} ADD COLUMN ${DownloadedIllustColumns.bookmark} INTEGER DEFAULT 0');
+          await db.execute('CREATE INDEX idx_author_bookmark ON ${DownloadedAuthorColumns.tableName}(${DownloadedAuthorColumns.bookmark})');
+          await db.execute('CREATE INDEX idx_illust_bookmark ON ${DownloadedIllustColumns.tableName}(${DownloadedIllustColumns.bookmark})');
         }
       }
     );
@@ -1656,6 +1674,22 @@ class DownloadDatabaseProvider {
     int totalFileSize,
     int lastDownloadTime,
   ) async {
+    // 获取现有的 bookmark 值，避免被覆盖
+    int bookmark = 0;
+    try {
+      final existing = await db.query(
+        DownloadedAuthorColumns.tableName,
+        columns: [DownloadedAuthorColumns.bookmark],
+        where: '${DownloadedAuthorColumns.userId} = ?',
+        whereArgs: [userId],
+      );
+      if (existing.isNotEmpty) {
+        bookmark = existing.first[DownloadedAuthorColumns.bookmark] as int? ?? 0;
+      }
+    } catch (e) {
+      Log.w('获取旧作者 bookmark 失败: $e');
+    }
+
     await db.insert(
       DownloadedAuthorColumns.tableName,
       {
@@ -1670,6 +1704,7 @@ class DownloadDatabaseProvider {
         DownloadedAuthorColumns.lastDownloadTime: lastDownloadTime,
         DownloadedAuthorColumns.lastUpdateTime:
             DateTime.now().millisecondsSinceEpoch,
+        DownloadedAuthorColumns.bookmark: bookmark,
       },
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
@@ -1698,6 +1733,16 @@ class DownloadDatabaseProvider {
     );
   }
 
+  /// 更新作者收藏/优先级
+  Future<void> updateAuthorBookmark(int userId, int bookmark) async {
+    await db.update(
+      DownloadedAuthorColumns.tableName,
+      {DownloadedAuthorColumns.bookmark: bookmark},
+      where: '${DownloadedAuthorColumns.userId} = ?',
+      whereArgs: [userId],
+    );
+  }
+
   /// 获取作者列表，支持排序和搜索
   /// sortBy: 'last_download_time', 'user_name', 'illust_count'
   /// searchKeyword: 搜索关键词，支持作者名模糊匹配和用户ID精确匹配
@@ -1707,39 +1752,43 @@ class DownloadDatabaseProvider {
     int? limit,
     int? offset,
     String? searchKeyword,
+    bool filterBookmarks = false,
   }) async {
-    String orderBy = sortBy;
-    if (desc) {
-      orderBy += ' DESC';
-    } else {
-      orderBy += ' ASC';
+    String orderBy = '$sortBy ${desc ? 'DESC' : 'ASC'}';
+    if (filterBookmarks) {
+      // 筛选收藏时，优先按收藏值倒序，然后按用户选择的排序方式
+      orderBy = '${DownloadedAuthorColumns.bookmark} DESC, $orderBy';
     }
 
-    String? where;
-    List<Object?>? whereArgs;
+    final whereConditions = <String>[];
+    final whereArgs = <Object?>[];
 
-    // 如果有搜索关键词，添加搜索条件
+    // 筛选收藏
+    if (filterBookmarks) {
+      whereConditions.add('${DownloadedAuthorColumns.bookmark} > 0');
+    }
+
+    // 搜索关键词
     if (searchKeyword != null && searchKeyword.trim().isNotEmpty) {
       final keyword = searchKeyword.trim();
-      // 尝试将关键词解析为数字（用户ID）
       final userId = int.tryParse(keyword);
 
       if (userId != null) {
-        // 如果是数字，同时搜索用户ID和用户名
-        where =
-            '(${DownloadedAuthorColumns.userId} = ? OR ${DownloadedAuthorColumns.userName} LIKE ?)';
-        whereArgs = [userId, '%$keyword%'];
+        whereConditions.add(
+            '(${DownloadedAuthorColumns.userId} = ? OR ${DownloadedAuthorColumns.userName} LIKE ?)');
+        whereArgs.addAll([userId, '%$keyword%']);
       } else {
-        // 如果不是数字，只搜索用户名
-        where = '${DownloadedAuthorColumns.userName} LIKE ?';
-        whereArgs = ['%$keyword%'];
+        whereConditions.add('${DownloadedAuthorColumns.userName} LIKE ?');
+        whereArgs.add('%$keyword%');
       }
     }
+
+    final String? where = whereConditions.isNotEmpty ? whereConditions.join(' AND ') : null;
 
     List<Map<String, dynamic>> maps = await db.query(
       DownloadedAuthorColumns.tableName,
       where: where,
-      whereArgs: whereArgs,
+      whereArgs: whereArgs.isNotEmpty ? whereArgs : null,
       orderBy: orderBy,
       limit: limit,
       offset: offset,

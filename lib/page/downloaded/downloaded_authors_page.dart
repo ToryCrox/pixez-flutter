@@ -144,6 +144,21 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
             ),
           ],
         ),
+        Observer(
+          builder: (_) {
+            // 收藏筛选按钮放到 AppBar
+            return IconButton(
+              icon: Icon(
+                _store.showBookmarksOnly ? Icons.favorite : Icons.favorite_border,
+                color: _store.showBookmarksOnly ? Colors.red : null,
+              ),
+              tooltip: '只显示收藏',
+              onPressed: () {
+                _store.toggleShowBookmarksOnly(!_store.showBookmarksOnly);
+              },
+            );
+          },
+        ),
       ],
     );
   }
@@ -237,7 +252,7 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           _buildSortOrderButton(),
-                          SizedBox(width: 16),
+                          SizedBox(width: 8),
                           _buildDisplayModeButton(),
                         ],
                       ),
@@ -294,6 +309,8 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
     );
   }
 
+
+
   Widget _buildList() {
     return SliverGrid(
       delegate: SliverChildBuilderDelegate(
@@ -317,6 +334,9 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
                   showLatestPublished: _store.showLatestPublished,
                   onRefresh: () => _store.refreshSingleAuthor(author.userId),
                   isMarked: isMarked,
+                  onBookmarkChanged: (bookmark) {
+                    _store.updateBookmark(author.userId, bookmark);
+                  },
                 );
               },
             );

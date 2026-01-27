@@ -39,6 +39,7 @@ const String _downloadedAuthorsSortTypeKey = 'downloaded_authors_sort_type';
 const String _downloadedAuthorsShowLatestPublishedKey = 'downloaded_authors_show_latest_published';
 const String _downloadedAuthorsSortDescKey = 'downloaded_authors_sort_desc';
 const String _downloadedAuthorsMarkUnprocessedKey = 'downloaded_authors_mark_unprocessed';
+const String _downloadedAuthorsShowBookmarksOnlyKey = 'downloaded_authors_show_bookmarks_only';
 
 typedef AuthorUpdateProgressCallback = void Function(int current, int total);
 
@@ -89,6 +90,9 @@ abstract class _DownloadedAuthorsPageStoreBase with Store {
   @readonly
   ObservableSet<int> _unprocessedUserIds = ObservableSet();
 
+  @readonly
+  bool _showBookmarksOnly = false;
+
   // ===== 初始化与销毁 =====
 
   @action
@@ -123,6 +127,11 @@ abstract class _DownloadedAuthorsPageStoreBase with Store {
     final markUnprocessed = Prefer.getBool(_downloadedAuthorsMarkUnprocessedKey);
     if (markUnprocessed != null) {
       _markUnprocessed = markUnprocessed;
+    }
+
+    final showBookmarksOnly = Prefer.getBool(_downloadedAuthorsShowBookmarksOnlyKey);
+    if (showBookmarksOnly != null) {
+      _showBookmarksOnly = showBookmarksOnly;
     }
   }
 
@@ -169,6 +178,7 @@ abstract class _DownloadedAuthorsPageStoreBase with Store {
         limit: _pageSize,
         offset: _page * _pageSize,
         searchKeyword: _searchKeyword,
+        filterBookmarks: _showBookmarksOnly,
       );
       if (_markUnprocessed && authors.isNotEmpty) {
         final unprocessedIds = await downloadStore.dbProvider
@@ -299,6 +309,24 @@ abstract class _DownloadedAuthorsPageStoreBase with Store {
     } catch (e, stack) {
       Log.e(() => '[DB] Failed to refresh author $userId: $e\n$stack');
     }
+  }
+
+  @action
+  Future<void> updateBookmark(int userId, int bookmark) async {
+    if (!downloadStore.isInitialized) return;
+    try {
+      await downloadStore.dbProvider.updateAuthorBookmark(userId, bookmark);
+      await refreshSingleAuthor(userId);
+    } catch (e, stack) {
+      Log.e(() => '[DB] Failed to update bookmark for author $userId: $e\n$stack');
+    }
+  }
+
+  @action
+  void toggleShowBookmarksOnly(bool value) {
+    _showBookmarksOnly = value;
+    Prefer.setBool(_downloadedAuthorsShowBookmarksOnlyKey, value);
+    loadData(refresh: true);
   }
 
   @action

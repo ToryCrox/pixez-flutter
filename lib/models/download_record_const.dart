@@ -60,6 +60,7 @@ class DownloadedIllust {
   // 统计字段（物化）
   final int downloadedImageCount; // 已下载图片数量
   final int totalFileSize; // 总文件大小（字节）
+  final int bookmark;
 
   // Getter 用于数据库序列化
   String get illustJson => _illustJson;
@@ -90,6 +91,7 @@ class DownloadedIllust {
     this.ugoiraMetadataJson = '',
     this.downloadedImageCount = 0,
     this.totalFileSize = 0,
+    this.bookmark = 0,
   }) : _illustJson = illustJson;
 
   /// 从 imageUrlsJson 解析 ImageUrls 对象
@@ -125,6 +127,7 @@ class DownloadedIllust {
     String? ugoiraMetadataJson,
     int? downloadedImageCount,
     int? totalFileSize,
+    int? bookmark,
   }) {
     // 使用 copyWith 将需要移除的字段设置为空/默认值
     final optimizedIllusts = illusts.copyWith(
@@ -180,12 +183,14 @@ class DownloadedIllust {
       // 如果传入了统计信息则使用，否则默认为 0
       downloadedImageCount: downloadedImageCount ?? 0,
       totalFileSize: totalFileSize ?? 0,
+      bookmark: bookmark ?? 0,
     );
   }
 
   DownloadedIllust copyWith({
     int? downloadedImageCount,
     int? totalFileSize,
+    int? bookmark,
   }) {
     return DownloadedIllust(
       illustId: illustId,
@@ -210,6 +215,7 @@ class DownloadedIllust {
       ugoiraMetadataJson: ugoiraMetadataJson,
       downloadedImageCount: downloadedImageCount ?? this.downloadedImageCount,
       totalFileSize: totalFileSize ?? this.totalFileSize,
+      bookmark: bookmark ?? this.bookmark,
     );
   }
 
@@ -243,6 +249,7 @@ class DownloadedIllust {
           json[DownloadedIllustColumns.ugoiraMetadataJson]), // 兼容旧数据
       downloadedImageCount: TypeUtil.parseInt(json[DownloadedIllustColumns.downloadedImageCount]),
       totalFileSize: TypeUtil.parseInt(json[DownloadedIllustColumns.totalFileSize]),
+      bookmark: TypeUtil.parseInt(json[DownloadedIllustColumns.bookmark]),
     );
   }
 
@@ -271,6 +278,7 @@ class DownloadedIllust {
     data[DownloadedIllustColumns.ugoiraMetadataJson] = ugoiraMetadataJson;
     data[DownloadedIllustColumns.downloadedImageCount] = downloadedImageCount;
     data[DownloadedIllustColumns.totalFileSize] = totalFileSize;
+    data[DownloadedIllustColumns.bookmark] = bookmark;
     return data;
   }
 
@@ -312,6 +320,7 @@ class DownloadedIllust {
         id: userId,
         name: userName,
       ),
+      isBookmarked: bookmark > 0, 
     );
   }
 
@@ -482,6 +491,7 @@ class DownloadedIllustColumns {
   // 统计字段（物化）
   static const String downloadedImageCount = 'downloaded_image_count';
   static const String totalFileSize = 'total_file_size';
+  static const String bookmark = 'bookmark';
 }
 
 class DownloadedImageColumns {
@@ -542,6 +552,7 @@ class DownloadedAuthorColumns {
   static const String totalFileSize = 'total_file_size';
   static const String lastDownloadTime = 'last_download_time';
   static const String lastUpdateTime = 'last_update_time';
+  static const String bookmark = 'bookmark';
 }
 
 class PendingDownload {
@@ -594,6 +605,7 @@ class DownloadedAuthor {
   int totalFileSize;
   int lastDownloadTime;
   int lastUpdateTime;
+  int bookmark;
 
   DownloadedAuthor({
     required this.userId,
@@ -604,6 +616,7 @@ class DownloadedAuthor {
     required this.totalFileSize,
     required this.lastDownloadTime,
     required this.lastUpdateTime,
+    this.bookmark = 0,
   });
 
   factory DownloadedAuthor.fromJson(Map<String, dynamic> json) {
@@ -622,6 +635,7 @@ class DownloadedAuthor {
           TypeUtil.parseInt(json[DownloadedAuthorColumns.lastDownloadTime]),
       lastUpdateTime:
           TypeUtil.parseInt(json[DownloadedAuthorColumns.lastUpdateTime]),
+      bookmark: TypeUtil.parseInt(json[DownloadedAuthorColumns.bookmark]),
     );
   }
 
@@ -638,6 +652,7 @@ class DownloadedAuthor {
     data[DownloadedAuthorColumns.totalFileSize] = totalFileSize;
     data[DownloadedAuthorColumns.lastDownloadTime] = lastDownloadTime;
     data[DownloadedAuthorColumns.lastUpdateTime] = lastUpdateTime;
+    data[DownloadedAuthorColumns.bookmark] = bookmark;
     return data;
   }
 }

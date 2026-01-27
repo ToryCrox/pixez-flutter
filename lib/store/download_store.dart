@@ -528,6 +528,7 @@ abstract class _DownloadStoreBase with Store {
     int? limit,
     int? offset,
     String? searchKeyword,
+    bool filterBookmarks = false,
   }) async {
     return await _dbProvider.getAuthorsWithStats(
       sortBy: sortBy,
@@ -535,6 +536,7 @@ abstract class _DownloadStoreBase with Store {
       limit: limit,
       offset: offset,
       searchKeyword: searchKeyword,
+      filterBookmarks: filterBookmarks,
     );
   }
 
@@ -1477,6 +1479,7 @@ abstract class _DownloadStoreBase with Store {
         ugoiraMetadataJson: existingIllust.ugoiraMetadataJson,
         downloadedImageCount: existingIllust.downloadedImageCount,
         totalFileSize: existingIllust.totalFileSize,
+        bookmark: existingIllust.bookmark,
       );
 
       await _dbProvider.updateIllust(updatedIllust);
@@ -1595,6 +1598,7 @@ abstract class _DownloadStoreBase with Store {
               ugoiraMetadataJson: existingIllust.ugoiraMetadataJson,
               downloadedImageCount: existingIllust.downloadedImageCount,
               totalFileSize: existingIllust.totalFileSize,
+              bookmark: existingIllust.bookmark,
             );
 
             // 估算节省的字节数（用于进度条显示）
