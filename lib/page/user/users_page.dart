@@ -674,12 +674,25 @@ class _UsersPageState extends State<UsersPage> with TickerProviderStateMixin {
         child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              NullHero(
-                tag: userStore.user?.name ?? "" + widget.heroTag.toString(),
-                child: SelectableText(
-                  userStore.user?.name ?? "",
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
+                children: [
+                  NullHero(
+                    tag: userStore.user?.name ?? "" + widget.heroTag.toString(),
+                    child: SelectableText(
+                      userStore.user?.name ?? "",
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                  ),
+                  SizedBox(
+                    width: 8,
+                  ),
+                  SelectableText(
+                    'ID: ${userStore.id}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
               ),
               InkWell(
                 onTap: () {
