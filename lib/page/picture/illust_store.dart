@@ -446,6 +446,7 @@ abstract class _IllustStoreBase with Store {
   Future<bool> star(
       {String restrict = 'public',
       List<String>? tags,
+      int? bookmark,
       bool force = false}) async {
     state = 1;
     if (force || !illusts!.isBookmarked) {
@@ -454,6 +455,10 @@ abstract class _IllustStoreBase with Store {
         illusts!.isBookmarked = true;
         isBookmark = true;
         state = 2;
+        // 同步本地数据库收藏状态
+        if (downloadStore.isInitialized) {
+          await downloadStore.updateIllustBookmark(illusts!.id, bookmark ?? 1);
+        }
         return true;
       } catch (e) {}
     } else {
@@ -462,6 +467,10 @@ abstract class _IllustStoreBase with Store {
         illusts!.isBookmarked = false;
         isBookmark = false;
         state = 0;
+        // 同步本地数据库收藏状态
+        if (downloadStore.isInitialized) {
+          await downloadStore.updateIllustBookmark(illusts!.id, 0);
+        }
         return false;
       } catch (e) {}
     }

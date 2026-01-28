@@ -31,6 +31,7 @@ import 'package:pixez/i18n.dart';
 import 'package:pixez/lighting/lighting_store.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/models/illust.dart';
+import 'package:pixez/page/downloaded/bookmark_priority_dialog.dart';
 import 'package:pixez/page/picture/illust_lighting_page.dart';
 import 'package:pixez/page/picture/illust_store.dart';
 import 'package:pixez/page/picture/picture_list_page.dart';
@@ -156,7 +157,8 @@ class _IllustCardState extends State<IllustCard> {
     downloadStore.downloadIllust(store.illusts!);
     if (userSetting.starAfterSave && (store.state == 0)) {
       store.star(
-          restrict: userSetting.defaultPrivateLike ? "private" : "public");
+          restrict: userSetting.defaultPrivateLike ? "private" : "public",
+          bookmark: 1);
     }
   }
 
@@ -481,11 +483,11 @@ class _IllustCardState extends State<IllustCard> {
             }),
             onTap: () async {
               if (userSetting.saveAfterStar && (store.state == 0)) {
-                downloadStore.downloadIllust(store.illusts!);
+                downloadStore.downloadIllust(store.illusts!, bookmark: 1);
               }
               store.star(
-                  restrict:
-                      userSetting.defaultPrivateLike ? "private" : "public");
+                  restrict: userSetting.defaultPrivateLike ? "private" : "public",
+                  bookmark: userSetting.saveAfterStar ? 1 : null);
               if (userSetting.followAfterStar) {
                 bool success = await store.followAfterStar();
                 if (success) {

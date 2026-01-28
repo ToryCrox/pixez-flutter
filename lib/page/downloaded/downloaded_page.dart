@@ -35,6 +35,7 @@ import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 
 
 import 'package:pixez/page/downloaded/update_illust_info_dialog.dart';
+import 'package:pixez/page/downloaded/bookmark_priority_dialog.dart';
 import 'package:pixez/store/download_store.dart';
 import 'package:pixez/component/pixez_default_header.dart';
 import 'package:pixez/component/sort_group.dart';
@@ -640,156 +641,19 @@ class _DownloadedPageState extends State<DownloadedPage> {
   }
 
   void _showSinglePriorityDialog(BuildContext context, DownloadedIllust illust) {
-    int tempBookmark = illust.bookmark;
-    showDialog(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return AlertDialog(
-              title: Text('设置插画收藏优先级'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text('数值越大优先级越高 (0-99)。\n0 表示取消收藏。'),
-                  SizedBox(height: 24),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('优先级: ${tempBookmark.toInt()}',
-                          style: TextStyle(
-                              fontWeight: FontWeight.bold, fontSize: 16)),
-                      if (tempBookmark > 0)
-                        Icon(Icons.favorite, color: Colors.red),
-                    ],
-                  ),
-                  Slider(
-                    value: tempBookmark.toDouble(),
-                    min: 0,
-                    max: 99,
-                    divisions: 99,
-                    label: tempBookmark.toString(),
-                    onChanged: (double value) {
-                      setState(() {
-                        tempBookmark = value.round();
-                      });
-                    },
-                  ),
-                  SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      TextButton(
-                        onPressed: () => setState(() => tempBookmark = 0),
-                        child: Text('取消收藏(0)'),
-                      ),
-                      TextButton(
-                        onPressed: () => setState(() => tempBookmark = 1),
-                        child: Text('默认(1)'),
-                      ),
-                      TextButton(
-                        onPressed: () => setState(() => tempBookmark = 99),
-                        child: Text('置顶(99)'),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: Text('取消'),
-                ),
-                ElevatedButton(
-                  onPressed: () {
-                    _store.updateBookmark(illust.illustId, tempBookmark);
-                    Navigator.pop(context);
-                  },
-                  child: Text('确定'),
-                ),
-              ],
-            );
-          },
-        );
-      },
+    BookmarkPriorityDialog.show(
+      context,
+      illusts: [illust],
+      onUpdate: (id, bookmark) => _store.updateBookmark(id, bookmark),
     );
   }
 
-  void _showBatchPriorityDialog(BuildContext context, List<DownloadedIllust> illusts) {
-    int tempBookmark = 1;
-    showDialog(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return AlertDialog(
-              title: Text('批量设置收藏优先级 (${illusts.length})'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text('将选中的 ${illusts.length} 个作品设为相同优先级。\n0 表示取消收藏。'),
-                  SizedBox(height: 24),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('优先级: ${tempBookmark.toInt()}',
-                          style: TextStyle(
-                              fontWeight: FontWeight.bold, fontSize: 16)),
-                    ],
-                  ),
-                  Slider(
-                    value: tempBookmark.toDouble(),
-                    min: 0,
-                    max: 99,
-                    divisions: 99,
-                    label: tempBookmark.toString(),
-                    onChanged: (double value) {
-                      setState(() {
-                        tempBookmark = value.round();
-                      });
-                    },
-                  ),
-                  SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      TextButton(
-                        onPressed: () => setState(() => tempBookmark = 0),
-                        child: Text('取消(0)'),
-                      ),
-                      TextButton(
-                        onPressed: () => setState(() => tempBookmark = 1),
-                        child: Text('默认(1)'),
-                      ),
-                      TextButton(
-                        onPressed: () => setState(() => tempBookmark = 99),
-                        child: Text('置顶(99)'),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: Text('取消'),
-                ),
-                ElevatedButton(
-                  onPressed: () async {
-                    for (var illust in illusts) {
-                      await _store.updateBookmark(illust.illustId, tempBookmark);
-                    }
-                    if (context.mounted) {
-                      Navigator.pop(context);
-                    }
-                  },
-                  child: Text('确定'),
-                ),
-              ],
-            );
-          },
-        );
-      },
+  void _showBatchPriorityDialog(
+      BuildContext context, List<DownloadedIllust> illusts) {
+    BookmarkPriorityDialog.show(
+      context,
+      illusts: illusts,
+      onUpdate: (id, bookmark) => _store.updateBookmark(id, bookmark),
     );
   }
 

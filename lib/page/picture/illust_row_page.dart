@@ -41,6 +41,7 @@ import 'package:pixez/models/ban_tag.dart';
 import 'package:pixez/models/illust.dart';
 import 'package:pixez/models/ugoira_metadata_response.dart';
 
+import 'package:pixez/page/downloaded/bookmark_priority_dialog.dart';
 import 'package:pixez/page/picture/illust_about_store.dart';
 import 'package:pixez/page/picture/illust_detail_content.dart';
 import 'package:pixez/page/picture/illust_store.dart';
@@ -1600,6 +1601,24 @@ class _IllustRowPageState extends State<IllustRowPage>
     );
   }
 
+  void _showPriorityDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => BookmarkPriorityDialog(
+        onPrioritySelected: (priority) {
+          if (userSetting.saveAfterStar && (_illustStore.state == 0)) {
+            downloadStore.downloadIllust(_illustStore.illusts!, bookmark: priority);
+          }
+          _illustStore.star(
+            restrict: userSetting.defaultPrivateLike ? "private" : "public",
+            bookmark: priority,
+            force: true, // 强制更新，即使已收藏也应用新优先级
+          );
+        },
+      ),
+    );
+  }
+
   Future<void> _showBookMarkTag() async {
     final result = await Leader.pushWithScaffold(
       context,
@@ -1637,9 +1656,7 @@ class _IllustRowPageState extends State<IllustRowPage>
           ),
         // Star 按钮（下方）
         GestureDetector(
-          onLongPress: () {
-            _showBookMarkTag();
-          },
+          onLongPress: _showPriorityDialog,
           onHorizontalDragEnd: (details) {
             if (widget.onHorizontalDragEnd != null) {
               widget.onHorizontalDragEnd!(details);
@@ -1650,10 +1667,11 @@ class _IllustRowPageState extends State<IllustRowPage>
             backgroundColor: Colors.white,
             onPressed: () async {
               if (userSetting.saveAfterStar && (_illustStore.state == 0)) {
-                downloadStore.downloadIllust(_illustStore.illusts!);
+                downloadStore.downloadIllust(_illustStore.illusts!, bookmark: 1);
               }
               _illustStore.star(
                 restrict: userSetting.defaultPrivateLike ? "private" : "public",
+                bookmark: userSetting.saveAfterStar ? 1 : null,
               );
               if (userSetting.followAfterStar) {
                 bool success = await _illustStore.followAfterStar();

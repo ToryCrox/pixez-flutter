@@ -517,6 +517,7 @@ class PendingDownloadColumns {
   static const String illustJson = 'illust_json';
   static const String createTime = 'create_time';
   static const String status = 'status'; // 0=pending, 1=downloading, 2=failed
+  static const String bookmark = 'bookmark';
 }
 
 class DownloadedTagsColumns {
@@ -562,6 +563,7 @@ class PendingDownload {
   final String illustJson;
   final int createTime;
   final String status;
+  final int bookmark;
 
   PendingDownload({
     required this.id,
@@ -570,6 +572,7 @@ class PendingDownload {
     required this.illustJson,
     required this.createTime,
     required this.status,
+    this.bookmark = 0,
   });
 
   factory PendingDownload.fromJson(Map<String, dynamic> json) {
@@ -580,6 +583,7 @@ class PendingDownload {
       illustJson: TypeUtil.parseString(json[PendingDownloadColumns.illustJson]),
       createTime: TypeUtil.parseInt(json[PendingDownloadColumns.createTime]),
       status: TypeUtil.parseString(json[PendingDownloadColumns.status], 'pending'),
+      bookmark: TypeUtil.parseInt(json[PendingDownloadColumns.bookmark]),
     );
   }
 
@@ -591,6 +595,7 @@ class PendingDownload {
     data[PendingDownloadColumns.illustJson] = illustJson;
     data[PendingDownloadColumns.createTime] = createTime;
     data[PendingDownloadColumns.status] = status;
+    data[PendingDownloadColumns.bookmark] = bookmark;
     return data;
   }
 }

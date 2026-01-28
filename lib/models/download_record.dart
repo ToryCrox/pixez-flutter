@@ -144,7 +144,7 @@ class DownloadDatabaseProvider {
 
       db = await openDatabase(
         dbPath,
-        version: 15,
+        version: 16,
         onCreate: (Database db, int version) async {
           await db.execute('''
           CREATE TABLE ${DownloadedIllustColumns.tableName} (
@@ -199,7 +199,8 @@ class DownloadDatabaseProvider {
             ${PendingDownloadColumns.url} TEXT NOT NULL,
             ${PendingDownloadColumns.illustJson} TEXT NOT NULL,
             ${PendingDownloadColumns.createTime} INTEGER NOT NULL,
-            ${PendingDownloadColumns.status} TEXT NOT NULL DEFAULT 'pending'
+            ${PendingDownloadColumns.status} TEXT NOT NULL DEFAULT 'pending',
+            ${PendingDownloadColumns.bookmark} INTEGER DEFAULT 0
           )
         ''');
 
@@ -356,6 +357,12 @@ class DownloadDatabaseProvider {
           await db.execute('ALTER TABLE ${DownloadedIllustColumns.tableName} ADD COLUMN ${DownloadedIllustColumns.bookmark} INTEGER DEFAULT 0');
           await db.execute('CREATE INDEX idx_author_bookmark ON ${DownloadedAuthorColumns.tableName}(${DownloadedAuthorColumns.bookmark})');
           await db.execute('CREATE INDEX idx_illust_bookmark ON ${DownloadedIllustColumns.tableName}(${DownloadedIllustColumns.bookmark})');
+        }
+
+        // v15 -> v16: 添加 bookmark 字段到 pending_downloads
+        if (oldVersion < 16) {
+          Log.i(() => '添加 bookmark 字段到 pending_downloads 表');
+          await db.execute('ALTER TABLE ${PendingDownloadColumns.tableName} ADD COLUMN ${PendingDownloadColumns.bookmark} INTEGER DEFAULT 0');
         }
       }
     );

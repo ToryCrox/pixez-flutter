@@ -26,6 +26,7 @@ import 'package:pixez/custom/log.dart';
 import 'package:pixez/er/hoster.dart';
 import 'package:pixez/exts.dart';
 import 'package:pixez/main.dart';
+import 'package:pixez/page/downloaded/bookmark_priority_dialog.dart';
 import 'package:pixez/models/download_record.dart';
 import 'package:pixez/models/illust.dart';
 import 'package:pixez/page/downloaded/update_illust_info_dialog.dart';
@@ -331,7 +332,10 @@ class _IllustDownloadButtonState extends State<IllustDownloadButton> {
           ],
         );
       }
-      return FloatingActionButton(onPressed: _showDownloadDialog, child: child);
+      return GestureDetector(
+        onLongPress: _showPriorityDialog,
+        child: FloatingActionButton(onPressed: _showDownloadDialog, child: child),
+      );
     }
 
     return SizedBox(
@@ -339,6 +343,7 @@ class _IllustDownloadButtonState extends State<IllustDownloadButton> {
       height: 40,
       child: InkWell(
         onTap: _showDownloadDialog,
+        onLongPress: _showPriorityDialog,
         borderRadius: BorderRadius.circular(4),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -553,11 +558,28 @@ class _IllustDownloadButtonState extends State<IllustDownloadButton> {
     }
   }
 
-  Future<void> _downloadAllPages() async {
-    downloadStore.downloadIllust(widget.illusts);
+  Future<void> _downloadAllPages({int bookmark = 0}) async {
+    // 如果设置了下载后收藏，且未指定 bookmark，则设为 1
+    int effectiveBookmark = bookmark;
+    if (effectiveBookmark == 0 && userSetting.starAfterSave) {
+      effectiveBookmark = 1;
+    }
+
+    downloadStore.downloadIllust(widget.illusts, bookmark: effectiveBookmark);
     if (userSetting.starAfterSave && widget.onStarAfterSave != null) {
       widget.onStarAfterSave!();
     }
+  }
+
+  void _showPriorityDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => BookmarkPriorityDialog(
+        onPrioritySelected: (priority) {
+          _downloadAllPages(bookmark: priority);
+        },
+      ),
+    );
   }
 
   Future<void> _openUpdateInfoDialog() async {

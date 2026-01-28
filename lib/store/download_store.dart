@@ -65,12 +65,13 @@ enum DownloadTaskStatus {
 class DownloadTask {
   final Illusts illusts;
   final int part;
-  final String url;
+  String url;
   final int createTime;
   DownloadTaskStatus status;
   int received;
   int total;
   String? error;
+  int bookmark;
 
   DownloadTask({
     required this.illusts,
@@ -81,6 +82,7 @@ class DownloadTask {
     this.received = 0,
     this.total = 0,
     this.error,
+    this.bookmark = 0,
   });
 
   String get taskKey => '${illusts.id}_$part';
@@ -103,6 +105,7 @@ class DownloadTask {
       url: url,
       status: status.name,
       createTime: createTime,
+      bookmark: bookmark,
     );
   }
 
@@ -118,6 +121,7 @@ class DownloadTask {
       received: 0,
       total: 0,
       error: null,
+      bookmark: pendingDownload.bookmark,
     );
   }
 }
@@ -757,27 +761,27 @@ abstract class _DownloadStoreBase with Store {
   // ============ 下载接口 ============
 
   @action
-  Future<void> downloadIllust(Illusts illusts, {int? part}) async {
+  Future<void> downloadIllust(Illusts illusts, {int? part, int bookmark = 0}) async {
     if (!isInitialized) {
       throw Exception('DownloadStore not initialized');
     }
 
     // 动图下载分流
     if (illusts.type == 'ugoira') {
-      await downloadUgoira(illusts);
+      await downloadUgoira(illusts, bookmark: bookmark);
       return;
     }
 
     if (part != null) {
       // 下载单页
-      _downloadTaskBuffer.add(createDownloadTask(illusts, part));
+      _downloadTaskBuffer.add(createDownloadTask(illusts, part, bookmark: bookmark));
     } else {
       // 下载所有页
       if (illusts.pageCount == 1) {
-        _downloadTaskBuffer.add(createDownloadTask(illusts, 0));
+        _downloadTaskBuffer.add(createDownloadTask(illusts, 0, bookmark: bookmark));
       } else {
         for (int i = 0; i < illusts.metaPages.length; i++) {
-          _downloadTaskBuffer.add(createDownloadTask(illusts, i));
+          _downloadTaskBuffer.add(createDownloadTask(illusts, i, bookmark: bookmark));
         }
       }
     }
@@ -791,7 +795,7 @@ abstract class _DownloadStoreBase with Store {
 
   /// 下载动图
   @action
-  Future<void> downloadUgoira(Illusts illusts) async {
+  Future<void> downloadUgoira(Illusts illusts, {int bookmark = 0}) async {
     final illustId = illusts.id;
 
     // 先检查任务是否已存在（优先检查，避免重复创建任务）
@@ -815,17 +819,12 @@ abstract class _DownloadStoreBase with Store {
     }
 
     // 先插入作品记录到数据库（与普通图片下载保持一致）
-    await _insertIllustIfNotExists(illusts);
-
+    await _insertIllustIfNotExists(illusts, bookmark: bookmark);
+    
     // 创建动图下载任务（part=0 表示整个动图）
-    final task = DownloadTask(
-      illusts: illusts,
-      part: 0,
-      url: '', // 稍后从元数据获取
-      status: DownloadTaskStatus.pending,
-      createTime: DateTime.now().millisecondsSinceEpoch,
-    );
-
+    final task = createDownloadTask(illusts, 0, bookmark: bookmark);
+    task.url = ''; // 稍后从元数据获取
+    
     await _addDownloadTask(task);
   }
 
@@ -853,7 +852,7 @@ abstract class _DownloadStoreBase with Store {
   }
 
   /// 创建下载任务
-  DownloadTask createDownloadTask(Illusts illusts, int part) {
+  DownloadTask createDownloadTask(Illusts illusts, int part, {int bookmark = 0}) {
     // 获取下载URL
     String url;
     if (illusts.pageCount == 1) {
@@ -869,6 +868,7 @@ abstract class _DownloadStoreBase with Store {
       url: url,
       status: DownloadTaskStatus.pending,
       createTime: DateTime.now().millisecondsSinceEpoch,
+      bookmark: bookmark,
     );
     return task;
   }
@@ -961,6 +961,7 @@ abstract class _DownloadStoreBase with Store {
         illustsToInsert.add(DownloadedIllust.fromIllusts(
           task.illusts,
           DownloadDatabaseProvider.buildRelativePath(task.illusts),
+          bookmark: task.bookmark,
         ));
       }
     }
@@ -985,7 +986,7 @@ abstract class _DownloadStoreBase with Store {
             final url = task.illusts.pageCount == 1
                 ? task.illusts.metaSinglePage!.originalImageUrl!
                 : task.illusts.metaPages[task.part].imageUrls!.original;
-            await _recordDownload(task.illusts, task.part, url, targetPath);
+            await _recordDownload(task.illusts, task.part, url, targetPath, bookmark: task.bookmark);
             task.status = DownloadTaskStatus.completed;
             tasksToNotify.add(task);
           } else {
@@ -1059,7 +1060,7 @@ abstract class _DownloadStoreBase with Store {
       final illusts = task.illusts;
       if (!ids.contains(illusts.id)) {
         ids.add(illusts.id);
-        await _insertIllustIfNotExists(illusts);
+        await _insertIllustIfNotExists(illusts, bookmark: task.bookmark);
       }
       await _addDownloadTask(task);
       addedCount++;
@@ -1087,7 +1088,7 @@ abstract class _DownloadStoreBase with Store {
 
       if (targetPath != null) {
         // 文件已存在，直接记录到数据库
-        await _recordDownload(task.illusts, task.part, url, targetPath);
+        await _recordDownload(task.illusts, task.part, url, targetPath, bookmark: task.bookmark);
         task.status = DownloadTaskStatus.completed;
         _notifyProgress(task);
         return;
@@ -1255,8 +1256,9 @@ abstract class _DownloadStoreBase with Store {
     UgoiraMetadataResponse metadata,
     List<File> frameFiles,
     String previewPath,
-    String previewUrl,
-  ) async {
+    String previewUrl, {
+    int bookmark = 0,
+  }) async {
     final relativePath = DownloadDatabaseProvider.buildRelativePath(illusts);
 
     // 1. 插入插画记录（包含完整 UgoiraMetadata）
@@ -1268,6 +1270,7 @@ abstract class _DownloadStoreBase with Store {
       illusts,
       relativePath,
       ugoiraMetadataJson: metadataJson,
+      bookmark: bookmark,
     );
 
     await _dbProvider.insertIllust(downloadedIllust);
@@ -1356,7 +1359,7 @@ abstract class _DownloadStoreBase with Store {
     }
 
     task.status = DownloadTaskStatus.completed;
-    await _recordDownload(task.illusts, task.part, task.url, targetPath);
+    await _recordDownload(task.illusts, task.part, task.url, targetPath, bookmark: task.bookmark);
     await _dbProvider.deletePendingDownload(task.taskKey);
     downloadingTasks.remove(task.taskKey);
     _notifyProgress(task);
@@ -1470,12 +1473,12 @@ abstract class _DownloadStoreBase with Store {
   }
 
   /// 插入插画信息
-  Future<void> _insertIllustIfNotExists(Illusts illusts) async {
+  Future<void> _insertIllustIfNotExists(Illusts illusts, {int bookmark = 0}) async {
     final existingIllust = await _dbProvider.getIllustByIllustId(illusts.id);
     if (existingIllust == null) {
       // 插画不存在，插入数据库
       final downloadedIllust = DownloadedIllust.fromIllusts(
-          illusts, DownloadDatabaseProvider.buildRelativePath(illusts));
+          illusts, DownloadDatabaseProvider.buildRelativePath(illusts), bookmark: bookmark);
       await _dbProvider.insertIllust(downloadedIllust);
     }
   }
@@ -1700,12 +1703,13 @@ abstract class _DownloadStoreBase with Store {
     Illusts illusts,
     int part,
     String url,
-    String filePath,
-  ) async {
+    String filePath, {
+    int bookmark = 0,
+  }) async {
     final relativePath = DownloadDatabaseProvider.buildRelativePath(illusts);
     final fileName = DownloadDatabaseProvider.buildFileName(illusts.id, part);
     final extension = path.extension(filePath);
-    await _insertIllustIfNotExists(illusts);
+    await _insertIllustIfNotExists(illusts, bookmark: bookmark);
 
     // 获取文件大小
     int fileSize = 0;
