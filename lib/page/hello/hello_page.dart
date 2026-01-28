@@ -21,6 +21,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
+import 'package:pixez/component/keep_alive_wrapper.dart';
 import 'package:pixez/component/painter_avatar.dart';
 import 'package:pixez/constants.dart';
 import 'package:pixez/custom/window_frame.dart';
@@ -115,9 +116,9 @@ class _HelloPageState extends State<HelloPage> {
     ];
     _wideLists = <Widget>[
       ..._lists,
-      DownloadedPage(),
-      DownloadedAuthorsPage(),
-      TagManagerPage(),
+      KeepAliveWrapper(child: DownloadedPage()),
+      KeepAliveWrapper(child: DownloadedAuthorsPage()),
+      KeepAliveWrapper(child: TagManagerPage()),
     ];
     Constants.type = 0;
 

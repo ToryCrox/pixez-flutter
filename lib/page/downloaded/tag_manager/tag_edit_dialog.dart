@@ -263,7 +263,11 @@ class _TagEditDialogState extends State<TagEditDialog> {
       onUpdated: () {
         if (mounted) {
           setState(() {
-            _parentId = tagManagerStore.getTagDisplayDataByID(widget.tag.id)?.tag.parentId ?? 0;
+            final updatedTag = tagManagerStore.getTagDisplayDataByID(widget.tag.id)?.tag;
+            if (updatedTag != null) {
+              _parentId = updatedTag.parentId;
+              _customTranslateController.text = updatedTag.customTranslatedName ?? '';
+            }
           });
         }
       },
