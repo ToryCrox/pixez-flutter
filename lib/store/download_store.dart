@@ -436,12 +436,14 @@ abstract class _DownloadStoreBase with Store {
     int? offset,
     bool desc = true,
     String? orderBy,
+    bool filterBookmarks = false,
   }) async {
     return await _dbProvider.getAllIllusts(
       limit: limit,
       offset: offset,
       desc: desc,
       orderBy: orderBy,
+      filterBookmarks: filterBookmarks,
     );
   }
 
@@ -450,9 +452,10 @@ abstract class _DownloadStoreBase with Store {
     int? limit,
     int? offset,
     String? orderBy,
+    bool filterBookmarks = false,
   }) async {
     return await _dbProvider.getIllustsByUserId(userId,
-        limit: limit, offset: offset, orderBy: orderBy);
+        limit: limit, offset: offset, orderBy: orderBy, filterBookmarks: filterBookmarks);
   }
 
   Future<List<DownloadedIllust>> searchDownloadedByTagId(
@@ -461,9 +464,14 @@ abstract class _DownloadStoreBase with Store {
     int? offset,
     String? orderBy,
     List<int>? exampleIllustIds,
+    bool filterBookmarks = false,
   }) async {
     return await _dbProvider.searchIllustsByTagId(tagId,
-        limit: limit, offset: offset, orderBy: orderBy, exampleIllustIds: exampleIllustIds);
+        limit: limit,
+        offset: offset,
+        orderBy: orderBy,
+        exampleIllustIds: exampleIllustIds,
+        filterBookmarks: filterBookmarks);
   }
 
   Future<List<DownloadedIllust>> searchDownloadedByTagName(
@@ -472,12 +480,17 @@ abstract class _DownloadStoreBase with Store {
     int? offset,
     String? orderBy,
     List<int>? exampleIllustIds,
+    bool filterBookmarks = false,
   }) async {
     // 先获取标签 ID，再调用按 ID 搜索的方法
     final tag = await _dbProvider.getTagByName(tagName);
     if (tag == null) return [];
     return await searchDownloadedByTagId(tag.id,
-        limit: limit, offset: offset, orderBy: orderBy, exampleIllustIds: exampleIllustIds);
+        limit: limit,
+        offset: offset,
+        orderBy: orderBy,
+        exampleIllustIds: exampleIllustIds,
+        filterBookmarks: filterBookmarks);
   }
 
   Future<List<DownloadedIllust>> searchDownloaded(
@@ -485,9 +498,10 @@ abstract class _DownloadStoreBase with Store {
     int? limit,
     int? offset,
     String? orderBy,
+    bool filterBookmarks = false,
   }) async {
     return await _dbProvider.searchIllusts(keyword,
-        limit: limit, offset: offset, orderBy: orderBy);
+        limit: limit, offset: offset, orderBy: orderBy, filterBookmarks: filterBookmarks);
   }
 
   /// 获取包含非 WebP 图片的插画（排除动图）
@@ -495,11 +509,13 @@ abstract class _DownloadStoreBase with Store {
     int? limit,
     int? offset,
     String? orderBy,
+    bool filterBookmarks = false,
   }) async {
     return await _dbProvider.getIllustsWithNonWebPImages(
       limit: limit,
       offset: offset,
       orderBy: orderBy,
+      filterBookmarks: filterBookmarks,
     );
   }
 
@@ -509,11 +525,13 @@ abstract class _DownloadStoreBase with Store {
     int? limit,
     int? offset,
     String? orderBy,
+    bool filterBookmarks = false,
   }) async {
     return await _dbProvider.getIncompleteIllusts(
       limit: limit,
       offset: offset,
       orderBy: orderBy,
+      filterBookmarks: filterBookmarks,
     );
   }
 
@@ -582,12 +600,14 @@ abstract class _DownloadStoreBase with Store {
     int? userId,
     String? searchKeyword,
     String? tagName,
+    bool filterBookmarks = false,
   }) async {
     return await _dbProvider.getFilteredStats(
       filterType: filterType,
       userId: userId,
       searchKeyword: searchKeyword,
       tagName: tagName,
+      filterBookmarks: filterBookmarks,
     );
   }
 
@@ -2047,5 +2067,10 @@ abstract class _DownloadStoreBase with Store {
   }
   Future<void> updateTagExampleIllusts(int tagId, List<int> illustIds) async {
     await _dbProvider.updateTagExampleIllusts(tagId, illustIds);
+  }
+
+  /// 更新插画收藏/优先级
+  Future<void> updateIllustBookmark(int illustId, int bookmark) async {
+    await _dbProvider.updateIllustBookmark(illustId, bookmark);
   }
 }

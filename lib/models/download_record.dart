@@ -417,6 +417,16 @@ class DownloadDatabaseProvider {
     updateTagsRelations(illust);
     return result;
   }
+
+  /// 更新插画收藏/优先级
+  Future<void> updateIllustBookmark(int illustId, int bookmark) async {
+    await db.update(
+      DownloadedIllustColumns.tableName,
+      {DownloadedIllustColumns.bookmark: bookmark},
+      where: '${DownloadedIllustColumns.illustId} = ?',
+      whereArgs: [illustId],
+    );
+  }
   
   /// 更新插画的标签关联信息
   Future<void> updateTagsRelations(DownloadedIllust illust) async {
@@ -641,12 +651,18 @@ class DownloadDatabaseProvider {
     int? offset,
     bool desc = true,
     String? orderBy,
+    bool filterBookmarks = false,
   }) async {
     // total_file_size 已物化到表中，无需 JOIN 查询
-    final orderByClause = orderBy ??
+    String orderByClause = orderBy ??
         '${DownloadedIllustColumns.downloadTime} ${desc ? 'DESC' : 'ASC'}';
+    if (filterBookmarks) {
+      orderByClause = '${DownloadedIllustColumns.bookmark} DESC, $orderByClause';
+    }
+
     List<Map<String, dynamic>> maps = await db.query(
       DownloadedIllustColumns.tableName,
+      where: filterBookmarks ? '${DownloadedIllustColumns.bookmark} > 0' : null,
       orderBy: orderByClause,
       limit: limit,
       offset: offset,
@@ -659,9 +675,15 @@ class DownloadDatabaseProvider {
     int? limit,
     int? offset,
     String? orderBy,
+    bool filterBookmarks = false,
   }) async {
-    final orderByClause = orderBy ??
+    String orderByClause = orderBy ??
         'di.${DownloadedIllustColumns.downloadTime} DESC';
+    if (filterBookmarks) {
+      orderByClause = 'di.${DownloadedIllustColumns.bookmark} DESC, $orderByClause';
+    }
+
+    final bookmarkCondition = filterBookmarks ? 'AND di.${DownloadedIllustColumns.bookmark} > 0' : '';
 
     // 查询包含非 .webp 后缀图片的普通插画 (ugoira 除外)
     // 使用 EXISTS 子查询避免重复记录
@@ -669,6 +691,7 @@ class DownloadDatabaseProvider {
       SELECT di.*
       FROM ${DownloadedIllustColumns.tableName} di
       WHERE di.${DownloadedIllustColumns.type} != 'ugoira'
+      $bookmarkCondition
       AND EXISTS (
         SELECT 1 
         FROM ${DownloadedImageColumns.tableName} dim 
@@ -697,13 +720,23 @@ class DownloadDatabaseProvider {
     int? limit,
     int? offset,
     String? orderBy,
+    bool filterBookmarks = false,
   }) async {
     // total_file_size 已物化到表中，无需 JOIN 查询
-    final orderByClause =
+    String orderByClause =
         orderBy ?? '${DownloadedIllustColumns.downloadTime} DESC';
+    if (filterBookmarks) {
+      orderByClause = '${DownloadedIllustColumns.bookmark} DESC, $orderByClause';
+    }
+
+    final whereConditions = ['${DownloadedIllustColumns.userId} = ?'];
+    if (filterBookmarks) {
+      whereConditions.add('${DownloadedIllustColumns.bookmark} > 0');
+    }
+
     List<Map<String, dynamic>> maps = await db.query(
       DownloadedIllustColumns.tableName,
-      where: '${DownloadedIllustColumns.userId} = ?',
+      where: whereConditions.join(' AND '),
       whereArgs: [userId],
       orderBy: orderByClause,
       limit: limit,
@@ -717,6 +750,7 @@ class DownloadDatabaseProvider {
     int? limit,
     int? offset,
     String? orderBy,
+    bool filterBookmarks = false,
   }) async {
     // 1. Find tag ID first
     final tagResults = await db.query(
@@ -729,7 +763,11 @@ class DownloadDatabaseProvider {
     if (tagResults.isEmpty) return [];
     
     final tagId = tagResults.first[DownloadedTagsColumns.id] as int;
-    return await searchIllustsByTagId(tagId, limit: limit, offset: offset, orderBy: orderBy);
+    return await searchIllustsByTagId(tagId,
+        limit: limit,
+        offset: offset,
+        orderBy: orderBy,
+        filterBookmarks: filterBookmarks);
   }
 
   Future<List<DownloadedIllust>> searchIllustsByTagId(
@@ -738,6 +776,7 @@ class DownloadDatabaseProvider {
     int? offset,
     String? orderBy,
     List<int>? exampleIllustIds,
+    bool filterBookmarks = false,
   }) async {
     final exampleCase = (exampleIllustIds != null && exampleIllustIds.isNotEmpty)
         ? 'CASE WHEN di.${DownloadedIllustColumns.illustId} IN (${exampleIllustIds.join(',')}) THEN 0 ELSE 1 END ASC,'
@@ -748,8 +787,17 @@ class DownloadDatabaseProvider {
     // 2. 找到所有引用该主标签的标签ID (包括主标签本身)
     // 3. 查询这些标签关联的作品，并按插画 ID 分组去重
     
-    final orderByClause =
+    String orderByClause =
         orderBy ?? 'di.${DownloadedIllustColumns.downloadTime} DESC';
+    if (filterBookmarks) {
+      orderByClause = 'di.${DownloadedIllustColumns.bookmark} DESC, $orderByClause';
+    }
+
+    final whereConditions = <String>[];
+    if (filterBookmarks) {
+      whereConditions.add('di.${DownloadedIllustColumns.bookmark} > 0');
+    }
+    final String whereClause = whereConditions.isNotEmpty ? 'WHERE ${whereConditions.join(' AND ')}' : '';
 
     var query = '''
       WITH TargetGroup AS (
@@ -771,6 +819,7 @@ class DownloadDatabaseProvider {
       SELECT di.* 
       FROM ${DownloadedIllustColumns.tableName} di
       INNER JOIN MatchingIds m ON di.${DownloadedIllustColumns.illustId} = m.${DownloadedIllustTagsColumns.illustId}
+      $whereClause
       ORDER BY $exampleCase $orderByClause
     ''';
     
@@ -979,14 +1028,25 @@ class DownloadDatabaseProvider {
     int? limit,
     int? offset,
     String? orderBy,
+    bool filterBookmarks = false,
   }) async {
     // total_file_size 已物化到表中，无需 JOIN 查询
-    final orderByClause =
+    String orderByClause =
         orderBy ?? '${DownloadedIllustColumns.downloadTime} DESC';
+    if (filterBookmarks) {
+      orderByClause = '${DownloadedIllustColumns.bookmark} DESC, $orderByClause';
+    }
+
+    final whereConditions = [
+      '(${DownloadedIllustColumns.title} LIKE ? OR ${DownloadedIllustColumns.userName} LIKE ? OR ${DownloadedIllustColumns.tags} LIKE ?)'
+    ];
+    if (filterBookmarks) {
+      whereConditions.add('${DownloadedIllustColumns.bookmark} > 0');
+    }
+
     List<Map<String, dynamic>> maps = await db.query(
       DownloadedIllustColumns.tableName,
-      where:
-          '${DownloadedIllustColumns.title} LIKE ? OR ${DownloadedIllustColumns.userName} LIKE ? OR ${DownloadedIllustColumns.tags} LIKE ?',
+      where: whereConditions.join(' AND '),
       whereArgs: ['%$keyword%', '%$keyword%', '%$keyword%'],
       orderBy: orderByClause,
       limit: limit,
@@ -1001,13 +1061,25 @@ class DownloadDatabaseProvider {
     int? limit,
     int? offset,
     String? orderBy,
+    bool filterBookmarks = false,
   }) async {
     // 使用物化字段 downloaded_image_count 直接过滤
-    final orderByClause = orderBy ?? '${DownloadedIllustColumns.downloadTime} DESC';
+    String orderByClause = orderBy ?? '${DownloadedIllustColumns.downloadTime} DESC';
+    if (filterBookmarks) {
+      orderByClause = '${DownloadedIllustColumns.bookmark} DESC, $orderByClause';
+    }
+
+    final whereConditions = [
+      '${DownloadedIllustColumns.downloadedImageCount} < ${DownloadedIllustColumns.pageCount}'
+    ];
+    if (filterBookmarks) {
+      whereConditions.add('${DownloadedIllustColumns.bookmark} > 0');
+    }
+
     var query = '''
       SELECT *
       FROM ${DownloadedIllustColumns.tableName}
-      WHERE ${DownloadedIllustColumns.downloadedImageCount} < ${DownloadedIllustColumns.pageCount}
+      WHERE ${whereConditions.join(' AND ')}
       ORDER BY $orderByClause
     ''';
 
@@ -1972,17 +2044,27 @@ class DownloadDatabaseProvider {
     int? userId,
     String? searchKeyword,
     String? tagName,
+    bool filterBookmarks = false,
   }) async {
     String whereClause = '';
-    List<dynamic> whereArgs = [];
+    final whereArgs = <dynamic>[];
+
+    if (filterBookmarks) {
+      whereClause = 'WHERE di.${DownloadedIllustColumns.bookmark} > 0';
+    }
 
     if (filterType == 'user' && userId != null) {
-      whereClause = 'WHERE di.${DownloadedIllustColumns.userId} = ?';
+      if (whereClause.isEmpty) {
+        whereClause = 'WHERE di.${DownloadedIllustColumns.userId} = ?';
+      } else {
+        whereClause += ' AND di.${DownloadedIllustColumns.userId} = ?';
+      }
       whereArgs.add(userId);
     } else if (filterType == 'tag' && tagName != null && tagName.isNotEmpty) {
       final tag = await getTagByName(tagName);
       if (tag != null) {
         // 使用 CTE 找到等价组的所有标签 ID
+        final bookmarkCondition = filterBookmarks ? 'AND di.${DownloadedIllustColumns.bookmark} > 0' : '';
         final query = '''
           WITH TargetGroup AS (
             SELECT ${DownloadedTagsColumns.id} as id, COALESCE(${DownloadedTagsColumns.referencedTagId}, ${DownloadedTagsColumns.id}) as main_id 
@@ -2005,6 +2087,7 @@ class DownloadDatabaseProvider {
             COALESCE(SUM(di.${DownloadedIllustColumns.totalFileSize}), 0) as total_file_size
           FROM ${DownloadedIllustColumns.tableName} di
           INNER JOIN MatchingIds m ON di.${DownloadedIllustColumns.illustId} = m.${DownloadedIllustTagsColumns.illustId}
+          WHERE 1=1 $bookmarkCondition
         ''';
         final result = await db.rawQuery(query, [tag.id]);
         if (result.isNotEmpty) {
@@ -2021,29 +2104,22 @@ class DownloadDatabaseProvider {
     } else if (filterType == 'search' &&
         searchKeyword != null &&
         searchKeyword.isNotEmpty) {
-      whereClause =
-          'WHERE di.${DownloadedIllustColumns.title} LIKE ? OR di.${DownloadedIllustColumns.userName} LIKE ? OR di.${DownloadedIllustColumns.tags} LIKE ?';
+      final searchCondition = 'di.${DownloadedIllustColumns.title} LIKE ? OR di.${DownloadedIllustColumns.userName} LIKE ? OR di.${DownloadedIllustColumns.tags} LIKE ?';
+      if (whereClause.isEmpty) {
+        whereClause = 'WHERE ($searchCondition)';
+      } else {
+        whereClause += ' AND ($searchCondition)';
+      }
       whereArgs
           .addAll(['%$searchKeyword%', '%$searchKeyword%', '%$searchKeyword%']);
     } else if (filterType == 'incomplete') {
       // 未下载完整：使用物化字段过滤，无需 JOIN
-      final result = await db.rawQuery('''
-        SELECT 
-          COUNT(*) as illust_count,
-          COALESCE(SUM(${DownloadedIllustColumns.downloadedImageCount}), 0) as total_image_count,
-          COALESCE(SUM(${DownloadedIllustColumns.totalFileSize}), 0) as total_file_size
-        FROM ${DownloadedIllustColumns.tableName}
-        WHERE ${DownloadedIllustColumns.downloadedImageCount} < ${DownloadedIllustColumns.pageCount}
-      ''');
-
-      if (result.isNotEmpty) {
-        return {
-          'illust_count': result.first['illust_count'] as int? ?? 0,
-          'image_count': result.first['total_image_count'] as int? ?? 0,
-          'file_size': result.first['total_file_size'] as int? ?? 0,
-        };
+      final incompleteCondition = '${DownloadedIllustColumns.downloadedImageCount} < ${DownloadedIllustColumns.pageCount}';
+      if (whereClause.isEmpty) {
+        whereClause = 'WHERE $incompleteCondition';
+      } else {
+        whereClause += ' AND $incompleteCondition';
       }
-      return {'illust_count': 0, 'image_count': 0, 'file_size': 0};
     }
 
     // 对于其他情况（all, user, search），使用物化字段统计

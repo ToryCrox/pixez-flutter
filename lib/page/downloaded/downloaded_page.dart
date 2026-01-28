@@ -147,6 +147,18 @@ class _DownloadedPageState extends State<DownloadedPage> {
             builder: (_) {
               return IconButton(
                 icon: Icon(
+                  _store.showBookmarksOnly ? Icons.favorite : Icons.favorite_border,
+                  color: _store.showBookmarksOnly ? Colors.red : null,
+                ),
+                tooltip: _store.showBookmarksOnly ? '显示所有' : '仅显示收藏',
+                onPressed: _store.toggleShowBookmarksOnly,
+              );
+            },
+          ),
+          Observer(
+            builder: (_) {
+              return IconButton(
+                icon: Icon(
                   _store.markUnprocessed ? Icons.flag : Icons.outlined_flag,
                   color: _store.markUnprocessed
                       ? Theme.of(context).colorScheme.primary
@@ -466,7 +478,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
               Center(
                 child: SortGroup(
                   key: ValueKey(_store.sortType),
-                  children: ['下载时间', '作品时间', '文件大小', '平均大小'],
+                  children: ['下载时间', '作品时间', '文件大小', '平均大小', '收藏优先级'],
                   onChange: _store.onSortChanged,
                   initIndex: _store.sortType.index,
                 ),
@@ -625,6 +637,160 @@ class _DownloadedPageState extends State<DownloadedPage> {
 
     _store.loadData();
     _store.loadStats();
+  }
+
+  void _showSinglePriorityDialog(BuildContext context, DownloadedIllust illust) {
+    int tempBookmark = illust.bookmark;
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: Text('设置插画收藏优先级'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('数值越大优先级越高 (0-99)。\n0 表示取消收藏。'),
+                  SizedBox(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('优先级: ${tempBookmark.toInt()}',
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 16)),
+                      if (tempBookmark > 0)
+                        Icon(Icons.favorite, color: Colors.red),
+                    ],
+                  ),
+                  Slider(
+                    value: tempBookmark.toDouble(),
+                    min: 0,
+                    max: 99,
+                    divisions: 99,
+                    label: tempBookmark.toString(),
+                    onChanged: (double value) {
+                      setState(() {
+                        tempBookmark = value.round();
+                      });
+                    },
+                  ),
+                  SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      TextButton(
+                        onPressed: () => setState(() => tempBookmark = 0),
+                        child: Text('取消收藏(0)'),
+                      ),
+                      TextButton(
+                        onPressed: () => setState(() => tempBookmark = 1),
+                        child: Text('默认(1)'),
+                      ),
+                      TextButton(
+                        onPressed: () => setState(() => tempBookmark = 99),
+                        child: Text('置顶(99)'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text('取消'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    _store.updateBookmark(illust.illustId, tempBookmark);
+                    Navigator.pop(context);
+                  },
+                  child: Text('确定'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showBatchPriorityDialog(BuildContext context, List<DownloadedIllust> illusts) {
+    int tempBookmark = 1;
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: Text('批量设置收藏优先级 (${illusts.length})'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('将选中的 ${illusts.length} 个作品设为相同优先级。\n0 表示取消收藏。'),
+                  SizedBox(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('优先级: ${tempBookmark.toInt()}',
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 16)),
+                    ],
+                  ),
+                  Slider(
+                    value: tempBookmark.toDouble(),
+                    min: 0,
+                    max: 99,
+                    divisions: 99,
+                    label: tempBookmark.toString(),
+                    onChanged: (double value) {
+                      setState(() {
+                        tempBookmark = value.round();
+                      });
+                    },
+                  ),
+                  SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      TextButton(
+                        onPressed: () => setState(() => tempBookmark = 0),
+                        child: Text('取消(0)'),
+                      ),
+                      TextButton(
+                        onPressed: () => setState(() => tempBookmark = 1),
+                        child: Text('默认(1)'),
+                      ),
+                      TextButton(
+                        onPressed: () => setState(() => tempBookmark = 99),
+                        child: Text('置顶(99)'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text('取消'),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    for (var illust in illusts) {
+                      await _store.updateBookmark(illust.illustId, tempBookmark);
+                    }
+                    if (context.mounted) {
+                      Navigator.pop(context);
+                    }
+                  },
+                  child: Text('确定'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   Future<bool?> _showDeleteConfirmDialog(List<DownloadedIllust> illusts) {
@@ -787,6 +953,37 @@ class _DownloadedPageState extends State<DownloadedPage> {
               onTap: () => downloadStore.resumeIllustDownload(illust.illustId),
             ),
         ],
+        ...[
+          _buildContextMenuItem(
+            icon: illust.bookmark > 0 ? Icons.favorite : Icons.favorite_border,
+            iconColor: illust.bookmark > 0 ? Colors.red : null,
+            label: isSelectedInMulti 
+              ? '收藏/取消选中 ($selectedCount)' 
+              : (illust.bookmark > 0 ? '取消收藏' : '收藏'),
+            onTap: () async {
+               if (isSelectedInMulti) {
+                 final newBookmark = illust.bookmark > 0 ? 0 : 1;
+                 for (var item in targetIllusts) {
+                   await _store.updateBookmark(item.illustId, newBookmark);
+                 }
+               } else {
+                 final newBookmark = illust.bookmark > 0 ? 0 : 1;
+                 await _store.updateBookmark(illust.illustId, newBookmark);
+               }
+            },
+          ),
+          _buildContextMenuItem(
+            icon: Icons.priority_high,
+            label: isSelectedInMulti ? '设置选中优先级 ($selectedCount)' : '设置收藏优先级',
+            onTap: () {
+               if (isSelectedInMulti) {
+                  _showBatchPriorityDialog(context, targetIllusts);
+               } else {
+                  _showSinglePriorityDialog(context, illust);
+               }
+            },
+          ),
+        ],
 
         _buildContextMenuItem(
           icon: Icons.update,
@@ -922,6 +1119,51 @@ class _DownloadedIllustCard extends StatelessWidget {
     );
   }
 
+  Widget _buildBookmarkButton(BuildContext context) {
+    final bool isBookmarked = illust.bookmark > 0;
+    return Positioned(
+      bottom: 4,
+      right: 4,
+      child: Material(
+        color: Colors.black54,
+        borderRadius: BorderRadius.circular(20),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: () {
+            final newBookmark = isBookmarked ? 0 : 1;
+            store.updateBookmark(illust.illustId, newBookmark);
+          },
+          onLongPress: () => _showPriorityDialog(context),
+          child: Container(
+            padding: EdgeInsets.all(6),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  isBookmarked ? Icons.favorite : Icons.favorite_border,
+                  color: isBookmarked ? Colors.red : Colors.white,
+                  size: 18,
+                ),
+                if (illust.bookmark > 1)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 2),
+                    child: Text(
+                      '${illust.bookmark}',
+                      style: TextStyle(
+                        color: Colors.red,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Observer(
@@ -997,6 +1239,7 @@ class _DownloadedIllustCard extends StatelessWidget {
                   if (isMarked) _buildUnprocessedBadge(context),
                   if (store.exampleIllustIds.contains(illust.illustId))
                     _buildExampleBadge(context),
+                  _buildBookmarkButton(context),
                   if (isDownloading) _buildDownloadingOverlay(),
                   if (isPending) _buildPendingOverlay(context),
                   if (isPaused)
@@ -1470,6 +1713,82 @@ class _DownloadedIllustCard extends StatelessWidget {
     final item = DragItem();
     item.add(Formats.plainText('PixEz Downloaded Illust'));
     return item;
+  }
+
+  void _showPriorityDialog(BuildContext context) {
+    int tempBookmark = illust.bookmark;
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: Text('设置插画收藏优先级'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('数值越大优先级越高 (0-99)。\n0 表示取消收藏。'),
+                  SizedBox(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('优先级: ${tempBookmark.toInt()}',
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 16)),
+                      if (tempBookmark > 0)
+                        Icon(Icons.favorite, color: Colors.red),
+                    ],
+                  ),
+                  Slider(
+                    value: tempBookmark.toDouble(),
+                    min: 0,
+                    max: 99,
+                    divisions: 99,
+                    label: tempBookmark.toString(),
+                    onChanged: (double value) {
+                      setState(() {
+                        tempBookmark = value.round();
+                      });
+                    },
+                  ),
+                  SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      TextButton(
+                        onPressed: () => setState(() => tempBookmark = 0),
+                        child: Text('取消收藏(0)'),
+                      ),
+                      TextButton(
+                        onPressed: () => setState(() => tempBookmark = 1),
+                        child: Text('默认(1)'),
+                      ),
+                      TextButton(
+                        onPressed: () => setState(() => tempBookmark = 99),
+                        child: Text('置顶(99)'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text('取消'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    store.updateBookmark(illust.illustId, tempBookmark);
+                    Navigator.pop(context);
+                  },
+                  child: Text('确定'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 }
 

@@ -41,12 +41,14 @@ enum IllustSortType {
   createDate, // 作品时间
   fileSize, // 文件大小
   averageFileSize, // 平均文件大小
+  bookmark, // 收藏/优先级
 }
 
 // SharedPreferences 键名
 const String _downloadedIllustsSortTypeKey = 'downloaded_illusts_sort_type';
 const String _downloadedIllustsSortDescKey = 'downloaded_illusts_sort_desc';
 const String _downloadedIllustsMarkUnprocessedKey = 'downloaded_illusts_mark_unprocessed';
+const String _downloadedIllustsShowBookmarksOnlyKey = 'downloaded_illusts_show_bookmarks_only';
 const String _enableDragKey = 'enable_drag';
 
 class DownloadedPageStore = _DownloadedPageStoreBase with _$DownloadedPageStore;
@@ -139,6 +141,19 @@ abstract class _DownloadedPageStoreBase with Store {
   @readonly
   ObservableSet<int> _unprocessedIllustIds = ObservableSet();
 
+  // ===== 收藏状态 =====
+
+  @readonly
+  bool _showBookmarksOnly = false;
+
+  @action
+  void toggleShowBookmarksOnly() {
+    _showBookmarksOnly = !_showBookmarksOnly;
+    Prefer.setBool(_downloadedIllustsShowBookmarksOnlyKey, _showBookmarksOnly);
+    loadData();
+    loadStats();
+  }
+
   // ===== 计算属性 =====
 
   /// 根据过滤条件筛选后的插画列表
@@ -183,6 +198,8 @@ abstract class _DownloadedPageStoreBase with Store {
         return '${DownloadedIllustColumns.totalFileSize} ${_sortDesc ? 'DESC' : 'ASC'}';
       case IllustSortType.averageFileSize:
         return '${DownloadedIllustColumns.totalFileSize} / ${DownloadedIllustColumns.pageCount} ${_sortDesc ? 'DESC' : 'ASC'}';
+      case IllustSortType.bookmark:
+        return '${DownloadedIllustColumns.bookmark} ${_sortDesc ? 'DESC' : 'ASC'}';
     }
   }
 
@@ -253,6 +270,11 @@ abstract class _DownloadedPageStoreBase with Store {
     if (markUnprocessed != null) {
       _markUnprocessed = markUnprocessed;
     }
+
+    final showBookmarksOnly = Prefer.getBool(_downloadedIllustsShowBookmarksOnlyKey);
+    if (showBookmarksOnly != null) {
+      _showBookmarksOnly = showBookmarksOnly;
+    }
   }
 
   // ===== Action 方法 =====
@@ -318,6 +340,7 @@ abstract class _DownloadedPageStoreBase with Store {
           limit: _pageSize,
           offset: 0,
           orderBy: orderBy,
+          filterBookmarks: _showBookmarksOnly,
         );
       } else if (_filterTagName != null && _filterTagName!.isNotEmpty) {
         illusts = await downloadStore.searchDownloadedByTagName(
@@ -326,6 +349,7 @@ abstract class _DownloadedPageStoreBase with Store {
           offset: 0,
           orderBy: orderBy,
           exampleIllustIds: exampleIllustIds,
+          filterBookmarks: _showBookmarksOnly,
         );
       } else if (_filterUserId != null) {
         illusts = await downloadStore.getDownloadedByUser(
@@ -333,6 +357,7 @@ abstract class _DownloadedPageStoreBase with Store {
           limit: _pageSize,
           offset: 0,
           orderBy: orderBy,
+          filterBookmarks: _showBookmarksOnly,
         );
       } else if (_searchKeyword != null && _searchKeyword!.isNotEmpty) {
         illusts = await downloadStore.searchDownloaded(
@@ -340,12 +365,14 @@ abstract class _DownloadedPageStoreBase with Store {
           limit: _pageSize,
           offset: 0,
           orderBy: orderBy,
+          filterBookmarks: _showBookmarksOnly,
         );
       } else {
         illusts = await downloadStore.getAllDownloaded(
           limit: _pageSize,
           offset: 0,
           orderBy: orderBy,
+          filterBookmarks: _showBookmarksOnly,
         );
       }
       final timeSpent = DateTime.now().difference(t1);
@@ -395,6 +422,7 @@ abstract class _DownloadedPageStoreBase with Store {
           limit: _pageSize,
           offset: offset,
           orderBy: orderBy,
+          filterBookmarks: _showBookmarksOnly,
         );
       } else if (_filterTagName != null && _filterTagName!.isNotEmpty) {
         moreIllusts = await downloadStore.searchDownloadedByTagName(
@@ -403,6 +431,7 @@ abstract class _DownloadedPageStoreBase with Store {
           offset: offset,
           orderBy: orderBy,
           exampleIllustIds: exampleIllustIds,
+          filterBookmarks: _showBookmarksOnly,
         );
       } else if (_filterUserId != null) {
         moreIllusts = await downloadStore.getDownloadedByUser(
@@ -410,6 +439,7 @@ abstract class _DownloadedPageStoreBase with Store {
           limit: _pageSize,
           offset: offset,
           orderBy: orderBy,
+          filterBookmarks: _showBookmarksOnly,
         );
       } else if (_searchKeyword != null && _searchKeyword!.isNotEmpty) {
         moreIllusts = await downloadStore.searchDownloaded(
@@ -417,12 +447,14 @@ abstract class _DownloadedPageStoreBase with Store {
           limit: _pageSize,
           offset: offset,
           orderBy: orderBy,
+          filterBookmarks: _showBookmarksOnly,
         );
       } else {
         moreIllusts = await downloadStore.getAllDownloaded(
           limit: _pageSize,
           offset: offset,
           orderBy: orderBy,
+          filterBookmarks: _showBookmarksOnly,
         );
       }
 
@@ -475,6 +507,7 @@ abstract class _DownloadedPageStoreBase with Store {
         userId: userId,
         searchKeyword: searchKeyword,
         tagName: tagName,
+        filterBookmarks: _showBookmarksOnly,
       );
 
       _stats = stats;
@@ -716,6 +749,22 @@ abstract class _DownloadedPageStoreBase with Store {
       runInAction(() {
         _unprocessedIllustIds.addAll(unprocessedIds);
       });
+    }
+  }
+
+  @action
+  Future<void> updateBookmark(int illustId, int bookmark) async {
+    await downloadStore.updateIllustBookmark(illustId, bookmark);
+    final index = _illusts.indexWhere((e) => e.illustId == illustId);
+    if (index != -1) {
+      // 使用 copyWith 创建带有新收藏状态的新对象
+      _illusts[index] = _illusts[index].copyWith(bookmark: bookmark);
+      
+      // 如果开启了“仅显示收藏”，且该项被取消收藏，则从列表中移除
+      if (_showBookmarksOnly && bookmark == 0) {
+        _illusts.removeAt(index);
+        _refreshStatsWithDebounce();
+      }
     }
   }
 }
