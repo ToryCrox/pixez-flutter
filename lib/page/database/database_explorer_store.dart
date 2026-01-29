@@ -117,7 +117,54 @@ abstract class _DatabaseExplorerStoreBase with Store {
   @observable
   int totalCount = 0;
 
+  @observable
+  ObservableList<Map<String, dynamic>> tableFields = ObservableList<Map<String, dynamic>>();
+
+  @observable
+  ObservableList<Map<String, dynamic>> tableIndexes = ObservableList<Map<String, dynamic>>();
+
+  @observable
+  int tableBytes = 0;
+
   String? _currentDataTableName;
+
+  @action
+  Future<void> loadTableStructure(String tableName) async {
+    if (currentDb == null) return;
+    
+    try {
+      // 1. 获取字段详情
+      final fields = await currentDb!.rawQuery("PRAGMA table_info($tableName)");
+      tableFields.clear();
+      tableFields.addAll(fields);
+
+      // 2. 获取索引信息
+      final indexes = await currentDb!.rawQuery(
+        "SELECT name, sql FROM sqlite_master WHERE type='index' AND tbl_name=?",
+        [tableName]
+      );
+      tableIndexes.clear();
+      tableIndexes.addAll(indexes);
+
+      // 3. 获取行数统计 (同步更新 totalCount)
+      final countResult = await currentDb!.rawQuery("SELECT count(*) as count FROM $tableName");
+      totalCount = countResult.first['count'] as int;
+
+      // 4. 估算磁盘空间 (尝试使用 dbstat, 如果不可用则返回 0)
+      try {
+        final sizeResult = await currentDb!.rawQuery(
+          "SELECT sum(pgsize) as size FROM dbstat WHERE name=?",
+          [tableName]
+        );
+        tableBytes = sizeResult.first['size'] as int? ?? 0;
+      } catch (e) {
+        // 如果 dbstat 虚拟表未编译进去，则设为 -1 表示不可用
+        tableBytes = -1;
+      }
+    } catch (e) {
+      // 错误处理
+    }
+  }
 
   @action
   Future<void> loadTableData(String tableName, {bool resetPagination = true}) async {

@@ -5,6 +5,7 @@ import 'package:pixez/page/database/database_registry.dart';
 import 'package:pixez/exts.dart';
 
 import 'table_data_viewer_page.dart';
+import 'table_structure_page.dart';
 
 class DatabaseDetailPage extends StatefulWidget {
   final DatabaseEntry entry;
@@ -100,7 +101,27 @@ class _DatabaseDetailPageState extends State<DatabaseDetailPage> {
                   style: const TextStyle(fontWeight: FontWeight.w500),
                 ),
                 subtitle: Text('记录数: ${table['count']}'),
-                trailing: const Icon(Icons.chevron_right),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.info_outline, size: 20, color: Colors.blue),
+                      tooltip: '查看结构',
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => TableStructurePage(
+                              store: _store,
+                              tableName: table['name'],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                    const Icon(Icons.chevron_right),
+                  ],
+                ),
                 onTap: () {
                   Navigator.push(
                     context,
