@@ -162,7 +162,7 @@ class _TableDataViewerPageState extends State<TableDataViewerPage> {
   Widget _buildDataTable() {
     return Observer(
       builder: (context) {
-        if (widget.store.isLoading && widget.store.tableData.isEmpty) {
+        if (widget.store.tableColumns.isEmpty || (widget.store.isLoading && widget.store.tableData.isEmpty)) {
           return const Center(child: CircularProgressIndicator());
         }
 

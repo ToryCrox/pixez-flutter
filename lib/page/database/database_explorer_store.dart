@@ -117,66 +117,81 @@ abstract class _DatabaseExplorerStoreBase with Store {
   @observable
   int totalCount = 0;
 
+  String? _currentDataTableName;
+
   @action
   Future<void> loadTableData(String tableName, {bool resetPagination = true}) async {
     if (currentDb == null) return;
-    isLoading = true;
 
-    if (resetPagination) {
+    final isNewTable = _currentDataTableName != tableName;
+    if (isNewTable) {
+      isLoading = true; // 只有切换新表时才立即显示全局加载
+      _currentDataTableName = tableName;
+      tableColumns = [];
+      tableData.clear();
+      searchColumn = '*';
+      searchText = '';
       currentPage = 0;
       sortColumn = null;
-      sortAscending = true;
-      tableColumns = [];
-      searchColumn = '*';
+    } else if (resetPagination) {
+      currentPage = 0;
     }
 
-    try {
-      // 1. 获取列结构 (确保针对当前 tableName 获取最新的列定义)
-      final pragmaRows = await currentDb!.rawQuery("PRAGMA table_info($tableName)");
-      tableColumns = pragmaRows.map((e) => e['name'] as String).toList();
+    // 内部方法，用于执行具体加载
+    Future<void> doLoad() async {
+      try {
+        // 1. 确保列结构已就绪 (如果是新表或为空)
+        if (tableColumns.isEmpty) {
+          final pragmaRows = await currentDb!.rawQuery("PRAGMA table_info($tableName)");
+          tableColumns = pragmaRows.map((e) => e['name'] as String).toList();
+        }
 
-      // 2. 构建查询
-      String query = "SELECT * FROM $tableName";
-      List<dynamic> arguments = [];
+        // 2. 构建查询
+        String baseQuery = "SELECT * FROM $tableName";
+        List<dynamic> arguments = [];
 
-      // 增强型搜索逻辑
-      if (searchText.isNotEmpty) {
-        if (searchColumn == '*') {
-          // 对所有列进行 OR LIKE (保持原有逻辑，但通常只在 LIKE 操作符下有意义)
-          String whereClause = tableColumns.map((col) => "$col $searchOperator ?").join(" OR ");
-          query += " WHERE $whereClause";
-          final param = searchOperator == 'LIKE' ? "%$searchText%" : searchText;
-          for (var i = 0; i < tableColumns.length; i++) {
+        if (searchText.isNotEmpty) {
+          if (searchColumn == '*') {
+            String whereClause = tableColumns.map((col) => "$col $searchOperator ?").join(" OR ");
+            baseQuery += " WHERE $whereClause";
+            final param = searchOperator == 'LIKE' ? "%$searchText%" : searchText;
+            for (var i = 0; i < tableColumns.length; i++) {
+              arguments.add(param);
+            }
+          } else {
+            baseQuery += " WHERE $searchColumn $searchOperator ?";
+            final param = searchOperator == 'LIKE' ? "%$searchText%" : searchText;
             arguments.add(param);
           }
-        } else {
-          // 指定列搜索
-          query += " WHERE $searchColumn $searchOperator ?";
-          final param = searchOperator == 'LIKE' ? "%$searchText%" : searchText;
-          arguments.add(param);
         }
+
+        // 并发执行总数查询和分页查询，减少等待时间
+        final countFuture = currentDb!.rawQuery("SELECT count(*) as count FROM ($baseQuery)", arguments);
+        
+        String dataQuery = baseQuery;
+        if (sortColumn != null) {
+          dataQuery += " ORDER BY $sortColumn ${sortAscending ? 'ASC' : 'DESC'}";
+        }
+        dataQuery += " LIMIT $pageSize OFFSET ${currentPage * pageSize}";
+        final dataFuture = currentDb!.rawQuery(dataQuery, arguments);
+
+        final results = await Future.wait([countFuture, dataFuture]);
+        
+        // 集中更新可观察变量，减少 Observer 触发频率
+        runInAction(() {
+          totalCount = results[0].first['count'] as int;
+          tableData.clear();
+          tableData.addAll(results[1]);
+        });
+      } catch (e) {
+        tableData.clear();
+      } finally {
+        isLoading = false;
       }
-
-      // 统计总数 (带过滤)
-      final countResult = await currentDb!.rawQuery("SELECT count(*) as count FROM ($query)", arguments);
-      totalCount = countResult.first['count'] as int;
-
-      // 排序
-      if (sortColumn != null) {
-        query += " ORDER BY $sortColumn ${sortAscending ? 'ASC' : 'DESC'}";
-      }
-
-      // 分页
-      query += " LIMIT $pageSize OFFSET ${currentPage * pageSize}";
-
-      final results = await currentDb!.rawQuery(query, arguments);
-      tableData.clear();
-      tableData.addAll(results);
-    } catch (e) {
-      tableData.clear();
-    } finally {
-      isLoading = false;
     }
+
+    // 如果是切换表且异步已经在跑，可能需要防止竞态（简单处理：直接运行）
+    await doLoad();
   }
 
   @action
