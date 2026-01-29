@@ -126,16 +126,14 @@ abstract class _DatabaseExplorerStoreBase with Store {
       currentPage = 0;
       sortColumn = null;
       sortAscending = true;
-      // 注意：这里不重置 searchText, searchColumn, searchOperator, 
-      // 除非是初次加载或切换表
+      tableColumns = [];
+      searchColumn = '*';
     }
 
     try {
-      // 1. 获取列结构 (如果还没获取)
-      if (tableColumns.isEmpty) {
-        final pragmaRows = await currentDb!.rawQuery("PRAGMA table_info($tableName)");
-        tableColumns = pragmaRows.map((e) => e['name'] as String).toList();
-      }
+      // 1. 获取列结构 (确保针对当前 tableName 获取最新的列定义)
+      final pragmaRows = await currentDb!.rawQuery("PRAGMA table_info($tableName)");
+      tableColumns = pragmaRows.map((e) => e['name'] as String).toList();
 
       // 2. 构建查询
       String query = "SELECT * FROM $tableName";
