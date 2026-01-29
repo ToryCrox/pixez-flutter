@@ -29,6 +29,7 @@ import 'package:pixez/models/illust.dart';
 import 'package:pixez/page/picture/illust_store.dart';
 import 'package:pixez/page/picture/picture_list_page.dart';
 import 'package:pixez/page/downloaded/downloaded_page_store.dart';
+import 'package:pixez/page/downloaded/optimize_json_dialog.dart';
 
 import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 
@@ -282,6 +283,9 @@ class _DownloadedPageState extends State<DownloadedPage> {
         break;
       case 'toggle_enable_drag':
         _store.toggleEnableDrag();
+        break;
+      case 'optimize_json':
+        OptimizeJsonDialog.show(context, downloadStore);
         break;
     }
   }
