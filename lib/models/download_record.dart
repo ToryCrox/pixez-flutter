@@ -1561,17 +1561,6 @@ class DownloadDatabaseProvider {
     );
   }
 
-  /// 获取需要更新宽高的图片列表（宽高为空的记录）
-  Future<List<DownloadedImage>> getImagesWithoutDimensions({int? limit}) async {
-    List<Map<String, dynamic>> maps = await db.query(
-      DownloadedImageColumns.tableName,
-      where:
-          '${DownloadedImageColumns.width} IS NULL OR ${DownloadedImageColumns.height} IS NULL',
-      limit: limit,
-    );
-    return maps.map((e) => DownloadedImage.fromJson(e)).toList();
-  }
-
   /// 获取插画已下载的图片数量
   /// @deprecated 使用物化字段 DownloadedIllust.downloadedImageCount 替代
   @Deprecated('使用物化字段 DownloadedIllust.downloadedImageCount 替代')

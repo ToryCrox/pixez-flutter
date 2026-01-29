@@ -157,21 +157,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       maxConcurrent: userSetting.maxRunningTask,
     );
 
-    // 后台更新缺少宽高信息的历史图片（每次启动时处理一批）
-    //_updateMissingImageDimensions();
-
     // 加载待下载任务并提示用户确认
     if (Platform.isWindows || Platform.isLinux) {
       _checkPendingDownloads();
     }
-  }
-
-  /// 后台更新缺少宽高信息的历史图片
-  Future<void> _updateMissingImageDimensions() async {
-    // 延迟执行，避免影响启动性能
-    await Future.delayed(Duration(seconds: 5));
-    // 每次启动处理一批（50张），逐步更新历史数据
-    await downloadStore.updateMissingImageDimensions(batchSize: 50);
   }
 
   Future<void> _checkPendingDownloads() async {

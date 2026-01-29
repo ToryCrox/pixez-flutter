@@ -416,33 +416,6 @@ abstract class _DownloadStoreBase with Store {
     return null;
   }
 
-  /// 批量更新缺少宽高信息的图片（用于历史数据迁移）
-  Future<void> updateMissingImageDimensions({int batchSize = 50}) async {
-    final images =
-        await _dbProvider.getImagesWithoutDimensions(limit: batchSize);
-    if (images.isEmpty) return;
-
-    Log.d('开始更新 ${images.length} 张图片的宽高信息');
-
-    for (final image in images) {
-      final filePath =
-          await _dbProvider.findImagePath(image.illustId, image.part);
-      if (filePath == null) continue;
-
-      final size = await getImageSize(filePath);
-      if (size != null && size.width > 0 && size.height > 0) {
-        await _dbProvider.updateImageDimensions(
-          image.illustId,
-          image.part,
-          size.width.toInt(),
-          size.height.toInt(),
-        );
-      }
-    }
-
-    Log.d('图片宽高信息更新完成');
-  }
-
   Future<List<DownloadedIllust>> getAllDownloaded({
     int? limit,
     int? offset,
