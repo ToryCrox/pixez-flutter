@@ -18,6 +18,8 @@ class TableDataViewerPage extends StatefulWidget {
 
 class _TableDataViewerPageState extends State<TableDataViewerPage> {
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _horizontalController = ScrollController();
+  final ScrollController _verticalController = ScrollController();
 
   @override
   void initState() {
@@ -31,6 +33,8 @@ class _TableDataViewerPageState extends State<TableDataViewerPage> {
   @override
   void dispose() {
     _searchController.dispose();
+    _horizontalController.dispose();
+    _verticalController.dispose();
     super.dispose();
   }
 
@@ -167,52 +171,59 @@ class _TableDataViewerPageState extends State<TableDataViewerPage> {
         }
 
         return Scrollbar(
+          controller: _horizontalController,
           thumbVisibility: true,
           child: SingleChildScrollView(
+            controller: _horizontalController,
             scrollDirection: Axis.horizontal,
-            child: SingleChildScrollView(
-              scrollDirection: Axis.vertical,
-              child: Theme(
-                data: Theme.of(context).copyWith(
-                  dividerColor: Colors.grey.withValues(alpha: 0.2),
-                ),
-                child: DataTable(
-                  headingRowHeight: 40,
-                  dataRowMinHeight: 30,
-                  dataRowMaxHeight: 60,
-                  horizontalMargin: 12,
-                  columnSpacing: 20,
-                  sortColumnIndex: widget.store.sortColumn != null 
-                    ? widget.store.tableColumns.indexOf(widget.store.sortColumn!)
-                    : null,
-                  sortAscending: widget.store.sortAscending,
-                  columns: widget.store.tableColumns.map((col) {
-                    return DataColumn(
-                      label: Text(col, style: const TextStyle(fontWeight: FontWeight.bold)),
-                      onSort: (index, ascending) {
-                        widget.store.setSort(col);
-                        widget.store.loadTableData(widget.tableName, resetPagination: false);
-                      },
-                    );
-                  }).toList(),
-                  rows: widget.store.tableData.map((row) {
-                    return DataRow(
-                      cells: widget.store.tableColumns.map((col) {
-                        final value = row[col]?.toString() ?? '';
-                        return DataCell(
-                          ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 300),
-                            child: SelectableText(
-                              value,
-                              maxLines: 2,
-                              scrollPhysics: const NeverScrollableScrollPhysics(),
-                              style: const TextStyle(fontSize: 13),
+            child: Scrollbar(
+              controller: _verticalController,
+              thumbVisibility: true,
+              child: SingleChildScrollView(
+                controller: _verticalController,
+                scrollDirection: Axis.vertical,
+                child: Theme(
+                  data: Theme.of(context).copyWith(
+                    dividerColor: Colors.grey.withValues(alpha: 0.2),
+                  ),
+                  child: DataTable(
+                    headingRowHeight: 40,
+                    dataRowMinHeight: 30,
+                    dataRowMaxHeight: 60,
+                    horizontalMargin: 12,
+                    columnSpacing: 20,
+                    sortColumnIndex: widget.store.sortColumn != null 
+                      ? widget.store.tableColumns.indexOf(widget.store.sortColumn!)
+                      : null,
+                    sortAscending: widget.store.sortAscending,
+                    columns: widget.store.tableColumns.map((col) {
+                      return DataColumn(
+                        label: Text(col, style: const TextStyle(fontWeight: FontWeight.bold)),
+                        onSort: (index, ascending) {
+                          widget.store.setSort(col);
+                          widget.store.loadTableData(widget.tableName, resetPagination: false);
+                        },
+                      );
+                    }).toList(),
+                    rows: widget.store.tableData.map((row) {
+                      return DataRow(
+                        cells: widget.store.tableColumns.map((col) {
+                          final value = row[col]?.toString() ?? '';
+                          return DataCell(
+                            ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 300),
+                              child: SelectableText(
+                                value,
+                                maxLines: 2,
+                                scrollPhysics: const NeverScrollableScrollPhysics(),
+                                style: const TextStyle(fontSize: 13),
+                              ),
                             ),
-                          ),
-                        );
-                      }).toList(),
-                    );
-                  }).toList(),
+                          );
+                        }).toList(),
+                      );
+                    }).toList(),
+                  ),
                 ),
               ),
             ),
