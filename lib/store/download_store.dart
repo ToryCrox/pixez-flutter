@@ -34,6 +34,7 @@ import 'package:pixez/er/hoster.dart';
 import 'package:pixez/models/download_record.dart';
 import 'package:pixez/models/illust.dart';
 import 'package:pixez/models/ugoira_metadata_response.dart';
+import 'package:pixez/page/database/database_registry.dart';
 import 'package:pixez/utils/ugoira_downloader.dart';
 import 'package:pixez/utils/webp_encoder.dart';
 
@@ -236,6 +237,13 @@ abstract class _DownloadStoreBase with Store {
         }
       });
     });
+
+    // 注册到数据库管理中心
+    DatabaseRegistry.instance.register(
+      '下载数据库',
+      _dbProvider.dbPathStr,
+      () async => _dbProvider.db,
+    );
   }
 
   /// 更新下载路径（关闭旧数据库并重新打开新路径的数据库）

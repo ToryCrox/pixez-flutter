@@ -9,6 +9,7 @@ import 'package:pixez/er/prefer.dart';
 import 'package:pixez/i18n.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/page/downloaded/downloaded_page.dart';
+import 'package:pixez/page/database/database_list_page.dart';
 import 'package:pixez/page/hello/setting/setting_quality_page.dart';
 import 'package:pixez/page/log/log_viewer_page.dart';
 import 'package:pixez/page/task/job_page.dart';
@@ -375,6 +376,14 @@ class _SideBarBody extends StatelessWidget {
           onTap: () {
             windowFrameController.openSideBar();
             _pushPage(DownloadedAuthorsPage());
+          },
+        ),
+        buildItem(
+          icon: Icons.storage_rounded,
+          title: '数据库管理',
+          onTap: () {
+            windowFrameController.openSideBar();
+            _pushPage(const DatabaseListPage());
           },
         ),
       ],

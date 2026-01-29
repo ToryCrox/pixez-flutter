@@ -33,6 +33,7 @@ import 'package:pixez/page/account/edit/account_edit_page.dart';
 import 'package:pixez/page/account/select/account_select_page.dart';
 import 'package:pixez/page/board/board_page.dart';
 import 'package:pixez/page/book/tag/book_tag_page.dart';
+import 'package:pixez/page/database/database_list_page.dart';
 import 'package:pixez/page/hello/android_hello_page.dart';
 import 'package:pixez/page/hello/hello_page.dart';
 import 'package:pixez/page/hello/recom/recom_manga_page.dart';
@@ -265,6 +266,11 @@ class _SettingPageState extends State<SettingPage> {
                       onTap: () => Leader.push(context, DataExportPage()),
                       title: Text(I18n.of(context).app_data),
                       leading: Icon(Icons.folder_open_rounded),
+                    ),
+                    ListTile(
+                      leading: Icon(Icons.storage_rounded),
+                      title: const Text('数据库管理'),
+                      onTap: () => Leader.push(context, const DatabaseListPage()),
                     ),
                   ],
                 ),

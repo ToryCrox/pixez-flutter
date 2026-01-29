@@ -21,6 +21,7 @@ import 'package:path/path.dart' as Path;
 import 'package:json_annotation/json_annotation.dart';
 import 'package:path/path.dart';
 import 'package:pixez/models/illust.dart';
+import 'package:pixez/page/database/database_registry.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:path_provider_foundation/path_provider_foundation.dart';
 
@@ -154,6 +155,13 @@ create table $tableIllustPersist (
         }
         await batch.commit();
       },
+    );
+
+    // 注册到数据库管理中心
+    DatabaseRegistry.instance.register(
+      '插画历史数据库',
+      path,
+      () async => db,
     );
   }
 
