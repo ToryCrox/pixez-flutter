@@ -31,8 +31,8 @@ class _SyncBookmarksDialogState extends State<SyncBookmarksDialog> {
   // 分页数据
   int _userId = 0;
   String _restrict = 'public'; // 'public' or 'private'
-  int _currentOffset = 0;
-  int? _nextOffset;
+  String? _nextUrl;
+  int _pageIndex = 0;
   List<Illusts> _currentIllusts = [];
   
   // 本地状态缓存
@@ -72,23 +72,20 @@ class _SyncBookmarksDialogState extends State<SyncBookmarksDialog> {
     setState(() {
       _state = 1;
       _statusMessage = '正在获取在线收藏...';
+      _currentIllusts.clear();
     });
 
     try {
-      
-      // 如果是第一页，重置 offset
-      if (!next) {
-         _currentOffset = 0;
-      }
+      final String? requestUrl = next ? _nextUrl : null;
       
       final result = await downloadStore.fetchOnlineBookmarksPage(
         _userId,
         _restrict,
-        _currentOffset,
+        nextUrl: requestUrl,
       );
 
       final illusts = result['illusts'] as List<Illusts>;
-      final nextOff = result['nextOffset'] as int?;
+      final nextU = result['nextUrl'] as String?;
 
       // 检查本地状态
       final localMap = <int, DownloadedIllust?>{};
@@ -107,10 +104,12 @@ class _SyncBookmarksDialogState extends State<SyncBookmarksDialog> {
       if (!mounted) return;
       setState(() {
         _currentIllusts = illusts;
-        _nextOffset = nextOff;
+        _nextUrl = nextU;
         _localIllusts = localMap;
         _selectedIds = selected;
         _state = 2; // Show list
+        if (next) _pageIndex++;
+        else _pageIndex = 0;
       });
     } catch (e) {
       Log.e('Sync load page failed', error: e);
@@ -165,14 +164,13 @@ class _SyncBookmarksDialogState extends State<SyncBookmarksDialog> {
 
   void _onPageChange(bool next) {
      if (next) {
-       if (_nextOffset != null) {
-         _currentOffset = _nextOffset!;
+       if (_nextUrl != null) {
          _loadPage(next: true);
        }
      } else {
-        // 简单处理：不支持上一页（Pixiv API offset 分页比较麻烦，通常只能往后）
-        // 或者支持重置到第一页
-        _currentOffset = 0;
+        setState(() {
+           _nextUrl = null;
+        });
         _loadPage(next: false);
      }
   }
@@ -190,7 +188,8 @@ class _SyncBookmarksDialogState extends State<SyncBookmarksDialog> {
                if (v != null) {
                  setState(() {
                    _restrict = v;
-                   _currentOffset = 0;
+                   _nextUrl = null; 
+                   _pageIndex = 0;
                    _currentIllusts.clear();
                    _state = 0;
                  });
@@ -251,7 +250,7 @@ class _SyncBookmarksDialogState extends State<SyncBookmarksDialog> {
           padding: const EdgeInsets.only(bottom: 8.0),
           child: Row(
              children: [
-               Text('本页共 ${_currentIllusts.length} 条'),
+               Text('第 ${_pageIndex + 1} 页 | 本页 ${_currentIllusts.length} 条'),
                Spacer(),
                TextButton(
                  onPressed: _currentIllusts.any((i) => _localIllusts[i.id]?.bookmark == 0) 
@@ -273,7 +272,7 @@ class _SyncBookmarksDialogState extends State<SyncBookmarksDialog> {
         ),
         Expanded(
           child: ListView.builder(
-            itemCount: _currentIllusts.length,
+            itemCount: _currentIllusts.length, 
             itemBuilder: (context, index) {
               final illust = _currentIllusts[index];
               final local = _localIllusts[illust.id];
@@ -381,16 +380,17 @@ class _SyncBookmarksDialogState extends State<SyncBookmarksDialog> {
           onPressed: () => Navigator.of(context).pop(),
           child: Text('关闭'),
         ),
-        if (_currentOffset > 0)
+        if (_pageIndex > 0)
           TextButton(
             onPressed: () => _onPageChange(false),
             child: Text('第一页'),
           ),
         ElevatedButton(
-          onPressed: _nextOffset != null ? () => _onPageChange(true) : null,
+          onPressed: _nextUrl != null ? () => _onPageChange(true) : null,
           child: Text('下一页'),
         ),
         SizedBox(width: 8),
+
         FilledButton.icon(
           onPressed: _selectedIds.isNotEmpty ? _confirmSync : null,
           icon: Icon(Icons.sync),

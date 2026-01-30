@@ -16,6 +16,7 @@
 import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
+import 'package:dio/dio.dart';
 import 'dart:io';
 
 import 'package:bot_toast/bot_toast.dart';
@@ -2068,22 +2069,27 @@ abstract class _DownloadStoreBase with Store {
   /// 分页获取在线收藏
   /// [userId] 用户ID
   /// [restrict] public 或 private
-  /// [offset] 偏移量
-  /// 返回：{'illusts': List<Illusts>, 'nextOffset': int?}
+  /// [nextUrl] 下一页链接，如果为null则请求第一页
+  /// 返回：{'illusts': List<Illusts>, 'nextUrl': String?}
   Future<Map<String, dynamic>> fetchOnlineBookmarksPage(
-      int userId, String restrict, int offset) async {
+      int userId, String restrict, {String? nextUrl}) async {
     final result = <String, dynamic>{
       'illusts': <Illusts>[],
-      'nextOffset': null,
+      'nextUrl': null,
     };
 
     try {
-      final res = await apiClient.getBookmarksIllustsOffset(
-        userId,
-        restrict,
-        null, // tag
-        offset,
-      );
+      final Response res;
+      if (nextUrl != null && nextUrl.isNotEmpty) {
+         res = await apiClient.getNext(nextUrl);
+      } else {
+         res = await apiClient.getBookmarksIllustsOffset(
+          userId,
+          restrict,
+          null, // tag
+          0,
+        );
+      }
 
       if (res.data != null) {
         final illustsList = res.data['illusts'] as List?;
@@ -2094,11 +2100,7 @@ abstract class _DownloadStoreBase with Store {
 
         final nextUrl = res.data['next_url'] as String?;
         if (nextUrl != null) {
-          final uri = Uri.tryParse(nextUrl);
-          final nextOffsetStr = uri?.queryParameters['offset'];
-          if (nextOffsetStr != null) {
-            result['nextOffset'] = int.parse(nextOffsetStr);
-          }
+            result['nextUrl'] = nextUrl;
         }
       }
     } catch (e) {
