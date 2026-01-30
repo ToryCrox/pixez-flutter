@@ -30,6 +30,7 @@ import 'package:pixez/page/picture/illust_store.dart';
 import 'package:pixez/page/picture/picture_list_page.dart';
 import 'package:pixez/page/downloaded/downloaded_page_store.dart';
 import 'package:pixez/page/downloaded/optimize_json_dialog.dart';
+import 'package:pixez/page/downloaded/sync_bookmarks_dialog.dart';
 
 import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 
@@ -284,6 +285,9 @@ class _DownloadedPageState extends State<DownloadedPage> {
       case 'toggle_enable_drag':
         _store.toggleEnableDrag();
         break;
+      case 'sync_bookmarks':
+        SyncBookmarksDialog.show(context);
+        break;
       case 'optimize_json':
         OptimizeJsonDialog.show(context, downloadStore);
         break;
@@ -362,6 +366,16 @@ class _DownloadedPageState extends State<DownloadedPage> {
             Icon(Icons.storage, color: Colors.orange),
             SizedBox(width: 8),
             Text('优化数据库存储'),
+          ],
+        ),
+      ),
+      PopupMenuItem(
+        value: 'sync_bookmarks',
+        child: Row(
+          children: [
+            Icon(Icons.sync, color: Colors.blue),
+            SizedBox(width: 8),
+            Text('同步在线收藏'),
           ],
         ),
       ),

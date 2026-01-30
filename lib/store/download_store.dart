@@ -37,6 +37,8 @@ import 'package:pixez/models/ugoira_metadata_response.dart';
 import 'package:pixez/page/database/database_registry.dart';
 import 'package:pixez/utils/ugoira_downloader.dart';
 import 'package:pixez/utils/webp_encoder.dart';
+import 'package:pixez/store/account_store.dart';
+import 'package:pixez/network/api_client.dart';
 
 part 'download_store.g.dart';
 
@@ -166,6 +168,9 @@ abstract class _DownloadStoreBase with Store {
 
   // 暴露数据库 provider 供 downloader 使用
   DownloadDatabaseProvider get dbProvider => _dbProvider;
+
+  // Account Store for user info
+  late AccountStore accountStore;
 
   // 下载进度流
   final StreamController<DownloadTask> _progressController =
@@ -2057,5 +2062,50 @@ abstract class _DownloadStoreBase with Store {
   /// 更新插画收藏/优先级
   Future<void> updateIllustBookmark(int illustId, int bookmark) async {
     await _dbProvider.updateIllustBookmark(illustId, bookmark);
+  }
+  // ============ 同步功能 ============
+
+  /// 分页获取在线收藏
+  /// [userId] 用户ID
+  /// [restrict] public 或 private
+  /// [offset] 偏移量
+  /// 返回：{'illusts': List<Illusts>, 'nextOffset': int?}
+  Future<Map<String, dynamic>> fetchOnlineBookmarksPage(
+      int userId, String restrict, int offset) async {
+    final result = <String, dynamic>{
+      'illusts': <Illusts>[],
+      'nextOffset': null,
+    };
+
+    try {
+      final res = await apiClient.getBookmarksIllustsOffset(
+        userId,
+        restrict,
+        null, // tag
+        offset,
+      );
+
+      if (res.data != null) {
+        final illustsList = res.data['illusts'] as List?;
+        if (illustsList != null) {
+          result['illusts'] =
+              illustsList.map((e) => Illusts.fromJson(e)).toList();
+        }
+
+        final nextUrl = res.data['next_url'] as String?;
+        if (nextUrl != null) {
+          final uri = Uri.tryParse(nextUrl);
+          final nextOffsetStr = uri?.queryParameters['offset'];
+          if (nextOffsetStr != null) {
+            result['nextOffset'] = int.parse(nextOffsetStr);
+          }
+        }
+      }
+    } catch (e) {
+      Log.e('Failed to fetch bookmarks page', error: e);
+      rethrow;
+    }
+
+    return result;
   }
 }
