@@ -29,12 +29,14 @@ class IllustDetailContent extends StatefulWidget {
   final UserStore? userStore;
   final IllustStore illustStore;
   final VoidCallback loadAbout;
+  final VoidCallback? onCommentClick;
   const IllustDetailContent({
     super.key,
     required this.illusts,
     this.userStore,
     required this.illustStore,
     required this.loadAbout,
+    this.onCommentClick,
   });
 
   @override
@@ -443,7 +445,11 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
         padding: EdgeInsets.only(left: 16.0, right: 16.0),
         child: InkWell(
           onTap: () {
-            Leader.push(context, CommentPage(id: data.id));
+            if (widget.onCommentClick != null) {
+              widget.onCommentClick!();
+            } else {
+              Leader.push(context, CommentPage(id: data.id));
+            }
           },
           child: Center(
             child: Padding(

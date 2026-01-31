@@ -45,6 +45,7 @@ class CommentPage extends StatefulWidget {
   final int? pId;
   final String? name;
   final CommentArtWorkType type;
+  final VoidCallback? onBack;
 
   const CommentPage(
       {Key? key,
@@ -52,7 +53,8 @@ class CommentPage extends StatefulWidget {
       this.isReplay = false,
       this.pId,
       this.name,
-      this.type = CommentArtWorkType.ILLUST})
+      this.type = CommentArtWorkType.ILLUST,
+      this.onBack})
       : super(key: key);
 
   @override
@@ -174,6 +176,12 @@ class _CommentPageState extends State<CommentPage> {
     return Container(
       child: Scaffold(
         appBar: AppBar(
+          leading: widget.onBack != null
+              ? IconButton(
+                  icon: Icon(Icons.arrow_back),
+                  onPressed: widget.onBack,
+                )
+              : null,
           title: Text('${I18n.of(context).view_comment}'),
         ),
         body: SafeArea(

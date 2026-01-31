@@ -46,6 +46,7 @@ import 'package:pixez/page/picture/illust_about_store.dart';
 import 'package:pixez/page/picture/illust_detail_content.dart';
 import 'package:pixez/page/picture/illust_store.dart';
 import 'package:pixez/page/picture/picture_list_page.dart';
+import 'package:pixez/page/comment/comment_page.dart';
 import 'package:pixez/page/picture/tag_for_illust_page.dart';
 import 'package:pixez/component/json_highlighter.dart';
 import 'package:pixez/page/picture/ugoira_loader.dart';
@@ -88,6 +89,7 @@ class _IllustRowPageState extends State<IllustRowPage>
   bool _sidebarVisible = true; // 控制侧边栏显示/隐藏
   Ticker? _autoScrollTicker;
   bool _isAutoScrolling = false;
+  bool _showComments = false;
 
   @override
   void initState() {
@@ -191,7 +193,17 @@ class _IllustRowPageState extends State<IllustRowPage>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    return Scaffold(
+    return PopScope(
+      canPop: !_showComments,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (_showComments) {
+          setState(() {
+            _showComments = false;
+          });
+        }
+      },
+      child: Scaffold(
       extendBody: true,
       // appBar: AppBar(
       //   elevation: 0.0,
@@ -265,6 +277,7 @@ class _IllustRowPageState extends State<IllustRowPage>
             ),
           );
         },
+      ),
       ),
     );
   }
@@ -430,6 +443,7 @@ class _IllustRowPageState extends State<IllustRowPage>
                   ),
                 ),
                 // 侧边栏，使用 AnimatedPositioned 实现从右侧滑入/滑出
+                // 侧边栏，使用 AnimatedPositioned 实现从右侧滑入/滑出
                 AnimatedPositioned(
                   duration: animationDuration,
                   curve: Curves.easeInOut,
@@ -460,11 +474,37 @@ class _IllustRowPageState extends State<IllustRowPage>
                               loadAbout: () {
                                 _loadAbout();
                               },
+                              onCommentClick: () {
+                                setState(() {
+                                  _showComments = true;
+                                });
+                              },
                             ),
                           ),
                           _buildRecom(),
                         ],
                       ),
+                    ),
+                  ),
+                ),
+                // 评论侧边栏，覆盖在详情侧边栏之上
+                AnimatedPositioned(
+                  duration: animationDuration,
+                  curve: Curves.easeInOut,
+                  right:
+                      (_sidebarVisible && _showComments) ? 0 : -sidebarWidth,
+                  top: 0,
+                  bottom: 0,
+                  width: sidebarWidth,
+                  child: Container(
+                    color: Theme.of(context).cardColor,
+                    child: CommentPage(
+                      id: data.id,
+                      onBack: () {
+                        setState(() {
+                          _showComments = false;
+                        });
+                      },
                     ),
                   ),
                 ),
