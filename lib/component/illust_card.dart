@@ -64,7 +64,10 @@ class IllustCard extends StatefulWidget {
     this.needToBan = false,
     this.layoutMode = IllustCardLayoutMode.waterfall,
     this.showSeriesLink = true,
+    this.onLongPress,
   });
+
+  final VoidCallback? onLongPress;
 
   @override
   _IllustCardState createState() => _IllustCardState();
@@ -330,7 +333,7 @@ class _IllustCardState extends State<IllustCard> {
         _showContextMenu(context);
       },
       child: InkWell(
-        onLongPress: () {
+        onLongPress: widget.onLongPress ?? () {
           _buildLongPressToSaveHint();
         },
         onTap: () {

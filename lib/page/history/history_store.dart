@@ -1,113 +1,139 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter/widgets.dart';
-import 'package:freezed_annotation/freezed_annotation.dart';
+
+import 'package:flutter/material.dart';
+import 'package:mobx/mobx.dart';
+import 'package:pixez/custom/log.dart';
 import 'package:pixez/er/sharer.dart';
 import 'package:pixez/models/illust.dart';
-import 'package:pixez/models/illust_persist.dart';
+import 'package:pixez/page/history/history_database.dart';
+import 'package:pixez/page/picture/illust_store.dart';
 import 'package:pixez/saf_plugin.dart';
-import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:bot_toast/bot_toast.dart';
 
-part 'history_store.freezed.dart';
 part 'history_store.g.dart';
 
-@freezed
-class HistoryState with _$HistoryState {
-  const factory HistoryState({
-    required List<IllustPersist> data,
-    required String word,
-  }) = _HistoryState;
-}
+class HistoryStore = _HistoryStore with _$HistoryStore;
 
-@riverpod
-class History extends _$History {
-  final illustPersistProvider = IllustPersistProvider();
-  @override
-  HistoryState build() {
-    return HistoryState(data: [], word: "");
+abstract class _HistoryStore with Store {
+  final HistoryDatabaseProvider _dbProvider = HistoryDatabaseProvider.instance;
+
+  @observable
+  ObservableList<IllustStore> illusts = ObservableList<IllustStore>();
+
+  @observable
+  bool loading = false;
+
+  @observable
+  String? currentKeyword;
+
+  _HistoryStore() {
+    _init();
   }
 
+  Future<void> _init() async {
+    await _dbProvider.open();
+  }
+
+  @action
   Future<void> fetch() async {
-    await illustPersistProvider.open();
-    final result = await illustPersistProvider.getAllAccount();
-    state = state.copyWith(data: result);
+    if (loading) return;
+    loading = true;
+    try {
+      await _dbProvider.open();
+      // 获取数据
+      final list = await _dbProvider.query(keyword: currentKeyword);
+      
+      // 清理旧的 store
+      for (var s in illusts) {
+        s.dispose();
+      }
+      illusts.clear();
+      
+      // 转换为 IllustStore
+      // HistoryPage 的 item 不需要完整网络请求能力，但 IllustCard 需要 IllustStore
+      // 我们创建一个已经包含数据的 IllustStore
+      for (var illust in list) {
+        illusts.add(IllustStore(illust.id, illust));
+      }
+    } finally {
+      loading = false;
+    }
   }
 
-  Future<void> search(String word) async {
-    await illustPersistProvider.open();
-    final result = await illustPersistProvider.getLikeIllusts(word);
-    state = state.copyWith(data: result);
-  }
-
-  Future<void> insert(Illusts illust) async {
-    await illustPersistProvider.open();
-    var illustPersist = IllustPersist(
-        illustId: illust.id,
-        userId: illust.user.id,
-        pictureUrl: illust.imageUrls.squareMedium,
-        time: DateTime.now().millisecondsSinceEpoch,
-        title: illust.title,
-        userName: illust.user.name);
-    await illustPersistProvider.insert(illustPersist);
+  @action
+  Future<void> search(String keyword) async {
+    currentKeyword = keyword;
     await fetch();
   }
 
-  static Future<void> insertIllust(Illusts illust) async {
-    final illustPersistProvider = IllustPersistProvider();
-    await illustPersistProvider.open();
-    var illustPersist = IllustPersist(
-        illustId: illust.id,
-        userId: illust.user.id,
-        pictureUrl: illust.imageUrls.squareMedium,
-        time: DateTime.now().millisecondsSinceEpoch,
-        title: illust.title,
-        userName: illust.user.name);
-    await illustPersistProvider.insert(illustPersist);
-  }
-
+  @action
   Future<void> delete(int id) async {
-    await illustPersistProvider.open();
-    await illustPersistProvider.delete(id);
-    await fetch();
+    await _dbProvider.delete(id);
+    // 从列表中移除，避免重新 fetch
+    final index = illusts.indexWhere((element) => element.id == id);
+    if (index != -1) {
+      illusts[index].dispose();
+      illusts.removeAt(index);
+    }
   }
 
+  @action
   Future<void> deleteAll() async {
-    await illustPersistProvider.open();
-    await illustPersistProvider.deleteAll();
-    await fetch();
-  }
-
-  Future<void> importData() async {
-    final result = await SAFPlugin.openFile();
-    if (result == null) return;
-    final json = utf8.decode(result);
-    final decoder = JsonDecoder();
-    List<dynamic> maps = decoder.convert(json);
-    maps.forEach((illust) {
-      var illustMap = Map.from(illust);
-      var illustPersist = IllustPersist(
-          illustId: illustMap['illust_id'],
-          userId: illustMap['user_id'],
-          pictureUrl: illustMap['picture_url'],
-          time: illustMap['time'],
-          title: illustMap['title'],
-          userName: illustMap['user_name']);
-      illustPersistProvider.insert(illustPersist);
-    });
+    await _dbProvider.deleteAll();
+    for (var s in illusts) {
+      s.dispose();
+    }
+    illusts.clear();
   }
 
   Future<void> exportData(BuildContext context) async {
-    await illustPersistProvider.open();
-    final exportData = await illustPersistProvider.getAllAccount();
-    final uint8List = utf8.encode(jsonEncode(exportData));
-    if (Platform.isIOS) {
-      await Sharer.exportUint8List(context, uint8List, "illustpersist.json");
-    } else {
-      final uriStr =
-          await SAFPlugin.createFile("illustpersist.json", "application/json");
-      if (uriStr == null) return;
-      await SAFPlugin.writeUri(uriStr, uint8List);
+    try {
+       await _dbProvider.open();
+       final list = await _dbProvider.query();
+       final entity = list.map((e) => e.toJson()).toList();
+       final exportJson = jsonEncode(entity);
+       final uint8List = utf8.encode(exportJson);
+       
+        if (Platform.isIOS) {
+          await Sharer.exportUint8List(context, uint8List,
+              "pixez_history_${DateTime.now().toIso8601String()}.json");
+        } else {
+          final uri = await SAFPlugin.createFile(
+              "pixez_history_${DateTime.now().toIso8601String()}.json",
+              "application/json");
+          if (uri != null) {
+            await SAFPlugin.writeUri(uri, uint8List);
+          }
+        }
+    } catch (e) {
+      Log.e('Export history failed', error: e);
+      BotToast.showText(text: "Export failed: $e");
+      rethrow;
+    }
+  }
+
+  Future<void> importData() async {
+    try {
+      final bytes = await SAFPlugin.openFile();
+      if (bytes != null) {
+        final jsonStr = utf8.decode(bytes);
+        final List list = jsonDecode(jsonStr);
+        await _dbProvider.open();
+        for (var item in list) {
+          try {
+            await _dbProvider.insert(Illusts.fromJson(item));
+          } catch (e) {
+            Log.e('Import item failed', error: e);
+          }
+        }
+        BotToast.showText(text: "Import success");
+      }
+    } catch (e) {
+      Log.e('Import history failed', error: e);
+      BotToast.showText(text: "Import failed: $e");
     }
   }
 }
+

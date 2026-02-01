@@ -99,28 +99,26 @@ class _DataExportPageState extends State<DataExportPage> {
           },
         ),
         Divider(),
-        Consumer(builder: (context, ref, widget) {
+        Builder(builder: (context) {
           return ListTile(
             title: Text(I18n.of(context).export_title),
             subtitle: Text(I18n.of(context).export_illust_history),
             onTap: () async {
               try {
-                await ref.read(historyProvider.notifier).fetch();
-                await ref.read(historyProvider.notifier).exportData(context);
+                await HistoryStore().exportData(context);
               } catch (e) {
                 Log.e('Failed to export illust history', error: e);
               }
             },
           );
         }),
-        Consumer(builder: (context, ref, widget) {
+        Builder(builder: (context) {
           return ListTile(
             title: Text(I18n.of(context).import_title),
             subtitle: Text(I18n.of(context).import_illust_history),
             onTap: () async {
               try {
-                await ref.read(historyProvider.notifier).fetch();
-                await ref.read(historyProvider.notifier).importData();
+                await HistoryStore().importData();
               } catch (e) {
                 Log.e('Failed to import illust history', error: e);
                 BotToast.showText(text: e.toString());

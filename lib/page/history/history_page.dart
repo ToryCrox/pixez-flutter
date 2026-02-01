@@ -1,224 +1,153 @@
-/*
- * Copyright (C) 2020. by perol_notsf, All rights reserved
- *
- * This program is free software: you can redistribute it and/or modify it under
- * the terms of the GNU General Public License as published by the Free Software
- * Foundation, either version 3 of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT ANY
- * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
- * FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along with
- * this program. If not, see <http://www.gnu.org/licenses/>.
- *
- */
+
+import 'dart:math';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:pixez/component/pixiv_image.dart';
-import 'package:pixez/constants.dart';
+import 'package:flutter_mobx/flutter_mobx.dart';
+import 'package:pixez/component/illust_card.dart';
 import 'package:pixez/i18n.dart';
-import 'package:pixez/models/illust_persist.dart';
+import 'package:pixez/main.dart';
 import 'package:pixez/page/history/history_store.dart';
-import 'package:pixez/page/picture/illust_lighting_page.dart';
-import 'package:pixez/page/picture/illust_store.dart';
+import 'package:waterfall_flow/waterfall_flow.dart';
 
-class HistoryPage extends HookConsumerWidget {
+class HistoryPage extends StatefulWidget {
   const HistoryPage({super.key});
 
-  Widget buildAppBarUI(context) => Container(
-        child: Padding(
-          child: Text(
-            I18n.of(context).history,
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 30.0),
-          ),
-          padding: EdgeInsets.only(left: 20.0, top: 30.0, bottom: 30.0),
-        ),
-      );
+  @override
+  State<HistoryPage> createState() => _HistoryPageState();
+}
 
-  Widget buildBody(List<IllustPersist> data, WidgetRef ref) {
-    final reIllust = data.reversed.toList();
-    if (reIllust.isNotEmpty) {
-      return GridView.builder(
-          itemCount: reIllust.length,
-          gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-            maxCrossAxisExtent: 250, // 每个网格项的最大宽度
-            childAspectRatio: 0.65, // 调整宽高比以容纳标题和作者信息
-            mainAxisSpacing: 8,
-            crossAxisSpacing: 8,
-          ),
-          itemBuilder: (context, index) {
-            return _buildHistoryItem(context, reIllust[index], ref);
-          });
-    }
-    return Center(
-      child: Container(),
-    );
-  }
+class _HistoryPageState extends State<HistoryPage> {
+  final HistoryStore store = HistoryStore();
+  final TextEditingController _textEditingController = TextEditingController();
 
-  Widget _buildHistoryItem(
-      BuildContext context, IllustPersist illust, WidgetRef ref) {
-    final heroTag = '${illust.illustId}_history';
-    return InkWell(
-        mouseCursor: SystemMouseCursors.click,
-        onTap: () {
-          Navigator.of(context)
-              .push(MaterialPageRoute(builder: (BuildContext context) {
-            return IllustLightingPage(
-              id: illust.illustId,
-              heroString: heroTag,
-              store: IllustStore(illust.illustId, null),
-            );
-          }));
-        },
-        onLongPress: () async {
-          final result = await showDialog(
-              context: context,
-              builder: (context) {
-                return AlertDialog(
-                  title: Text("${I18n.of(context).delete}?"),
-                  actions: <Widget>[
-                    TextButton(
-                      child: Text(I18n.of(context).cancel),
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                      },
-                    ),
-                    TextButton(
-                      child: Text(I18n.of(context).ok),
-                      onPressed: () {
-                        Navigator.of(context).pop("OK");
-                      },
-                    ),
-                  ],
-                );
-              });
-          if (result == "OK") {
-            ref.read(historyProvider.notifier).delete(illust.illustId);
-          }
-        },
-        child: Card(
-          margin: EdgeInsets.all(8),
-          clipBehavior: Clip.antiAlias,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 图片部分 - 使用 Hero 包裹
-              Expanded(
-                child: Hero(
-                  tag: heroTag,
-                  child: Container(
-                    width: double.infinity,
-                    child: PixivImage(
-                      illust.pictureUrl,
-                      fit: BoxFit.cover,
-                      // 通过 header 传递 illustId，让 PixivCacheManager 识别封面请求并优先使用本地已下载的封面
-                      httpHeaders: {
-                        'cover': '${illust.illustId}',
-                        'quality': Constants.qualitySquareMedium
-                      },
-                    ),
-                  ),
-                ),
-              ),
-              // 信息部分 - 固定高度避免图片大小不一致
-              SizedBox(
-                height: 76, // 固定信息区域高度，确保两行标题不被截断
-                child: Padding(
-                  padding: EdgeInsets.all(8.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // 标题
-                      if (illust.title != null && illust.title!.isNotEmpty)
-                        Flexible(
-                          child: Text(
-                            illust.title!,
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      // 作者名
-                      if (illust.userName != null &&
-                          illust.userName!.isNotEmpty)
-                        Padding(
-                          padding: EdgeInsets.only(top: 4.0),
-                          child: Text(
-                            illust.userName!,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Theme.of(context)
-                                  .textTheme
-                                  .bodySmall
-                                  ?.color
-                                  ?.withOpacity(0.6),
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ));
+  @override
+  void initState() {
+    super.initState();
+    store.fetch();
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final dataFuture = ref.watch(historyProvider);
-    final _textEditingController = useTextEditingController();
-    useEffect(() {
-      Future.delayed(Duration.zero, () async {
-        await ref.read(historyProvider.notifier).fetch();
-      });
-      return null;
-    }, []);
+  void dispose() {
+    _textEditingController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: TextField(
-            controller: _textEditingController,
-            onChanged: (word) {
-              if (word.trim().isNotEmpty) {
-                ref.read(historyProvider.notifier).search(word.trim());
-              } else {
-                ref.read(historyProvider.notifier).fetch();
-              }
-            },
-            decoration: InputDecoration(
-              border: InputBorder.none,
-              hintText: I18n.of(context).search_word_hint,
-            )),
+          controller: _textEditingController,
+          onChanged: (word) {
+            if (word.trim().isNotEmpty) {
+              store.search(word.trim());
+            } else {
+              store.fetch();
+            }
+          },
+          decoration: InputDecoration(
+            border: InputBorder.none,
+            hintText: I18n.of(context).search_word_hint,
+          ),
+        ),
         actions: <Widget>[
-          IconButton(
-            icon: Icon(Icons.close),
-            onPressed: () {
-              _textEditingController.clear();
-              ref.read(historyProvider.notifier).fetch();
-            },
-          )
+          if (_textEditingController.text.isNotEmpty)
+            IconButton(
+              icon: Icon(Icons.close),
+              onPressed: () {
+                _textEditingController.clear();
+                store.search("");
+              },
+            ),
         ],
       ),
       floatingActionButton: FloatingActionButton(
         child: Icon(Icons.delete),
         onPressed: () {
-          _cleanAll(context, ref);
+          _cleanAll(context);
         },
       ),
-      body: buildBody(dataFuture.data, ref),
+      body: Observer(builder: (context) {
+        if (store.loading && store.illusts.isEmpty) {
+          return Center(child: CircularProgressIndicator());
+        }
+        if (store.illusts.isEmpty) {
+          return Center(child: Text("No Data"));
+        }
+        return _buildBody();
+      }),
     );
   }
 
-  Future<void> _cleanAll(BuildContext context, WidgetRef ref) async {
+  Widget _buildBody() {
+    if (userSetting.useWaterfallFlow) {
+      return WaterfallFlow.builder(
+        padding: EdgeInsets.all(5.0),
+        gridDelegate: SliverWaterfallFlowDelegateWithFixedCrossAxisCount(
+          crossAxisCount: _getCrossAxisCount(),
+          crossAxisSpacing: 5.0,
+          mainAxisSpacing: 5.0,
+        ),
+        itemCount: store.illusts.length,
+        itemBuilder: (context, index) {
+          return IllustCard(
+            store: store.illusts[index],
+            layoutMode: IllustCardLayoutMode.waterfall,
+            lightingStore: null,
+            onLongPress: () {
+               _showDeleteDialog(context, store.illusts[index].id);
+            },
+          );
+        },
+      );
+    } else {
+      return GridView.builder(
+        padding: EdgeInsets.all(5.0),
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: _getCrossAxisCount(),
+          childAspectRatio: userSetting.gridAspectRatio,
+           crossAxisSpacing: 5.0,
+          mainAxisSpacing: 5.0,
+        ),
+        itemCount: store.illusts.length,
+        itemBuilder: (context, index) {
+          return IllustCard(
+            store: store.illusts[index],
+            layoutMode: IllustCardLayoutMode.grid,
+            lightingStore: null,
+            onLongPress: () {
+               _showDeleteDialog(context, store.illusts[index].id);
+            },
+          );
+        },
+      );
+    }
+  }
+
+  int _getCrossAxisCount() {
+    if (userSetting.crossAdapt) {
+      return _buildSliderValue();
+    } else {
+      return (MediaQuery.of(context).orientation == Orientation.portrait)
+          ? userSetting.crossCount
+          : userSetting.hCrossCount;
+    }
+  }
+
+  int _buildSliderValue() {
+    final currentValue =
+        (MediaQuery.of(context).orientation == Orientation.portrait
+                ? userSetting.crossAdapterWidth
+                : userSetting.hCrossAdapterWidth)
+            .toDouble();
+    var nowAdaptWidth = max(currentValue, 50.0);
+    nowAdaptWidth = min(nowAdaptWidth, 2160.0);
+    final screenWidth = MediaQuery.of(context).size.width;
+    final result = max(screenWidth / nowAdaptWidth, 1.0).toInt();
+    return result;
+  }
+
+  Future<void> _cleanAll(BuildContext context) async {
     final result = await showDialog(
         context: context,
         builder: (context) {
@@ -241,7 +170,34 @@ class HistoryPage extends HookConsumerWidget {
           );
         });
     if (result == "OK") {
-      ref.read(historyProvider.notifier).deleteAll();
+      store.deleteAll();
+    }
+  }
+
+  Future<void> _showDeleteDialog(BuildContext context, int id) async {
+    final result = await showDialog(
+        context: context,
+        builder: (context) {
+          return AlertDialog(
+            title: Text("${I18n.of(context).delete}?"),
+            actions: <Widget>[
+              TextButton(
+                child: Text(I18n.of(context).cancel),
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+              ),
+              TextButton(
+                child: Text(I18n.of(context).ok),
+                onPressed: () {
+                  Navigator.of(context).pop("OK");
+                },
+              ),
+            ],
+          );
+        });
+    if (result == "OK") {
+      store.delete(id);
     }
   }
 }

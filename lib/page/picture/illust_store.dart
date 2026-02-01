@@ -17,7 +17,6 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:bot_toast/bot_toast.dart';
 import 'package:dio/dio.dart';
 import 'package:mobx/mobx.dart';
 import 'package:pixez/custom/disk_cache.dart';
@@ -29,8 +28,8 @@ import 'package:pixez/models/illust.dart';
 import 'package:pixez/models/illust_series_detail.dart';
 import 'package:pixez/models/ugoira_metadata_response.dart';
 import 'package:pixez/network/api_client.dart';
-import 'package:pixez/page/history/history_store.dart';
 import 'package:pixez/store/download_store.dart';
+import 'package:pixez/page/history/history_database.dart';
 
 part 'illust_store.g.dart';
 
@@ -362,8 +361,10 @@ abstract class _IllustStoreBase with Store {
 
     if (illusts != null) {
       try {
-        History.insertIllust(illusts!);
-      } catch (e) {}
+        await HistoryDatabaseProvider.instance.insert(illusts!);
+      } catch (e) {
+        Log.e('Failed to insert history', error: e);
+      }
     }
     if (illusts?.series != null && illustSeriesDetailResponse == null) {
       try {
@@ -438,7 +439,9 @@ abstract class _IllustStoreBase with Store {
         await apiClient.postFollowUser(illusts!.user.id, "public");
         return illusts!.user.isFollowed = true;
       }
-    } catch (e) {}
+    } catch (e) {
+      Log.e('Failed to follow user', error: e);
+    }
     return false;
   }
 
@@ -460,7 +463,9 @@ abstract class _IllustStoreBase with Store {
           await downloadStore.updateIllustBookmark(illusts!.id, bookmark ?? 1);
         }
         return true;
-      } catch (e) {}
+      } catch (e) {
+        Log.e('Failed to star', error: e);
+      }
     } else {
       try {
         await apiClient.postUnLikeIllust(illusts!.id);
@@ -472,7 +477,9 @@ abstract class _IllustStoreBase with Store {
           await downloadStore.updateIllustBookmark(illusts!.id, 0);
         }
         return false;
-      } catch (e) {}
+      } catch (e) {
+        Log.e('Failed to unstar', error: e);
+      }
     }
     state = illusts!.isBookmarked ? 2 : 0;
     return illusts!.isBookmarked;
