@@ -80,6 +80,7 @@ class _NetworkPageState extends State<NetworkPage> {
     final controller = TextEditingController();
     final result = await showDialog<String>(
       context: context,
+      useRootNavigator: false,
       builder: (ctx) => AlertDialog(
         title: Text('添加自定义 IP: $host'),
         content: TextField(
@@ -214,6 +215,7 @@ class _NetworkPageState extends State<NetworkPage> {
     if (value) {
       final result = await showDialog(
         context: context,
+        useRootNavigator: false,
         builder: (_) => AlertDialog(
           title: Text(I18n.of(context).please_note_that),
           content: Text(I18n.of(context).please_note_that_content),
