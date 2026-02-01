@@ -18,6 +18,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:pixez/component/pixiv_image.dart';
+import 'package:pixez/constants.dart';
 import 'package:pixez/i18n.dart';
 import 'package:pixez/models/illust_persist.dart';
 import 'package:pixez/page/history/history_store.dart';
@@ -114,7 +115,10 @@ class HistoryPage extends HookConsumerWidget {
                       illust.pictureUrl,
                       fit: BoxFit.cover,
                       // 通过 header 传递 illustId，让 PixivCacheManager 识别封面请求并优先使用本地已下载的封面
-                      httpHeaders: {'cover': '${illust.illustId}'},
+                      httpHeaders: {
+                        'cover': '${illust.illustId}',
+                        'quality': Constants.qualitySquareMedium
+                      },
                     ),
                   ),
                 ),
