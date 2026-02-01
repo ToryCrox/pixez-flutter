@@ -1,6 +1,7 @@
 
 import 'dart:io';
 import 'package:open_file/open_file.dart';
+import 'package:pixez/custom/log.dart';
 
 class FileUtils {
   /// 打开文件或文件夹
@@ -11,18 +12,22 @@ class FileUtils {
   static Future<void> openFileOrDirectory(String path) async {
     if (Platform.isWindows) {
       final type = await FileSystemEntity.type(path);
+      Log.d(() => 'openFileOrDirectory: $path, type: $type');
       if (type == FileSystemEntityType.directory) {
         // 使用 powershell 的 Start-Process。
         // 它与 cmd 的 start 命令行为一致（通过 ShellExecute 唤起），能支持三方文件管理器。
         // 同时 powershell 是原生 Unicode 环境，不会截断 ④ 等特殊字符。
         // 我们需要对路径中的单引号进行转义，防止 powershell 语法错误。
         final escapedPath = path.replaceAll("'", "''");
-        await Process.run('powershell', [
+        final result = await Process.run('powershell', [
           '-NoProfile',
           '-Command',
           "Start-Process -FilePath '$escapedPath'"
         ]);
+        Log.d(() => 'openFileOrDirectory result: ${result.exitCode}, ${result.stdout}, ${result.stderr}');
         return;
+      } else {
+        Log.w(() => 'openFileOrDirectory not directory: $path, type: $type');
       }
     }
     // 其他情况（非 Windows，或 Windows 下的文件）使用 open_file
