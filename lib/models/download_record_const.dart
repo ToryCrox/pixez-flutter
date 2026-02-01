@@ -282,7 +282,12 @@ class DownloadedIllust {
     return data;
   }
 
+  // 缓存 Illusts 对象，避免重复解析
+  Illusts? _illustsCache;
+
   Illusts toIllusts() {
+    if (_illustsCache != null) return _illustsCache!;
+
     // 使用 TypeUtil.parseMap 安全地将字符串转换为 Map（先解压 URL 前缀）
     final json = TypeUtil.parseMap(PixivUrlUtil.decompressPxUrl(_illustJson));
 
@@ -301,7 +306,7 @@ class DownloadedIllust {
 
     // 使用 copyWith 从表字段赋值，避免硬编码 map 字段
     // metaPages 和 metaSinglePage 从 baseIllusts 保留（它们已经保存在 illustJson 中）
-    return baseIllusts.copyWith(
+    _illustsCache = baseIllusts.copyWith(
       id: illustId,
       title: title,
       type: type,
@@ -322,6 +327,7 @@ class DownloadedIllust {
       ),
       isBookmarked: bookmark > 0, 
     );
+    return _illustsCache!;
   }
 
   List<Tags> getTagsList() {
