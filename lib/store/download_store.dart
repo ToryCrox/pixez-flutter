@@ -1739,6 +1739,7 @@ abstract class _DownloadStoreBase with Store {
       if (size != null) {
         imageWidth = size.width.toInt();
         imageHeight = size.height.toInt();
+        Log.d(() => '解析图片宽高成功: $filePath, $size');
       }
     } catch (e) {
       Log.e('解析图片宽高失败: $filePath, $e');
