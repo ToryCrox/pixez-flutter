@@ -548,7 +548,7 @@ class _IllustDownloadButtonState extends State<IllustDownloadButton> {
       return;
     }
     try {
-      final dirPath = downloadStore.getIllustDownloadDirectory(widget.illusts);
+      final dirPath = await downloadStore.getIllustDownloadDirectory(widget.illusts);
       if (dirPath != null) {
         await FileUtils.openFileOrDirectory(dirPath);
       }

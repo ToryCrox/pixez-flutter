@@ -410,7 +410,7 @@ class _IllustCardState extends State<IllustCard> {
       return;
     }
     try {
-      final dirPath = downloadStore.getIllustDownloadDirectory(store.illusts!);
+      final dirPath = await downloadStore.getIllustDownloadDirectory(store.illusts!);
       if (dirPath != null) {
         await FileUtils.openFileOrDirectory(dirPath);
       }

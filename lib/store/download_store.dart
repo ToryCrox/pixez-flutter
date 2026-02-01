@@ -939,11 +939,12 @@ abstract class _DownloadStoreBase with Store {
         illustIds.add(task.illusts.id);
         illustsToInsert.add(DownloadedIllust.fromIllusts(
           task.illusts,
-          DownloadDatabaseProvider.buildRelativePath(task.illusts),
+          await _dbProvider.resolveRelativePath(task.illusts),
           bookmark: task.bookmark,
         ));
       }
     }
+  
 
     // 批量检查并插入 illust（使用批量操作优化性能）
     await _dbProvider.batchInsertIllustsIfNotExists(illustsToInsert);
@@ -1872,11 +1873,11 @@ abstract class _DownloadStoreBase with Store {
 
 
   /// 获取插画的下载目录路径（从 Illusts 对象构建）
-  String? getIllustDownloadDirectory(Illusts illusts) {
+  Future<String?> getIllustDownloadDirectory(Illusts illusts) async {
     if (!isInitialized) {
       return null;
     }
-    final relativePath = DownloadDatabaseProvider.buildRelativePath(illusts);
+    final relativePath = await _dbProvider.resolveRelativePath(illusts);
     return _dbProvider.getIllustAbsolutePath(relativePath);
   }
 
@@ -1904,7 +1905,7 @@ abstract class _DownloadStoreBase with Store {
 
   /// 检查插画的下载目录是否存在
   Future<bool> isIllustDirectoryExists(Illusts illusts) async {
-    final dirPath = getIllustDownloadDirectory(illusts);
+    final dirPath = await getIllustDownloadDirectory(illusts);
     if (dirPath == null) {
       return false;
     }

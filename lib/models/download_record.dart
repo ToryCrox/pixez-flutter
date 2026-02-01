@@ -1653,12 +1653,12 @@ class DownloadDatabaseProvider {
 
 
   /// 生成作者目录名
-  static String buildUserDirName(String userName, int userId) {
+  static String _buildUserDirName(String userName, int userId) {
     return '[${userName.toLegal()}][$userId]';
   }
 
   /// 生成作品目录名
-  static String buildIllustDirName(int illustId, String title) {
+  static String _buildIllustDirName(int illustId, String title) {
     return '[$illustId]${title.toLegal()}';
   }
 
@@ -1667,12 +1667,6 @@ class DownloadDatabaseProvider {
     return '${illustId}_p$part';
   }
 
-  /// 生成相对路径
-  static String buildRelativePath(Illusts illusts) {
-    final userDir = buildUserDirName(illusts.user.name, illusts.user.id);
-    final illustDir = buildIllustDirName(illusts.id, illusts.title);
-    return path.join(userDir, illustDir);
-  }
 
   /// 智能解析相对路径（处理改名情况）
   /// 优先使用数据库或磁盘中已存在的路径
@@ -1720,7 +1714,7 @@ class DownloadDatabaseProvider {
       }
     }
 
-    final illustDir = foundIllustDirName ?? buildIllustDirName(illustId, illusts.title);
+    final illustDir = foundIllustDirName ?? _buildIllustDirName(illustId, illusts.title);
     final relativePath = path.join(authorDir, illustDir);
     
     // 写入缓存
@@ -1779,7 +1773,7 @@ class DownloadDatabaseProvider {
     }
 
     // 如果还没找到作者目录，使用默认生成规则
-    final authorDir = foundAuthorDirName ?? buildUserDirName(userName, userId);
+    final authorDir = foundAuthorDirName ?? _buildUserDirName(userName, userId);
 
     // 写入缓存
     _authorDirCache[userId] = authorDir;
