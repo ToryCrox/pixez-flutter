@@ -285,7 +285,7 @@ class DownloadedAuthorCard extends StatelessWidget {
       return;
     }
     try {
-      final dirPath = downloadStore.getAuthorDirectoryPath(author);
+      final dirPath = await downloadStore.getAuthorDirectoryPath(author);
       
       if (dirPath == null) {
         BotToast.showText(text: '无法获取下载目录');

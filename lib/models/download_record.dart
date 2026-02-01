@@ -43,6 +43,12 @@ class DownloadDatabaseProvider {
 
   /// Tag变更事件流
   final _tagChangesController = StreamController<List<TagChangeEvent>>.broadcast();
+
+  // 缓存：作品 ID -> 相对路径
+  final Map<int, String> _illustRelPathCache = {};
+  // 缓存：作者 ID -> 作者目录名
+  final Map<int, String> _authorDirCache = {};
+
   Stream<List<TagChangeEvent>> get tagChanges => _tagChangesController.stream;
 
   String get downloadPath => _downloadPath ?? '';
@@ -1667,6 +1673,119 @@ class DownloadDatabaseProvider {
     final illustDir = buildIllustDirName(illusts.id, illusts.title);
     return path.join(userDir, illustDir);
   }
+
+  /// 智能解析相对路径（处理改名情况）
+  /// 优先使用数据库或磁盘中已存在的路径
+  Future<String> resolveRelativePath(Illusts illusts) async {
+    final illustId = illusts.id;
+    final userId = illusts.user.id;
+
+    // 1. 检查缓存
+    if (_illustRelPathCache.containsKey(illustId)) {
+      return _illustRelPathCache[illustId]!;
+    }
+
+    // 2. 检查当前作品是否已在数据库中
+    final existingIllust = await getIllustByIllustId(illustId);
+    if (existingIllust != null) {
+      final path = existingIllust.relativePath;
+      _illustRelPathCache[illustId] = path;
+      return path;
+    }
+
+    // 3. 获取作者目录（复用逻辑）
+    final authorDir = await resolveAuthorDirectoryPath(userId, illusts.user.name);
+
+    // 4. 在作者目录下查找作品目录（处理作品改标题情况）
+    // 只有当作者目录确实存在（无论是找到的还是新建的，但如果是新建的肯定没有子目录，所以只需在找到各种情况下搜索）
+    String? foundIllustDirName;
+    if (_downloadPath != null) {
+      final absoluteAuthorDir = Directory(path.join(_downloadPath!, authorDir));
+      if (await absoluteAuthorDir.exists()) {
+        try {
+          // 扫描匹配 [illustId]* 的目录
+          final entities = absoluteAuthorDir.list(followLinks: false);
+          await for (final entity in entities) {
+            if (entity is Directory) {
+              final name = path.basename(entity.path);
+              if (name.startsWith('[$illustId]')) {
+                foundIllustDirName = name;
+                break;
+              }
+            }
+          }
+        } catch (e) {
+          Log.e('扫描作品目录失败: $e');
+        }
+      }
+    }
+
+    final illustDir = foundIllustDirName ?? buildIllustDirName(illustId, illusts.title);
+    final relativePath = path.join(authorDir, illustDir);
+    
+    // 写入缓存
+    _illustRelPathCache[illustId] = relativePath;
+    return relativePath;
+  }
+
+  /// 智能解析作者目录路径（处理改名情况）
+  Future<String> resolveAuthorDirectoryPath(int userId, String userName) async {
+    // 1. 检查缓存
+    if (_authorDirCache.containsKey(userId)) {
+      return _authorDirCache[userId]!;
+    }
+
+    // 2. 检查数据库中是否有同作者的其他作品（快速获取作者目录）
+    final sameAuthorIllusts = await db.query(
+      DownloadedIllustColumns.tableName,
+      columns: [DownloadedIllustColumns.relativePath],
+      where: '${DownloadedIllustColumns.userId} = ?',
+      whereArgs: [userId],
+      limit: 1,
+    );
+
+    String? foundAuthorDirName;
+
+    if (sameAuthorIllusts.isNotEmpty) {
+      final relativePath = sameAuthorIllusts.first[DownloadedIllustColumns.relativePath] as String;
+      // relativePath 格式通常为: AuthorDir/IllustDir 或 AuthorDir\IllustDir
+      // 使用正则同时匹配 / 和 \ 以兼容跨平台数据库
+      final parts = relativePath.split(RegExp(r'[/\\]'));
+      if (parts.isNotEmpty) {
+        foundAuthorDirName = parts.first;
+      }
+    }
+
+    // 3. 如果数据库没找到作者目录，尝试扫描文件系统
+    if (foundAuthorDirName == null && _downloadPath != null) {
+      final downloadDir = Directory(_downloadPath!);
+      if (await downloadDir.exists()) {
+        try {
+          // 扫描匹配 *[userId] 的目录
+          final entities = downloadDir.list(followLinks: false);
+          await for (final entity in entities) {
+            if (entity is Directory) {
+              final name = path.basename(entity.path);
+              if (name.endsWith('[$userId]')) {
+                foundAuthorDirName = name;
+                break;
+              }
+            }
+          }
+        } catch (e) {
+          Log.e('扫描作者目录失败: $e');
+        }
+      }
+    }
+
+    // 如果还没找到作者目录，使用默认生成规则
+    final authorDir = foundAuthorDirName ?? buildUserDirName(userName, userId);
+
+    // 写入缓存
+    _authorDirCache[userId] = authorDir;
+    return authorDir;
+  }
+
 
   /// 根据相对路径获取插画目录的绝对路径
   String getIllustAbsolutePath(String relativePath) {

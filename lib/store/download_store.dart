@@ -815,10 +815,10 @@ abstract class _DownloadStoreBase with Store {
     await _addDownloadTask(task);
   }
 
-  String _getDownloadTaskFileName(DownloadTask task) {
+  Future<String> _getDownloadTaskFileName(DownloadTask task) async {
     final illusts = task.illusts;
     final part = task.part;
-    final relativePath = DownloadDatabaseProvider.buildRelativePath(illusts);
+    final relativePath = await _dbProvider.resolveRelativePath(illusts);
     final fileName = DownloadDatabaseProvider.buildFileName(illusts.id, part);
     final extension = path.extension(task.url);
     return _dbProvider.getAbsolutePath(relativePath, '$fileName$extension');
@@ -1125,7 +1125,8 @@ abstract class _DownloadStoreBase with Store {
 
   /// 下载普通图片
   Future<void> _downloadNormalImage(DownloadTask task) async {
-    final targetPath = _getDownloadTaskFileName(task);
+
+    final targetPath = await _getDownloadTaskFileName(task);
     final targetFile = File(targetPath);
     final targetDir = targetFile.parent;
 
@@ -1187,7 +1188,7 @@ abstract class _DownloadStoreBase with Store {
       final tempFrameFiles = result.frameFiles;
 
       // 2. 移动帧图片到目标目录
-      final relativePath = DownloadDatabaseProvider.buildRelativePath(illusts);
+      final relativePath = await _dbProvider.resolveRelativePath(illusts);
       final targetDir = Directory(_dbProvider.getUgoiraFrameDirPath(relativePath));
       if (!await targetDir.exists()) {
         await targetDir.create(recursive: true);
@@ -1246,7 +1247,7 @@ abstract class _DownloadStoreBase with Store {
     String previewUrl, {
     int bookmark = 0,
   }) async {
-    final relativePath = DownloadDatabaseProvider.buildRelativePath(illusts);
+    final relativePath = await _dbProvider.resolveRelativePath(illusts);
 
     // 1. 插入插画记录（包含完整 UgoiraMetadata）
     final metadataJson = PixivUrlUtil.compressPxUrl(
@@ -1465,7 +1466,7 @@ abstract class _DownloadStoreBase with Store {
     if (existingIllust == null) {
       // 插画不存在，插入数据库
       final downloadedIllust = DownloadedIllust.fromIllusts(
-          illusts, DownloadDatabaseProvider.buildRelativePath(illusts), bookmark: bookmark);
+          illusts, await _dbProvider.resolveRelativePath(illusts), bookmark: bookmark);
       await _dbProvider.insertIllust(downloadedIllust);
     }
   }
@@ -1867,13 +1868,13 @@ abstract class _DownloadStoreBase with Store {
 
   /// 获取作者的下载目录路径
   /// 路径格式：downloadPath/[userName][userId]
-  String? getAuthorDirectoryPath(DownloadedAuthor author) {
+  Future<String?> getAuthorDirectoryPath(DownloadedAuthor author) async {
     if (!isInitialized) {
       return null;
     }
-    final userDirName = DownloadDatabaseProvider.buildUserDirName(
-      author.userName,
+    final userDirName = await _dbProvider.resolveAuthorDirectoryPath(
       author.userId,
+      author.userName,
     );
     return path.join(_dbProvider.downloadPath, userDirName);
   }
