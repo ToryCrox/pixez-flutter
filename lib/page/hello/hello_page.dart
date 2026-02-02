@@ -43,6 +43,7 @@ import 'package:pixez/page/preview/preview_page.dart';
 import 'package:pixez/page/search/search_page.dart';
 import 'package:pixez/custom/log.dart';
 import 'package:pixez/page/downloaded/tag_manager/tag_manager_page.dart';
+import 'package:pixez/page/hello/component/side_rail.dart';
 
 /// InheritedWidget 用于传递宽屏状态和右侧 Navigator
 class WideScreenNavigator extends InheritedWidget {
@@ -174,7 +175,53 @@ class _HelloPageState extends State<HelloPage> {
           body: Builder(
             builder: (context) => Row(
               children: <Widget>[
-                if (wide) ..._buildRail(context),
+                if (wide) ...[
+                  SideRail(
+                    width: 36,
+                    selectedIndex: index,
+                    onDestinationSelected: (int index) {
+                      // 如果右侧 Navigator 有子页面，先清除栈回到主页面
+                      if (_contentNavigatorKey.currentState != null) {
+                        _contentNavigatorKey.currentState!
+                            .popUntil((route) => route.isFirst);
+                      }
+                      _pageController.jumpToPage(index);
+
+                      setState(() {
+                        this.index = index;
+                      });
+                    },
+                    destinations: <NavigationRailDestination>[
+                      NavigationRailDestination(
+                          icon: Icon(Icons.home),
+                          label: Text(I18n.of(context).home)),
+                      NavigationRailDestination(
+                          icon: Icon(Icons.leaderboard),
+                          label: Text(I18n.of(context).rank)),
+                      NavigationRailDestination(
+                          icon: Icon(Icons.favorite),
+                          label: Text(I18n.of(context).quick_view)),
+                      NavigationRailDestination(
+                          icon: Icon(Icons.search),
+                          label: Text(I18n.of(context).search)),
+                      NavigationRailDestination(
+                          icon: Icon(Icons.more_horiz),
+                          label: Text(I18n.of(context).more)),
+                      NavigationRailDestination(
+                          icon: Icon(Icons.download), label: Text('下载')),
+                      NavigationRailDestination(
+                        icon: Icon(Icons.person),
+                        label: Text('作者'),
+                      ),
+                      NavigationRailDestination(
+                        icon: Icon(Icons.label),
+                        label: Text('标签管理'),
+                      )
+                    ],
+                    trailing: _buildTrailing(context),
+                  ),
+                  const VerticalDivider(thickness: 1, width: 1),
+                ],
                 Expanded(
                   child: _buildPageView(context, wide),
                 ),
@@ -199,137 +246,81 @@ class _HelloPageState extends State<HelloPage> {
     });
   }
 
-  List<Widget> _buildRail(BuildContext context) {
-    return [
-      Stack(
+  Widget _buildTrailing(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+          left: MediaQuery.of(context).padding.left,
+          bottom: MediaQuery.of(context).padding.bottom + 4.0),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          NavigationRail(
-            selectedIndex: index,
-            minWidth: 48,
-            labelType: NavigationRailLabelType.all,
-            onDestinationSelected: (int index) {
-              // 如果右侧 Navigator 有子页面，先清除栈回到主页面
-              if (_contentNavigatorKey.currentState != null) {
-                _contentNavigatorKey.currentState!
-                    .popUntil((route) => route.isFirst);
+          // 历史记录按钮
+          IconButton(
+            icon: Icon(Icons.history),
+            tooltip: I18n.of(context).history,
+            onPressed: () {
+              // 在宽屏模式下使用右侧导航器
+              final wideScreenNav = WideScreenNavigator.of(context);
+              if (wideScreenNav != null &&
+                  wideScreenNav.isWideScreen &&
+                  wideScreenNav.contentNavigatorKey != null) {
+                wideScreenNav.contentNavigatorKey!.currentState?.push(
+                  MaterialPageRoute(
+                    builder: (context) => HistoryPage(),
+                  ),
+                );
+              } else {
+                Leader.push(context, HistoryPage());
               }
-              _pageController.jumpToPage(index);
-
-              setState(() {
-                this.index = index;
-              });
             },
-            destinations: <NavigationRailDestination>[
-              NavigationRailDestination(
-                  icon: Icon(Icons.home), label: Text(I18n.of(context).home)),
-              NavigationRailDestination(
-                  icon: Icon(Icons.leaderboard),
-                  label: Text(I18n.of(context).rank)),
-              NavigationRailDestination(
-                  icon: Icon(Icons.favorite),
-                  label: Text(I18n.of(context).quick_view)),
-              NavigationRailDestination(
-                  icon: Icon(Icons.search),
-                  label: Text(I18n.of(context).search)),
-              NavigationRailDestination(
-                  icon: Icon(Icons.more_horiz),
-                  label: Text(I18n.of(context).more)),
-              NavigationRailDestination(
-                  icon: Icon(Icons.download), label: Text('下载')),
-              NavigationRailDestination(
-                icon: Icon(Icons.person),
-                label: Text('作者'),
-              ),
-              NavigationRailDestination(
-                icon: Icon(Icons.label),
-                label: Text('标签管理'),
-              )
-            ],
           ),
-          Positioned(
-            left: 0.0,
-            right: 0.0,
-            bottom: 0.0,
-            child: Padding(
-              padding: EdgeInsets.only(
-                  left: MediaQuery.of(context).padding.left,
-                  bottom: MediaQuery.of(context).padding.bottom + 4.0),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // 历史记录按钮
-                  IconButton(
-                    icon: Icon(Icons.history),
-                    tooltip: I18n.of(context).history,
-                    onPressed: () {
-                      // 在宽屏模式下使用右侧导航器
-                      final wideScreenNav = WideScreenNavigator.of(context);
-                      if (wideScreenNav != null &&
-                          wideScreenNav.isWideScreen &&
-                          wideScreenNav.contentNavigatorKey != null) {
-                        wideScreenNav.contentNavigatorKey!.currentState?.push(
-                          MaterialPageRoute(
-                            builder: (context) => HistoryPage(),
-                          ),
-                        );
-                      } else {
-                        Leader.push(context, HistoryPage());
-                      }
-                    },
-                  ),
-                  // 主题设置按钮
-                  IconButton(
-                    icon: Icon(Icons.palette),
-                    tooltip: '主题设置',
-                    onPressed: () async {
-                      await showDialog(
-                        context: context,
-                        builder: (context) {
-                          return Dialog(
-                            child: ConstrainedBox(
-                              constraints: BoxConstraints(
-                                maxWidth: 400,
-                                maxHeight:
-                                    MediaQuery.of(context).size.height * 0.6,
-                              ),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(16),
-                                child: ThemePage(),
-                              ),
-                            ),
-                          );
-                        },
-                      );
-                    },
-                  ),
-                  SizedBox(height: 8),
-                  // 用户头像
-                  Container(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: Theme.of(context).colorScheme.primary,
-                        width: 2,
+          // 主题设置按钮
+          IconButton(
+            icon: Icon(Icons.palette),
+            tooltip: '主题设置',
+            onPressed: () async {
+              await showDialog(
+                context: context,
+                builder: (context) {
+                  return Dialog(
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxWidth: 400,
+                        maxHeight: MediaQuery.of(context).size.height * 0.6,
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: ThemePage(),
                       ),
                     ),
-                    child: SizedBox(
-                      width: 40,
-                      height: 40,
-                      child: accountStore.now != null
-                          ? PainterAvatar(
-                              url: accountStore.now!.userImage,
-                              id: int.tryParse(accountStore.now!.userId) ?? 0)
-                          : Container(),
-                    ),
-                  ),
-                ],
+                  );
+                },
+              );
+            },
+          ),
+          SizedBox(height: 8),
+          // 用户头像
+          Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: Theme.of(context).colorScheme.primary,
+                width: 2,
               ),
+            ),
+            child: SizedBox(
+              width: 40,
+              height: 40,
+              child: accountStore.now != null
+                  ? PainterAvatar(
+                      url: accountStore.now!.userImage,
+                      id: int.tryParse(accountStore.now!.userId) ?? 0)
+                  : Container(),
             ),
           ),
         ],
       ),
-      const VerticalDivider(thickness: 1, width: 1),
-    ];
+    );
   }
 
   Widget _buildNavigationBar(BuildContext context) {
