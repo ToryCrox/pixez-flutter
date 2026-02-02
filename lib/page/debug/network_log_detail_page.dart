@@ -120,7 +120,7 @@ class _NetworkLogDetailPageState extends State<NetworkLogDetailPage> {
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.bold,
-              color: Theme.of(context).primaryColor,
+              color: Theme.of(context).colorScheme.primary,
             ),
           ),
         ),
