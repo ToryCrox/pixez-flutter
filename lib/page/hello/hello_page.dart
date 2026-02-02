@@ -281,20 +281,25 @@ class _HelloPageState extends State<HelloPage> {
                   IconButton(
                     icon: Icon(Icons.palette),
                     tooltip: '主题设置',
-                    onPressed: () {
-                      // 在宽屏模式下使用右侧导航器
-                      final wideScreenNav = WideScreenNavigator.of(context);
-                      if (wideScreenNav != null &&
-                          wideScreenNav.isWideScreen &&
-                          wideScreenNav.contentNavigatorKey != null) {
-                        wideScreenNav.contentNavigatorKey!.currentState?.push(
-                          MaterialPageRoute(
-                            builder: (context) => ThemePage(),
-                          ),
-                        );
-                      } else {
-                        Leader.push(context, ThemePage());
-                      }
+                    onPressed: () async {
+                      await showDialog(
+                        context: context,
+                        builder: (context) {
+                          return Dialog(
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                maxWidth: 400,
+                                maxHeight:
+                                    MediaQuery.of(context).size.height * 0.6,
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(16),
+                                child: ThemePage(),
+                              ),
+                            ),
+                          );
+                        },
+                      );
                     },
                   ),
                   SizedBox(height: 8),
