@@ -441,7 +441,7 @@ Future<void> initWindows(List<String> args) async {
     await windowManager.focus();
     
     if (Platform.isWindows) {
-      WindowPlacement.loop();
+      WindowPlacement.init();
     }
   });
 }

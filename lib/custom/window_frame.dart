@@ -741,7 +741,7 @@ Paint getPaint(Color color, [bool isAntiAlias = false]) => Paint()
   ..isAntiAlias = isAntiAlias
   ..strokeWidth = 1;
 
-class WindowPlacement {
+class WindowPlacement with WindowListener {
   final Rect rect;
 
   final bool isMaximized;
@@ -769,19 +769,15 @@ class WindowPlacement {
   }
 
   Future<void> applyToWindow() async {
-    Log.d('WindowPlacement.applyToWindow: isMaximized=$isMaximized');
+    Log.d('WindowPlacement.applyToWindow: rect=$rect, isMaximized=$isMaximized');
     
-    if (isMaximized) {
-      // 如果是最大化状态，先设置 bounds（用于取消最大化后的位置）
-      // 但不执行验证和居中，直接最大化
-      await windowManager.setBounds(rect);
-      await windowManager.maximize();
-    } else {
-      // 普通窗口：设置 bounds 并验证位置
-      await windowManager.setBounds(rect);
-      if (!validate(rect)) {
-        await windowManager.center();
-      }
+    // 强制不应用最大化状态，不论上次关闭时是否记录为最大化
+    // 1. 设置 bounds
+    await windowManager.setBounds(rect);
+    
+    // 2. 验证位置，如果不合法（如在屏幕外）则居中
+    if (!validate(rect)) {
+      await windowManager.center();
     }
   }
 
@@ -829,9 +825,18 @@ class WindowPlacement {
   // }
 
   static Future<WindowPlacement> get current async {
-    var rect = await windowManager.getBounds();
-    var isMaximized = await windowManager.isMaximized();
-    return WindowPlacement(rect, isMaximized);
+    bool maximized = await windowManager.isMaximized();
+    bool minimized = await windowManager.isMinimized();
+    
+    Rect bounds;
+    if (maximized || minimized) {
+      // 如果是最大化或最小化，我们希望保存的是还原后的尺寸
+      bounds = cache.rect;
+    } else {
+      bounds = await windowManager.getBounds();
+    }
+    
+    return WindowPlacement(bounds, maximized);
   }
 
   static const defaultPlacement =
@@ -839,39 +844,67 @@ class WindowPlacement {
 
   static WindowPlacement cache = defaultPlacement;
 
-  static Timer? timer;
+  // WindowListener 实现
+  static final WindowPlacement instance = WindowPlacement(defaultPlacement.rect, false);
 
-  static void loop() async {
-    timer ??= Timer.periodic(const Duration(milliseconds: 500), (timer) async {
-      var placement = await WindowPlacement.current;
-      
-      // 最大化窗口的 rect 可能有负值（如 Offset(-8, -8)），这是正常的
-      // 只有普通窗口才需要验证位置
-      // windowManager 有时会返回异常值（如 -18285），这些会被 validate 过滤掉
-      if (!placement.isMaximized && !validate(placement.rect)) {
-        return;
-      }
-      
-      if (placement.rect != cache.rect ||
-          placement.isMaximized != cache.isMaximized) {
-        cache = placement;
-        await placement.writeToFile();
-      }
-    });
+  static void init() {
+    windowManager.addListener(instance);
+  }
+
+  @override
+  void onWindowResized() async {
+    await _updateAndSave();
+  }
+
+  @override
+  void onWindowMoved() async {
+    await _updateAndSave();
+  }
+
+  @override
+  void onWindowMaximize() async {
+    await _updateAndSave();
+  }
+
+  @override
+  void onWindowUnmaximize() async {
+    await _updateAndSave();
+  }
+
+  static Future<void> _updateAndSave() async {
+    bool maximized = await windowManager.isMaximized();
+    bool minimized = await windowManager.isMinimized();
+    
+    if (minimized) return; // 最小化时通常不记录
+
+    Rect bounds;
+    if (maximized) {
+      // 最大化时，保持之前的 rect（即还原后的大小）
+      bounds = cache.rect;
+    } else {
+      bounds = await windowManager.getBounds();
+    }
+
+    if (!maximized && !validate(bounds)) {
+      return;
+    }
+
+    if (bounds != cache.rect || maximized != cache.isMaximized) {
+      cache = WindowPlacement(bounds, maximized);
+      await cache.writeToFile();
+    }
   }
 
   static bool validate(Rect rect) {
     // 检查坐标是否在合理范围内
-    // 某些情况下 windowManager 会返回异常的超大负值（如 -18285）
     const maxCoordinate = 10000.0;
-    return rect.topLeft.dx >= 0 && 
-           rect.topLeft.dy >= 0 &&
-           rect.topLeft.dx.abs() < maxCoordinate &&
-           rect.topLeft.dy.abs() < maxCoordinate &&
-           rect.width > 0 &&
-           rect.height > 0 &&
+    // 只要宽度和高度大于 0 且在合理范围内即可，topLeft 负值在多显示器环境下可能是正常的
+    return rect.width > 100 &&
+           rect.height > 100 &&
            rect.width < maxCoordinate &&
-           rect.height < maxCoordinate;
+           rect.height < maxCoordinate &&
+           rect.left.abs() < maxCoordinate &&
+           rect.top.abs() < maxCoordinate;
   }
 }
 

@@ -72,7 +72,7 @@ dependencies:
 
   # Desktop Support
   flutter_acrylic: ^1.1.4
-  window_manager: ^0.4.3
+  window_manager: ^0.5.1
   rhttp: ^0.13.0
   dio_compatibility_layer: ^0.1.0
   flutter_cache_manager_dio: ^4.0.0
