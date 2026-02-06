@@ -47,6 +47,8 @@ class CommentPage extends StatefulWidget {
   final CommentArtWorkType type;
   final VoidCallback? onBack;
 
+  final bool embedded;
+
   const CommentPage(
       {Key? key,
       required this.id,
@@ -54,7 +56,8 @@ class CommentPage extends StatefulWidget {
       this.pId,
       this.name,
       this.type = CommentArtWorkType.ILLUST,
-      this.onBack})
+      this.onBack,
+      this.embedded = false})
       : super(key: key);
 
   @override
@@ -68,6 +71,10 @@ class _CommentPageState extends State<CommentPage> {
   late EasyRefreshController easyRefreshController;
   late CommentStore _store;
   String _commentText = "";
+  
+  // Overlay state for embedded mode
+  Widget? _overlayPage;
+  bool _showOverlay = false;
 
   List<String> banList = [
     "bb8.news",
@@ -158,10 +165,46 @@ class _CommentPageState extends State<CommentPage> {
     return false;
   }
 
+  void _onViewReplies(Comment comment) {
+    if (widget.embedded) {
+      setState(() {
+        _overlayPage = CommentPage(
+          id: widget.id,
+          isReplay: true,
+          pId: comment.id!,
+          type: widget.type,
+          name: comment.user!.name,
+          embedded: true,
+          onBack: () {
+            setState(() {
+              _showOverlay = false;
+            });
+          },
+        );
+        _showOverlay = true; 
+      });
+
+      // Ensure animation trigger
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => _showOverlay = true);
+      });
+    } else {
+      Leader.push(
+          context,
+          CommentPage(
+            id: widget.id,
+            isReplay: true,
+            pId: comment.id!,
+            type: widget.type,
+            name: comment.user!.name,
+          ));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Listener(
-      child: _buildBody(context),
+      child: _buildStackBody(context),
       behavior: HitTestBehavior.translucent,
       onPointerDown: (value) {
         if (_focusNode.hasFocus) _focusNode.unfocus();
@@ -171,15 +214,47 @@ class _CommentPageState extends State<CommentPage> {
       },
     );
   }
+  
+  Widget _buildStackBody(BuildContext context) {
+      return Stack(
+          children: [
+              _buildBody(context),
+               if (widget.embedded)
+                AnimatedPositioned(
+                    duration: Duration(milliseconds: 300),
+                    curve: Curves.easeInOut,
+                    top: 0,
+                    bottom: 0,
+                    right: _showOverlay ? 0 : -MediaQuery.of(context).size.width,
+                    // Use a sufficiently large width or layout builder if needed, 
+                    // but usually in sidebar it's constrained by parent.
+                    // However, Positioned needs specific left/right/width.
+                    // To act as an overlay, we can anchor left and right to 0 when showing.
+                    // But to slide in from right, we change 'right' and 'left'.
+                    // Simpler: use left: 0, right: 0 for fixed width scenarios, 
+                    // or slide entire thing.
+                    // Let's assume parent provides constraints.
+                    // We set 'left' and 'right' relative to parent stack.
+                    // When hidden: left: width, right: -width
+                    // When shown: left: 0, right: 0
+                    left: _showOverlay ? 0 : MediaQuery.of(context).size.width,
+                    child: Container(
+                        color: Theme.of(context).scaffoldBackgroundColor,
+                        child: _overlayPage ?? Container(),
+                    ),
+                ),
+          ],
+      );
+  }
 
   Container _buildBody(BuildContext context) {
     return Container(
       child: Scaffold(
         appBar: AppBar(
-          leading: widget.onBack != null
+          leading: (widget.onBack != null || widget.isReplay)
               ? IconButton(
                   icon: Icon(Icons.arrow_back),
-                  onPressed: widget.onBack,
+                  onPressed: widget.onBack ?? () => Navigator.of(context).pop(),
                 )
               : null,
           title: Text('${I18n.of(context).view_comment}'),
@@ -337,18 +412,7 @@ class _CommentPageState extends State<CommentPage> {
                                             child: ActionChip(
                                               label: Text(I18n.of(context)
                                                   .view_replies),
-                                              onPressed: () async {
-                                                Leader.push(
-                                                    context,
-                                                    CommentPage(
-                                                      id: widget.id,
-                                                      isReplay: true,
-                                                      pId: comment.id!,
-                                                      type: widget.type,
-                                                      name: comment
-                                                          .user!.name,
-                                                    ));
-                                              },
+                                              onPressed: () => _onViewReplies(comment),
                                             ),
                                           ),
                                         Padding(

@@ -497,9 +497,11 @@ class _IllustRowPageState extends State<IllustRowPage>
                   bottom: 0,
                   width: sidebarWidth,
                   child: Container(
-                    color: Theme.of(context).cardColor,
+                    decoration: BoxDecoration(color: Theme.of(context).cardColor),
+                    clipBehavior: Clip.hardEdge, // Ensure overlay doesn't bleed out
                     child: CommentPage(
                       id: data.id,
+                      embedded: true,
                       onBack: () {
                         setState(() {
                           _showComments = false;
