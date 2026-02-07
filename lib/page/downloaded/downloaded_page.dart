@@ -581,16 +581,40 @@ class _DownloadedPageState extends State<DownloadedPage> {
   // ============ 导航与操作 ============
 
   void _navigateToPictureList(DownloadedIllust illust) async {
+    final filteredList = _store.filteredIllusts;
+    final int index = filteredList.indexOf(illust);
+    if (index == -1) return;
+
+    // 限制前后总共最多200条数据
+    const int windowSize = 200;
+    int start = index - windowSize ~/ 2;
+    int end = start + windowSize;
+
+    if (start < 0) {
+      start = 0;
+      end = windowSize;
+    }
+
+    if (end > filteredList.length) {
+      end = filteredList.length;
+      start = end - windowSize;
+      if (start < 0) start = 0;
+    }
+
+    final subset = filteredList.sublist(start, end);
+
     final iStores =
-        _store.filteredIllusts.map((item) {
+        subset.map((item) {
           return IllustStore(item.illustId, item.toIllusts());
         }).toList();
 
-    final currentIndex = _store.filteredIllusts.indexOf(illust);
+    final currentIndex = subset.indexOf(illust);
     final currentStore = iStores[currentIndex];
 
     // 预加载首帧图片信息，避免详情页渲染时的尺寸跳动
     await currentStore.preloadFirstImage();
+
+    if (!context.mounted) return;
 
     Leader.push(
       context,
