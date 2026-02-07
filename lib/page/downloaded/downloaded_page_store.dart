@@ -146,6 +146,11 @@ abstract class _DownloadedPageStoreBase with Store {
   @readonly
   bool _showBookmarksOnly = false;
 
+  // ===== 刷新状态 =====
+
+  @readonly
+  bool _isRefreshing = false;
+
   @action
   void toggleShowBookmarksOnly() {
     _showBookmarksOnly = !_showBookmarksOnly;
@@ -659,9 +664,14 @@ abstract class _DownloadedPageStoreBase with Store {
   /// 刷新数据
   @action
   Future<void> refresh() async {
-    await loadData();
-    await loadStats();
-    easyRefreshController?.finishRefresh();
+    _isRefreshing = true;
+    try {
+      await loadData();
+      await loadStats();
+      easyRefreshController?.finishRefresh();
+    } finally {
+      _isRefreshing = false;
+    }
   }
 
   // ===== 多选模式 Actions =====

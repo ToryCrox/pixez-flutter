@@ -99,6 +99,11 @@ abstract class _DownloadedAuthorsPageStoreBase with Store {
   @readonly
   int _totalCount = 0;
 
+  // ===== 刷新状态 =====
+
+  @readonly
+  bool _isRefreshing = false;
+
   // ===== 初始化与销毁 =====
 
   @action
@@ -243,6 +248,18 @@ abstract class _DownloadedAuthorsPageStoreBase with Store {
     _page++;
     await loadData();
     easyRefreshController?.finishLoad(_hasMore ? IndicatorResult.success : IndicatorResult.noMore);
+  }
+
+  /// 刷新数据
+  @action
+  Future<void> refresh() async {
+    _isRefreshing = true;
+    try {
+      await loadData(refresh: true);
+      easyRefreshController?.finishRefresh();
+    } finally {
+      _isRefreshing = false;
+    }
   }
 
   @action

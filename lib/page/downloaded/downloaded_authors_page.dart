@@ -35,6 +35,7 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
   final DownloadedAuthorsPageStore _store = DownloadedAuthorsPageStore();
   late TextEditingController _searchController;
   late FocusNode _searchFocusNode;
+  ScrollController? _scrollController; // 滚动控制器
 
   @override
   void initState() {
@@ -78,7 +79,11 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
   Widget build(BuildContext context) {
     return Observer(
       builder: (context) {
-        return Scaffold(appBar: _buildAppBar(), body: _buildBody());
+        return Scaffold(
+          appBar: _buildAppBar(),
+          body: _buildBody(),
+          floatingActionButton: _buildFab(),
+        );
       },
     );
   }
@@ -246,7 +251,9 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
       header: PixezDefault.header(context),
       footer: PixezDefault.footer(context),
       childBuilder: (context, physics, scrollController) {
-        return CustomScrollView(
+      // 保存滚动控制器以便 FAB 使用
+      _scrollController = scrollController;
+      return CustomScrollView(
           physics: physics,
           controller: scrollController,
           slivers: [_buildSortHeader(), _buildList()],
@@ -379,6 +386,42 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
       gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
         maxCrossAxisExtent: 600,
         mainAxisExtent: 210,
+      ),
+    );
+  }
+
+  // ============ FAB 相关 ============
+
+  Widget _buildFab() {
+    return Observer(
+      builder: (_) => FloatingActionButton(
+        onPressed: _store.isRefreshing
+            ? null
+            : () async {
+                // 先滚动到顶部
+                if (_scrollController?.hasClients == true) {
+                  await _scrollController!.animateTo(
+                    0,
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeOut,
+                  );
+                }
+                // 然后刷新
+                _store.refresh();
+              },
+        tooltip: _store.isRefreshing ? '刷新中...' : '刷新数据',
+        child: _store.isRefreshing
+            ? SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    Theme.of(context).colorScheme.onPrimary,
+                  ),
+                ),
+              )
+            : Icon(Icons.refresh),
       ),
     );
   }
