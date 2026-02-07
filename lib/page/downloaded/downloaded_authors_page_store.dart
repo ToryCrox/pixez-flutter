@@ -177,17 +177,18 @@ abstract class _DownloadedAuthorsPageStoreBase with Store {
       final t1 = DateTime.now();
       List<DownloadedAuthor> authors;
       if (_showNonWebpOnly) {
-        // 获取所有有非 webp 图片的作者（不分页）
-        final allAuthors = await downloadStore.getDownloadedAuthors(
+        // 优化方案：分步查询 + 批量过滤
+        // 步骤1: 先快速查询有非 WebP 图片的作者 ID（只返回 ID，不加载完整数据）
+        final nonWebpAuthorIds = await downloadStore.dbProvider.getAuthorsWithNonWebpImages();
+        
+        // 步骤2: 使用 WHERE userId IN (...) 批量获取作者详情，应用排序和搜索条件
+        authors = await downloadStore.getDownloadedAuthors(
           sortBy: _getSortBy(),
           desc: _sortDesc,
           searchKeyword: _searchKeyword,
           filterBookmarks: _showBookmarksOnly,
+          filterUserIds: nonWebpAuthorIds.toList(),
         );
-        final authorIds = allAuthors.map((e) => e.userId).toList();
-        final nonWebpAuthorIds = await downloadStore.dbProvider.getAuthorsWithNonWebpImages(authorIds);
-        // 过滤出有非 webp 图片的作者，不分页，显示所有结果
-        authors = allAuthors.where((a) => nonWebpAuthorIds.contains(a.userId)).toList();
       } else {
         authors = await downloadStore.getDownloadedAuthors(
           sortBy: _getSortBy(),

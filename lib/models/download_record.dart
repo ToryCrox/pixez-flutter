@@ -1929,6 +1929,7 @@ class DownloadDatabaseProvider {
   /// 获取作者列表，支持排序和搜索
   /// sortBy: 'last_download_time', 'user_name', 'illust_count'
   /// searchKeyword: 搜索关键词，支持作者名模糊匹配和用户ID精确匹配
+  /// filterUserIds: 指定要查询的作者 ID 列表（用于批量过滤）
   Future<List<DownloadedAuthor>> getAuthorsWithStats({
     String sortBy = 'last_download_time',
     bool desc = true,
@@ -1936,6 +1937,7 @@ class DownloadDatabaseProvider {
     int? offset,
     String? searchKeyword,
     bool filterBookmarks = false,
+    List<int>? filterUserIds,
   }) async {
     String orderBy = '$sortBy ${desc ? 'DESC' : 'ASC'}';
     if (filterBookmarks) {
@@ -1949,6 +1951,13 @@ class DownloadDatabaseProvider {
     // 筛选收藏
     if (filterBookmarks) {
       whereConditions.add('${DownloadedAuthorColumns.bookmark} > 0');
+    }
+
+    // 批量过滤指定的作者 ID
+    if (filterUserIds != null && filterUserIds.isNotEmpty) {
+      final placeholders = List.filled(filterUserIds.length, '?').join(',');
+      whereConditions.add('${DownloadedAuthorColumns.userId} IN ($placeholders)');
+      whereArgs.addAll(filterUserIds);
     }
 
     // 搜索关键词
@@ -1980,26 +1989,36 @@ class DownloadDatabaseProvider {
   }
 
   /// 获取包含非 WebP 图片的作者 ID 集合
-  Future<Set<int>> getAuthorsWithNonWebpImages(List<int> userIds) async {
-    if (userIds.isEmpty) return {};
-
-    final placeholders = List.filled(userIds.length, '?').join(',');
+  /// [userIds] 可选参数，指定要查询的作者 ID 列表。为 null 时查询所有作者
+  Future<Set<int>> getAuthorsWithNonWebpImages([List<int>? userIds]) async {
+    // 构建 WHERE 条件
+    String whereClause;
+    List<dynamic> whereArgs;
+    
+    if (userIds != null && userIds.isNotEmpty) {
+      final placeholders = List.filled(userIds.length, '?').join(',');
+      whereClause = 'WHERE T1.${DownloadedIllustColumns.userId} IN ($placeholders)';
+      whereArgs = userIds;
+    } else {
+      // 查询所有作者
+      whereClause = 'WHERE 1=1';
+      whereArgs = [];
+    }
     
     // 查询条件：
-    // 1. 指定的作者列表
-    // 2. 图片后缀不是 .webp
-    // 3. 作品类型不是 ugoira (动图通常是 zip，单独处理)
-    // 4. part >= 0 (排除可能的特殊占位符)
+    // 1. 图片后缀不是 .webp
+    // 2. 作品类型不是 ugoira (动图通常是 zip，单独处理)
+    // 3. part >= 0 (排除可能的特殊占位符)
     final result = await db.rawQuery('''
       SELECT DISTINCT T1.${DownloadedIllustColumns.userId}
       FROM ${DownloadedIllustColumns.tableName} AS T1
       INNER JOIN ${DownloadedImageColumns.tableName} AS T2 
         ON T1.${DownloadedIllustColumns.illustId} = T2.${DownloadedImageColumns.illustId}
-      WHERE T1.${DownloadedIllustColumns.userId} IN ($placeholders)
+      $whereClause
         AND T2.${DownloadedImageColumns.extension} != '.webp'
         AND T1.${DownloadedIllustColumns.type} != 'ugoira'
         AND T2.${DownloadedImageColumns.part} >= 0
-    ''', userIds);
+    ''', whereArgs);
 
     return result.map((e) => e[DownloadedIllustColumns.userId] as int).toSet();
   }

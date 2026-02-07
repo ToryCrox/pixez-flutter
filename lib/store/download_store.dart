@@ -538,6 +538,7 @@ abstract class _DownloadStoreBase with Store {
     int? offset,
     String? searchKeyword,
     bool filterBookmarks = false,
+    List<int>? filterUserIds,
   }) async {
     return await _dbProvider.getAuthorsWithStats(
       sortBy: sortBy,
@@ -546,6 +547,7 @@ abstract class _DownloadStoreBase with Store {
       offset: offset,
       searchKeyword: searchKeyword,
       filterBookmarks: filterBookmarks,
+      filterUserIds: filterUserIds,
     );
   }
 
