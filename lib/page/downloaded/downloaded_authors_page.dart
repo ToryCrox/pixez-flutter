@@ -78,17 +78,37 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
   Widget build(BuildContext context) {
     return Observer(
       builder: (context) {
-        return Scaffold(
-          appBar: _buildAppBar(),
-          body: _buildBody(),
-        );
+        return Scaffold(appBar: _buildAppBar(), body: _buildBody());
       },
     );
   }
 
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
-      title: _store.isSearching ? _buildSearchField() : Text('下载的作者'),
+      title:
+          _store.isSearching
+              ? _buildSearchField()
+              : Observer(
+                builder: (_) {
+                  return Text.rich(
+                    TextSpan(
+                      children: [
+                        TextSpan(text: '下载的作者 '),
+                        if (_store.totalCount > 0)
+                          TextSpan(
+                            text: '${_store.totalCount}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurface.withOpacity(0.7),
+                            ),
+                          ),
+                      ],
+                    ),
+                  );
+                },
+              ),
       actions: [
         IconButton(
           icon: Icon(_store.isSearching ? Icons.close : Icons.search),
@@ -99,11 +119,9 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
           icon: Icon(Icons.list),
           tooltip: '下载记录',
           onPressed: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (context) => DownloadedPage(),
-              ),
-            );
+            Navigator.of(
+              context,
+            ).push(MaterialPageRoute(builder: (context) => DownloadedPage()));
           },
         ),
         Observer(
@@ -111,9 +129,10 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
             return IconButton(
               icon: Icon(
                 _store.markUnprocessed ? Icons.flag : Icons.outlined_flag,
-                color: _store.markUnprocessed
-                    ? Theme.of(context).colorScheme.primary
-                    : null,
+                color:
+                    _store.markUnprocessed
+                        ? Theme.of(context).colorScheme.primary
+                        : null,
               ),
               tooltip: '标记未处理',
               onPressed: () {
@@ -127,7 +146,9 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
             // 收藏筛选按钮放到 AppBar
             return IconButton(
               icon: Icon(
-                _store.showBookmarksOnly ? Icons.favorite : Icons.favorite_border,
+                _store.showBookmarksOnly
+                    ? Icons.favorite
+                    : Icons.favorite_border,
                 color: _store.showBookmarksOnly ? Colors.red : null,
               ),
               tooltip: '只显示收藏',
@@ -137,9 +158,7 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
             );
           },
         ),
-        Observer(
-          builder: (_) => _buildMoreOptionsMenu(),
-        ),
+        Observer(builder: (_) => _buildMoreOptionsMenu()),
       ],
     );
   }
@@ -156,31 +175,34 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
           _store.toggleShowNonWebpOnly(!_store.showNonWebpOnly);
         }
       },
-      itemBuilder: (context) => [
-        PopupMenuItem(
-          value: 'update_all',
-          child: Row(
-            children: [
-              Icon(Icons.refresh, size: 20),
-              SizedBox(width: 8),
-              Text('批量更新'),
-            ],
-          ),
-        ),
-        PopupMenuItem(
-          value: 'toggle_non_webp',
-          child: Row(
-            children: [
-              Icon(
-                _store.showNonWebpOnly ? Icons.check_box : Icons.check_box_outline_blank,
-                size: 20,
+      itemBuilder:
+          (context) => [
+            PopupMenuItem(
+              value: 'update_all',
+              child: Row(
+                children: [
+                  Icon(Icons.refresh, size: 20),
+                  SizedBox(width: 8),
+                  Text('批量更新'),
+                ],
               ),
-              SizedBox(width: 8),
-              Text('非 WebP 过滤'),
-            ],
-          ),
-        ),
-      ],
+            ),
+            PopupMenuItem(
+              value: 'toggle_non_webp',
+              child: Row(
+                children: [
+                  Icon(
+                    _store.showNonWebpOnly
+                        ? Icons.check_box
+                        : Icons.check_box_outline_blank,
+                    size: 20,
+                  ),
+                  SizedBox(width: 8),
+                  Text('非 WebP 过滤'),
+                ],
+              ),
+            ),
+          ],
     );
   }
 
@@ -192,12 +214,12 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
         hintText: '搜索作者名或用户ID',
         border: InputBorder.none,
         hintStyle: TextStyle(
-          color: Theme.of(context).appBarTheme.foregroundColor?.withOpacity(0.6),
+          color: Theme.of(
+            context,
+          ).appBarTheme.foregroundColor?.withOpacity(0.6),
         ),
       ),
-      style: TextStyle(
-        color: Theme.of(context).appBarTheme.foregroundColor,
-      ),
+      style: TextStyle(color: Theme.of(context).appBarTheme.foregroundColor),
     );
   }
 
@@ -206,9 +228,7 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
       if (_store.loading) {
         return Center(child: CircularProgressIndicator());
       }
-      return Center(
-        child: Text('暂无数据'),
-      );
+      return Center(child: Text('暂无数据'));
     }
 
     return PixezEasyRefresh.builder(
@@ -217,21 +237,19 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
         await _store.loadData(refresh: true);
         _store.easyRefreshController?.finishRefresh();
       },
-      onLoad: _store.hasMore
-          ? () async {
-              await _store.loadMore();
-            }
-          : null,
+      onLoad:
+          _store.hasMore
+              ? () async {
+                await _store.loadMore();
+              }
+              : null,
       header: PixezDefault.header(context),
       footer: PixezDefault.footer(context),
       childBuilder: (context, physics, scrollController) {
         return CustomScrollView(
           physics: physics,
           controller: scrollController,
-          slivers: [
-            _buildSortHeader(),
-            _buildList(),
-          ],
+          slivers: [_buildSortHeader(), _buildList()],
         );
       },
     );
@@ -240,7 +258,8 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
   Widget _buildSortHeader() {
     return SliverPersistentHeader(
       key: ValueKey(
-          'sort_header_${_store.sortType}_${_store.showLatestPublished}_${_store.sortDesc}'),
+        'sort_header_${_store.sortType}_${_store.showLatestPublished}_${_store.sortDesc}',
+      ),
       delegate: SliverChipDelegate(
         Container(
           alignment: Alignment.center,
@@ -252,13 +271,7 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
                   Center(
                     child: SortGroup(
                       key: ValueKey(_store.sortType),
-                      children: [
-                        '最新下载',
-                        '用户名',
-                        '文件大小',
-                        '作品数量',
-                        '插画数量',
-                      ],
+                      children: ['最新下载', '用户名', '文件大小', '作品数量', '插画数量'],
                       onChange: _store.onSortChanged,
                       initIndex: _store.sortType.index,
                     ),
@@ -302,10 +315,7 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
           ),
         ),
         SizedBox(width: 8),
-        Switch(
-          value: _store.sortDesc,
-          onChanged: _store.onSortOrderChanged,
-        ),
+        Switch(value: _store.sortDesc, onChanged: _store.onSortOrderChanged),
       ],
     );
   }
@@ -330,44 +340,46 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
     );
   }
 
-
-
   Widget _buildList() {
     return SliverGrid(
-      delegate: SliverChildBuilderDelegate(
-        (context, index) {
-          if (index < _store.authors.length) {
-            final author = _store.authors[index];
-            return Observer(
-              builder: (context) {
-                final illustsData = _store.authorIllustsMap[author.userId];
+      delegate: SliverChildBuilderDelegate((context, index) {
+        if (index < _store.authors.length) {
+          final author = _store.authors[index];
+          return Observer(
+            builder: (context) {
+              final illustsData = _store.authorIllustsMap[author.userId];
 
-                // 根据显示模式选择插画：最新下载（索引0）或最新发布（索引1）
-                final displayIllusts = illustsData != null
-                    ? (_store.showLatestPublished ? illustsData[1] : illustsData[0])
-                    : <DownloadedIllust>[];
+              // 根据显示模式选择插画：最新下载（索引0）或最新发布（索引1）
+              final displayIllusts =
+                  illustsData != null
+                      ? (_store.showLatestPublished
+                          ? illustsData[1]
+                          : illustsData[0])
+                      : <DownloadedIllust>[];
 
-                final isMarked = _store.unprocessedUserIds.contains(author.userId);
+              final isMarked = _store.unprocessedUserIds.contains(
+                author.userId,
+              );
 
-                return DownloadedAuthorCard(
-                  author: author,
-                  illusts: displayIllusts,
-                  showLatestPublished: _store.showLatestPublished,
-                  onRefresh: () => _store.refreshSingleAuthor(author.userId),
-                  isMarked: isMarked,
-                  onBookmarkChanged: (bookmark) {
-                    _store.updateBookmark(author.userId, bookmark);
-                  },
-                );
-              },
-            );
-          }
-          return null;
-        },
-        childCount: _store.authors.length,
-      ),
+              return DownloadedAuthorCard(
+                author: author,
+                illusts: displayIllusts,
+                showLatestPublished: _store.showLatestPublished,
+                onRefresh: () => _store.refreshSingleAuthor(author.userId),
+                isMarked: isMarked,
+                onBookmarkChanged: (bookmark) {
+                  _store.updateBookmark(author.userId, bookmark);
+                },
+              );
+            },
+          );
+        }
+        return null;
+      }, childCount: _store.authors.length),
       gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-          maxCrossAxisExtent: 600, mainAxisExtent: 210),
+        maxCrossAxisExtent: 600,
+        mainAxisExtent: 210,
+      ),
     );
   }
 
@@ -415,7 +427,7 @@ class _UpdateAuthorsDialogState extends State<_UpdateAuthorsDialog> {
           }
         },
       );
-      
+
       if (mounted) {
         setState(() {
           _status = 'completed';
@@ -464,14 +476,23 @@ class _UpdateAuthorsDialogState extends State<_UpdateAuthorsDialog> {
           children: [
             Text('将重新计算所有作者的统计信息：'),
             SizedBox(height: 8),
-            Text('• 作品数量', style: TextStyle(fontSize: 14, color: Colors.grey[600])),
-            Text('• 图片数量', style: TextStyle(fontSize: 14, color: Colors.grey[600])),
-            Text('• 文件大小', style: TextStyle(fontSize: 14, color: Colors.grey[600])),
+            Text(
+              '• 作品数量',
+              style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+            ),
+            Text(
+              '• 图片数量',
+              style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+            ),
+            Text(
+              '• 文件大小',
+              style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+            ),
             SizedBox(height: 16),
             Text('是否继续？', style: TextStyle(fontWeight: FontWeight.bold)),
           ],
         );
-      
+
       case 'updating':
         final progress = _total > 0 ? _current / _total : 0.0;
         return Column(
@@ -492,7 +513,7 @@ class _UpdateAuthorsDialogState extends State<_UpdateAuthorsDialog> {
             ],
           ],
         );
-      
+
       case 'completed':
         return Column(
           mainAxisSize: MainAxisSize.min,
@@ -508,7 +529,10 @@ class _UpdateAuthorsDialogState extends State<_UpdateAuthorsDialog> {
                     children: [
                       Text(
                         '成功更新',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       SizedBox(height: 4),
                       Text(
@@ -522,7 +546,7 @@ class _UpdateAuthorsDialogState extends State<_UpdateAuthorsDialog> {
             ),
           ],
         );
-      
+
       case 'error':
         return Column(
           mainAxisSize: MainAxisSize.min,
@@ -538,7 +562,10 @@ class _UpdateAuthorsDialogState extends State<_UpdateAuthorsDialog> {
                     children: [
                       Text(
                         '更新失败',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       SizedBox(height: 4),
                       Text(
@@ -552,7 +579,7 @@ class _UpdateAuthorsDialogState extends State<_UpdateAuthorsDialog> {
             ),
           ],
         );
-      
+
       default:
         return SizedBox.shrink();
     }
@@ -566,12 +593,9 @@ class _UpdateAuthorsDialogState extends State<_UpdateAuthorsDialog> {
             onPressed: () => Navigator.of(context).pop(),
             child: Text('取消'),
           ),
-          ElevatedButton(
-            onPressed: _startUpdate,
-            child: Text('开始'),
-          ),
+          ElevatedButton(onPressed: _startUpdate, child: Text('开始')),
         ];
-      
+
       case 'updating':
         return [
           TextButton(
@@ -579,7 +603,7 @@ class _UpdateAuthorsDialogState extends State<_UpdateAuthorsDialog> {
             child: Text('更新中...'),
           ),
         ];
-      
+
       case 'completed':
       case 'error':
         return [
@@ -588,7 +612,7 @@ class _UpdateAuthorsDialogState extends State<_UpdateAuthorsDialog> {
             child: Text('完成'),
           ),
         ];
-      
+
       default:
         return [];
     }
@@ -609,7 +633,10 @@ class SliverChipDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   Widget build(
-      BuildContext context, double shrinkOffset, bool overlapsContent) {
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
     return child;
   }
 

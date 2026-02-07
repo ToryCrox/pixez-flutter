@@ -96,12 +96,15 @@ abstract class _DownloadedAuthorsPageStoreBase with Store {
   @readonly
   bool _showNonWebpOnly = false;
 
+  @readonly
+  int _totalCount = 0;
+
   // ===== 初始化与销毁 =====
 
   @action
   void init() {
     _loadPersistedState();
-    loadData();
+    loadData(refresh: true);
   }
 
   void dispose() {
@@ -176,6 +179,7 @@ abstract class _DownloadedAuthorsPageStoreBase with Store {
     try {
       final t1 = DateTime.now();
       List<DownloadedAuthor> authors;
+      
       if (_showNonWebpOnly) {
         // 优化方案：分步查询 + 批量过滤
         // 步骤1: 先快速查询有非 WebP 图片的作者 ID（只返回 ID，不加载完整数据）
@@ -189,6 +193,7 @@ abstract class _DownloadedAuthorsPageStoreBase with Store {
           filterBookmarks: _showBookmarksOnly,
           filterUserIds: nonWebpAuthorIds.toList(),
         );
+        _totalCount = authors.length;
       } else {
         authors = await downloadStore.getDownloadedAuthors(
           sortBy: _getSortBy(),
@@ -198,13 +203,15 @@ abstract class _DownloadedAuthorsPageStoreBase with Store {
           searchKeyword: _searchKeyword,
           filterBookmarks: _showBookmarksOnly,
         );
+        if (refresh) {
+          // 异步加载总数，不阻塞当前方法
+          _loadTotalCount();
+        }
       }
+      
       if (_markUnprocessed && authors.isNotEmpty) {
-        final unprocessedIds = await downloadStore.dbProvider
-            .getAuthorsWithNonWebpImages(authors.map((e) => e.userId).toList());
-        runInAction(() {
-          _unprocessedUserIds.addAll(unprocessedIds);
-        });
+        // 异步标记未处理，不阻塞主流程
+        _markUnprocessedAuthors(authors.map((e) => e.userId).toList());
       }
       final timeSpent = DateTime.now().difference(t1);
       Log.i(() => 'loadData cost ${timeSpent.inMilliseconds}ms, count ${authors.length}');
@@ -295,11 +302,7 @@ abstract class _DownloadedAuthorsPageStoreBase with Store {
         for (var i = 0; i < allIds.length; i += batchSize) {
            final end = (i + batchSize < allIds.length) ? i + batchSize : allIds.length;
            final batchIds = allIds.sublist(i, end);
-           
-           final unprocessedIds = await downloadStore.dbProvider.getAuthorsWithNonWebpImages(batchIds);
-           runInAction(() {
-             _unprocessedUserIds.addAll(unprocessedIds);
-           });
+           await _markUnprocessedAuthors(batchIds);
         }
       }
     } else {
@@ -383,6 +386,37 @@ abstract class _DownloadedAuthorsPageStoreBase with Store {
     
     // 更新完成后刷新列表
     await loadData(refresh: true);
+  }
+
+  /// 异步加载作者总数（不阻塞主流程）
+  @action
+  Future<void> _loadTotalCount() async {
+    try {
+      final totalCount = await downloadStore.dbProvider.getAuthorsCount(
+        filterBookmarks: _showBookmarksOnly,
+      );
+      _totalCount = totalCount;
+    } catch (e, stack) {
+      Log.e(() => '[DB] Failed to load total count: $e\n$stack');
+    }
+  }
+
+  /// 异步标记未处理的作者（不阻塞主流程）
+  @action
+  Future<void> _markUnprocessedAuthors(List<int> authorIds) async {
+    try {
+      final unprocessedIds = await downloadStore.dbProvider
+          .getAuthorsWithNonWebpImages(authorIds);
+      
+      // 删除当前批次中已处理好的作者（authorIds 中存在但不在 unprocessedIds 中的）
+      final processedIds = authorIds.toSet().difference(unprocessedIds.toSet());
+      _unprocessedUserIds.removeAll(processedIds);
+      
+      // 添加新的未处理作者
+      _unprocessedUserIds.addAll(unprocessedIds);
+    } catch (e, stack) {
+      Log.e(() => '[DB] Failed to mark unprocessed authors: $e\n$stack');
+    }
   }
 
   /// 预加载作者的插画数据（最新下载和最新发布）

@@ -1988,6 +1988,37 @@ class DownloadDatabaseProvider {
     return maps.map((e) => DownloadedAuthor.fromJson(e)).toList();
   }
 
+  /// 获取作者总数，支持收藏和作者 ID 列表筛选
+  /// filterUserIds: 指定要查询的作者 ID 列表（用于批量过滤）
+  Future<int> getAuthorsCount({
+    bool filterBookmarks = false,
+    List<int>? filterUserIds,
+  }) async {
+    final whereConditions = <String>[];
+    final whereArgs = <Object?>[];
+
+    // 筛选收藏
+    if (filterBookmarks) {
+      whereConditions.add('${DownloadedAuthorColumns.bookmark} > 0');
+    }
+
+    // 批量过滤指定的作者 ID
+    if (filterUserIds != null && filterUserIds.isNotEmpty) {
+      final placeholders = List.filled(filterUserIds.length, '?').join(',');
+      whereConditions.add('${DownloadedAuthorColumns.userId} IN ($placeholders)');
+      whereArgs.addAll(filterUserIds);
+    }
+
+    final String? where = whereConditions.isNotEmpty ? whereConditions.join(' AND ') : null;
+
+    final result = await db.rawQuery(
+      'SELECT COUNT(*) as count FROM ${DownloadedAuthorColumns.tableName}${where != null ? ' WHERE $where' : ''}',
+      whereArgs.isNotEmpty ? whereArgs : null,
+    );
+
+    return result.first['count'] as int? ?? 0;
+  }
+
   /// 获取包含非 WebP 图片的作者 ID 集合
   /// [userIds] 可选参数，指定要查询的作者 ID 列表。为 null 时查询所有作者
   Future<Set<int>> getAuthorsWithNonWebpImages([List<int>? userIds]) async {
