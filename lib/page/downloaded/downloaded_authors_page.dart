@@ -122,28 +122,6 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
             );
           },
         ),
-        PopupMenuButton<String>(
-          icon: Icon(Icons.more_vert),
-          tooltip: '更多选项',
-          position: PopupMenuPosition.under,
-          onSelected: (value) {
-            if (value == 'update_all') {
-              _updateAllAuthorsStats();
-            }
-          },
-          itemBuilder: (context) => [
-            PopupMenuItem(
-              value: 'update_all',
-              child: Row(
-                children: [
-                  Icon(Icons.refresh, size: 20),
-                  SizedBox(width: 8),
-                  Text('更新所有作者信息'),
-                ],
-              ),
-            ),
-          ],
-        ),
         Observer(
           builder: (_) {
             // 收藏筛选按钮放到 AppBar
@@ -158,6 +136,49 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
               },
             );
           },
+        ),
+        Observer(
+          builder: (_) => _buildMoreOptionsMenu(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMoreOptionsMenu() {
+    return PopupMenuButton<String>(
+      icon: Icon(Icons.more_vert),
+      tooltip: '更多选项',
+      position: PopupMenuPosition.under,
+      onSelected: (value) {
+        if (value == 'update_all') {
+          _updateAllAuthorsStats();
+        } else if (value == 'toggle_non_webp') {
+          _store.toggleShowNonWebpOnly(!_store.showNonWebpOnly);
+        }
+      },
+      itemBuilder: (context) => [
+        PopupMenuItem(
+          value: 'update_all',
+          child: Row(
+            children: [
+              Icon(Icons.refresh, size: 20),
+              SizedBox(width: 8),
+              Text('批量更新'),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: 'toggle_non_webp',
+          child: Row(
+            children: [
+              Icon(
+                _store.showNonWebpOnly ? Icons.check_box : Icons.check_box_outline_blank,
+                size: 20,
+              ),
+              SizedBox(width: 8),
+              Text('非 WebP 过滤'),
+            ],
+          ),
         ),
       ],
     );

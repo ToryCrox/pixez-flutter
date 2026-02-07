@@ -93,6 +93,9 @@ abstract class _DownloadedAuthorsPageStoreBase with Store {
   @readonly
   bool _showBookmarksOnly = false;
 
+  @readonly
+  bool _showNonWebpOnly = false;
+
   // ===== 初始化与销毁 =====
 
   @action
@@ -172,14 +175,29 @@ abstract class _DownloadedAuthorsPageStoreBase with Store {
 
     try {
       final t1 = DateTime.now();
-      final authors = await downloadStore.getDownloadedAuthors(
-        sortBy: _getSortBy(),
-        desc: _sortDesc,
-        limit: _pageSize,
-        offset: _page * _pageSize,
-        searchKeyword: _searchKeyword,
-        filterBookmarks: _showBookmarksOnly,
-      );
+      List<DownloadedAuthor> authors;
+      if (_showNonWebpOnly) {
+        // 获取所有有非 webp 图片的作者（不分页）
+        final allAuthors = await downloadStore.getDownloadedAuthors(
+          sortBy: _getSortBy(),
+          desc: _sortDesc,
+          searchKeyword: _searchKeyword,
+          filterBookmarks: _showBookmarksOnly,
+        );
+        final authorIds = allAuthors.map((e) => e.userId).toList();
+        final nonWebpAuthorIds = await downloadStore.dbProvider.getAuthorsWithNonWebpImages(authorIds);
+        // 过滤出有非 webp 图片的作者，不分页，显示所有结果
+        authors = allAuthors.where((a) => nonWebpAuthorIds.contains(a.userId)).toList();
+      } else {
+        authors = await downloadStore.getDownloadedAuthors(
+          sortBy: _getSortBy(),
+          desc: _sortDesc,
+          limit: _pageSize,
+          offset: _page * _pageSize,
+          searchKeyword: _searchKeyword,
+          filterBookmarks: _showBookmarksOnly,
+        );
+      }
       if (_markUnprocessed && authors.isNotEmpty) {
         final unprocessedIds = await downloadStore.dbProvider
             .getAuthorsWithNonWebpImages(authors.map((e) => e.userId).toList());
@@ -198,7 +216,8 @@ abstract class _DownloadedAuthorsPageStoreBase with Store {
         _authorIllustsMap.clear();
       }
       _authors.addAll(authors);
-      _hasMore = authors.length >= _pageSize;
+      // 非 WebP 过滤模式下不分页，禁用加载更多
+      _hasMore = _showNonWebpOnly ? false : authors.length >= _pageSize;
       _loading = false;
 
       // 预加载所有作者的插画数据
@@ -326,6 +345,12 @@ abstract class _DownloadedAuthorsPageStoreBase with Store {
   void toggleShowBookmarksOnly(bool value) {
     _showBookmarksOnly = value;
     Prefer.setBool(_downloadedAuthorsShowBookmarksOnlyKey, value);
+    loadData(refresh: true);
+  }
+
+  @action
+  void toggleShowNonWebpOnly(bool value) {
+    _showNonWebpOnly = value;
     loadData(refresh: true);
   }
 
