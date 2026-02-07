@@ -251,9 +251,9 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
       header: PixezDefault.header(context),
       footer: PixezDefault.footer(context),
       childBuilder: (context, physics, scrollController) {
-      // 保存滚动控制器以便 FAB 使用
-      _scrollController = scrollController;
-      return CustomScrollView(
+        // 保存滚动控制器以便 FAB 使用
+        _scrollController = scrollController;
+        return CustomScrollView(
           physics: physics,
           controller: scrollController,
           slivers: [_buildSortHeader(), _buildList()],
@@ -394,35 +394,38 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
 
   Widget _buildFab() {
     return Observer(
-      builder: (_) => FloatingActionButton(
-        onPressed: _store.isRefreshing
-            ? null
-            : () async {
-                // 先滚动到顶部
-                if (_scrollController?.hasClients == true) {
-                  await _scrollController!.animateTo(
-                    0,
-                    duration: const Duration(milliseconds: 300),
-                    curve: Curves.easeOut,
-                  );
-                }
-                // 然后刷新
-                _store.refresh();
-              },
-        tooltip: _store.isRefreshing ? '刷新中...' : '刷新数据',
-        child: _store.isRefreshing
-            ? SizedBox(
-                width: 24,
-                height: 24,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    Theme.of(context).colorScheme.onPrimary,
-                  ),
-                ),
-              )
-            : Icon(Icons.refresh),
-      ),
+      builder:
+          (_) => FloatingActionButton(
+            onPressed:
+                _store.isRefreshing
+                    ? null
+                    : () async {
+                      // 先滚动到顶部
+                      if (_scrollController?.hasClients == true) {
+                        await _scrollController!.animateTo(
+                          0,
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeOut,
+                        );
+                      }
+                      // 然后刷新
+                      _store.refresh();
+                    },
+            tooltip: _store.isRefreshing ? '刷新中...' : '刷新数据',
+            child:
+                _store.isRefreshing
+                    ? SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          Theme.of(context).colorScheme.onPrimary,
+                        ),
+                      ),
+                    )
+                    : Icon(Icons.refresh),
+          ),
     );
   }
 

@@ -47,8 +47,10 @@ enum IllustSortType {
 // SharedPreferences 键名
 const String _downloadedIllustsSortTypeKey = 'downloaded_illusts_sort_type';
 const String _downloadedIllustsSortDescKey = 'downloaded_illusts_sort_desc';
-const String _downloadedIllustsMarkUnprocessedKey = 'downloaded_illusts_mark_unprocessed';
-const String _downloadedIllustsShowBookmarksOnlyKey = 'downloaded_illusts_show_bookmarks_only';
+const String _downloadedIllustsMarkUnprocessedKey =
+    'downloaded_illusts_mark_unprocessed';
+const String _downloadedIllustsShowBookmarksOnlyKey =
+    'downloaded_illusts_show_bookmarks_only';
 const String _enableDragKey = 'enable_drag';
 
 class DownloadedPageStore = _DownloadedPageStoreBase with _$DownloadedPageStore;
@@ -123,7 +125,7 @@ abstract class _DownloadedPageStoreBase with Store {
   ObservableSet<int> _selectedIllustIds = ObservableSet();
 
   // ===== 拖拽设置状态 =====
-  
+
   @observable
   bool enableDrag = false;
 
@@ -271,12 +273,16 @@ abstract class _DownloadedPageStoreBase with Store {
       this.enableDrag = enableDrag;
     }
 
-    final markUnprocessed = Prefer.getBool(_downloadedIllustsMarkUnprocessedKey);
+    final markUnprocessed = Prefer.getBool(
+      _downloadedIllustsMarkUnprocessedKey,
+    );
     if (markUnprocessed != null) {
       _markUnprocessed = markUnprocessed;
     }
 
-    final showBookmarksOnly = Prefer.getBool(_downloadedIllustsShowBookmarksOnlyKey);
+    final showBookmarksOnly = Prefer.getBool(
+      _downloadedIllustsShowBookmarksOnlyKey,
+    );
     if (showBookmarksOnly != null) {
       _showBookmarksOnly = showBookmarksOnly;
     }
@@ -303,8 +309,9 @@ abstract class _DownloadedPageStoreBase with Store {
       return;
     }
 
-    final index =
-        _illusts.indexWhere((e) => e.illustId == status.illusts.illustId);
+    final index = _illusts.indexWhere(
+      (e) => e.illustId == status.illusts.illustId,
+    );
     if (index == -1) {
       _illusts.insert(0, status.illusts);
     } else {
@@ -524,14 +531,15 @@ abstract class _DownloadedPageStoreBase with Store {
   /// 加载关键信息（下载任务状态）
   /// 物化字段已在 DownloadedIllust 对象中，只需获取运行时下载任务状态
   Future<void> _loadCriticalInfo(List<DownloadedIllust> illusts) async {
-    final futures = illusts.map((illust) async {
-      // 传入 downloadedIllust 避免重复查询数据库
-      final downloadStatus = await downloadStore.getIllustDownloadStatus(
-        illust.illustId,
-        downloadedIllust: illust,
-      );
-      return MapEntry(illust.illustId, downloadStatus?.status);
-    }).toList();
+    final futures =
+        illusts.map((illust) async {
+          // 传入 downloadedIllust 避免重复查询数据库
+          final downloadStatus = await downloadStore.getIllustDownloadStatus(
+            illust.illustId,
+            downloadedIllust: illust,
+          );
+          return MapEntry(illust.illustId, downloadStatus?.status);
+        }).toList();
 
     final results = await Future.wait(futures);
     for (final entry in results) {
@@ -735,15 +743,17 @@ abstract class _DownloadedPageStoreBase with Store {
         // 分批查询
         final allIds = _illusts.map((e) => e.illustId).toList();
         final batchSize = 100;
-        
+
         for (var i = 0; i < allIds.length; i += batchSize) {
-           final end = (i + batchSize < allIds.length) ? i + batchSize : allIds.length;
-           final batchIds = allIds.sublist(i, end);
-           
-           final unprocessedIds = await downloadStore.dbProvider.getIllustsWithNonWebpImages(batchIds);
-           runInAction(() {
-             _unprocessedIllustIds.addAll(unprocessedIds);
-           });
+          final end =
+              (i + batchSize < allIds.length) ? i + batchSize : allIds.length;
+          final batchIds = allIds.sublist(i, end);
+
+          final unprocessedIds = await downloadStore.dbProvider
+              .getIllustsWithNonWebpImages(batchIds);
+          runInAction(() {
+            _unprocessedIllustIds.addAll(unprocessedIds);
+          });
         }
       }
     } else {
@@ -769,7 +779,7 @@ abstract class _DownloadedPageStoreBase with Store {
     if (index != -1) {
       // 使用 copyWith 创建带有新收藏状态的新对象
       _illusts[index] = _illusts[index].copyWith(bookmark: bookmark);
-      
+
       // 如果开启了“仅显示收藏”，且该项被取消收藏，则从列表中移除
       if (_showBookmarksOnly && bookmark == 0) {
         _illusts.removeAt(index);

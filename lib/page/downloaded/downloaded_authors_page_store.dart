@@ -36,14 +36,18 @@ enum AuthorSortType {
 
 // SharedPreferences 键名
 const String _downloadedAuthorsSortTypeKey = 'downloaded_authors_sort_type';
-const String _downloadedAuthorsShowLatestPublishedKey = 'downloaded_authors_show_latest_published';
+const String _downloadedAuthorsShowLatestPublishedKey =
+    'downloaded_authors_show_latest_published';
 const String _downloadedAuthorsSortDescKey = 'downloaded_authors_sort_desc';
-const String _downloadedAuthorsMarkUnprocessedKey = 'downloaded_authors_mark_unprocessed';
-const String _downloadedAuthorsShowBookmarksOnlyKey = 'downloaded_authors_show_bookmarks_only';
+const String _downloadedAuthorsMarkUnprocessedKey =
+    'downloaded_authors_mark_unprocessed';
+const String _downloadedAuthorsShowBookmarksOnlyKey =
+    'downloaded_authors_show_bookmarks_only';
 
 typedef AuthorUpdateProgressCallback = void Function(int current, int total);
 
-class DownloadedAuthorsPageStore = _DownloadedAuthorsPageStoreBase with _$DownloadedAuthorsPageStore;
+class DownloadedAuthorsPageStore = _DownloadedAuthorsPageStoreBase
+    with _$DownloadedAuthorsPageStore;
 
 abstract class _DownloadedAuthorsPageStoreBase with Store {
   static const int _pageSize = 30;
@@ -82,7 +86,8 @@ abstract class _DownloadedAuthorsPageStoreBase with Store {
 
   // 预加载的插画数据：key为userId，value为[最新下载列表, 最新发布列表]
   @readonly
-  ObservableMap<int, List<List<DownloadedIllust>>> _authorIllustsMap = ObservableMap();
+  ObservableMap<int, List<List<DownloadedIllust>>> _authorIllustsMap =
+      ObservableMap();
 
   @readonly
   bool _markUnprocessed = false;
@@ -125,7 +130,9 @@ abstract class _DownloadedAuthorsPageStoreBase with Store {
       _sortType = AuthorSortType.values[sortTypeIndex];
     }
 
-    final showLatestPublished = Prefer.getBool(_downloadedAuthorsShowLatestPublishedKey);
+    final showLatestPublished = Prefer.getBool(
+      _downloadedAuthorsShowLatestPublishedKey,
+    );
     if (showLatestPublished != null) {
       _showLatestPublished = showLatestPublished;
     }
@@ -135,12 +142,16 @@ abstract class _DownloadedAuthorsPageStoreBase with Store {
       _sortDesc = sortDesc;
     }
 
-    final markUnprocessed = Prefer.getBool(_downloadedAuthorsMarkUnprocessedKey);
+    final markUnprocessed = Prefer.getBool(
+      _downloadedAuthorsMarkUnprocessedKey,
+    );
     if (markUnprocessed != null) {
       _markUnprocessed = markUnprocessed;
     }
 
-    final showBookmarksOnly = Prefer.getBool(_downloadedAuthorsShowBookmarksOnlyKey);
+    final showBookmarksOnly = Prefer.getBool(
+      _downloadedAuthorsShowBookmarksOnlyKey,
+    );
     if (showBookmarksOnly != null) {
       _showBookmarksOnly = showBookmarksOnly;
     }
@@ -174,8 +185,8 @@ abstract class _DownloadedAuthorsPageStoreBase with Store {
       _page = 0;
       _hasMore = true;
       if (_searchKeyword == null && !_isSearching) {
-         // 重置未处理状态
-         _unprocessedUserIds.clear();
+        // 重置未处理状态
+        _unprocessedUserIds.clear();
       }
     }
 
@@ -184,12 +195,13 @@ abstract class _DownloadedAuthorsPageStoreBase with Store {
     try {
       final t1 = DateTime.now();
       List<DownloadedAuthor> authors;
-      
+
       if (_showNonWebpOnly) {
         // 优化方案：分步查询 + 批量过滤
         // 步骤1: 先快速查询有非 WebP 图片的作者 ID（只返回 ID，不加载完整数据）
-        final nonWebpAuthorIds = await downloadStore.dbProvider.getAuthorsWithNonWebpImages();
-        
+        final nonWebpAuthorIds =
+            await downloadStore.dbProvider.getAuthorsWithNonWebpImages();
+
         // 步骤2: 使用 WHERE userId IN (...) 批量获取作者详情，应用排序和搜索条件
         authors = await downloadStore.getDownloadedAuthors(
           sortBy: _getSortBy(),
@@ -213,13 +225,16 @@ abstract class _DownloadedAuthorsPageStoreBase with Store {
           _loadTotalCount();
         }
       }
-      
+
       if (_markUnprocessed && authors.isNotEmpty) {
         // 异步标记未处理，不阻塞主流程
         _markUnprocessedAuthors(authors.map((e) => e.userId).toList());
       }
       final timeSpent = DateTime.now().difference(t1);
-      Log.i(() => 'loadData cost ${timeSpent.inMilliseconds}ms, count ${authors.length}');
+      Log.i(
+        () =>
+            'loadData cost ${timeSpent.inMilliseconds}ms, count ${authors.length}',
+      );
       if (timeSpent.inMilliseconds > 300) {
         BotToast.showText(text: 'loadData cost ${timeSpent.inMilliseconds}ms');
       }
@@ -247,7 +262,9 @@ abstract class _DownloadedAuthorsPageStoreBase with Store {
 
     _page++;
     await loadData();
-    easyRefreshController?.finishLoad(_hasMore ? IndicatorResult.success : IndicatorResult.noMore);
+    easyRefreshController?.finishLoad(
+      _hasMore ? IndicatorResult.success : IndicatorResult.noMore,
+    );
   }
 
   /// 刷新数据
@@ -315,11 +332,12 @@ abstract class _DownloadedAuthorsPageStoreBase with Store {
         // 为防万一，这里简单分批（每次100个）
         final allIds = _authors.map((e) => e.userId).toList();
         final batchSize = 100;
-        
+
         for (var i = 0; i < allIds.length; i += batchSize) {
-           final end = (i + batchSize < allIds.length) ? i + batchSize : allIds.length;
-           final batchIds = allIds.sublist(i, end);
-           await _markUnprocessedAuthors(batchIds);
+          final end =
+              (i + batchSize < allIds.length) ? i + batchSize : allIds.length;
+          final batchIds = allIds.sublist(i, end);
+          await _markUnprocessedAuthors(batchIds);
         }
       }
     } else {
@@ -334,7 +352,9 @@ abstract class _DownloadedAuthorsPageStoreBase with Store {
 
     try {
       // 从数据库重新获取作者信息
-      final updatedAuthor = await downloadStore.dbProvider.getAuthorByUserId(userId);
+      final updatedAuthor = await downloadStore.dbProvider.getAuthorByUserId(
+        userId,
+      );
       if (updatedAuthor == null) return;
 
       // 在列表中找到并替换对应的作者
@@ -358,7 +378,9 @@ abstract class _DownloadedAuthorsPageStoreBase with Store {
       await downloadStore.dbProvider.updateAuthorBookmark(userId, bookmark);
       await refreshSingleAuthor(userId);
     } catch (e, stack) {
-      Log.e(() => '[DB] Failed to update bookmark for author $userId: $e\n$stack');
+      Log.e(
+        () => '[DB] Failed to update bookmark for author $userId: $e\n$stack',
+      );
     }
   }
 
@@ -393,14 +415,14 @@ abstract class _DownloadedAuthorsPageStoreBase with Store {
 
     // 从数据库获取所有作者
     final allAuthors = await downloadStore.dbProvider.getAllAuthors();
-    
+
     final total = allAuthors.length;
     for (int i = 0; i < total; i++) {
       final author = allAuthors[i];
       await downloadStore.dbProvider.updateAuthorStats(author.userId);
       onProgress?.call(i + 1, total);
     }
-    
+
     // 更新完成后刷新列表
     await loadData(refresh: true);
   }
@@ -424,11 +446,11 @@ abstract class _DownloadedAuthorsPageStoreBase with Store {
     try {
       final unprocessedIds = await downloadStore.dbProvider
           .getAuthorsWithNonWebpImages(authorIds);
-      
+
       // 删除当前批次中已处理好的作者（authorIds 中存在但不在 unprocessedIds 中的）
       final processedIds = authorIds.toSet().difference(unprocessedIds.toSet());
       _unprocessedUserIds.removeAll(processedIds);
-      
+
       // 添加新的未处理作者
       _unprocessedUserIds.addAll(unprocessedIds);
     } catch (e, stack) {
@@ -447,7 +469,10 @@ abstract class _DownloadedAuthorsPageStoreBase with Store {
           // 并行加载最新下载和最新发布的插画
           final illustsFutures = await Future.wait([
             downloadStore.getAuthorLatestIllusts(author.userId, limit: 3),
-            downloadStore.getAuthorLatestPublishedIllusts(author.userId, limit: 3),
+            downloadStore.getAuthorLatestPublishedIllusts(
+              author.userId,
+              limit: 3,
+            ),
           ]);
 
           final latestDownloadIllusts = illustsFutures[0];
@@ -461,7 +486,10 @@ abstract class _DownloadedAuthorsPageStoreBase with Store {
             ];
           });
         } catch (e, stack) {
-          Log.e(() => '[DB] Failed to preload illusts for author ${author.userId}: $e\n$stack');
+          Log.e(
+            () =>
+                '[DB] Failed to preload illusts for author ${author.userId}: $e\n$stack',
+          );
         }
       }
     });

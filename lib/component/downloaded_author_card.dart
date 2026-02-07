@@ -52,10 +52,11 @@ class DownloadedAuthorCard extends StatelessWidget {
       onTap: () {
         Navigator.of(context).push(
           MaterialPageRoute(
-            builder: (context) => DownloadedPage(
-              initialUserId: author.userId,
-              initialUserName: author.userName,
-            ),
+            builder:
+                (context) => DownloadedPage(
+                  initialUserId: author.userId,
+                  initialUserName: author.userName,
+                ),
           ),
         );
       },
@@ -63,10 +64,7 @@ class DownloadedAuthorCard extends StatelessWidget {
       child: Card(
         clipBehavior: Clip.antiAlias,
         child: Column(
-          children: [
-            _buildPreviewSection(context),
-            _buildAuthorInfo(context),
-          ],
+          children: [_buildPreviewSection(context), _buildAuthorInfo(context)],
         ),
       ),
     );
@@ -79,11 +77,10 @@ class DownloadedAuthorCard extends StatelessWidget {
         children: [
           for (var i = 0; i < 3; i++)
             Expanded(
-              child: i < illusts.length
-                  ? _buildCoverImage(context, illusts[i])
-                  : Container(
-                      color: Theme.of(context).cardColor,
-                    ),
+              child:
+                  i < illusts.length
+                      ? _buildCoverImage(context, illusts[i])
+                      : Container(color: Theme.of(context).cardColor),
             ),
         ],
       ),
@@ -131,12 +128,12 @@ class DownloadedAuthorCard extends StatelessWidget {
                 onTap: () {
                   Navigator.of(context).push(
                     MaterialPageRoute(
-                      builder: (context) => UsersPage(
-                        id: author.userId,
-                        userStore: UserStore(author.userId, null, null),
-                        heroTag:
-                            'author_${author.userId}_$hashCode',
-                      ),
+                      builder:
+                          (context) => UsersPage(
+                            id: author.userId,
+                            userStore: UserStore(author.userId, null, null),
+                            heroTag: 'author_${author.userId}_$hashCode',
+                          ),
                     ),
                   );
                 },
@@ -160,31 +157,25 @@ class DownloadedAuthorCard extends StatelessWidget {
                       children: [
                         Text(
                           '${author.illustCount} 作品',
-                          style:
-                              Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: Colors.grey[600],
-                                  ),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: Colors.grey[600]),
                         ),
                         if (author.totalImageCount > 0) ...[
                           SizedBox(width: 8),
                           Text(
                             '${author.totalImageCount} 张',
-                            style:
-                                Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: Colors.grey[600],
-                                    ),
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(color: Colors.grey[600]),
                           ),
                         ],
                         if (author.bookmark > 0) ...[
                           SizedBox(width: 8),
                           Icon(Icons.favorite, size: 12, color: Colors.red),
-                          if (author.bookmark > 1) 
+                          if (author.bookmark > 1)
                             Text(
                               ' ${author.bookmark}',
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: Colors.red,
-                                    fontSize: 10,
-                                  ),
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(color: Colors.red, fontSize: 10),
                             ),
                         ],
                       ],
@@ -196,20 +187,22 @@ class DownloadedAuthorCard extends StatelessWidget {
                         children: [
                           Text(
                             '平均 ${(author.totalFileSize ~/ author.totalImageCount).formatFileSize()}/张',
-                            style:
-                                Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: Colors.grey[500],
-                                      fontSize: 11,
-                                    ),
+                            style: Theme.of(
+                              context,
+                            ).textTheme.bodySmall?.copyWith(
+                              color: Colors.grey[500],
+                              fontSize: 11,
+                            ),
                           ),
                           SizedBox(width: 8),
                           Text(
                             '总计 ${author.totalFileSize.formatFileSize()}',
-                            style:
-                                Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: Colors.grey[500],
-                                      fontSize: 11,
-                                    ),
+                            style: Theme.of(
+                              context,
+                            ).textTheme.bodySmall?.copyWith(
+                              color: Colors.grey[500],
+                              fontSize: 11,
+                            ),
                           ),
                         ],
                       ),
@@ -218,9 +211,9 @@ class DownloadedAuthorCard extends StatelessWidget {
                       Text(
                         '总计 ${author.totalFileSize.formatFileSize()}',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Colors.grey[500],
-                              fontSize: 11,
-                            ),
+                          color: Colors.grey[500],
+                          fontSize: 11,
+                        ),
                       ),
                     ],
                   ],
@@ -229,11 +222,13 @@ class DownloadedAuthorCard extends StatelessWidget {
             ),
             IconButton(
               icon: Icon(
-                  author.bookmark > 0 ? Icons.favorite : Icons.favorite_border),
+                author.bookmark > 0 ? Icons.favorite : Icons.favorite_border,
+              ),
               iconSize: 20,
-              color: author.bookmark > 0
-                  ? Colors.red
-                  : Theme.of(context).iconTheme.color,
+              color:
+                  author.bookmark > 0
+                      ? Colors.red
+                      : Theme.of(context).iconTheme.color,
               tooltip: author.bookmark > 0 ? '取消收藏' : '收藏',
               onPressed: () {
                 final newBookmark = author.bookmark > 0 ? 0 : 1;
@@ -260,7 +255,6 @@ class DownloadedAuthorCard extends StatelessWidget {
     );
   }
 
-
   Future<void> _updateAuthorStats(BuildContext context) async {
     if (!downloadStore.isInitialized) {
       BotToast.showText(text: '下载功能未初始化');
@@ -269,10 +263,10 @@ class DownloadedAuthorCard extends StatelessWidget {
     try {
       BotToast.showText(text: '正在更新作者信息...');
       await downloadStore.dbProvider.updateAuthorStats(author.userId);
-      
+
       // 通知父组件刷新整个卡片
       onRefresh?.call();
-      
+
       BotToast.showText(text: '更新完成');
     } catch (e) {
       BotToast.showText(text: '更新作者信息失败: $e');
@@ -286,7 +280,7 @@ class DownloadedAuthorCard extends StatelessWidget {
     }
     try {
       final dirPath = await downloadStore.getAuthorDirectoryPath(author);
-      
+
       if (dirPath == null) {
         BotToast.showText(text: '无法获取下载目录');
         return;
@@ -320,8 +314,13 @@ class DownloadedAuthorCard extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('优先级: ${tempBookmark.toInt()}', 
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      Text(
+                        '优先级: ${tempBookmark.toInt()}',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
                       if (tempBookmark > 0)
                         Icon(Icons.favorite, color: Colors.red),
                     ],
@@ -378,4 +377,3 @@ class DownloadedAuthorCard extends StatelessWidget {
     );
   }
 }
-

@@ -34,8 +34,6 @@ import 'package:pixez/page/downloaded/sync_bookmarks_dialog.dart';
 
 import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 
-
-
 import 'package:pixez/page/downloaded/update_illust_info_dialog.dart';
 import 'package:pixez/page/downloaded/bookmark_priority_dialog.dart';
 import 'package:pixez/store/download_store.dart';
@@ -79,7 +77,9 @@ class _DownloadedPageState extends State<DownloadedPage> {
     );
     _store = DownloadedPageStore();
     _store.easyRefreshController = _easyRefreshController;
-    _searchController = TextEditingController(text: widget.initialSearchKeyword);
+    _searchController = TextEditingController(
+      text: widget.initialSearchKeyword,
+    );
     _searchFocusNode = FocusNode();
     _searchController.addListener(_onSearchChanged);
     _store.init(
@@ -88,7 +88,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
       initialSearchKeyword: widget.initialSearchKeyword,
       initialTagName: widget.initialTagName,
     );
-     // Set text controller if search keyword is provided (but not tags, as tags are shown in title)
+    // Set text controller if search keyword is provided (but not tags, as tags are shown in title)
     if (widget.initialSearchKeyword?.isNotEmpty == true) {
       _searchController.text = widget.initialSearchKeyword!;
     }
@@ -122,11 +122,12 @@ class _DownloadedPageState extends State<DownloadedPage> {
   @override
   Widget build(BuildContext context) {
     return Observer(
-      builder: (_) => Scaffold(
-        appBar: _buildAppBar(),
-        body: _buildBody(),
-        floatingActionButton: _buildFab(),
-      ),
+      builder:
+          (_) => Scaffold(
+            appBar: _buildAppBar(),
+            body: _buildBody(),
+            floatingActionButton: _buildFab(),
+          ),
     );
   }
 
@@ -142,7 +143,6 @@ class _DownloadedPageState extends State<DownloadedPage> {
           onPressed: _toggleSearch,
         ),
         if (!_store.isSearching) ...[
-
           IconButton(
             icon: const Icon(Icons.update),
             tooltip: '更新插画信息',
@@ -152,7 +152,9 @@ class _DownloadedPageState extends State<DownloadedPage> {
             builder: (_) {
               return IconButton(
                 icon: Icon(
-                  _store.showBookmarksOnly ? Icons.favorite : Icons.favorite_border,
+                  _store.showBookmarksOnly
+                      ? Icons.favorite
+                      : Icons.favorite_border,
                   color: _store.showBookmarksOnly ? Colors.red : null,
                 ),
                 tooltip: _store.showBookmarksOnly ? '显示所有' : '仅显示收藏',
@@ -165,9 +167,10 @@ class _DownloadedPageState extends State<DownloadedPage> {
               return IconButton(
                 icon: Icon(
                   _store.markUnprocessed ? Icons.flag : Icons.outlined_flag,
-                  color: _store.markUnprocessed
-                      ? Theme.of(context).colorScheme.primary
-                      : null,
+                  color:
+                      _store.markUnprocessed
+                          ? Theme.of(context).colorScheme.primary
+                          : null,
                 ),
                 tooltip: '标记未处理',
                 onPressed: () {
@@ -214,8 +217,6 @@ class _DownloadedPageState extends State<DownloadedPage> {
     );
   }
 
-
-
   Widget _buildSearchField() {
     return TextField(
       controller: _searchController,
@@ -224,37 +225,34 @@ class _DownloadedPageState extends State<DownloadedPage> {
         hintText: '搜索标题，用户或者标签',
         border: InputBorder.none,
         hintStyle: TextStyle(
-          color: Theme.of(context).appBarTheme.foregroundColor?.withOpacity(0.6),
+          color: Theme.of(
+            context,
+          ).appBarTheme.foregroundColor?.withOpacity(0.6),
         ),
       ),
-      style: TextStyle(
-        color: Theme.of(context).appBarTheme.foregroundColor,
-      ),
+      style: TextStyle(color: Theme.of(context).appBarTheme.foregroundColor),
     );
   }
-
-
-
-
 
   Widget _buildMoreMenu() {
     return PopupMenuButton<String>(
       icon: Icon(Icons.more_vert),
       onSelected: _onMenuSelected,
       position: PopupMenuPosition.under,
-      itemBuilder: (context) => [
-        ..._buildFilterMenuItems(),
-        PopupMenuDivider(),
-        ..._buildActionMenuItems(),
-        PopupMenuDivider(),
-        ..._buildDownloadControlMenuItems(),
-        PopupMenuDivider(),
-        CheckedPopupMenuItem(
-          value: 'toggle_enable_drag',
-          checked: _store.enableDrag,
-          child: Text('启用拖拽功能'),
-        ),
-      ],
+      itemBuilder:
+          (context) => [
+            ..._buildFilterMenuItems(),
+            PopupMenuDivider(),
+            ..._buildActionMenuItems(),
+            PopupMenuDivider(),
+            ..._buildDownloadControlMenuItems(),
+            PopupMenuDivider(),
+            CheckedPopupMenuItem(
+              value: 'toggle_enable_drag',
+              checked: _store.enableDrag,
+              child: Text('启用拖拽功能'),
+            ),
+          ],
     );
   }
 
@@ -354,11 +352,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
       PopupMenuItem(
         value: 'update_info',
         child: Row(
-          children: [
-            Icon(Icons.update),
-            SizedBox(width: 8),
-            Text('更新插画信息'),
-          ],
+          children: [Icon(Icons.update), SizedBox(width: 8), Text('更新插画信息')],
         ),
       ),
       PopupMenuItem(
@@ -455,37 +449,38 @@ class _DownloadedPageState extends State<DownloadedPage> {
   Widget _buildRefreshableContent() {
     return PixezEasyRefresh.builder(
       controller: _easyRefreshController,
-      onRefresh: _store.isMultiSelectMode
-          ? null
-          : () async {
-              await _store.refresh();
-            },
+      onRefresh:
+          _store.isMultiSelectMode
+              ? null
+              : () async {
+                await _store.refresh();
+              },
       onLoad: _store.isMultiSelectMode ? null : _store.loadMore,
       header: PixezDefault.header(context),
       footer: PixezDefault.footer(context),
       childBuilder: (context, physics, scrollController) {
-      // 保存滚动控制器以便 FAB 使用
-      _scrollController = scrollController;
-      return Observer(builder: (context) {
-          return ScrollConfiguration(
-            behavior: _store.enableDrag
-                ? ScrollConfiguration.of(context).copyWith(
-                    dragDevices: ScrollConfiguration.of(context)
-                        .dragDevices
-                        .where((k) => k != PointerDeviceKind.mouse)
-                        .toSet(),
-                  )
-                : ScrollConfiguration.of(context),
-            child: CustomScrollView(
-              physics: physics,
-              controller: scrollController,
-              slivers: [
-                _buildSortHeader(),
-                _buildGridView(),
-              ],
-            ),
-          );
-        });
+        // 保存滚动控制器以便 FAB 使用
+        _scrollController = scrollController;
+        return Observer(
+          builder: (context) {
+            return ScrollConfiguration(
+              behavior:
+                  _store.enableDrag
+                      ? ScrollConfiguration.of(context).copyWith(
+                        dragDevices:
+                            ScrollConfiguration.of(context).dragDevices
+                                .where((k) => k != PointerDeviceKind.mouse)
+                                .toSet(),
+                      )
+                      : ScrollConfiguration.of(context),
+              child: CustomScrollView(
+                physics: physics,
+                controller: scrollController,
+                slivers: [_buildSortHeader(), _buildGridView()],
+              ),
+            );
+          },
+        );
       },
     );
   }
@@ -533,10 +528,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
           ),
         ),
         SizedBox(width: 8),
-        Switch(
-          value: _store.sortDesc,
-          onChanged: _store.onSortOrderChanged,
-        ),
+        Switch(value: _store.sortDesc, onChanged: _store.onSortOrderChanged),
       ],
     );
   }
@@ -552,36 +544,36 @@ class _DownloadedPageState extends State<DownloadedPage> {
           crossAxisSpacing: 8,
           mainAxisSpacing: 8,
         ),
-        delegate: SliverChildBuilderDelegate(
-          (context, index) {
-            if (index >= filteredList.length) {
-              return Center(child: CircularProgressIndicator());
-            }
-            return _DownloadedIllustCard(
-              illust: filteredList[index],
-              store: _store,
-              onTapPosition: (pos) => _tapPosition = pos,
-              onTap: () => _navigateToPictureList(filteredList[index]),
-              onLongPress: () => _showContextMenu(
-                context,
-                filteredList[index],
-                _tapPosition,
-              ),
-              onSecondaryTap: () => _showContextMenu(
-                context,
-                filteredList[index],
-                _tapPosition,
-              ),
-              onOpenFolder: () => _openIllustFolder(filteredList[index]),
-              onRefreshData: () {
-                _store.loadData();
-                _store.loadStats();
-              },
-              onAuthorTap: () => _navigateToAuthorDownloadedPage(filteredList[index]),
-            );
-          },
-          childCount: filteredList.length + (_store.loadingMore ? 1 : 0),
-        ),
+        delegate: SliverChildBuilderDelegate((context, index) {
+          if (index >= filteredList.length) {
+            return Center(child: CircularProgressIndicator());
+          }
+          return _DownloadedIllustCard(
+            illust: filteredList[index],
+            store: _store,
+            onTapPosition: (pos) => _tapPosition = pos,
+            onTap: () => _navigateToPictureList(filteredList[index]),
+            onLongPress:
+                () => _showContextMenu(
+                  context,
+                  filteredList[index],
+                  _tapPosition,
+                ),
+            onSecondaryTap:
+                () => _showContextMenu(
+                  context,
+                  filteredList[index],
+                  _tapPosition,
+                ),
+            onOpenFolder: () => _openIllustFolder(filteredList[index]),
+            onRefreshData: () {
+              _store.loadData();
+              _store.loadStats();
+            },
+            onAuthorTap:
+                () => _navigateToAuthorDownloadedPage(filteredList[index]),
+          );
+        }, childCount: filteredList.length + (_store.loadingMore ? 1 : 0)),
       ),
     );
   }
@@ -589,9 +581,10 @@ class _DownloadedPageState extends State<DownloadedPage> {
   // ============ 导航与操作 ============
 
   void _navigateToPictureList(DownloadedIllust illust) async {
-    final iStores = _store.filteredIllusts.map((item) {
-      return IllustStore(item.illustId, item.toIllusts());
-    }).toList();
+    final iStores =
+        _store.filteredIllusts.map((item) {
+          return IllustStore(item.illustId, item.toIllusts());
+        }).toList();
 
     final currentIndex = _store.filteredIllusts.indexOf(illust);
     final currentStore = iStores[currentIndex];
@@ -613,10 +606,11 @@ class _DownloadedPageState extends State<DownloadedPage> {
   void _navigateToAuthorDownloadedPage(DownloadedIllust illust) {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (context) => DownloadedPage(
-          initialUserId: illust.userId,
-          initialUserName: illust.userName,
-        ),
+        builder:
+            (context) => DownloadedPage(
+              initialUserId: illust.userId,
+              initialUserName: illust.userName,
+            ),
       ),
     );
   }
@@ -632,41 +626,42 @@ class _DownloadedPageState extends State<DownloadedPage> {
 
   Widget _buildFab() {
     return Observer(
-      builder: (_) => FloatingActionButton(
-        onPressed: _store.isRefreshing
-            ? null
-            : () async {
-                // 先滚动到顶部
-                if (_scrollController?.hasClients == true) {
-                  await _scrollController!.animateTo(
-                    0,
-                    duration: const Duration(milliseconds: 300),
-                    curve: Curves.easeOut,
-                  );
-                }
-                // 然后刷新
-                _store.refresh();
-              },
-        tooltip: _store.isRefreshing ? '刷新中...' : '刷新数据',
-        child: _store.isRefreshing
-            ? SizedBox(
-                width: 24,
-                height: 24,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    Theme.of(context).colorScheme.onPrimary,
-                  ),
-                ),
-              )
-            : Icon(Icons.refresh),
-      ),
+      builder:
+          (_) => FloatingActionButton(
+            onPressed:
+                _store.isRefreshing
+                    ? null
+                    : () async {
+                      // 先滚动到顶部
+                      if (_scrollController?.hasClients == true) {
+                        await _scrollController!.animateTo(
+                          0,
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeOut,
+                        );
+                      }
+                      // 然后刷新
+                      _store.refresh();
+                    },
+            tooltip: _store.isRefreshing ? '刷新中...' : '刷新数据',
+            child:
+                _store.isRefreshing
+                    ? SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          Theme.of(context).colorScheme.onPrimary,
+                        ),
+                      ),
+                    )
+                    : Icon(Icons.refresh),
+          ),
     );
   }
 
   // ============ 对话框 ============
-
-
 
   void _showUpdateIllustInfoDialog() async {
     List<DownloadedIllust> illustsToUpdate;
@@ -682,9 +677,9 @@ class _DownloadedPageState extends State<DownloadedPage> {
     }
 
     if (illustsToUpdate.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('没有需要更新的作品')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('没有需要更新的作品')));
       return;
     }
 
@@ -698,7 +693,10 @@ class _DownloadedPageState extends State<DownloadedPage> {
     _store.loadStats();
   }
 
-  void _showSinglePriorityDialog(BuildContext context, DownloadedIllust illust) {
+  void _showSinglePriorityDialog(
+    BuildContext context,
+    DownloadedIllust illust,
+  ) {
     BookmarkPriorityDialog.show(
       context,
       illusts: [illust],
@@ -707,7 +705,9 @@ class _DownloadedPageState extends State<DownloadedPage> {
   }
 
   void _showBatchPriorityDialog(
-      BuildContext context, List<DownloadedIllust> illusts) {
+    BuildContext context,
+    List<DownloadedIllust> illusts,
+  ) {
     BookmarkPriorityDialog.show(
       context,
       illusts: illusts,
@@ -757,7 +757,10 @@ class _DownloadedPageState extends State<DownloadedPage> {
   // ============ 右键菜单 ============
 
   void _showContextMenu(
-      BuildContext context, DownloadedIllust illust, Offset? tapPosition) {
+    BuildContext context,
+    DownloadedIllust illust,
+    Offset? tapPosition,
+  ) {
     final RenderBox overlay =
         Overlay.of(context).context.findRenderObject() as RenderBox;
 
@@ -766,19 +769,24 @@ class _DownloadedPageState extends State<DownloadedPage> {
 
     final isMulti = _store.isMultiSelectMode;
     final selectedCount = _store.selectedIllustIds.length;
-    
-    // 如果在多选模式下，且当前item未选中，则只对当前item操作? 
+
+    // 如果在多选模式下，且当前item未选中，则只对当前item操作?
     // 或者通常右键点击未选中项会选中它并取消其他？
     // 这里简化逻辑：如果是多选模式，且当前item已选中，则对所有选中项操作。
     // 如果未选中，则只对当前item操作（如同单选）。
-    final isSelectedInMulti = isMulti && _store.selectedIllustIds.contains(illust.illustId);
-    
-    final targetIllusts = isSelectedInMulti 
-        ? _store.filteredIllusts.where((i) => _store.selectedIllustIds.contains(i.illustId)).toList()
-        : [illust];
+    final isSelectedInMulti =
+        isMulti && _store.selectedIllustIds.contains(illust.illustId);
+
+    final targetIllusts =
+        isSelectedInMulti
+            ? _store.filteredIllusts
+                .where((i) => _store.selectedIllustIds.contains(i.illustId))
+                .toList()
+            : [illust];
 
     final status = _store.illustDownloadStatus[illust.illustId];
-    final isDownloading = status == DownloadTaskStatus.downloading ||
+    final isDownloading =
+        status == DownloadTaskStatus.downloading ||
         status == DownloadTaskStatus.pending;
     final isPaused = status == DownloadTaskStatus.paused;
     final isFailed = status == DownloadTaskStatus.failed;
@@ -791,11 +799,8 @@ class _DownloadedPageState extends State<DownloadedPage> {
       ),
       items: [
         if (isMulti)
-          PopupMenuItem(
-            child: Text('已选择 $selectedCount 项'),
-            enabled: false,
-          ),
-        
+          PopupMenuItem(child: Text('已选择 $selectedCount 项'), enabled: false),
+
         // 切换多选模式
         _buildContextMenuItem(
           icon: isMulti ? Icons.check_box_outline_blank : Icons.check_box,
@@ -809,7 +814,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
             }
           },
         ),
-        
+
         _buildContextMenuItem(
           icon: Icons.open_in_new,
           label: I18n.of(context).detail,
@@ -819,12 +824,14 @@ class _DownloadedPageState extends State<DownloadedPage> {
         if (!isMulti) ...[
           if (_store.filterTagName != null)
             _buildContextMenuItem(
-              icon: _store.exampleIllustIds.contains(illust.illustId)
-                  ? Icons.star
-                  : Icons.star_border,
-              label: _store.exampleIllustIds.contains(illust.illustId)
-                  ? '取消示例插画'
-                  : '设置为示例插画',
+              icon:
+                  _store.exampleIllustIds.contains(illust.illustId)
+                      ? Icons.star
+                      : Icons.star_border,
+              label:
+                  _store.exampleIllustIds.contains(illust.illustId)
+                      ? '取消示例插画'
+                      : '设置为示例插画',
               onTap: () async {
                 final tagName = _store.filterTagName!;
                 final tagData = tagManagerStore.getTagDisplayData(tagName);
@@ -836,10 +843,17 @@ class _DownloadedPageState extends State<DownloadedPage> {
                     coverUrl = illusts.imageUrls.squareMedium;
                   }
                   await tagManagerStore.toggleExampleIllust(
-                      tagData.tag.id, illust.illustId, coverUrl);
+                    tagData.tag.id,
+                    illust.illustId,
+                    coverUrl,
+                  );
                   _store.exampleIllustIds.clear();
                   _store.exampleIllustIds.addAll(
-                      tagManagerStore.getTagDisplayData(tagName)!.tag.exampleIllustIds);
+                    tagManagerStore
+                        .getTagDisplayData(tagName)!
+                        .tag
+                        .exampleIllustIds,
+                  );
                 }
               },
             ),
@@ -856,9 +870,9 @@ class _DownloadedPageState extends State<DownloadedPage> {
               if (path != null) {
                 // 在这里为复制的路径添加双引号，方便在其他地方粘贴使用
                 Clipboard.setData(ClipboardData(text: path));
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('路径已复制到剪贴板')),
-                );
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(const SnackBar(content: Text('路径已复制到剪贴板')));
               }
             },
           ),
@@ -879,30 +893,31 @@ class _DownloadedPageState extends State<DownloadedPage> {
           _buildContextMenuItem(
             icon: illust.bookmark > 0 ? Icons.favorite : Icons.favorite_border,
             iconColor: illust.bookmark > 0 ? Colors.red : null,
-            label: isSelectedInMulti 
-              ? '收藏/取消选中 ($selectedCount)' 
-              : (illust.bookmark > 0 ? '取消收藏' : '收藏'),
+            label:
+                isSelectedInMulti
+                    ? '收藏/取消选中 ($selectedCount)'
+                    : (illust.bookmark > 0 ? '取消收藏' : '收藏'),
             onTap: () async {
-               if (isSelectedInMulti) {
-                 final newBookmark = illust.bookmark > 0 ? 0 : 1;
-                 for (var item in targetIllusts) {
-                   await _store.updateBookmark(item.illustId, newBookmark);
-                 }
-               } else {
-                 final newBookmark = illust.bookmark > 0 ? 0 : 1;
-                 await _store.updateBookmark(illust.illustId, newBookmark);
-               }
+              if (isSelectedInMulti) {
+                final newBookmark = illust.bookmark > 0 ? 0 : 1;
+                for (var item in targetIllusts) {
+                  await _store.updateBookmark(item.illustId, newBookmark);
+                }
+              } else {
+                final newBookmark = illust.bookmark > 0 ? 0 : 1;
+                await _store.updateBookmark(illust.illustId, newBookmark);
+              }
             },
           ),
           _buildContextMenuItem(
             icon: Icons.priority_high,
             label: isSelectedInMulti ? '设置选中优先级 ($selectedCount)' : '设置收藏优先级',
             onTap: () {
-               if (isSelectedInMulti) {
-                  _showBatchPriorityDialog(context, targetIllusts);
-               } else {
-                  _showSinglePriorityDialog(context, illust);
-               }
+              if (isSelectedInMulti) {
+                _showBatchPriorityDialog(context, targetIllusts);
+              } else {
+                _showSinglePriorityDialog(context, illust);
+              }
             },
           ),
         ],
@@ -913,9 +928,8 @@ class _DownloadedPageState extends State<DownloadedPage> {
           onTap: () async {
             await showDialog(
               context: context,
-              builder: (context) => UpdateIllustInfoDialog(
-                illusts: targetIllusts,
-              ),
+              builder:
+                  (context) => UpdateIllustInfoDialog(illusts: targetIllusts),
             );
             _store.loadData();
           },
@@ -923,7 +937,10 @@ class _DownloadedPageState extends State<DownloadedPage> {
         _buildContextMenuItem(
           icon: Icons.delete,
           iconColor: Colors.red,
-          label: isSelectedInMulti ? '删除选中 ($selectedCount)' : I18n.of(context).delete,
+          label:
+              isSelectedInMulti
+                  ? '删除选中 ($selectedCount)'
+                  : I18n.of(context).delete,
           labelColor: Colors.red,
           onTap: () => _deleteIllusts(targetIllusts),
         ),
@@ -943,15 +960,15 @@ class _DownloadedPageState extends State<DownloadedPage> {
         children: [
           Icon(icon, color: iconColor),
           SizedBox(width: 8),
-          Text(label,
-              style: labelColor != null ? TextStyle(color: labelColor) : null),
+          Text(
+            label,
+            style: labelColor != null ? TextStyle(color: labelColor) : null,
+          ),
         ],
       ),
       onTap: onTap,
     );
   }
-
-
 }
 
 // ============ 独立组件 ============
@@ -994,7 +1011,8 @@ class _DownloadedIllustCard extends StatelessWidget {
       final imageUrls = illust.getImageUrls();
       if (userSetting.feedPreviewQuality == Constants.qualityLevelMedium) {
         coverUrl = imageUrls.medium;
-      } else if (userSetting.feedPreviewQuality == Constants.qualityLevelLarge) {
+      } else if (userSetting.feedPreviewQuality ==
+          Constants.qualityLevelLarge) {
         coverUrl = imageUrls.large;
       } else {
         // 原图质量或兜底：才需要解析完整的 Illusts 对象以获取原图 URL
@@ -1005,17 +1023,11 @@ class _DownloadedIllustCard extends StatelessWidget {
     Widget imageWidget = PixivImage(
       coverUrl,
       fit: BoxFit.cover,
-      httpHeaders: {
-        'cover': '${illust.illustId}',
-        'quality': quality,
-      },
+      httpHeaders: {'cover': '${illust.illustId}', 'quality': quality},
       memCacheWidth: 480,
     );
 
-    return Hero(
-      tag: heroTag,
-      child: imageWidget,
-    );
+    return Hero(tag: heroTag, child: imageWidget);
   }
 
   Widget _buildFolderButton(BuildContext context) {
@@ -1030,11 +1042,7 @@ class _DownloadedIllustCard extends StatelessWidget {
           onTap: onOpenFolder,
           child: Container(
             padding: EdgeInsets.all(6),
-            child: Icon(
-              Icons.folder_open,
-              color: Colors.white,
-              size: 18,
-            ),
+            child: Icon(Icons.folder_open, color: Colors.white, size: 18),
           ),
         ),
       ),
@@ -1091,7 +1099,8 @@ class _DownloadedIllustCard extends StatelessWidget {
     return Observer(
       builder: (_) {
         final status = store.illustDownloadStatus[illust.illustId];
-        final isSelected = store.isMultiSelectMode &&
+        final isSelected =
+            store.isMultiSelectMode &&
             store.selectedIllustIds.contains(illust.illustId);
 
         final card = _buildCard(context, status, isSelected);
@@ -1100,12 +1109,14 @@ class _DownloadedIllustCard extends StatelessWidget {
           return DragItemWidget(
             dragItemProvider: _createDragItemProvider,
             allowedOperations: () => [DropOperation.copy, DropOperation.link],
-            dragBuilder: (context, child) =>
-                _buildDragPreview(context, child, isSelected),
+            dragBuilder:
+                (context, child) =>
+                    _buildDragPreview(context, child, isSelected),
             child: DraggableWidget(
               child: card,
-              onDragConfiguration: (config, session) =>
-                  _createDragConfiguration(config, session, isSelected),
+              onDragConfiguration:
+                  (config, session) =>
+                      _createDragConfiguration(config, session, isSelected),
             ),
           );
         } else {
@@ -1116,7 +1127,10 @@ class _DownloadedIllustCard extends StatelessWidget {
   }
 
   Widget _buildCard(
-      BuildContext context, DownloadTaskStatus? status, bool isSelected) {
+    BuildContext context,
+    DownloadTaskStatus? status,
+    bool isSelected,
+  ) {
     final isDownloading = status == DownloadTaskStatus.downloading;
     final isPending = status == DownloadTaskStatus.pending;
     final isPaused = status == DownloadTaskStatus.paused;
@@ -1124,15 +1138,16 @@ class _DownloadedIllustCard extends StatelessWidget {
     final isMarked = store.unprocessedIllustIds.contains(illust.illustId);
     return Card(
       clipBehavior: Clip.antiAlias,
-      shape: isSelected
-          ? RoundedRectangleBorder(
-              side: BorderSide(
-                color: Theme.of(context).colorScheme.primary,
-                width: 3,
-              ),
-              borderRadius: BorderRadius.circular(4),
-            )
-          : null,
+      shape:
+          isSelected
+              ? RoundedRectangleBorder(
+                side: BorderSide(
+                  color: Theme.of(context).colorScheme.primary,
+                  width: 3,
+                ),
+                borderRadius: BorderRadius.circular(4),
+              )
+              : null,
       child: InkWell(
         onTap: () {
           if (store.isMultiSelectMode) {
@@ -1166,10 +1181,16 @@ class _DownloadedIllustCard extends StatelessWidget {
                   if (isPending) _buildPendingOverlay(context),
                   if (isPaused)
                     _buildStatusBadge(
-                        context, I18n.of(context).paused, Colors.orange),
+                      context,
+                      I18n.of(context).paused,
+                      Colors.orange,
+                    ),
                   if (isFailed)
                     _buildStatusBadge(
-                        context, I18n.of(context).failed, Colors.red),
+                      context,
+                      I18n.of(context).failed,
+                      Colors.red,
+                    ),
                   // 多选模式下的复选框指示器
                   if (store.isMultiSelectMode)
                     Positioned(
@@ -1178,16 +1199,22 @@ class _DownloadedIllustCard extends StatelessWidget {
                       child: Container(
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: isSelected
-                              ? Theme.of(context).colorScheme.primary
-                              : Colors.black45,
+                          color:
+                              isSelected
+                                  ? Theme.of(context).colorScheme.primary
+                                  : Colors.black45,
                           border: Border.all(color: Colors.white, width: 2),
                         ),
                         child: Padding(
                           padding: const EdgeInsets.all(4.0),
-                          child: isSelected
-                              ? Icon(Icons.check, size: 16, color: Colors.white)
-                              : SizedBox(width: 16, height: 16),
+                          child:
+                              isSelected
+                                  ? Icon(
+                                    Icons.check,
+                                    size: 16,
+                                    color: Colors.white,
+                                  )
+                                  : SizedBox(width: 16, height: 16),
                         ),
                       ),
                     ),
@@ -1202,7 +1229,10 @@ class _DownloadedIllustCard extends StatelessWidget {
   }
 
   DragConfiguration? _createDragConfiguration(
-      DragConfiguration config, DragSession session, bool isSelected) {
+    DragConfiguration config,
+    DragSession session,
+    bool isSelected,
+  ) {
     // 处理多选和文件过滤逻辑
     final selectedIds = <int>[];
     if (store.isMultiSelectMode) {
@@ -1222,9 +1252,10 @@ class _DownloadedIllustCard extends StatelessWidget {
     final snapshot = config.items.firstOrNull?.image;
     if (snapshot == null) return null;
 
-    final targetIllusts = store.filteredIllusts
-        .where((i) => selectedIds.contains(i.illustId))
-        .toList();
+    final targetIllusts =
+        store.filteredIllusts
+            .where((i) => selectedIds.contains(i.illustId))
+            .toList();
 
     // 确保至少包含当前插画
     if (targetIllusts.isEmpty && selectedIds.contains(illust.illustId)) {
@@ -1246,10 +1277,7 @@ class _DownloadedIllustCard extends StatelessWidget {
       if (dirPath != null) {
         final dragItem = DragItem();
         dragItem.add(Formats.fileUri(Uri.file(dirPath)));
-        newItems.add(DragConfigurationItem(
-          item: dragItem,
-          image: snapshot,
-        ));
+        newItems.add(DragConfigurationItem(item: dragItem, image: snapshot));
       }
     }
 
@@ -1338,19 +1366,9 @@ class _DownloadedIllustCard extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                Icons.hourglass_empty,
-                color: Colors.white,
-                size: 32,
-              ),
+              Icon(Icons.hourglass_empty, color: Colors.white, size: 32),
               SizedBox(height: 4),
-              Text(
-                '等待下载',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                ),
-              ),
+              Text('等待下载', style: TextStyle(color: Colors.white, fontSize: 12)),
             ],
           ),
         ),
@@ -1368,10 +1386,7 @@ class _DownloadedIllustCard extends StatelessWidget {
           color: color,
           borderRadius: BorderRadius.circular(4),
         ),
-        child: Text(
-          text,
-          style: TextStyle(color: Colors.white, fontSize: 10),
-        ),
+        child: Text(text, style: TextStyle(color: Colors.white, fontSize: 10)),
       ),
     );
   }
@@ -1392,37 +1407,43 @@ class _DownloadedIllustCard extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: onAuthorTap != null
-                    ? InkWell(
-                        onTap: store.isMultiSelectMode ? null : onAuthorTap,
-                        borderRadius: BorderRadius.circular(4),
-                        child: Text(
+                child:
+                    onAuthorTap != null
+                        ? InkWell(
+                          onTap: store.isMultiSelectMode ? null : onAuthorTap,
+                          borderRadius: BorderRadius.circular(4),
+                          child: Text(
+                            illust.userName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(
+                              context,
+                            ).textTheme.bodySmall?.copyWith(
+                              color: Theme.of(context).colorScheme.primary,
+                              decoration: TextDecoration.underline,
+                              decorationColor:
+                                  Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
+                        )
+                        : Text(
                           illust.userName,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: Theme.of(context).colorScheme.primary,
-                                decoration: TextDecoration.underline,
-                                decorationColor: Theme.of(context).colorScheme.primary,
-                              ),
+                          style: Theme.of(
+                            context,
+                          ).textTheme.bodySmall?.copyWith(
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
                         ),
-                      )
-                    : Text(
-                        illust.userName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
-                      ),
               ),
               Text(
                 illust.createDate.toShortDate(),
                 maxLines: 1,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.grey[600],
-                      fontSize: 11,
-                    ),
+                  color: Colors.grey[600],
+                  fontSize: 11,
+                ),
               ),
             ],
           ),
@@ -1433,7 +1454,7 @@ class _DownloadedIllustCard extends StatelessWidget {
   }
 
   Widget _buildStatsRow(BuildContext context) {
-    final totalFileSize = illust.totalFileSize;  // 使用物化字段
+    final totalFileSize = illust.totalFileSize; // 使用物化字段
     final isUgoira = illust.isUgoira;
 
     return Row(
@@ -1445,29 +1466,33 @@ class _DownloadedIllustCard extends StatelessWidget {
             child: _buildPageCountIndicator(context, totalFileSize, isUgoira),
           ),
         Spacer(),
-        if (totalFileSize > 0)  // 物化字段不为 null
+        if (totalFileSize > 0) // 物化字段不为 null
           Padding(
             padding: EdgeInsets.only(top: 2),
             child: Text(
               totalFileSize.formatFileSize(),
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.grey[600],
-                    fontSize: 11,
-                  ),
+                color: Colors.grey[600],
+                fontSize: 11,
+              ),
             ),
           ),
       ],
     );
   }
 
-  Widget _buildPageCountIndicator(BuildContext context, int? totalFileSize, bool isUgoira) {
+  Widget _buildPageCountIndicator(
+    BuildContext context,
+    int? totalFileSize,
+    bool isUgoira,
+  ) {
     if (isUgoira) {
       // 动图特殊处理：显示帧数
       return _buildUgoiraFrameIndicator(context, totalFileSize);
     }
 
     // 普通插画：显示页数
-    final downloadedCount = illust.downloadedImageCount;  // 使用物化字段
+    final downloadedCount = illust.downloadedImageCount; // 使用物化字段
     final totalCount = illust.pageCount;
 
     String pageText;
@@ -1490,16 +1515,16 @@ class _DownloadedIllustCard extends StatelessWidget {
           Text(
             pageText,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: downloadedCount < totalCount ? Colors.orange : null,
-                ),
+              color: downloadedCount < totalCount ? Colors.orange : null,
+            ),
           ),
           SizedBox(width: 4),
           Text(
             '· $avgSizeText/P',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Colors.grey[600],
-                  fontSize: 11,
-                ),
+              color: Colors.grey[600],
+              fontSize: 11,
+            ),
           ),
         ],
       );
@@ -1507,15 +1532,15 @@ class _DownloadedIllustCard extends StatelessWidget {
       return Text(
         pageText,
         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: downloadedCount < totalCount ? Colors.orange : null,
-            ),
+          color: downloadedCount < totalCount ? Colors.orange : null,
+        ),
       );
     }
   }
 
   /// 构建动图帧数指示器
   Widget _buildUgoiraFrameIndicator(BuildContext context, int? totalFileSize) {
-    final downloadedCount = illust.downloadedImageCount;  // 使用物化字段
+    final downloadedCount = illust.downloadedImageCount; // 使用物化字段
 
     // 动图的 downloadedCount 包含预览图(part=0)和所有帧(part=1,2,3...)
     // 实际帧数 = downloadedCount - 1（如果下载完整的话）
@@ -1542,17 +1567,17 @@ class _DownloadedIllustCard extends StatelessWidget {
           Text(
             frameText,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Colors.orange,
-                  fontWeight: FontWeight.w500,
-                ),
+              color: Colors.orange,
+              fontWeight: FontWeight.w500,
+            ),
           ),
           SizedBox(width: 4),
           Text(
             '· $avgSizeText/帧',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Colors.grey[600],
-                  fontSize: 11,
-                ),
+              color: Colors.grey[600],
+              fontSize: 11,
+            ),
           ),
         ],
       );
@@ -1560,9 +1585,9 @@ class _DownloadedIllustCard extends StatelessWidget {
       return Text(
         frameText,
         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Colors.orange,
-              fontWeight: FontWeight.w500,
-            ),
+          color: Colors.orange,
+          fontWeight: FontWeight.w500,
+        ),
       );
     }
   }
@@ -1590,11 +1615,15 @@ class _DownloadedIllustCard extends StatelessWidget {
   }
 
   Widget _buildDragPreview(
-      BuildContext context, Widget child, bool isSelected) {
+    BuildContext context,
+    Widget child,
+    bool isSelected,
+  ) {
     // 如果多选，显示数量角标
-    final count = store.isMultiSelectMode && isSelected
-        ? store.selectedIllustIds.length
-        : 1;
+    final count =
+        store.isMultiSelectMode && isSelected
+            ? store.selectedIllustIds.length
+            : 1;
 
     // 拖动时透明度太低问题：
     // 使用 Material 并不透明背景，包裹 Opacity 控制透明度（如果需要）
@@ -1621,7 +1650,9 @@ class _DownloadedIllustCard extends StatelessWidget {
                   child: Text(
                     '$count',
                     style: TextStyle(
-                        color: Colors.white, fontWeight: FontWeight.bold),
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ),
@@ -1654,9 +1685,13 @@ class _DownloadedIllustCard extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('优先级: ${tempBookmark.toInt()}',
-                          style: TextStyle(
-                              fontWeight: FontWeight.bold, fontSize: 16)),
+                      Text(
+                        '优先级: ${tempBookmark.toInt()}',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
                       if (tempBookmark > 0)
                         Icon(Icons.favorite, color: Colors.red),
                     ],
@@ -1714,7 +1749,6 @@ class _DownloadedIllustCard extends StatelessWidget {
   }
 }
 
-
 class SliverChipDelegate extends SliverPersistentHeaderDelegate {
   final Widget child;
   double height = 45;
@@ -1729,7 +1763,10 @@ class SliverChipDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   Widget build(
-      BuildContext context, double shrinkOffset, bool overlapsContent) {
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
     return child;
   }
 
