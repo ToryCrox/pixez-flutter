@@ -202,14 +202,18 @@ abstract class _DownloadedAuthorsPageStoreBase with Store {
         final nonWebpAuthorIds =
             await downloadStore.dbProvider.getAuthorsWithNonWebpImages();
 
-        // 步骤2: 使用 WHERE userId IN (...) 批量获取作者详情，应用排序和搜索条件
-        authors = await downloadStore.getDownloadedAuthors(
-          sortBy: _getSortBy(),
-          desc: _sortDesc,
-          searchKeyword: _searchKeyword,
-          filterBookmarks: _showBookmarksOnly,
-          filterUserIds: nonWebpAuthorIds.toList(),
-        );
+        if (nonWebpAuthorIds.isEmpty) {
+          authors = [];
+        } else {
+          // 步骤2: 使用 WHERE userId IN (...) 批量获取作者详情，应用排序和搜索条件
+          authors = await downloadStore.getDownloadedAuthors(
+            sortBy: _getSortBy(),
+            desc: _sortDesc,
+            searchKeyword: _searchKeyword,
+            filterBookmarks: _showBookmarksOnly,
+            filterUserIds: nonWebpAuthorIds.toList(),
+          );
+        }
         _totalCount = authors.length;
       } else {
         authors = await downloadStore.getDownloadedAuthors(
