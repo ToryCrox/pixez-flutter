@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:pixez/models/download_record.dart';
 import 'package:pixez/main.dart';
+import 'tag_manager_page.dart';
 import 'tag_selection_dialog.dart';
 import 'parent_selection_dialog.dart';
 
@@ -21,6 +22,7 @@ class _TagEditDialogState extends State<TagEditDialog> {
   late int _displayOrder;
   late List<TagDisplayData> _equivalenceGroup;
   late int _parentId;
+  late List<TagDisplayData> _childTags;
 
   @override
   void initState() {
@@ -31,6 +33,8 @@ class _TagEditDialogState extends State<TagEditDialog> {
     _displayOrder = widget.tag.displayOrder;
     _equivalenceGroup = tagManagerStore.getEquivalenceGroup(widget.tag.id);
     _parentId = widget.tag.parentId;
+    // 加载子标签
+    _childTags = tagManagerStore.getDirectChildren(widget.tag.id);
   }
 
   @override
@@ -66,6 +70,7 @@ class _TagEditDialogState extends State<TagEditDialog> {
               const SizedBox(height: 16),
               _buildParentRow(),
               _buildEquivalenceGroup(),
+              _buildChildrenRow(),
               const SizedBox(height: 16),
               const Text('分类', style: TextStyle(fontWeight: FontWeight.bold)),
               Wrap(
@@ -212,6 +217,75 @@ class _TagEditDialogState extends State<TagEditDialog> {
                 }).toList(),
               ),
             ),
+        ],
+      ),
+    );
+  }
+
+  /// 构建子标签预览行
+  Widget _buildChildrenRow() {
+    if (_childTags.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 12.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Text(
+                '子标签: ',
+                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey),
+              ),
+              Text(
+                '${_childTags.length}',
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+              const Spacer(),
+              // 跳转子标签页按钮
+              TextButton.icon(
+                onPressed: () {
+                  Navigator.of(context).pop(); // 先关闭对话框
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => TagManagerPage(
+                        initialParentId: widget.tag.id,
+                      ),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.open_in_new, size: 16),
+                label: const Text('查看全部', style: TextStyle(fontSize: 12)),
+                style: TextButton.styleFrom(padding: EdgeInsets.zero),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          // 单行横向滚动显示子标签
+          SizedBox(
+            height: 32,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: _childTags.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 4),
+              itemBuilder: (context, index) {
+                final child = _childTags[index].tag;
+                return Chip(
+                  label: Text(
+                    '${child.displayName} (${child.count})',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: child.categoryEnum.color,
+                    ),
+                  ),
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  padding: EdgeInsets.zero,
+                  labelPadding: const EdgeInsets.symmetric(horizontal: 6),
+                  visualDensity: VisualDensity.compact,
+                );
+              },
+            ),
+          ),
         ],
       ),
     );

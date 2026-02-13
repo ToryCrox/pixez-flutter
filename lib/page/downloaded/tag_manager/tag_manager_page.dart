@@ -10,7 +10,10 @@ import 'package:pixez/page/downloaded/tag_manager/parent_selection_dialog.dart';
 import 'package:pixez/page/downloaded/tag_manager/auto_associate_dialog.dart';
 
 class TagManagerPage extends StatefulWidget {
-  const TagManagerPage({super.key});
+  /// 初始父标签ID，非空时直接显示该父标签的子标签
+  final int? initialParentId;
+
+  const TagManagerPage({super.key, this.initialParentId});
 
   @override
   State<TagManagerPage> createState() => _TagManagerPageState();
@@ -30,6 +33,10 @@ class _TagManagerPageState extends State<TagManagerPage> {
     // Ensure data is loaded (will skip if already exists)
     tagManagerStore.loadTags();
     _pageStore.init();
+    // 如果传入了初始父标签ID，直接进入子标签视图
+    if (widget.initialParentId != null) {
+      _pageStore.setFilterByParent(widget.initialParentId!);
+    }
   }
 
   @override
@@ -159,7 +166,14 @@ class _TagManagerPageState extends State<TagManagerPage> {
                                     ? _showSetParentDialogForSelection
                                     : _showSetParentDialog,
                                 onShowChildren: () {
-                                  _pageStore.setFilterByParent(data.tag.id);
+                                  // 跳转新页面显示子标签
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) => TagManagerPage(
+                                        initialParentId: data.tag.id,
+                                      ),
+                                    ),
+                                  );
                                 },
                               );
                             },
@@ -193,8 +207,15 @@ class _TagManagerPageState extends State<TagManagerPage> {
       leading: _pageStore.filterByParentId != null
           ? IconButton(
               icon: const Icon(Icons.arrow_back),
-              tooltip: '返回全部标签',
-              onPressed: _pageStore.clearParentFilter,
+              tooltip: '返回',
+              onPressed: () {
+                // 通过 initialParentId 打开的页面，直接 pop 返回上一页
+                if (widget.initialParentId != null) {
+                  Navigator.of(context).pop();
+                } else {
+                  _pageStore.clearParentFilter();
+                }
+              },
             )
           : null,
       title: _pageStore.isSearching ? _buildSearchField() : _buildAppBarTitle(),

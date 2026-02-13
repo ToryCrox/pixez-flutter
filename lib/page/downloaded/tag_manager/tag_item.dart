@@ -126,6 +126,7 @@ class TagItem extends StatelessWidget {
   void _showEditDialog(BuildContext context) {
     showDialog(
       context: context,
+      useRootNavigator: false,
       builder: (context) => TagEditDialog(tag: data.tag),
     );
   }
