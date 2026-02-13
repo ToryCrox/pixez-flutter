@@ -768,14 +768,14 @@ class WindowPlacement with WindowListener {
     );
   }
 
+  /// 将保存的窗口位置和大小应用到窗口，不处理最大化状态
   Future<void> applyToWindow() async {
     Log.d('WindowPlacement.applyToWindow: rect=$rect, isMaximized=$isMaximized');
     
-    // 强制不应用最大化状态，不论上次关闭时是否记录为最大化
-    // 1. 设置 bounds
+    // 只设置还原态的位置和大小
     await windowManager.setBounds(rect);
     
-    // 2. 验证位置，如果不合法（如在屏幕外）则居中
+    // 验证位置，如果不合法（如在屏幕外）则居中
     if (!validate(rect)) {
       await windowManager.center();
     }
@@ -847,7 +847,11 @@ class WindowPlacement with WindowListener {
   // WindowListener 实现
   static final WindowPlacement instance = WindowPlacement(defaultPlacement.rect, false);
 
-  static void init() {
+  /// 初始化窗口位置监听，必须传入已加载的 placement 来正确初始化 cache
+  static void init(WindowPlacement loadedPlacement) {
+    // 先用加载的窗口配置初始化 cache，避免使用 defaultPlacement 导致数据丢失
+    cache = loadedPlacement;
+    // 再注册 listener，确保后续事件基于正确的 cache 状态
     windowManager.addListener(instance);
   }
 

@@ -415,35 +415,21 @@ Future<void> initWindows(List<String> args) async {
   // 必须加上这一行。
   await windowManager.ensureInitialized();
 
-  // 在 Windows 上提前加载窗口位置信息
-  WindowPlacement? placement;
-  if (Platform.isWindows) {
-    placement = await WindowPlacement.loadFromFile();
-  }
-
+  // 窗口位置的保存/恢复已由 Win32 原生层处理（window_placement.cpp）
+  // 这里只需设置 window_manager 的基本参数
   WindowOptions windowOptions = WindowOptions(
-    //skipTaskbar: false,
-    // 设置初始窗口大小，避免窗口过小
-    size: placement?.rect.size ?? const Size(1200, 800),
     // 设置最小窗口大小，防止窗口被调整得太小
     minimumSize: const Size(900, 600),
     titleBarStyle: TitleBarStyle.hidden,
     title: "PixEz",
   );
-  
-  await windowManager.waitUntilReadyToShow(windowOptions, () async {
-    // 在 Windows 上先应用窗口位置和尺寸，再显示窗口
-    if (Platform.isWindows && placement != null) {
-      await placement.applyToWindow();
-    }
-    
-    await windowManager.show();
-    await windowManager.focus();
-    
-    if (Platform.isWindows) {
-      WindowPlacement.init();
-    }
-  });
+
+  await windowManager.waitUntilReadyToShow(windowOptions);
+
+  // 初始化 Dart 层的窗口位置监听（用于后续 Dart 侧获取窗口状态）
+  if (Platform.isWindows) {
+    WindowPlacement.init(WindowPlacement.defaultPlacement);
+  }
 }
 
 class MouseDragScrollBehavior extends MaterialScrollBehavior {

@@ -32,8 +32,9 @@ bool FlutterWindow::OnCreate()
   RegisterPixEzPlugins(flutter_controller_->engine(), GetHandle());
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
+  // 使用保存的窗口显示命令（可能是 SW_SHOWMAXIMIZED）
   flutter_controller_->engine()->SetNextFrameCallback([&]()
-                                                      { this->Show(); });
+                                                      { this->Show(this->GetSavedShowCommand()); });
 
   return true;
 }

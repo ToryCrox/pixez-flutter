@@ -4,6 +4,7 @@
 #include <flutter_windows.h>
 
 #include "resource.h"
+#include "window_placement.h"
 
 namespace {
 
@@ -144,13 +145,23 @@ bool Win32Window::Create(const std::wstring& title,
     return false;
   }
 
+  // 尝试加载保存的窗口位置，并通过 Win32 原生 API 恢复
+  WINDOWPLACEMENT saved_placement;
+  if (WindowPlacementHelper::LoadPlacement(saved_placement)) {
+    // 保存显示命令，供后续 Show() 使用
+    saved_show_command_ = saved_placement.showCmd;
+    // 先设置为隐藏状态应用位置，避免闪烁
+    saved_placement.showCmd = SW_HIDE;
+    SetWindowPlacement(window, &saved_placement);
+  }
+
   UpdateTheme(window);
 
   return OnCreate();
 }
 
-bool Win32Window::Show() {
-  return ShowWindow(window_handle_, SW_SHOWNORMAL);
+bool Win32Window::Show(int command) {
+  return ShowWindow(window_handle_, command);
 }
 
 // static
@@ -186,6 +197,11 @@ Win32Window::MessageHandler(HWND hwnd,
         PostQuitMessage(0);
       }
       return 0;
+
+    // 窗口关闭时保存位置信息到注册表
+    case WM_CLOSE:
+      WindowPlacementHelper::SavePlacement(hwnd);
+      break;
 
     case WM_DPICHANGED: {
       auto newRectSize = reinterpret_cast<RECT*>(lparam);

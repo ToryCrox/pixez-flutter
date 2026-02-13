@@ -37,7 +37,8 @@ class Win32Window {
   bool Create(const std::wstring& title, const Point& origin, const Size& size);
 
   // Show the current window. Returns true if the window was successfully shown.
-  bool Show();
+  // |command| 可以是 SW_SHOWNORMAL、SW_SHOWMAXIMIZED 等
+  bool Show(int command = SW_SHOWNORMAL);
 
   // Release OS resources associated with window.
   void Destroy();
@@ -54,6 +55,9 @@ class Win32Window {
 
   // Return a RECT representing the bounds of the current client area.
   RECT GetClientArea();
+
+  // 获取保存的窗口显示命令（SW_SHOWNORMAL 或 SW_SHOWMAXIMIZED）
+  int GetSavedShowCommand() const { return saved_show_command_; }
 
  protected:
   // Processes and route salient window messages for mouse handling,
@@ -91,6 +95,9 @@ class Win32Window {
   static void UpdateTheme(HWND const window);
 
   bool quit_on_close_ = false;
+
+  // 保存的窗口显示命令，用于恢复最大化状态
+  int saved_show_command_ = SW_SHOWNORMAL;
 
   // window handle for top level window.
   HWND window_handle_ = nullptr;

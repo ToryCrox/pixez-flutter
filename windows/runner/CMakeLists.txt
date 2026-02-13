@@ -11,6 +11,7 @@ add_executable(${BINARY_NAME} WIN32
   "main.cpp"
   "utils.cpp"
   "win32_window.cpp"
+  "window_placement.cpp"
   "settings.cpp"
   "plugins_manager.cpp"
   "plugins/clipboard_plugin.cpp"
