@@ -32,6 +32,7 @@ import 'package:pixez/er/hoster.dart';
 import 'package:pixez/i18n.dart';
 import 'package:pixez/lighting/lighting_store.dart';
 import 'package:pixez/main.dart';
+import 'package:pixez/component/author_bookmark_dialog.dart';
 
 import 'package:pixez/network/api_client.dart';
 import 'package:pixez/page/follow/follow_list.dart';
@@ -112,6 +113,7 @@ class _UsersPageState extends State<UsersPage> with TickerProviderStateMixin {
     super.initState();
     userStore.firstFetch();
     muteStore.fetchBanUserIds();
+    userStore.loadDownloadedAuthor();
     _searchController = TextEditingController();
     _searchController.addListener(() {
       _workStore.setFilter(_searchController.text);
@@ -827,15 +829,22 @@ class _UsersPageState extends State<UsersPage> with TickerProviderStateMixin {
                     )
                   : Padding(
                       padding: const EdgeInsets.only(right: 16.0, bottom: 4.0),
-                      child: UserFollowButton(
-                        id: widget.id,
-                        followed: userStore.isFollow,
-                        onPressed: () async {
-                          await userStore.follow(needPrivate: false);
-                        },
-                        onConfirm: (follow, restrict) {
-                          userStore.followWithRestrict(follow, restrict);
-                        },
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // 收藏按钮：仅当作者有下载记录时显示
+                          _buildDownloadedAuthorBookmarkButton(),
+                          UserFollowButton(
+                            id: widget.id,
+                            followed: userStore.isFollow,
+                            onPressed: () async {
+                              await userStore.follow(needPrivate: false);
+                            },
+                            onConfirm: (follow, restrict) {
+                              userStore.followWithRestrict(follow, restrict);
+                            },
+                          ),
+                        ],
                       ),
                     ),
             )
@@ -843,6 +852,72 @@ class _UsersPageState extends State<UsersPage> with TickerProviderStateMixin {
         ),
       ),
     );
+  }
+
+  /// 构建下载作者的收藏按钮
+  Widget _buildDownloadedAuthorBookmarkButton() {
+    return Observer(builder: (_) {
+      final author = userStore.downloadedAuthor;
+      if (author == null) return const SizedBox.shrink();
+      final isBookmarked = author.bookmark > 0;
+      return Padding(
+        padding: const EdgeInsets.only(right: 8.0),
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+          onTap: () async {
+            final newBookmark = isBookmarked ? 0 : 1;
+            await userStore.updateDownloadedAuthorBookmark(newBookmark);
+          },
+          onLongPress: () async {
+            final result = await showAuthorBookmarkDialog(
+              context,
+              currentBookmark: author.bookmark,
+            );
+            if (result != null) {
+              await userStore.updateDownloadedAuthorBookmark(result);
+            }
+          },
+          child: Container(
+            height: 32,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              color: isBookmarked ? Colors.red : null,
+              border: isBookmarked
+                  ? null
+                  : Border.all(
+                      color: Theme.of(context).colorScheme.secondary,
+                    ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  isBookmarked ? Icons.favorite : Icons.favorite_border,
+                  size: 16,
+                  color: isBookmarked
+                      ? Colors.white
+                      : Theme.of(context).colorScheme.secondary,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  isBookmarked ? '已收藏' : '收藏',
+                  style: TextStyle(
+                    color: isBookmarked
+                        ? Colors.white
+                        : Theme.of(context).colorScheme.secondary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        ),
+      );
+    });
   }
 
   _saveUserBg(String url) async {

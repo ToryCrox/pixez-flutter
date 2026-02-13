@@ -64,7 +64,9 @@ class _UserFollowButtonState extends State<UserFollowButton> {
       );
     }
     if (_followed) {
-      return GestureDetector(
+      return MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
         onTap: () async {
           setState(() {
             _loading = true;
@@ -98,9 +100,12 @@ class _UserFollowButtonState extends State<UserFollowButton> {
             ),
           ),
         ),
+      ),
       );
     }
-    return GestureDetector(
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
       onTap: () {
         _onPressed();
       },
@@ -127,6 +132,7 @@ class _UserFollowButtonState extends State<UserFollowButton> {
           color: Theme.of(context).colorScheme.secondary,
         ),
       ),
+    ),
     );
   }
 

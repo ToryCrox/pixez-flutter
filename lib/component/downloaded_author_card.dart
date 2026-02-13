@@ -21,6 +21,7 @@ import 'package:pixez/constants.dart';
 import 'package:pixez/utils/file_utils.dart';
 import 'package:pixez/component/painter_avatar.dart';
 import 'package:pixez/component/pixiv_image.dart';
+import 'package:pixez/component/author_bookmark_dialog.dart';
 import 'package:pixez/exts.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/models/download_record.dart';
@@ -297,83 +298,13 @@ class DownloadedAuthorCard extends StatelessWidget {
     }
   }
 
-  void _showPriorityDialog(BuildContext context) {
-    int tempBookmark = author.bookmark;
-    showDialog(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return AlertDialog(
-              title: Text('设置已收藏作者/优先级'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text('数值越大优先级越高 (0-99)。\n0 表示取消收藏。'),
-                  SizedBox(height: 24),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        '优先级: ${tempBookmark.toInt()}',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
-                      if (tempBookmark > 0)
-                        Icon(Icons.favorite, color: Colors.red),
-                    ],
-                  ),
-                  Slider(
-                    value: tempBookmark.toDouble(),
-                    min: 0,
-                    max: 99,
-                    divisions: 99,
-                    label: tempBookmark.toString(),
-                    onChanged: (double value) {
-                      setState(() {
-                        tempBookmark = value.round();
-                      });
-                    },
-                  ),
-                  SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      TextButton(
-                        onPressed: () => setState(() => tempBookmark = 0),
-                        child: Text('取消收藏(0)'),
-                      ),
-                      TextButton(
-                        onPressed: () => setState(() => tempBookmark = 1),
-                        child: Text('默认(1)'),
-                      ),
-                      TextButton(
-                        onPressed: () => setState(() => tempBookmark = 99),
-                        child: Text('置顶(99)'),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: Text('取消'),
-                ),
-                ElevatedButton(
-                  onPressed: () {
-                    onBookmarkChanged?.call(tempBookmark);
-                    Navigator.pop(context);
-                  },
-                  child: Text('确定'),
-                ),
-              ],
-            );
-          },
-        );
-      },
+  void _showPriorityDialog(BuildContext context) async {
+    final result = await showAuthorBookmarkDialog(
+      context,
+      currentBookmark: author.bookmark,
     );
+    if (result != null) {
+      onBookmarkChanged?.call(result);
+    }
   }
 }

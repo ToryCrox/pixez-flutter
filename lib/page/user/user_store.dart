@@ -18,6 +18,8 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:mobx/mobx.dart';
+import 'package:pixez/main.dart';
+import 'package:pixez/models/download_record.dart';
 import 'package:pixez/models/illust.dart';
 import 'package:pixez/models/user_detail.dart';
 import 'package:pixez/network/api_client.dart';
@@ -37,6 +39,10 @@ abstract class _UserStoreBase with Store {
   bool isFollow = false;
   @observable
   int value = 0;
+
+  /// 下载作者的收藏信息
+  @observable
+  DownloadedAuthor? downloadedAuthor;
 
   _UserStoreBase(this.id, this.userDetail, this.user) {
     this.isFollow = user?.isFollowed ?? false;
@@ -119,5 +125,20 @@ abstract class _UserStoreBase with Store {
         errorMessage = e.toString();
       }
     }
+  }
+
+  /// 加载下载作者的收藏信息
+  @action
+  Future<void> loadDownloadedAuthor() async {
+    if (!downloadStore.isInitialized) return;
+    downloadedAuthor = await downloadStore.getAuthorByUserId(id);
+  }
+
+  /// 更新下载作者的收藏状态
+  @action
+  Future<void> updateDownloadedAuthorBookmark(int bookmark) async {
+    if (!downloadStore.isInitialized) return;
+    await downloadStore.dbProvider.updateAuthorBookmark(id, bookmark);
+    downloadedAuthor = await downloadStore.getAuthorByUserId(id);
   }
 }
