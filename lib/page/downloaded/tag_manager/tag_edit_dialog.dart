@@ -201,13 +201,7 @@ class _TagEditDialogState extends State<TagEditDialog> {
 
                   return ActionChip(
                     onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => DownloadedPage(
-                            initialTagName: t.name,
-                          ),
-                        ),
-                      );
+                      DownloadedPage.open(context, tagName: t.name);
                     },
                     label: Text(
                       labelText, 
@@ -282,13 +276,7 @@ class _TagEditDialogState extends State<TagEditDialog> {
                 final child = _childTags[index].tag;
                 return ActionChip(
                   onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => DownloadedPage(
-                          initialTagName: child.name,
-                        ),
-                      ),
-                    );
+                    DownloadedPage.open(context, tagName: child.name);
                   },
                   label: Text(
                     '${child.displayName} (${child.count})',

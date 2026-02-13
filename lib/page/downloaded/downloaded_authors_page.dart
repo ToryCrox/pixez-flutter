@@ -124,9 +124,7 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
           icon: Icon(Icons.list),
           tooltip: '下载记录',
           onPressed: () {
-            Navigator.of(
-              context,
-            ).push(MaterialPageRoute(builder: (context) => DownloadedPage()));
+            DownloadedPage.open(context);
           },
         ),
         Observer(

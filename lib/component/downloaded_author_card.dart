@@ -51,14 +51,10 @@ class DownloadedAuthorCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: () {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder:
-                (context) => DownloadedPage(
-                  initialUserId: author.userId,
-                  initialUserName: author.userName,
-                ),
-          ),
+        DownloadedPage.open(
+          context,
+          userId: author.userId,
+          userName: author.userName,
         );
       },
       onLongPress: () => _showPriorityDialog(context),

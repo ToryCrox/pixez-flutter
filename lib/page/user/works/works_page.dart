@@ -32,7 +32,6 @@ import 'package:pixez/lighting/lighting_store.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/network/api_client.dart';
 import 'package:pixez/store/download_store.dart';
-import 'package:pixez/er/leader.dart';
 import 'package:pixez/page/downloaded/downloaded_page.dart';
 import 'package:waterfall_flow/waterfall_flow.dart';
 
@@ -338,12 +337,10 @@ class _WorksPageState extends State<WorksPage> {
           userName = firstIllust.user.name;
         }
 
-        Leader.push(
+        DownloadedPage.open(
           context,
-          DownloadedPage(
-            initialUserId: widget.id,
-            initialUserName: userName,
-          ),
+          userId: widget.id,
+          userName: userName,
         );
       },
     );

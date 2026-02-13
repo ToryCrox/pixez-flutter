@@ -56,6 +56,26 @@ class DownloadedPage extends StatefulWidget {
     this.initialTagName,
   }) : super(key: key);
 
+  static Future<T?> open<T>(
+    BuildContext context, {
+    int? userId,
+    String? userName,
+    String? searchKeyword,
+    String? tagName,
+  }) {
+    return Navigator.of(context).push<T>(
+      MaterialPageRoute(
+        builder:
+            (context) => DownloadedPage(
+              initialUserId: userId,
+              initialUserName: userName,
+              initialSearchKeyword: searchKeyword,
+              initialTagName: tagName,
+            ),
+      ),
+    );
+  }
+
   @override
   State<DownloadedPage> createState() => _DownloadedPageState();
 }
@@ -628,14 +648,10 @@ class _DownloadedPageState extends State<DownloadedPage> {
   }
 
   void _navigateToAuthorDownloadedPage(DownloadedIllust illust) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder:
-            (context) => DownloadedPage(
-              initialUserId: illust.userId,
-              initialUserName: illust.userName,
-            ),
-      ),
+    DownloadedPage.open(
+      context,
+      userId: illust.userId,
+      userName: illust.userName,
     );
   }
 

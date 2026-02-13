@@ -188,10 +188,7 @@ class _JobPageState extends State<JobPage> with SingleTickerProviderStateMixin {
             if (currentIndex == 0)
               TextButton.icon(
                 onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => DownloadedPage()),
-                  );
+                  DownloadedPage.open(context);
                 },
                 icon: Icon(Icons.folder_open),
                 label: Text(I18n.of(context).history),
