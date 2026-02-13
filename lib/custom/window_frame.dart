@@ -134,52 +134,63 @@ class _WindowFrameState extends State<WindowFrame> {
                 top: 0,
                 left: 0,
                 right: 0,
-                child: Material(
-                  color: Colors.transparent,
-                  child: Theme(
-                    data: Theme.of(context).copyWith(
-                      brightness: windowFrameController.useDarkTheme
-                          ? Brightness.dark
-                          : null,
-                    ),
-                    child: Builder(builder: (context) {
-                      return SizedBox(
-                        height: _kTitleBarHeight,
-                        child: Row(
-                          children: [
-                            if (!Platform.isMacOS)
-                              buildMenuButton(windowFrameController, context)
-                            else
-                              const DragToMoveArea(
-                                child: SizedBox(
-                                  height: double.infinity,
-                                  width: 16,
-                                ),
-                              ),
-                            Expanded(
-                              child: DragToMoveArea(
-                                child: Text(
-                                  'Pixez',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color:
-                                        (windowFrameController.useDarkTheme ||
-                                                Theme.of(context).brightness ==
-                                                    Brightness.dark)
-                                            ? Colors.white
-                                            : Colors.black,
+                child: SizedBox(
+                  height: _kTitleBarHeight,
+                  child: Stack(
+                    children: [
+                      // 背景拖动层：响应最灵敏的原生拖动
+                      const Positioned.fill(child: DragToMoveArea(child: SizedBox.shrink())),
+                      // 交互层：包含图标和按钮
+                      Material(
+                        color: Colors.transparent,
+                        child: Theme(
+                          data: Theme.of(context).copyWith(
+                            brightness: windowFrameController.useDarkTheme
+                                ? Brightness.dark
+                                : null,
+                          ),
+                          child: Builder(builder: (context) {
+                            return Row(
+                              children: [
+                                if (!Platform.isMacOS)
+                                  buildMenuButton(windowFrameController, context)
+                                else
+                                  // macOS 信号灯区域占位，但仍可拖动
+                                  const DragToMoveArea(
+                                    child: SizedBox(
+                                      height: double.infinity,
+                                      width: 16,
+                                    ),
+                                  ),
+                                Expanded(
+                                  // 文字区域也支持拖动，但通过包裹 DragToMoveArea 确保万无一失
+                                  child: DragToMoveArea(
+                                    child: Align(
+                                      alignment: Alignment.centerLeft,
+                                      child: Text(
+                                        'Pixez',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: (windowFrameController.useDarkTheme ||
+                                                  Theme.of(context).brightness ==
+                                                      Brightness.dark)
+                                              ? Colors.white
+                                              : Colors.black,
+                                        ),
+                                      ),
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ),
-                            if (!Platform.isMacOS)
-                              const WindowButtons()
-                            else
-                              buildMenuButton(windowFrameController, context),
-                          ],
+                                if (!Platform.isMacOS)
+                                  const WindowButtons()
+                                else
+                                  buildMenuButton(windowFrameController, context),
+                              ],
+                            );
+                          }),
                         ),
-                      );
-                    }),
+                      ),
+                    ],
                   ),
                 ),
               )
