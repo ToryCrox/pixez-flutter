@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:pixez/models/download_record.dart';
 import 'package:pixez/page/downloaded/tag_manager/tag_edit_dialog.dart';
+import 'package:pixez/page/downloaded/tag_manager/tag_selection_dialog.dart';
 
 import 'package:pixez/component/pixiv_image.dart';
 import 'package:pixez/page/downloaded/downloaded_page.dart';
@@ -91,7 +92,9 @@ class TagItem extends StatelessWidget {
                   _TagInfo(
                     tag: data.tag,
                     isSelectionMode: isSelectionMode,
+                    hasEquivalentTags: data.hasEquivalentTags,
                     onEdit: () => _showEditDialog(context),
+                    onAssociate: () => _showEquivalenceDialog(context),
                   ),
                 ],
               ),
@@ -117,6 +120,19 @@ class TagItem extends StatelessWidget {
     showDialog(
       context: context,
       builder: (context) => TagEditDialog(tag: data.tag),
+    );
+  }
+
+  void _showEquivalenceDialog(BuildContext context) async {
+    final group = tagManagerStore.getEquivalenceGroup(data.tag.id);
+    await showDialog(
+      context: context,
+      builder:
+          (context) => TagSelectionDialog(
+            comicTags: group,
+            currentGroup: group,
+            currentTagId: data.tag.id,
+          ),
     );
   }
 
@@ -477,12 +493,16 @@ class _TagCover extends StatelessWidget {
 class _TagInfo extends StatelessWidget {
   final DownloadedTag tag;
   final bool isSelectionMode;
+  final bool hasEquivalentTags;
   final VoidCallback onEdit;
+  final VoidCallback? onAssociate;
 
   const _TagInfo({
     required this.tag,
     required this.isSelectionMode,
+    required this.hasEquivalentTags,
     required this.onEdit,
+    this.onAssociate,
   });
 
   @override
@@ -530,6 +550,18 @@ class _TagInfo extends StatelessWidget {
                 Expanded(
                   child: _buildTranslationAndParent(context),
                 ),
+                if (hasEquivalentTags)
+                  IconButton(
+                    onPressed: onAssociate,
+                    icon: const Icon(Icons.link, size: 16, color: Colors.blue),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                      minWidth: 32,
+                      minHeight: 32,
+                    ),
+                    visualDensity: VisualDensity.compact,
+                    tooltip: '关联标签',
+                  ),
                 IconButton(
                   onPressed: onEdit,
                   icon: const Icon(Icons.settings_outlined,
