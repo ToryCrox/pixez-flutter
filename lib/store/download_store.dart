@@ -592,6 +592,7 @@ abstract class _DownloadStoreBase with Store {
   Future<Map<String, int>> getFilteredStats({
     String filterType = 'all',
     int? userId,
+    int? tagId,
     String? searchKeyword,
     String? tagName,
     bool filterBookmarks = false,
@@ -599,6 +600,7 @@ abstract class _DownloadStoreBase with Store {
     return await _dbProvider.getFilteredStats(
       filterType: filterType,
       userId: userId,
+      tagId: tagId,
       searchKeyword: searchKeyword,
       tagName: tagName,
       filterBookmarks: filterBookmarks,

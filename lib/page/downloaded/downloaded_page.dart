@@ -207,7 +207,15 @@ class _DownloadedPageState extends State<DownloadedPage> {
 
   Widget _buildAppBarTitle() {
     final tagData = _store.filterTagData;
-    String title = _store.filterUserName ?? tagData?.tag.displayName ?? '已下载';
+    String? tagNameTitle;
+    if (tagData != null) {
+      if (tagData.tag.translatedName.isNotEmpty) {
+        tagNameTitle = '${tagData.tag.name}(${tagData.tag.translatedName})';
+      } else {
+        tagNameTitle = tagData.tag.name;
+      }
+    }
+    String title = _store.filterUserName ?? tagNameTitle ?? '已下载';
     final stats = _store.stats;
 
     if (stats == null) {

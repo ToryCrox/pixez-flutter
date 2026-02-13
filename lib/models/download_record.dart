@@ -2022,6 +2022,7 @@ class DownloadDatabaseProvider {
   Future<Map<String, int>> getFilteredStats({
     String filterType = 'all',
     int? userId,
+    int? tagId,
     String? searchKeyword,
     String? tagName,
     bool filterBookmarks = false,
@@ -2040,9 +2041,14 @@ class DownloadDatabaseProvider {
         whereClause += ' AND di.${DownloadedIllustColumns.userId} = ?';
       }
       whereArgs.add(userId);
-    } else if (filterType == 'tag' && tagName != null && tagName.isNotEmpty) {
-      final tag = await getTagByName(tagName);
-      if (tag != null) {
+    } else if (filterType == 'tag' && (tagId != null || (tagName != null && tagName.isNotEmpty))) {
+      int? targetTagId = tagId;
+      if (targetTagId == null && tagName != null) {
+        final tag = await getTagByName(tagName);
+        targetTagId = tag?.id;
+      }
+
+      if (targetTagId != null) {
         // 使用 CTE 找到等价组的所有标签 ID
         final bookmarkCondition = filterBookmarks ? 'AND di.${DownloadedIllustColumns.bookmark} > 0' : '';
         final query = '''
@@ -2069,7 +2075,7 @@ class DownloadDatabaseProvider {
           INNER JOIN MatchingIds m ON di.${DownloadedIllustColumns.illustId} = m.${DownloadedIllustTagsColumns.illustId}
           WHERE 1=1 $bookmarkCondition
         ''';
-        final result = await db.rawQuery(query, [tag.id]);
+        final result = await db.rawQuery(query, [targetTagId]);
         if (result.isNotEmpty) {
           return {
             'illust_count': result.first['illust_count'] as int? ?? 0,

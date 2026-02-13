@@ -202,30 +202,38 @@ class _TagManagerPageState extends State<TagManagerPage> {
 
   // ... (existing methods: _showClassifyDialog, _showAssociateDialog, _showSyncDialog, _showAutoAssociateDialog)
   PreferredSizeWidget _buildNormalAppBar() {
+    Widget? leading;
+    if (_pageStore.isSearching) {
+      leading = IconButton(
+        icon: const Icon(Icons.close),
+        tooltip: '关闭搜索',
+        onPressed: _toggleSearch,
+      );
+    } else if (_pageStore.filterByParentId != null) {
+      leading = IconButton(
+        icon: const Icon(Icons.arrow_back),
+        tooltip: '返回',
+        onPressed: () {
+          // 通过 initialParentId 打开的页面，直接 pop 返回上一页
+          if (widget.initialParentId != null) {
+            Navigator.of(context).pop();
+          } else {
+            _pageStore.clearParentFilter();
+          }
+        },
+      );
+    }
+
     return AppBar(
-      // 当有父标签过滤时显示返回按钮
-      leading: _pageStore.filterByParentId != null
-          ? IconButton(
-              icon: const Icon(Icons.arrow_back),
-              tooltip: '返回',
-              onPressed: () {
-                // 通过 initialParentId 打开的页面，直接 pop 返回上一页
-                if (widget.initialParentId != null) {
-                  Navigator.of(context).pop();
-                } else {
-                  _pageStore.clearParentFilter();
-                }
-              },
-            )
-          : null,
+      leading: leading,
       title: _pageStore.isSearching ? _buildSearchField() : _buildAppBarTitle(),
       actions: [
-        IconButton(
-          icon: Icon(_pageStore.isSearching ? Icons.close : Icons.search),
-          tooltip: _pageStore.isSearching ? '关闭搜索' : '搜索',
-          onPressed: _toggleSearch,
-        ),
         if (!_pageStore.isSearching) ...[
+          IconButton(
+            icon: const Icon(Icons.search),
+            tooltip: '搜索',
+            onPressed: _toggleSearch,
+          ),
           IconButton(
             icon: const Icon(Icons.checklist),
             tooltip: '选择模式',

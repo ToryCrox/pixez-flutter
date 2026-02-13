@@ -499,7 +499,7 @@ abstract class _DownloadedPageStoreBase with Store {
       String filterType = 'all';
       int? userId;
       String? searchKeyword;
-      String? tagName;
+      int? tagId;
 
       if (_downloadFilter == DownloadFilter.incomplete) {
         filterType = 'incomplete';
@@ -508,7 +508,7 @@ abstract class _DownloadedPageStoreBase with Store {
         userId = _filterUserId;
       } else if (_filterTagId != null) {
         filterType = 'tag';
-        tagName = filterTagName;
+        tagId = _filterTagId;
       } else if (_searchKeyword != null && _searchKeyword!.isNotEmpty) {
         filterType = 'search';
         searchKeyword = _searchKeyword;
@@ -517,8 +517,8 @@ abstract class _DownloadedPageStoreBase with Store {
       final stats = await downloadStore.getFilteredStats(
         filterType: filterType,
         userId: userId,
+        tagId: tagId,
         searchKeyword: searchKeyword,
-        tagName: tagName,
         filterBookmarks: _showBookmarksOnly,
       );
 
