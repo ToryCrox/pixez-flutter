@@ -90,6 +90,7 @@ class TagItem extends StatelessWidget {
                   ),
                   _TagInfo(
                     tag: data.tag,
+                    isSelectionMode: isSelectionMode,
                     onEdit: () => _showEditDialog(context),
                   ),
                 ],
@@ -475,67 +476,76 @@ class _TagCover extends StatelessWidget {
 
 class _TagInfo extends StatelessWidget {
   final DownloadedTag tag;
+  final bool isSelectionMode;
   final VoidCallback onEdit;
 
-  const _TagInfo({required this.tag, required this.onEdit});
+  const _TagInfo({
+    required this.tag,
+    required this.isSelectionMode,
+    required this.onEdit,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(8.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  tag.name,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: tag.categoryEnum.color,
-                        fontWeight: FontWeight.bold,
-                      ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              if (tag.isBookmarked)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                  child: Icon(
-                    Icons.bookmark,
-                    size: 16,
-                    color: Theme.of(context).colorScheme.primary,
+    return InkWell(
+      onTap: isSelectionMode ? null : onEdit,
+      child: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    tag.name,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          color: tag.categoryEnum.color,
+                          fontWeight: FontWeight.bold,
+                        ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-              const SizedBox(width: 4),
-              Text(
-                '${tag.count}',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ],
-          ),
-          const SizedBox(height: 2),
-          Row(
-            children: [
-              Expanded(
-                child: _buildTranslationAndParent(context),
-              ),
-              IconButton(
-                onPressed: onEdit,
-                icon: const Icon(Icons.settings_outlined, size: 16, color: Colors.blue),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(
-                  minWidth: 32,
-                  minHeight: 32,
+                if (tag.isBookmarked)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                    child: Icon(
+                      Icons.bookmark,
+                      size: 16,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                const SizedBox(width: 4),
+                Text(
+                  '${tag.count}',
+                  style: Theme.of(context).textTheme.bodySmall,
                 ),
-                visualDensity: VisualDensity.compact,
-                tooltip: '编辑标签',
-              ),
-            ],
-          ),
-        ],
+              ],
+            ),
+            const SizedBox(height: 2),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildTranslationAndParent(context),
+                ),
+                IconButton(
+                  onPressed: onEdit,
+                  icon: const Icon(Icons.settings_outlined,
+                      size: 16, color: Colors.blue),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 32,
+                    minHeight: 32,
+                  ),
+                  visualDensity: VisualDensity.compact,
+                  tooltip: '编辑标签',
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
