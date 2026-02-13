@@ -19,7 +19,7 @@ import 'package:pixez/store/download_store.dart';
 enum OptimizeDialogState {
   confirm,    // 确认阶段
   backingUp,  // 备份中
-  optimizing, // 优化中
+  vacuuming,  // VACUUM 中
   completed,  // 完成
   error,      // 错误
 }
@@ -39,74 +39,39 @@ class _OptimizeDialog extends StatefulWidget {
 
 class _OptimizeDialogState extends State<_OptimizeDialog> {
   OptimizeDialogState _state = OptimizeDialogState.confirm;
-  int _current = 0;
-  int _total = 0;
   int _savedBytes = 0;
-  int _optimizedCount = 0;
   String? _errorMessage;
-  bool _isCancelled = false;
-  bool _isVacuuming = false;
 
   void _startOptimize() async {
     setState(() {
       _state = OptimizeDialogState.backingUp;
-      _isCancelled = false;
     });
 
     try {
       final result = await widget.downloadStore.optimizeIllustJson(
-        onProgress: (int current, int total, int savedBytes) {
-          if (mounted && !_isCancelled) {
-            setState(() {
-              if (_state == OptimizeDialogState.backingUp) {
-                _state = OptimizeDialogState.optimizing;
-              }
-              _current = current;
-              _total = total;
-              _savedBytes = savedBytes;
-            });
-          }
-        },
-        shouldCancel: () => _isCancelled,
         onVacuumStart: () {
-          if (mounted && !_isCancelled) {
+          if (mounted) {
             setState(() {
-              _isVacuuming = true;
+              _state = OptimizeDialogState.vacuuming;
             });
           }
         },
       );
 
       if (mounted) {
-        _optimizedCount = result['optimized_count'] ?? 0;
         _savedBytes = result['saved_bytes'] ?? 0;
-        
-        // 显示完成状态
         setState(() {
           _state = OptimizeDialogState.completed;
-          _isVacuuming = false;
         });
       }
     } catch (e) {
       if (mounted) {
-        // 如果是取消操作，不显示错误
-        if (_isCancelled) {
-          Navigator.of(context).pop();
-          return;
-        }
         setState(() {
           _state = OptimizeDialogState.error;
           _errorMessage = e.toString();
         });
       }
     }
-  }
-
-  void _cancelOptimize() {
-    setState(() {
-      _isCancelled = true;
-    });
-    Navigator.of(context).pop();
   }
 
   String _formatBytes(int bytes) {
@@ -130,11 +95,7 @@ class _OptimizeDialogState extends State<_OptimizeDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('此操作将优化数据库中的 illustJson 字段，移除重复存储的数据。'),
-            SizedBox(height: 8),
-            Text('同时会将图片 URL 提取为独立字段，提升列表加载性能。'),
-            SizedBox(height: 8),
-            Text('优化后可以显著减少数据库文件大小。'),
+            Text('此操作将备份数据库并执行 VACUUM 回收存储空间。'),
             SizedBox(height: 8),
             Text(
               '注意：此操作可能需要一些时间，请确保应用在运行过程中不会被关闭。',
@@ -166,85 +127,31 @@ class _OptimizeDialogState extends State<_OptimizeDialog> {
             Text('正在备份数据库...'),
             SizedBox(height: 8),
             Text(
-              '并在优化前确保数据安全',
+              '在优化前确保数据安全',
               style: TextStyle(fontSize: 12, color: Colors.grey),
             ),
           ],
         );
-        actions = [
-          TextButton(
-            onPressed: null, // 备份时禁用取消，防止状态不一致
-            child: Text('取消'),
-          ),
-        ];
+        // 备份阶段不提供取消按钮
+        actions = [];
         break;
 
-      case OptimizeDialogState.optimizing:
-        final progressValue = _total > 0 ? _current / _total : 0.0;
-        final percentage = _total > 0 ? (progressValue * 100).toStringAsFixed(1) : '0.0';
-
+      case OptimizeDialogState.vacuuming:
         content = Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (_isVacuuming) ...[
-              CircularProgressIndicator(),
-              SizedBox(height: 16),
-              Text('正在回收数据库空间...'),
-              SizedBox(height: 8),
-              Text(
-                '执行 VACUUM 操作，这可能需要一些时间',
-                style: TextStyle(fontSize: 12, color: Colors.grey),
-              ),
-            ] else if (_total > 0) ...[
-              LinearProgressIndicator(value: progressValue),
-              SizedBox(height: 16),
-              Text('正在优化数据库...'),
-              SizedBox(height: 12),
-              Text(
-                '进度: $_current / $_total ($percentage%)',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-              ),
-              SizedBox(height: 12),
-              Container(
-                padding: EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.green.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.storage, color: Colors.green, size: 20),
-                    SizedBox(width: 8),
-                    Text(
-                      '已节省: ${_formatBytes(_savedBytes)}',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.green[700],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ] else ...[
-              CircularProgressIndicator(),
-              SizedBox(height: 16),
-              Text('正在优化数据库...'),
-              SizedBox(height: 8),
-              Text(
-                '请稍候，此操作可能需要一些时间',
-                style: TextStyle(fontSize: 12, color: Colors.grey),
-              ),
-            ],
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('正在回收数据库空间...'),
+            SizedBox(height: 8),
+            Text(
+              '执行 VACUUM 操作，这可能需要一些时间',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
           ],
         );
-        actions = [
-          TextButton(
-            onPressed: _cancelOptimize,
-            child: Text('取消'),
-          ),
-        ];
+        // VACUUM 阶段不提供取消按钮
+        actions = [];
         break;
 
       case OptimizeDialogState.completed:
@@ -267,8 +174,6 @@ class _OptimizeDialogState extends State<_OptimizeDialog> {
               ],
             ),
             SizedBox(height: 16),
-            Text('优化了 $_optimizedCount 条记录'),
-            SizedBox(height: 8),
             Container(
               padding: EdgeInsets.all(12),
               decoration: BoxDecoration(

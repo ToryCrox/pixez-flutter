@@ -16,6 +16,7 @@
 import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
+import 'dart:isolate';
 import 'package:dio/dio.dart';
 import 'dart:io';
 
@@ -1526,163 +1527,57 @@ abstract class _DownloadStoreBase with Store {
     }
   }
 
-  /// 优化现有数据库中的 illustJson 字段（移除重复存储的字段）
-  /// 返回优化后的记录数和节省的字节数
+  /// 在 Isolate 中执行数据库备份（避免阻塞主线程）
+  static Future<void> _backupDatabaseInIsolate(String dbPath) async {
+    // 轮转备份：最多保留3份 (.bak, .bak.1, .bak.2)
+    for (int i = 2; i >= 0; i--) {
+      final suffix = i == 0 ? '.bak' : '.bak.$i';
+      final currentBak = File('$dbPath$suffix');
+      if (await currentBak.exists()) {
+        if (i == 2) {
+          await currentBak.delete();
+        } else {
+          await currentBak.rename('$dbPath.bak.${i + 1}');
+        }
+      }
+    }
+    await File(dbPath).copy('$dbPath.bak');
+  }
+
+  /// 优化数据库存储空间
+  /// 执行备份和 VACUUM 操作，返回节省的字节数
   Future<Map<String, int>> optimizeIllustJson({
-    Function(int current, int total, int savedBytes)? onProgress,
-    bool Function()? shouldCancel,
     Function()? onVacuumStart,
   }) async {
     if (!isInitialized) {
       throw Exception('DownloadStore not initialized');
     }
 
-    Log.d('开始优化 illustJson 字段...');
+    Log.d('开始优化数据库存储...');
 
-    int optimizedCount = 0;
     int initialSize = await _dbProvider.getDatabaseSize();
     
-    // 1. 第一步：备份数据库
+    // 1. 备份数据库（在 Isolate 中执行，避免阻塞 UI）
     try {
       final dbPath = _dbProvider.dbPathStr;
-      if (dbPath.isNotEmpty) {
-        final dbFile = File(dbPath);
-        if (await dbFile.exists()) {
-          // 轮转备份：最多保留3份 (.bak, .bak.1, .bak.2)
-          for (int i = 2; i >= 0; i--) {
-            final suffix = i == 0 ? '.bak' : '.bak.$i';
-            final currentBak = File('$dbPath$suffix');
-            if (await currentBak.exists()) {
-              if (i == 2) {
-                await currentBak.delete();
-              } else {
-                await currentBak.rename('$dbPath.bak.${i + 1}');
-              }
-            }
-          }
-
-          Log.d('正在备份数据库到 $dbPath.bak ...');
-          await dbFile.copy('$dbPath.bak');
-          Log.d('备份完成');
-        }
+      if (dbPath.isNotEmpty && await File(dbPath).exists()) {
+        Log.d('正在备份数据库到 $dbPath.bak ...');
+        await Isolate.run(() => _backupDatabaseInIsolate(dbPath));
+        Log.d('备份完成');
       }
     } catch (e) {
       Log.e('备份数据库失败: $e');
-      // 备份失败是否继续？通常建议继续，或者抛出异常让用户确认
     }
 
     try {
-      // 记录优化过程中的估算节省空间（用于进度显示）
-      int initialSavedBytes = 0;
-
-      // 先获取所有插画的ID和原始illustJson（直接从数据库查询，不经过fromJson处理）
-      final rawData = await _dbProvider.db.query(
-        DownloadedIllustColumns.tableName,
-        columns: [
-          DownloadedIllustColumns.illustId,
-          DownloadedIllustColumns.illustJson,
-        ],
-      );
-
-      // 创建一个Map，存储每个illustId对应的原始illustJson长度（数据库中实际存储的blob大小）
-      final originalSizes = <int, int>{};
-      for (final row in rawData) {
-        final illustId = row[DownloadedIllustColumns.illustId] as int;
-        final rawIllustJson = row[DownloadedIllustColumns.illustJson];
-        // 计算原始存储的大小（可能是blob或string）
-        final size = rawIllustJson is String
-            ? rawIllustJson.length
-            : (rawIllustJson as List<int>).length;
-        originalSizes[illustId] = size;
-      }
-
-      // 获取所有插画记录（经过fromJson处理）
-      final allIllusts = await _dbProvider.getAllIllusts();
-      final total = allIllusts.length;
-
-      Log.d('找到 $total 条记录需要优化');
-
-      // 分批处理，每批 50 条
-      const batchSize = 50;
-      for (int i = 0; i < allIllusts.length; i += batchSize) {
-        // 检查是否应该取消
-        if (shouldCancel != null && shouldCancel()) {
-          Log.d(
-              '优化已取消: 已优化 $optimizedCount 条记录');
-          throw Exception('优化已取消');
-        }
-
-        final batch = allIllusts.skip(i).take(batchSize).toList();
-
-        for (final existingIllust in batch) {
-          // 在处理每条记录前也检查取消标志
-        if (shouldCancel != null && shouldCancel()) {
-          Log.d(
-              '优化已取消: 已优化 $optimizedCount 条记录');
-          throw Exception('优化已取消');
-        }
-
-          try {
-            // 尝试从 illustJson 反序列化为 Illusts
-            final illusts = existingIllust.toIllusts();
-
-            // 使用 fromIllusts 重新创建优化后的记录
-            final optimizedIllust = DownloadedIllust.fromIllusts(
-              illusts,
-              existingIllust.relativePath,
-              downloadTime: existingIllust.downloadTime,
-              ugoiraMetadataJson: existingIllust.ugoiraMetadataJson,
-              downloadedImageCount: existingIllust.downloadedImageCount,
-              totalFileSize: existingIllust.totalFileSize,
-              bookmark: existingIllust.bookmark,
-            );
-
-            // 估算节省的字节数（用于进度条显示）
-            final oldSize = originalSizes[existingIllust.illustId] ?? 0;
-            final newCompressedJson = optimizedIllust.toJson()[DownloadedIllustColumns.illustJson] as String;
-            final newSize = newCompressedJson.length;
-            final saved = oldSize - newSize;
-
-            // 如果节省了空间，或者 imageUrlsJson 字段为空（需要迁移），则更新
-            if (saved > 0 || existingIllust.imageUrlsJson.isEmpty) {
-              // 更新数据库
-              await _dbProvider.updateIllust(optimizedIllust);
-              optimizedCount++;
-              initialSavedBytes += saved > 0 ? saved : 0;
-            }
-          } catch (e) {
-            // 如果反序列化失败，可能是数据损坏，跳过
-            Log.e('优化记录失败 (illustId: ${existingIllust.illustId}): $e');
-          }
-        }
-
-        // 报告进度（包含已节省的字节数）
-        if (onProgress != null) {
-          onProgress(i + batch.length, total, initialSavedBytes);
-        }
-      }
-
-      Log.d(
-          '优化完成: 优化了 $optimizedCount 条记录');
-
-      // 检查是否应该取消
-      if (shouldCancel != null && shouldCancel()) {
-        Log.d('优化已取消（在 URL 优化前）');
-        throw Exception('优化已取消');
-      }
-
-      // 优化 downloaded_images 表的 original_url 字段
-      Log.d('开始优化 downloaded_images 表的 original_url 字段...');
-      try {
-        await _dbProvider.optimizeImageOriginalUrls();
-        Log.d('original_url 优化完成');
-      } catch (e) {
-        Log.e('优化 original_url 失败: $e');
-        // 不影响整体结果，继续执行
-      }
+      // =====================================================
+      // [预留] 数据库记录优化区域
+      // 此前的 illustJson 字段优化和 original_url 优化已完成，
+      // 对应代码已移除。如果后续有新的数据库记录级优化方案，
+      // 可以在此处添加。
+      // =====================================================
 
       // 执行 VACUUM 回收数据库空间
-      //if (optimizedCount > 0) {
       Log.d('开始执行 VACUUM 回收数据库空间...');
       if (onVacuumStart != null) {
         onVacuumStart();
@@ -1692,21 +1587,19 @@ abstract class _DownloadStoreBase with Store {
         Log.d('VACUUM 执行完成，数据库空间已回收');
       } catch (e) {
         Log.e('执行 VACUUM 失败: $e');
-        // VACUUM 失败不影响优化结果，只记录错误
       }
-      //}
 
-      // 7. 计算最终节省的物理空间
+      // 计算最终节省的物理空间
       final finalSize = await _dbProvider.getDatabaseSize();
       final actualSavedBytes = initialSize - finalSize;
       Log.d('物理大小改变: $initialSize -> $finalSize, 节省: $actualSavedBytes');
 
       return {
-        'optimized_count': optimizedCount,
+        'optimized_count': 0,
         'saved_bytes': actualSavedBytes > 0 ? actualSavedBytes : 0,
       };
     } catch (e) {
-      Log.e('优化 illustJson 失败: $e');
+      Log.e('优化数据库存储失败: $e');
       rethrow;
     }
   }
