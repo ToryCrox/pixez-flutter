@@ -321,49 +321,6 @@ class DownloadDatabaseProvider {
       },
       onUpgrade: (Database db, int oldVersion, int newVersion) async {
         Log.i(() => '升级数据库 $oldVersion -> $newVersion');
-        
-        // v11 -> v12: 添加统计字段和索引
-        if (oldVersion < 12) {
-          await db.execute('ALTER TABLE ${DownloadedIllustColumns.tableName} ADD COLUMN ${DownloadedIllustColumns.downloadedImageCount} INTEGER DEFAULT 0');
-          await db.execute('ALTER TABLE ${DownloadedIllustColumns.tableName} ADD COLUMN ${DownloadedIllustColumns.totalFileSize} INTEGER DEFAULT 0');
-          await db.execute('CREATE INDEX idx_illust_total_file_size ON ${DownloadedIllustColumns.tableName}(${DownloadedIllustColumns.totalFileSize})');
-          await db.execute('CREATE INDEX idx_illust_downloaded_count ON ${DownloadedIllustColumns.tableName}(${DownloadedIllustColumns.downloadedImageCount})');
-        }
-        
-        // v12 -> v13: 添加作者总图片数量字段
-        if (oldVersion < 13) {
-          Log.i(() => '添加 total_image_count 字段到 downloaded_authors 表');
-          await db.execute('ALTER TABLE ${DownloadedAuthorColumns.tableName} ADD COLUMN ${DownloadedAuthorColumns.totalImageCount} INTEGER DEFAULT 0');
-          await db.execute('CREATE INDEX idx_author_total_image_count ON ${DownloadedAuthorColumns.tableName}(${DownloadedAuthorColumns.totalImageCount})');
-          
-          // 初始化现有记录的 total_image_count 值
-          Log.i(() => '初始化现有作者的 total_image_count 值');
-          await db.execute('''
-            UPDATE ${DownloadedAuthorColumns.tableName} 
-            SET ${DownloadedAuthorColumns.totalImageCount} = (
-              SELECT COALESCE(SUM(${DownloadedIllustColumns.downloadedImageCount}), 0)
-              FROM ${DownloadedIllustColumns.tableName}
-              WHERE ${DownloadedIllustColumns.userId} = ${DownloadedAuthorColumns.tableName}.${DownloadedAuthorColumns.userId}
-            )
-          ''');
-          Log.i(() => 'total_image_count 初始化完成');
-        }
-
-        // v13 -> v14: 添加标签父子关系字段
-        if (oldVersion < 14) {
-          Log.i(() => '添加 parent_id 字段到 downloaded_tags 表');
-          await db.execute('ALTER TABLE ${DownloadedTagsColumns.tableName} ADD COLUMN ${DownloadedTagsColumns.parentId} INTEGER');
-          await db.execute('CREATE INDEX idx_tags_parent ON ${DownloadedTagsColumns.tableName}(${DownloadedTagsColumns.parentId})');
-        }
-
-        // v14 -> v15: 添加 bookmark 字段
-        if (oldVersion < 15) {
-          Log.i(() => '添加 bookmark 字段到 downloaded_authors 和 downloaded_illusts 表');
-          await db.execute('ALTER TABLE ${DownloadedAuthorColumns.tableName} ADD COLUMN ${DownloadedAuthorColumns.bookmark} INTEGER DEFAULT 0');
-          await db.execute('ALTER TABLE ${DownloadedIllustColumns.tableName} ADD COLUMN ${DownloadedIllustColumns.bookmark} INTEGER DEFAULT 0');
-          await db.execute('CREATE INDEX idx_author_bookmark ON ${DownloadedAuthorColumns.tableName}(${DownloadedAuthorColumns.bookmark})');
-          await db.execute('CREATE INDEX idx_illust_bookmark ON ${DownloadedIllustColumns.tableName}(${DownloadedIllustColumns.bookmark})');
-        }
 
         // v15 -> v16: 添加 bookmark 字段到 pending_downloads
         if (oldVersion < 16) {
@@ -925,28 +882,6 @@ class DownloadDatabaseProvider {
     );
   }
 
-  /// 建立标签关联关系（等价标签）
-  Future<void> associateTags(int primaryTagId, List<int> aliasTagIds) async {
-    await db.transaction((txn) async {
-      // 1. 更新所有别名标签，将其 referenced_tag_id 设为主标签 ID
-      // 注意：如果被选作别名的标签本身已经是某些标签的主标签，暂时不处理深层嵌套，仅支持一级关联
-      final placeholders = List.filled(aliasTagIds.length, '?').join(',');
-      await txn.update(
-        DownloadedTagsColumns.tableName,
-        {DownloadedTagsColumns.referencedTagId: primaryTagId},
-        where: '${DownloadedTagsColumns.id} IN ($placeholders)',
-        whereArgs: aliasTagIds,
-      );
-      
-      // 2. 将主标签的 referenced_tag_id 设为 NULL (确保其为主标签)
-      await txn.update(
-        DownloadedTagsColumns.tableName,
-        {DownloadedTagsColumns.referencedTagId: null},
-        where: '${DownloadedTagsColumns.id} = ?',
-        whereArgs: [primaryTagId],
-      );
-    });
-  }
 
   /// 获取包含该标签在内的完整等价组
   Future<List<DownloadedTag>> getEquivalenceGroup(int tagId) async {
@@ -963,27 +898,6 @@ class DownloadDatabaseProvider {
     return maps.map((e) => DownloadedTag.fromJson(e)).toList();
   }
 
-  /// 获取一组标签及其各自所属等价组的所有成员（全组闭包查询）
-  Future<List<DownloadedTag>> getExpandedTags(List<int> ids) async {
-    if (ids.isEmpty) return [];
-    final placeholders = List.filled(ids.length, '?').join(',');
-    
-    // 逻辑：
-    // 1. 找到所有选中标签的“最终根节点” (Root Primary)
-    // 2. 找到所有指向这些根节点的别名，以及根节点本身
-    final List<Map<String, dynamic>> maps = await db.rawQuery('''
-      WITH Roots AS (
-        SELECT DISTINCT COALESCE(referenced_tag_id, id) as root_id 
-        FROM ${DownloadedTagsColumns.tableName} 
-        WHERE id IN ($placeholders)
-      )
-      SELECT * FROM ${DownloadedTagsColumns.tableName}
-      WHERE id IN (SELECT root_id FROM Roots)
-      OR referenced_tag_id IN (SELECT root_id FROM Roots)
-    ''', ids);
-    
-    return maps.map((e) => DownloadedTag.fromJson(e)).toList();
-  }
 
   /// 更新等价组内的主标签及成员关系
   Future<void> updateEquivalenceGroup(
@@ -1375,29 +1289,6 @@ class DownloadDatabaseProvider {
     return maps.map((e) => DownloadedImage.fromJson(e)).toList();
   }
 
-  Future<List<DownloadedImage>> getImagesByIllustIds(List<int> illustIds) async {
-    if (illustIds.isEmpty) return [];
-    
-    // Split into batches to avoid SQLite parameter limit
-    final result = <DownloadedImage>[];
-    const batchSize = 500;
-    
-    for (int i = 0; i < illustIds.length; i += batchSize) {
-      final end = (i + batchSize < illustIds.length) ? i + batchSize : illustIds.length;
-      final batchIds = illustIds.sublist(i, end);
-      final placeholders = List.filled(batchIds.length, '?').join(',');
-      
-      List<Map<String, dynamic>> maps = await db.query(
-        DownloadedImageColumns.tableName,
-        where: '${DownloadedImageColumns.illustId} IN ($placeholders)',
-        whereArgs: batchIds,
-        orderBy: '${DownloadedImageColumns.illustId}, ${DownloadedImageColumns.part} ASC',
-      );
-      result.addAll(maps.map((e) => DownloadedImage.fromJson(e)));
-    }
-    
-    return result;
-  }
 
   /// 批量获取插画的所有图片信息及其完整路径（自动检测后缀名）
   /// 返回 Map<part, LocalImageInfo>
@@ -1572,82 +1463,8 @@ class DownloadDatabaseProvider {
   /// 获取插画已下载的图片数量
   /// @deprecated 使用物化字段 DownloadedIllust.downloadedImageCount 替代
   @Deprecated('使用物化字段 DownloadedIllust.downloadedImageCount 替代')
-  Future<int> getDownloadedImageCount(int illustId) async {
-    final result = await db.rawQuery(
-      'SELECT COUNT(*) as count FROM ${DownloadedImageColumns.tableName} WHERE ${DownloadedImageColumns.illustId} = ?',
-      [illustId],
-    );
-    return result.first['count'] as int? ?? 0;
-  }
 
-  /// 获取插画的图片统计信息（数量和总文件大小）
-  /// 返回：已下载图片数量和总文件大小（字节）的记录
-  /// @deprecated 使用物化字段 DownloadedIllust.downloadedImageCount 和 totalFileSize 替代
-  @Deprecated('使用物化字段 DownloadedIllust.downloadedImageCount 和 totalFileSize 替代')
-  Future<({int count, int totalFileSize})> getIllustImageStats(
-      int illustId) async {
-    final result = await db.rawQuery(
-      '''
-      SELECT 
-        COUNT(*) as count,
-        COALESCE(SUM(${DownloadedImageColumns.fileSize}), 0) as total_file_size
-      FROM ${DownloadedImageColumns.tableName}
-      WHERE ${DownloadedImageColumns.illustId} = ?
-      ''',
-      [illustId],
-    );
 
-    if (result.isNotEmpty) {
-      return (
-        count: result.first['count'] as int? ?? 0,
-        totalFileSize: result.first['total_file_size'] as int? ?? 0,
-      );
-    }
-    return (count: 0, totalFileSize: 0);
-  }
-
-  /// 优化 downloaded_images 表的 original_url 字段
-  /// 将完整 URL 前缀替换为占位符以节约存储空间
-  /// 返回 (优化记录数, 节省字节数)
-  Future<({int optimizedCount, int savedBytes})> optimizeImageOriginalUrls() async {
-    const prefix = 'https://i.pximg.net/img-original/img';
-    const placeholder = r'$PX_IMG$';
-
-    // 首先获取需要优化的记录数和总字符长度
-    final beforeStats = await db.rawQuery('''
-      SELECT 
-        COUNT(*) as count,
-        COALESCE(SUM(LENGTH(${DownloadedImageColumns.originalUrl})), 0) as total_length
-      FROM ${DownloadedImageColumns.tableName}
-      WHERE ${DownloadedImageColumns.originalUrl} LIKE '$prefix%'
-    ''');
-
-    final countToOptimize = beforeStats.first['count'] as int? ?? 0;
-
-    if (countToOptimize == 0) {
-      return (optimizedCount: 0, savedBytes: 0);
-    }
-
-    // 使用 SQL REPLACE 函数批量更新（效率最高）
-    await db.execute('''
-      UPDATE ${DownloadedImageColumns.tableName}
-      SET ${DownloadedImageColumns.originalUrl} = REPLACE(
-        ${DownloadedImageColumns.originalUrl}, 
-        '$prefix', 
-        '$placeholder'
-      )
-      WHERE ${DownloadedImageColumns.originalUrl} LIKE '$prefix%'
-    ''');
-
-    // 计算节省的字节数
-    // 每条记录节省：前缀长度 - 占位符长度 = 41 - 8 = 33 字节
-    final savedBytesPerRecord = prefix.length - placeholder.length;
-    final totalSavedBytes = countToOptimize * savedBytesPerRecord;
-
-    Log.d('optimizeImageOriginalUrls: 优化了 $countToOptimize 条记录，节省 $totalSavedBytes 字节');
-
-    return (optimizedCount: countToOptimize, savedBytes: totalSavedBytes);
-  }
 
   // ============ 路径工具 ============
 
@@ -1801,13 +1618,6 @@ class DownloadDatabaseProvider {
     return getAbsolutePath(relativePath, 'ugoira');
   }
 
-  /// 获取图片的完整文件路径
-  Future<String?> getImageFullPath(int illustId, int part) async {
-    final image = await getImage(illustId, part);
-    if (image == null) return null;
-
-    return getAbsolutePath(image.relativePath, image.getFullFileName());
-  }
 
   /// 尝试找到图片文件（自动检测后缀名）
   Future<String?> findImagePath(int illustId, int part,
@@ -2375,15 +2185,6 @@ class DownloadDatabaseProvider {
     return await db.delete(PendingDownloadColumns.tableName);
   }
 
-  /// 检查任务是否存在
-  Future<bool> isPendingDownloadExists(String id) async {
-    final result = await db.query(
-      PendingDownloadColumns.tableName,
-      where: '${PendingDownloadColumns.id} = ?',
-      whereArgs: [id],
-    );
-    return result.isNotEmpty;
-  }
 
   /// 获取待下载任务数量
   Future<int> getPendingDownloadCount() async {
