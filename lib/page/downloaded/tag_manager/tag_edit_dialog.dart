@@ -139,11 +139,6 @@ class _TagEditDialogState extends State<TagEditDialog> {
   }
 
   Widget _buildEquivalenceGroup() {
-    // 即使组为空，如果是在漫画详情页打开且有漫画标签，也显示“关联”入口
-    if (_equivalenceGroup.isEmpty && (widget.comicTags == null || widget.comicTags!.isEmpty)) {
-      return const SizedBox.shrink();
-    }
-
     // 排除当前标签
     final otherTags = _equivalenceGroup.where((td) => td.tag.id != widget.tag.id).toList();
 
@@ -155,6 +150,19 @@ class _TagEditDialogState extends State<TagEditDialog> {
           Row(
             children: [
               const Text('关联标签: ', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+              if (widget.tag.referencedTagId == 0 && otherTags.isNotEmpty)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withOpacity(0.1),
+                    border: Border.all(color: Colors.blue, width: 0.5),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Text(
+                    '主标签',
+                    style: TextStyle(color: Colors.blue, fontSize: 10, fontWeight: FontWeight.bold),
+                  ),
+                ),
               const Spacer(),
               if (widget.comicTags != null && widget.comicTags!.isNotEmpty)
                 TextButton.icon(
@@ -173,14 +181,33 @@ class _TagEditDialogState extends State<TagEditDialog> {
                 runSpacing: 4,
                 children: otherTags.map((td) {
                   final t = td.tag;
-                  final customName = t.customTranslatedName ?? '';
-                  final displayName = customName.isNotEmpty
-                      ? customName
-                      : (t.translatedName.isNotEmpty ? t.translatedName : t.name);
+                  // 判断是否为主标签（大师标签的 referencedTagId 为 0）
+                  final isPrimary = t.referencedTagId == 0;
+                  
+                  // 构建显示文本：原名 + (翻译) + [数量]
+                  final namePart = t.name;
+                  final translatePart = t.displayTranslatedName.isNotEmpty 
+                      ? ' (${t.displayTranslatedName})' 
+                      : '';
+                  final countPart = ' [${t.count}]';
+                  
+                  final labelText = '$namePart$translatePart$countPart';
+
                   return Chip(
-                    label: Text(displayName, style: const TextStyle(fontSize: 12)),
+                    label: Text(
+                      labelText, 
+                      style: TextStyle(
+                        fontSize: 11,
+                        // 主标签使用蓝色加粗，别名标签使用默认样式
+                        color: isPrimary ? Colors.blue : null,
+                        fontWeight: isPrimary ? FontWeight.bold : null,
+                      ),
+                    ),
+                    // 主标签背景色稍微淡一点以区分
+                    backgroundColor: isPrimary ? Colors.blue.withOpacity(0.1) : null,
+                    side: isPrimary ? const BorderSide(color: Colors.blue, width: 0.5) : null,
                     materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    padding: EdgeInsets.zero,
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
                   );
                 }).toList(),
               ),
