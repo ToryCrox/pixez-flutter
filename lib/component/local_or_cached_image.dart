@@ -334,7 +334,11 @@ class _IllustDownloadButtonState extends State<IllustDownloadButton> {
       }
       return GestureDetector(
         onLongPress: _showPriorityDialog,
-        child: FloatingActionButton(onPressed: _showDownloadDialog, child: child),
+        child: FloatingActionButton(
+          heroTag: 'download_${widget.illusts.id}',
+          onPressed: _showDownloadDialog,
+          child: child,
+        ),
       );
     }
 
