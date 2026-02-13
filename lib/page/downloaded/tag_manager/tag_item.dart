@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:pixez/models/download_record.dart';
 import 'package:pixez/page/downloaded/tag_manager/tag_edit_dialog.dart';
+
 import 'package:pixez/component/pixiv_image.dart';
 import 'package:pixez/page/downloaded/downloaded_page.dart';
-import 'package:pixez/page/downloaded/tag_manager/tag_selection_dialog.dart';
 import 'package:pixez/page/search/result_page.dart';
 import 'package:pixez/main.dart';
 
@@ -40,15 +40,6 @@ class TagItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 动态计算宽高比，避免瀑布流布局跳动
-    // 据封面数量决定
-    // 0: 仅文字 -> 较小高度
-    // 1: 1张大图 -> 16:9 或 4:3
-    // 2-3: 组合图 -> 1:1 或 4:3
-    // 这里简单预设一个比例，实际由内容撑开
-
-    // 38: 这里简单预设一个比例，实际由内容撑开
-    
     if (showAsTreeRow) {
       return _buildTreeRow(context);
     }
@@ -62,17 +53,15 @@ class TagItem extends StatelessWidget {
       },
       child: Card(
         clipBehavior: Clip.antiAlias,
-        // Selection border
-        shape:
-            isSelected
-                ? RoundedRectangleBorder(
-                  side: BorderSide(
-                    color: Theme.of(context).colorScheme.primary,
-                    width: 3,
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                )
-                : null,
+        shape: isSelected
+            ? RoundedRectangleBorder(
+                side: BorderSide(
+                  color: Theme.of(context).colorScheme.primary,
+                  width: 3,
+                ),
+                borderRadius: BorderRadius.circular(12),
+              )
+            : null,
         child: InkWell(
           onTap: () {
             if (isSelectionMode) {
@@ -96,183 +85,22 @@ class TagItem extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Expanded(child: _buildCoverArea(context)),
-                  Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // First line: Name + Count
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                data.tag.name,
-                                style: Theme.of(
-                                  context,
-                                ).textTheme.titleMedium?.copyWith(
-                                  color: data.tag.categoryEnum.color,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            if (data.tag.isBookmarked)
-                              Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 4.0,
-                                ),
-                                child: Icon(
-                                  Icons.bookmark,
-                                  size: 16,
-                                  color: Theme.of(context).colorScheme.primary,
-                                ),
-                              ),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${data.tag.count}',
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 2),
-                        // Combined Translation and Parent display
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Builder(
-                              builder: (context) {
-                                final translation = data.tag.displayTranslatedName;
-                                
-                                final hasTranslation = translation.isNotEmpty;
-                                final parent = data.tag.parentId != 0 
-                                    ? tagManagerStore.getTagDisplayDataByID(data.tag.parentId)?.tag : null;
-
-
-                                String tooltipMessage = '';
-                                if (hasTranslation) tooltipMessage += '翻译: $translation';
-                                if (parent != null) {
-                                  if (tooltipMessage.isNotEmpty) tooltipMessage += '\n';
-                                  tooltipMessage += '归属: ${parent.displayName}';
-                                }
-
-                                return Tooltip(
-                                  message: tooltipMessage,
-                                  child: Text.rich(
-                                    TextSpan(
-                                      children: [
-                                        if (hasTranslation)
-                                          TextSpan(
-                                            text: translation,
-                                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                              color: data.tag.isCustomTranslatedName ? Colors.purple : Colors.grey,
-                                            ),
-                                          ),
-                                        if (parent != null) ...[
-                                          if (hasTranslation) const TextSpan(text: ' '),
-                                          TextSpan(
-                                            text: '(${parent.displayName})',
-                                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                              color: Colors.blueGrey,
-                                              fontSize: 10,
-                                            ),
-                                          ),
-                                        ],
-                                      ],
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                          if (data.hasEquivalentTags)
-                            Material(
-                              color: Colors.transparent,
-                              child: InkWell(
-                                onTap: () => _showEquivalenceDialog(context),
-                                borderRadius: BorderRadius.circular(4),
-                                child: const Padding(
-                                  padding: EdgeInsets.symmetric(horizontal: 4),
-                                  child: Icon(Icons.link, size: 14, color: Colors.blue),
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                      ],
-                    ),
+                  Expanded(
+                    child: _TagCover(previewIllusts: data.previewIllusts),
+                  ),
+                  _TagInfo(
+                    tag: data.tag,
+                    onEdit: () => _showEditDialog(context),
                   ),
                 ],
               ),
-              // 子标签数量徽章
-              Builder(
-                builder: (context) {
-                  final childrenCount = tagManagerStore.getDirectChildren(data.tag.id).length;
-                  if (childrenCount == 0 || isSelectionMode) {
-                    return const SizedBox.shrink();
-                  }
-                  
-                  return Positioned(
-                    top: 4,
-                    left: 4,
-                    child: GestureDetector(
-                      onTap: () => onShowChildren?.call(),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.primary,
-                          borderRadius: BorderRadius.circular(10),
-                          boxShadow: const [
-                            BoxShadow(
-                              color: Colors.black26,
-                              blurRadius: 2,
-                              offset: Offset(0, 1),
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.folder, size: 12, color: Colors.white),
-                            const SizedBox(width: 2),
-                            Text(
-                              '$childrenCount',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  );
-                },
+              _TagChildrenBadge(
+                tagId: data.tag.id,
+                isVisible: !isSelectionMode,
+                onTap: onShowChildren,
               ),
               if (isSelectionMode)
-                Positioned(
-                  top: 8,
-                  right: 8,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color:
-                          isSelected
-                              ? Theme.of(context).colorScheme.primary
-                              : Colors.black54,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 2),
-                    ),
-                    child: const Padding(
-                      padding: EdgeInsets.all(4.0),
-                      child: Icon(Icons.check, size: 16, color: Colors.white),
-                    ),
-                  ),
-                ),
+                _TagSelectionOverlay(isSelected: isSelected),
             ],
           ),
         ),
@@ -280,25 +108,16 @@ class TagItem extends StatelessWidget {
     );
   }
 
-  void _showEquivalenceDialog(BuildContext context) {
-    if (isSelectionMode) {
-      onAssociate?.call();
-      return;
-    }
-    final group = tagManagerStore.getEquivalenceGroup(data.tag.id);
-    showDialog(
-      context: context,
-      useRootNavigator: false,
-      builder:
-          (context) => TagSelectionDialog(
-            comicTags: group,
-            currentGroup: group,
-            currentTagId: data.tag.id,
-          ),
-    );
-  }
+
 
   static Offset _tapPosition = Offset.zero;
+
+  void _showEditDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => TagEditDialog(tag: data.tag),
+    );
+  }
 
   Future<void> _showContextMenu(BuildContext context) async {
     final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
@@ -497,36 +316,145 @@ class TagItem extends StatelessWidget {
     );
   }
 
-  Widget _buildCoverArea(BuildContext context) {
-    if (data.previewIllusts.isEmpty) {
+  Widget _buildTreeRow(BuildContext context) {
+    final hasChildren = data.tag.category == TagCategory.work.value;
+
+    return InkWell(
+      onTap: () {
+        if (isSelectionMode) {
+          onSelectionToggle?.call();
+        } else if (hasChildren && onToggleExpansion != null) {
+          onToggleExpansion!.call();
+        } else {
+          _navigateToLocalSearch(context);
+        }
+      },
+      onLongPress: () {
+        if (!isSelectionMode) {
+          onSelectionModeToggle?.call(true);
+          if (!isSelected) onSelectionToggle?.call();
+        } else {
+          onSelectionToggle?.call();
+        }
+      },
+      onSecondaryTapDown: (details) => _tapPosition = details.globalPosition,
+      onSecondaryTap: () => _showContextMenu(context),
+      child: Container(
+        padding: EdgeInsets.only(left: data.indentLevel * 16.0),
+        color: isSelected
+            ? Theme.of(context).colorScheme.primaryContainer.withOpacity(0.5)
+            : null,
+        child: Row(
+          children: [
+            if (hasChildren)
+              IconButton(
+                icon: Icon(isExpanded ? Icons.expand_more : Icons.chevron_right,
+                    size: 20),
+                onPressed: onToggleExpansion,
+                visualDensity: VisualDensity.compact,
+              )
+            else
+              const SizedBox(width: 40),
+            if (data.previewIllusts.isNotEmpty)
+              Container(
+                width: 32,
+                height: 32,
+                margin: const EdgeInsets.only(right: 8),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: PixivImage(
+                    data.previewIllusts.first.squareMediumUrl,
+                    fit: BoxFit.cover,
+                    width: double.infinity,
+                    height: double.infinity,
+                    httpHeaders: {
+                      'cover': '${data.previewIllusts.first.illustId}'
+                    },
+                  ),
+                ),
+              ),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${data.tag.displayName} (${data.tag.count})',
+                    style: TextStyle(
+                      fontWeight: data.indentLevel == 0
+                          ? FontWeight.bold
+                          : FontWeight.normal,
+                      color: data.tag.categoryEnum.color,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (data.tag.displayTranslatedName.isNotEmpty &&
+                      data.tag.displayTranslatedName != data.tag.name)
+                    Text(
+                      data.tag.name,
+                      style: Theme.of(context).textTheme.bodySmall,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                ],
+              ),
+            ),
+            if (data.tag.isBookmarked)
+              Icon(Icons.bookmark,
+                  size: 16, color: Theme.of(context).colorScheme.primary),
+            IconButton(
+              icon: const Icon(Icons.more_vert, size: 16),
+              onPressed: () {
+                final renderBox = context.findRenderObject() as RenderBox;
+                final offset = renderBox.localToGlobal(Offset.zero);
+                final size = renderBox.size;
+                _tapPosition = offset + Offset(size.width, size.height / 2);
+                _showContextMenu(context);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TagCover extends StatelessWidget {
+  final List<IllustPreviewData> previewIllusts;
+
+  const _TagCover({required this.previewIllusts});
+
+  @override
+  Widget build(BuildContext context) {
+    if (previewIllusts.isEmpty) {
       return Container(color: Colors.grey.withOpacity(0.1));
     }
 
-    if (data.previewIllusts.length == 1) {
-      return _buildImage(data.previewIllusts.first);
+    if (previewIllusts.length == 1) {
+      return _buildImage(previewIllusts.first);
     }
 
-    if (data.previewIllusts.length == 2) {
+    if (previewIllusts.length == 2) {
       return Row(
         children: [
-          Expanded(flex: 2, child: _buildImage(data.previewIllusts[0])),
+          Expanded(flex: 2, child: _buildImage(previewIllusts[0])),
           const SizedBox(width: 2),
-          Expanded(flex: 1, child: _buildImage(data.previewIllusts[1])),
+          Expanded(flex: 1, child: _buildImage(previewIllusts[1])),
         ],
       );
     }
 
     return Row(
       children: [
-        Expanded(flex: 2, child: _buildImage(data.previewIllusts[0])),
+        Expanded(flex: 2, child: _buildImage(previewIllusts[0])),
         const SizedBox(width: 2),
         Expanded(
           flex: 1,
           child: Column(
             children: [
-              Expanded(child: _buildImage(data.previewIllusts[1])),
+              Expanded(child: _buildImage(previewIllusts[1])),
               const SizedBox(height: 2),
-              Expanded(child: _buildImage(data.previewIllusts[2])),
+              Expanded(child: _buildImage(previewIllusts[2])),
             ],
           ),
         ),
@@ -540,111 +468,202 @@ class TagItem extends StatelessWidget {
       fit: BoxFit.cover,
       width: double.infinity,
       height: double.infinity,
-      // 通过 header 传递 illustId，让 PixivCacheManager 识别封面请求
       httpHeaders: {'cover': '${illust.illustId}'},
     );
   }
+}
 
-  void _showEditDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => TagEditDialog(tag: data.tag),
+class _TagInfo extends StatelessWidget {
+  final DownloadedTag tag;
+  final VoidCallback onEdit;
+
+  const _TagInfo({required this.tag, required this.onEdit});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(8.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  tag.name,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: tag.categoryEnum.color,
+                        fontWeight: FontWeight.bold,
+                      ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (tag.isBookmarked)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                  child: Icon(
+                    Icons.bookmark,
+                    size: 16,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+              const SizedBox(width: 4),
+              Text(
+                '${tag.count}',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+          ),
+          const SizedBox(height: 2),
+          Row(
+            children: [
+              Expanded(
+                child: _buildTranslationAndParent(context),
+              ),
+              IconButton(
+                onPressed: onEdit,
+                icon: const Icon(Icons.settings_outlined, size: 16, color: Colors.blue),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(
+                  minWidth: 32,
+                  minHeight: 32,
+                ),
+                visualDensity: VisualDensity.compact,
+                tooltip: '编辑标签',
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
+  Widget _buildTranslationAndParent(BuildContext context) {
+    final translation = tag.displayTranslatedName;
+    final hasTranslation = translation.isNotEmpty;
+    final parent = tag.parentId != 0
+        ? tagManagerStore.getTagDisplayDataByID(tag.parentId)?.tag
+        : null;
 
-  Widget _buildTreeRow(BuildContext context) {
-    final hasChildren = data.tag.category == TagCategory.work.value; // Assuming Works have children possibilities
-    // Or check if it has children in store? But TagItem doesn't access store directly for that.
-    // For visual consistency, we show expand button for all 'Work' tags or if we know it has children.
-    // Since we filtered children in store, we can assume Work tags are expandable.
-    
-    return InkWell(
-      onTap: () {
-        if (isSelectionMode) {
-          onSelectionToggle?.call();
-        } else if (hasChildren && onToggleExpansion != null) {
-          onToggleExpansion!.call();
-        } else {
-          _navigateToLocalSearch(context);
-        }
-      },
-      onLongPress: () {
-          if (!isSelectionMode) {
-              onSelectionModeToggle?.call(true);
-              if (!isSelected) onSelectionToggle?.call();
-          } else {
-              onSelectionToggle?.call();
-          }
-      },
-      onSecondaryTapDown: (details) => _tapPosition = details.globalPosition,
-      onSecondaryTap: () => _showContextMenu(context),
-      child: Container(
-        padding: EdgeInsets.only(left: data.indentLevel * 16.0),
-        color: isSelected ? Theme.of(context).colorScheme.primaryContainer.withOpacity(0.5) : null,
-        child: Row(
+    String tooltipMessage = '';
+    if (hasTranslation) tooltipMessage += '翻译: $translation';
+    if (parent != null) {
+      if (tooltipMessage.isNotEmpty) tooltipMessage += '\n';
+      tooltipMessage += '归属: ${parent.displayName}';
+    }
+
+    return Tooltip(
+      message: tooltipMessage,
+      child: Text.rich(
+        TextSpan(
           children: [
-             // Expand Icon for Works
-             if (hasChildren)
-               IconButton(
-                 icon: Icon(isExpanded ? Icons.expand_more : Icons.chevron_right, size: 20),
-                 onPressed: onToggleExpansion,
-                 visualDensity: VisualDensity.compact,
-               )
-             else
-               const SizedBox(width: 40), // Placeholder alignment
-             
-             // Cover (Tiny)
-             if (data.previewIllusts.isNotEmpty)
-               Container(
-                 width: 32, height: 32,
-                 margin: const EdgeInsets.only(right: 8),
-                 child: ClipRRect(
-                   borderRadius: BorderRadius.circular(4),
-                   child: _buildImage(data.previewIllusts.first),
-                 ),
-               ),
-             
-             // Info
-             Expanded(
-               child: Column(
-                 crossAxisAlignment: CrossAxisAlignment.start,
-                 children: [
-                   Text(
-                     '${data.tag.displayName} (${data.tag.count})',
-                     style: TextStyle(
-                        fontWeight: data.indentLevel == 0 ? FontWeight.bold : FontWeight.normal,
-                        color: data.tag.categoryEnum.color,
-                     ),
-                     maxLines: 1, overflow: TextOverflow.ellipsis,
-                   ),
-                   if (data.tag.displayTranslatedName.isNotEmpty && data.tag.displayTranslatedName != data.tag.name)
-                      Text(
-                        data.tag.name, // Show original name as subtitle if translated is used as primary
-                        style: Theme.of(context).textTheme.bodySmall,
-                        maxLines: 1, overflow: TextOverflow.ellipsis,
-                      ),
-                 ],
-               ),
-             ),
-             
-             // Actions
-             if (data.tag.isBookmarked)
-               Icon(Icons.bookmark, size: 16, color: Theme.of(context).colorScheme.primary),
-             
-             IconButton(
-               icon: const Icon(Icons.more_vert, size: 16),
-               onPressed: () {
-                 // Use a simple RenderBox approach to show menu near the button
-                 final renderBox = context.findRenderObject() as RenderBox;
-                 final offset = renderBox.localToGlobal(Offset.zero);
-                 final size = renderBox.size;
-                 // Set tap position for context menu
-                 _tapPosition = offset + Offset(size.width, size.height / 2);
-                 _showContextMenu(context);
-               },
-             ),
+            if (hasTranslation)
+              TextSpan(
+                text: translation,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color:
+                          tag.isCustomTranslatedName ? Colors.purple : Colors.grey,
+                    ),
+              ),
+            if (parent != null) ...[
+              if (hasTranslation) const TextSpan(text: ' '),
+              TextSpan(
+                text: '(${parent.displayName})',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Colors.blueGrey,
+                      fontSize: 10,
+                    ),
+              ),
+            ],
           ],
+        ),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+    );
+  }
+}
+
+class _TagChildrenBadge extends StatelessWidget {
+  final int tagId;
+  final bool isVisible;
+  final VoidCallback? onTap;
+
+  const _TagChildrenBadge({
+    required this.tagId,
+    required this.isVisible,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final childrenCount = tagManagerStore.getDirectChildren(tagId).length;
+    if (childrenCount == 0 || !isVisible) {
+      return const SizedBox.shrink();
+    }
+
+    return Positioned(
+      top: 4,
+      left: 4,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.primary,
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: const [
+              BoxShadow(
+                color: Colors.black26,
+                blurRadius: 2,
+                offset: Offset(0, 1),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.folder, size: 12, color: Colors.white),
+              const SizedBox(width: 2),
+              Text(
+                '$childrenCount',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TagSelectionOverlay extends StatelessWidget {
+  final bool isSelected;
+
+  const _TagSelectionOverlay({required this.isSelected});
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      top: 8,
+      right: 8,
+      child: Container(
+        decoration: BoxDecoration(
+          color: isSelected
+              ? Theme.of(context).colorScheme.primary
+              : Colors.black54,
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.white, width: 2),
+        ),
+        child: const Padding(
+          padding: EdgeInsets.all(4.0),
+          child: Icon(Icons.check, size: 16, color: Colors.white),
         ),
       ),
     );

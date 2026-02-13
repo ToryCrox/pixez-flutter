@@ -131,7 +131,7 @@ class _TagManagerPageState extends State<TagManagerPage> {
                       sliver: SliverGrid(
                         gridDelegate:
                             const SliverGridDelegateWithMaxCrossAxisExtent(
-                              maxCrossAxisExtent: 200,
+                              maxCrossAxisExtent: 240,
                               childAspectRatio: 0.8,
                               crossAxisSpacing: 8.0,
                               mainAxisSpacing: 8.0,
