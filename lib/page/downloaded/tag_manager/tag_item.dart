@@ -41,6 +41,13 @@ class TagItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 动态计算宽高比，避免瀑布流布局跳动
+    // 根据封面数量决定
+    // 0: 仅文字 -> 较小高度
+    // 1: 1张大图 -> 16:9 或 4:3
+    // 2-3: 组合图 -> 1:1 或 4:3
+    // 这里由内容撑开，Card 包装 Column
+    
     if (showAsTreeRow) {
       return _buildTreeRow(context);
     }
@@ -147,6 +154,7 @@ class TagItem extends StatelessWidget {
         Offset.zero & overlay.size,
       ),
       items: <PopupMenuEntry<String>>[
+        // 只有选择模式下才显示批量操作相关的菜单项
         if (isSelectionMode) ...[
           const PopupMenuItem(
             value: 'classify',
@@ -334,6 +342,8 @@ class TagItem extends StatelessWidget {
   }
 
   Widget _buildTreeRow(BuildContext context) {
+    // 这里的 hasChildren 逻辑：目前只有 Work 类型的标签（如漫画系列名）才显示展开按钮
+    // 这种标签在 DB 中有 parentId 指向它
     final hasChildren = data.tag.category == TagCategory.work.value;
 
     return InkWell(
@@ -422,6 +432,7 @@ class TagItem extends StatelessWidget {
             IconButton(
               icon: const Icon(Icons.more_vert, size: 16),
               onPressed: () {
+                // 使用 RenderBox 计算按钮在全球坐标系中的位置，以便在附近弹出菜单
                 final renderBox = context.findRenderObject() as RenderBox;
                 final offset = renderBox.localToGlobal(Offset.zero);
                 final size = renderBox.size;
@@ -485,6 +496,7 @@ class _TagCover extends StatelessWidget {
       fit: BoxFit.cover,
       width: double.infinity,
       height: double.infinity,
+      // 通过 header 传递 illustId，让 PixivCacheManager 识别封面请求
       httpHeaders: {'cover': '${illust.illustId}'},
     );
   }
