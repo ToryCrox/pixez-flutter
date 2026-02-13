@@ -102,13 +102,15 @@ class HistoryDatabaseProvider {
 
   bool _hasCheckedCleanup = false;
 
-  Future<List<Illusts>> query({String? keyword}) async {
+  Future<List<Illusts>> query({String? keyword, int? limit, int? offset}) async {
     final database = await db;
     List<Map<String, dynamic>> maps;
     if (keyword == null || keyword.trim().isEmpty) {
       maps = await database.query(
         tableHistory,
         orderBy: '$cTimestamp DESC',
+        limit: limit,
+        offset: offset,
       );
     } else {
       final k = '%$keyword%';
@@ -118,6 +120,8 @@ class HistoryDatabaseProvider {
             '$cTitle LIKE ? OR $cUserName LIKE ? OR $cTags LIKE ?',
         whereArgs: [k, k, k],
         orderBy: '$cTimestamp DESC',
+        limit: limit,
+        offset: offset,
       );
     }
 

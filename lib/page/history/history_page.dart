@@ -1,7 +1,8 @@
-
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:pixez/component/pixez_easy_refresh.dart';
+import 'package:pixez/component/pixez_default_header.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:pixez/component/illust_card.dart';
 import 'package:pixez/i18n.dart';
@@ -23,12 +24,13 @@ class _HistoryPageState extends State<HistoryPage> {
   @override
   void initState() {
     super.initState();
-    store.fetch();
+    store.fetch(refresh: true);
   }
 
   @override
   void dispose() {
     _textEditingController.dispose();
+    store.easyRefreshController.dispose();
     super.dispose();
   }
 
@@ -39,11 +41,7 @@ class _HistoryPageState extends State<HistoryPage> {
         title: TextField(
           controller: _textEditingController,
           onChanged: (word) {
-            if (word.trim().isNotEmpty) {
-              store.search(word.trim());
-            } else {
-              store.fetch();
-            }
+            store.search(word.trim());
           },
           decoration: InputDecoration(
             border: InputBorder.none,
@@ -51,14 +49,18 @@ class _HistoryPageState extends State<HistoryPage> {
           ),
         ),
         actions: <Widget>[
-          if (_textEditingController.text.isNotEmpty)
-            IconButton(
-              icon: Icon(Icons.close),
-              onPressed: () {
-                _textEditingController.clear();
-                store.search("");
-              },
-            ),
+          Observer(builder: (context) {
+            if (_textEditingController.text.isNotEmpty) {
+              return IconButton(
+                icon: Icon(Icons.close),
+                onPressed: () {
+                  _textEditingController.clear();
+                  store.search("");
+                },
+              );
+            }
+            return Container();
+          }),
         ],
       ),
       floatingActionButton: FloatingActionButton(
@@ -71,7 +73,7 @@ class _HistoryPageState extends State<HistoryPage> {
         if (store.loading && store.illusts.isEmpty) {
           return Center(child: CircularProgressIndicator());
         }
-        if (store.illusts.isEmpty) {
+        if (!store.loading && store.illusts.isEmpty) {
           return Center(child: Text("No Data"));
         }
         return _buildBody();
@@ -80,48 +82,65 @@ class _HistoryPageState extends State<HistoryPage> {
   }
 
   Widget _buildBody() {
-    if (userSetting.useWaterfallFlow) {
-      return WaterfallFlow.builder(
-        padding: EdgeInsets.all(5.0),
-        gridDelegate: SliverWaterfallFlowDelegateWithFixedCrossAxisCount(
-          crossAxisCount: _getCrossAxisCount(),
-          crossAxisSpacing: 5.0,
-          mainAxisSpacing: 5.0,
-        ),
-        itemCount: store.illusts.length,
-        itemBuilder: (context, index) {
-          return IllustCard(
-            store: store.illusts[index],
-            layoutMode: IllustCardLayoutMode.waterfall,
-            lightingStore: null,
-            onLongPress: () {
-               _showDeleteDialog(context, store.illusts[index].id);
+    return PixezEasyRefresh.builder(
+      controller: store.easyRefreshController,
+      onRefresh: () async {
+        await store.fetch(refresh: true);
+      },
+      onLoad: () async {
+        await store.fetch(refresh: false);
+      },
+      header: PixezDefault.header(context),
+      footer: PixezDefault.footer(context),
+      childBuilder: (context, physics, scrollController) {
+        if (userSetting.useWaterfallFlow) {
+          return WaterfallFlow.builder(
+            physics: physics,
+            controller: scrollController,
+            padding: EdgeInsets.all(5.0),
+            gridDelegate: SliverWaterfallFlowDelegateWithFixedCrossAxisCount(
+              crossAxisCount: _getCrossAxisCount(),
+              crossAxisSpacing: 5.0,
+              mainAxisSpacing: 5.0,
+            ),
+            itemCount: store.illusts.length,
+            itemBuilder: (context, index) {
+              return IllustCard(
+                store: store.illusts[index],
+                layoutMode: IllustCardLayoutMode.waterfall,
+                lightingStore: null,
+                onLongPress: () {
+                  _showDeleteDialog(context, store.illusts[index].id);
+                },
+              );
             },
           );
-        },
-      );
-    } else {
-      return GridView.builder(
-        padding: EdgeInsets.all(5.0),
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: _getCrossAxisCount(),
-          childAspectRatio: userSetting.gridAspectRatio,
-           crossAxisSpacing: 5.0,
-          mainAxisSpacing: 5.0,
-        ),
-        itemCount: store.illusts.length,
-        itemBuilder: (context, index) {
-          return IllustCard(
-            store: store.illusts[index],
-            layoutMode: IllustCardLayoutMode.grid,
-            lightingStore: null,
-            onLongPress: () {
-               _showDeleteDialog(context, store.illusts[index].id);
+        } else {
+          return GridView.builder(
+            physics: physics,
+            controller: scrollController,
+            padding: EdgeInsets.all(5.0),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: _getCrossAxisCount(),
+              childAspectRatio: userSetting.gridAspectRatio,
+              crossAxisSpacing: 5.0,
+              mainAxisSpacing: 5.0,
+            ),
+            itemCount: store.illusts.length,
+            itemBuilder: (context, index) {
+              return IllustCard(
+                store: store.illusts[index],
+                layoutMode: IllustCardLayoutMode.grid,
+                lightingStore: null,
+                onLongPress: () {
+                  _showDeleteDialog(context, store.illusts[index].id);
+                },
+              );
             },
           );
-        },
-      );
-    }
+        }
+      },
+    );
   }
 
   int _getCrossAxisCount() {

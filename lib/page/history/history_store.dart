@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
-
+import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/material.dart';
 import 'package:mobx/mobx.dart';
 import 'package:pixez/custom/log.dart';
@@ -17,13 +17,28 @@ part 'history_store.g.dart';
 class HistoryStore = _HistoryStore with _$HistoryStore;
 
 abstract class _HistoryStore with Store {
+  static const int _pageSize = 50;
   final HistoryDatabaseProvider _dbProvider = HistoryDatabaseProvider.instance;
+
+  final EasyRefreshController easyRefreshController = EasyRefreshController(
+    controlFinishRefresh: true,
+    controlFinishLoad: true,
+  );
 
   @observable
   ObservableList<IllustStore> illusts = ObservableList<IllustStore>();
 
   @observable
   bool loading = false;
+
+  @observable
+  bool loadingMore = false;
+
+  @observable
+  bool hasMore = true;
+
+  @observable
+  int page = 0;
 
   @observable
   String? currentKeyword;
@@ -37,41 +52,77 @@ abstract class _HistoryStore with Store {
   }
 
   @action
-  Future<void> fetch() async {
-    if (loading) return;
-    loading = true;
+  Future<void> fetch({bool refresh = false}) async {
+    if (refresh) {
+      if (loading) return;
+      loading = true;
+      page = 0;
+      hasMore = true;
+    } else {
+      if (loadingMore || !hasMore) {
+        easyRefreshController.finishLoad(IndicatorResult.noMore);
+        return;
+      }
+      loadingMore = true;
+      page++;
+    }
+
     try {
       await _dbProvider.open();
-      // 获取数据
-      final list = await _dbProvider.query(keyword: currentKeyword);
-      
-      // 清理旧的 store
-      for (var s in illusts) {
-        s.dispose();
+      final offset = page * _pageSize;
+      final list = await _dbProvider.query(
+        keyword: currentKeyword,
+        limit: _pageSize,
+        offset: offset,
+      );
+
+      if (refresh) {
+        for (var s in illusts) {
+          s.dispose();
+        }
+        illusts.clear();
       }
-      illusts.clear();
-      
-      // 转换为 IllustStore
-      // HistoryPage 的 item 不需要完整网络请求能力，但 IllustCard 需要 IllustStore
-      // 我们创建一个已经包含数据的 IllustStore
+
       for (var illust in list) {
         illusts.add(IllustStore(illust.id, illust));
       }
+
+      hasMore = list.length >= _pageSize;
+
+      if (refresh) {
+        easyRefreshController.finishRefresh();
+        easyRefreshController.resetFooter();
+      } else {
+        easyRefreshController.finishLoad(
+            hasMore ? IndicatorResult.success : IndicatorResult.noMore);
+      }
+    } catch (e) {
+      Log.e('Fetch history failed (refresh: $refresh)', error: e);
+      BotToast.showText(text: "Fetch failed: $e");
+      if (refresh) {
+        easyRefreshController.finishRefresh(IndicatorResult.fail);
+      } else {
+        page--;
+        easyRefreshController.finishLoad(IndicatorResult.fail);
+      }
     } finally {
-      loading = false;
+      if (refresh) {
+        loading = false;
+      } else {
+        loadingMore = false;
+      }
     }
   }
 
   @action
   Future<void> search(String keyword) async {
-    currentKeyword = keyword;
-    await fetch();
+    currentKeyword = keyword.isEmpty ? null : keyword;
+    await fetch(refresh: true);
   }
 
   @action
   Future<void> delete(int id) async {
     await _dbProvider.delete(id);
-    // 从列表中移除，避免重新 fetch
     final index = illusts.indexWhere((element) => element.id == id);
     if (index != -1) {
       illusts[index].dispose();
@@ -86,6 +137,9 @@ abstract class _HistoryStore with Store {
       s.dispose();
     }
     illusts.clear();
+    page = 0;
+    hasMore = false;
+    easyRefreshController.resetFooter();
   }
 
   Future<void> exportData(BuildContext context) async {
