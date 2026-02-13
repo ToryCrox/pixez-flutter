@@ -16,7 +16,7 @@ trigger: always_on
 ### 2.1 语言原则
 - **思考、解释、文档、Commit**：必须使用**中文**。
 - **技术术语**：保留英文（如 `Widget`, `Context`, `State`, `Stream`, `Future`）。
-- **代码相关**：保留英文。
+- **代码相关**：关键代码必须添加合适的中文注释，具有良好的可读性。
 - **固定指令响应**：输出必须包含 `Implementation Plan, Task List and Thought in Chinese`。
 
 ### 2.2 拒绝废话
