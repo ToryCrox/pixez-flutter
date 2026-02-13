@@ -4,6 +4,7 @@ import 'package:pixez/main.dart';
 import 'tag_manager_page.dart';
 import 'tag_selection_dialog.dart';
 import 'parent_selection_dialog.dart';
+import '../downloaded_page.dart';
 
 class TagEditDialog extends StatefulWidget {
   final DownloadedTag tag;
@@ -198,7 +199,16 @@ class _TagEditDialogState extends State<TagEditDialog> {
                   
                   final labelText = '$namePart$translatePart$countPart';
 
-                  return Chip(
+                  return ActionChip(
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => DownloadedPage(
+                            initialTagName: t.name,
+                          ),
+                        ),
+                      );
+                    },
                     label: Text(
                       labelText, 
                       style: TextStyle(
@@ -270,7 +280,16 @@ class _TagEditDialogState extends State<TagEditDialog> {
               separatorBuilder: (_, __) => const SizedBox(width: 4),
               itemBuilder: (context, index) {
                 final child = _childTags[index].tag;
-                return Chip(
+                return ActionChip(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => DownloadedPage(
+                          initialTagName: child.name,
+                        ),
+                      ),
+                    );
+                  },
                   label: Text(
                     '${child.displayName} (${child.count})',
                     style: TextStyle(
