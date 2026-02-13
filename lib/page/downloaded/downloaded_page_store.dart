@@ -88,10 +88,7 @@ abstract class _DownloadedPageStoreBase with Store {
   String? _searchKeyword;
 
   @readonly
-  String? _filterTagName;
-
-  @observable
-  ObservableList<int> exampleIllustIds = ObservableList();
+  int? _filterTagId;
 
   @readonly
   bool _isSearching = false;
@@ -114,7 +111,15 @@ abstract class _DownloadedPageStoreBase with Store {
   @readonly
   Map<String, int>? _stats;
 
-  String? get filterTagName => _filterTagName;
+  @computed
+  TagDisplayData? get filterTagData =>
+      _filterTagId != null ? tagManagerStore.tagIdMap[_filterTagId] : null;
+
+  @computed
+  Set<int> get filterTagExampleIds =>
+      filterTagData?.tag.exampleIllustIds.toSet() ?? {};
+
+  bool isExample(int illustId) => filterTagExampleIds.contains(illustId);
 
   // ===== 多选模式状态 =====
 
@@ -217,21 +222,15 @@ abstract class _DownloadedPageStoreBase with Store {
     int? initialUserId,
     String? initialUserName,
     String? initialSearchKeyword,
-    String? initialTagName,
+    int? initialTagId,
   }) {
     if (initialUserId != null) {
       _filterUserId = initialUserId;
       _filterUserName = initialUserName;
     }
 
-    if (initialTagName != null) {
-      _filterTagName = initialTagName;
-      // 初始化 exampleIllustIds
-      final tag = tagManagerStore.getTagDisplayData(initialTagName);
-      if (tag != null) {
-        exampleIllustIds.clear();
-        exampleIllustIds.addAll(tag.tag.exampleIllustIds);
-      }
+    if (initialTagId != null) {
+      _filterTagId = initialTagId;
     } else if (initialSearchKeyword != null) {
       _searchKeyword = initialSearchKeyword;
       _isSearching = true;
@@ -240,6 +239,7 @@ abstract class _DownloadedPageStoreBase with Store {
     _loadPersistedState();
     loadData();
     loadStats();
+
     _downloadStatusSubscription = downloadStore.illustDownloadStatusStream
         .listen(_onDownloadStatusChanged);
   }
@@ -354,13 +354,13 @@ abstract class _DownloadedPageStoreBase with Store {
           orderBy: orderBy,
           filterBookmarks: _showBookmarksOnly,
         );
-      } else if (_filterTagName != null && _filterTagName!.isNotEmpty) {
-        illusts = await downloadStore.searchDownloadedByTagName(
-          _filterTagName!,
+      } else if (_filterTagId != null) {
+        illusts = await downloadStore.searchDownloadedByTagId(
+          _filterTagId!,
           limit: _pageSize,
           offset: 0,
           orderBy: orderBy,
-          exampleIllustIds: exampleIllustIds,
+          exampleIllustIds: filterTagData?.tag.exampleIllustIds,
           filterBookmarks: _showBookmarksOnly,
         );
       } else if (_filterUserId != null) {
@@ -436,13 +436,13 @@ abstract class _DownloadedPageStoreBase with Store {
           orderBy: orderBy,
           filterBookmarks: _showBookmarksOnly,
         );
-      } else if (_filterTagName != null && _filterTagName!.isNotEmpty) {
-        moreIllusts = await downloadStore.searchDownloadedByTagName(
-          _filterTagName!,
+      } else if (_filterTagId != null) {
+        moreIllusts = await downloadStore.searchDownloadedByTagId(
+          _filterTagId!,
           limit: _pageSize,
           offset: offset,
           orderBy: orderBy,
-          exampleIllustIds: exampleIllustIds,
+          exampleIllustIds: filterTagData?.tag.exampleIllustIds,
           filterBookmarks: _showBookmarksOnly,
         );
       } else if (_filterUserId != null) {
@@ -506,9 +506,9 @@ abstract class _DownloadedPageStoreBase with Store {
       } else if (_filterUserId != null) {
         filterType = 'user';
         userId = _filterUserId;
-      } else if (_filterTagName != null && _filterTagName!.isNotEmpty) {
+      } else if (_filterTagId != null) {
         filterType = 'tag';
-        tagName = _filterTagName;
+        tagName = filterTagName;
       } else if (_searchKeyword != null && _searchKeyword!.isNotEmpty) {
         filterType = 'search';
         searchKeyword = _searchKeyword;
@@ -618,7 +618,7 @@ abstract class _DownloadedPageStoreBase with Store {
   void clearFilterUser() {
     _filterUserId = null;
     _filterUserName = null;
-    _filterTagName = null;
+    _filterTagId = null;
     _searchKeyword = null;
     _isSearching = false;
     _downloadFilter = DownloadFilter.all;
@@ -628,7 +628,10 @@ abstract class _DownloadedPageStoreBase with Store {
 
   @action
   void initFromTag(String tagName) {
-    _filterTagName = tagName;
+    final tagData = tagManagerStore.getTagDisplayData(tagName);
+    if (tagData != null) {
+      _filterTagId = tagData.tag.id;
+    }
     _isSearching = true;
     loadData();
   }

@@ -201,7 +201,7 @@ class _TagEditDialogState extends State<TagEditDialog> {
 
                   return ActionChip(
                     onPressed: () {
-                      DownloadedPage.open(context, tagName: t.name);
+                      DownloadedPage.open(context, tagId: t.id);
                     },
                     label: Text(
                       labelText, 
@@ -276,7 +276,7 @@ class _TagEditDialogState extends State<TagEditDialog> {
                 final child = _childTags[index].tag;
                 return ActionChip(
                   onPressed: () {
-                    DownloadedPage.open(context, tagName: child.name);
+                    DownloadedPage.open(context, tagId: child.id);
                   },
                   label: Text(
                     '${child.displayName} (${child.count})',

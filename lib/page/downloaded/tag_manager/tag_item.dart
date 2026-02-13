@@ -323,7 +323,7 @@ class TagItem extends StatelessWidget {
   }
 
   void _navigateToLocalSearch(BuildContext context) {
-    DownloadedPage.open(context, tagName: data.tag.name);
+    DownloadedPage.open(context, tagId: data.tag.id);
   }
 
   void _navigateToOnlineSearch(BuildContext context) {

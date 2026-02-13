@@ -46,14 +46,14 @@ class DownloadedPage extends StatefulWidget {
   final int? initialUserId;
   final String? initialUserName;
   final String? initialSearchKeyword;
-  final String? initialTagName;
+  final int? initialTagId;
 
   const DownloadedPage({
     Key? key,
     this.initialUserId,
     this.initialUserName,
     this.initialSearchKeyword,
-    this.initialTagName,
+    this.initialTagId,
   }) : super(key: key);
 
   static Future<T?> open<T>(
@@ -61,7 +61,7 @@ class DownloadedPage extends StatefulWidget {
     int? userId,
     String? userName,
     String? searchKeyword,
-    String? tagName,
+    int? tagId,
   }) {
     return Navigator.of(context).push<T>(
       MaterialPageRoute(
@@ -70,7 +70,7 @@ class DownloadedPage extends StatefulWidget {
               initialUserId: userId,
               initialUserName: userName,
               initialSearchKeyword: searchKeyword,
-              initialTagName: tagName,
+              initialTagId: tagId,
             ),
       ),
     );
@@ -106,7 +106,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
       initialUserId: widget.initialUserId,
       initialUserName: widget.initialUserName,
       initialSearchKeyword: widget.initialSearchKeyword,
-      initialTagName: widget.initialTagName,
+      initialTagId: widget.initialTagId,
     );
     // Set text controller if search keyword is provided (but not tags, as tags are shown in title)
     if (widget.initialSearchKeyword?.isNotEmpty == true) {
@@ -206,7 +206,8 @@ class _DownloadedPageState extends State<DownloadedPage> {
   }
 
   Widget _buildAppBarTitle() {
-    final title = _store.filterUserName ?? _store.filterTagName ?? '已下载';
+    final tagData = _store.filterTagData;
+    String title = _store.filterUserName ?? tagData?.tag.displayName ?? '已下载';
     final stats = _store.stats;
 
     if (stats == null) {
@@ -862,19 +863,12 @@ class _DownloadedPageState extends State<DownloadedPage> {
         ),
 
         if (!isMulti) ...[
-          if (_store.filterTagName != null)
+          if (_store.filterTagId != null)
             _buildContextMenuItem(
-              icon:
-                  _store.exampleIllustIds.contains(illust.illustId)
-                      ? Icons.star
-                      : Icons.star_border,
-              label:
-                  _store.exampleIllustIds.contains(illust.illustId)
-                      ? '取消示例插画'
-                      : '设置为示例插画',
+              icon: _store.isExample(illust.illustId) ? Icons.star : Icons.star_border,
+              label: _store.isExample(illust.illustId) ? '取消示例插画' : '设置为示例插画',
               onTap: () async {
-                final tagName = _store.filterTagName!;
-                final tagData = tagManagerStore.getTagDisplayData(tagName);
+                final tagData = _store.filterTagData;
                 if (tagData != null) {
                   final imageUrls = illust.getImageUrls();
                   String coverUrl = imageUrls.squareMedium;
@@ -886,13 +880,6 @@ class _DownloadedPageState extends State<DownloadedPage> {
                     tagData.tag.id,
                     illust.illustId,
                     coverUrl,
-                  );
-                  _store.exampleIllustIds.clear();
-                  _store.exampleIllustIds.addAll(
-                    tagManagerStore
-                        .getTagDisplayData(tagName)!
-                        .tag
-                        .exampleIllustIds,
                   );
                 }
               },
@@ -1214,7 +1201,7 @@ class _DownloadedIllustCard extends StatelessWidget {
 
                   if (illust.isUgoira) _buildUgoiraBadge(context),
                   if (isMarked) _buildUnprocessedBadge(context),
-                  if (store.exampleIllustIds.contains(illust.illustId))
+                  if (store.isExample(illust.illustId))
                     _buildExampleBadge(context),
                   _buildBookmarkButton(context),
                   if (isDownloading) _buildDownloadingOverlay(),

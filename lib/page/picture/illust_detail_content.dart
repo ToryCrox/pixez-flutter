@@ -560,11 +560,12 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
         break;
       case 3:
         {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (context) => DownloadedPage(initialTagName: f.name),
-            ),
-          );
+          final tagId = tagManagerStore.getTagDisplayData(f.name)?.tag.id;
+          if (tagId != null) {
+            DownloadedPage.open(context, tagId: tagId);
+          } else {
+            DownloadedPage.open(context, searchKeyword: f.name);
+          }
         }
         break;
       case 4:
@@ -659,11 +660,12 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
           await tagManagerStore.bookTag(f.name);
           break;
         case 2:
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (context) => DownloadedPage(initialTagName: f.name),
-            ),
-          );
+          final tagId = tagManagerStore.getTagDisplayData(f.name)?.tag.id;
+          if (tagId != null) {
+            DownloadedPage.open(context, tagId: tagId);
+          } else {
+            DownloadedPage.open(context, searchKeyword: f.name);
+          }
           break;
         case 3:
           _showEditTagDialog(context, f);
