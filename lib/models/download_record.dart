@@ -936,6 +936,15 @@ class DownloadDatabaseProvider {
           where: 'id IN ($aliasPlaceholders)',
           whereArgs: aliasIds,
         );
+
+        // 3. 将非主标签成员的子标签的 parentId 更新为主标签
+        // 例如 B 是 A 的别名，B 原有子标签 D，则 D.parentId 应更新为 A
+        await txn.update(
+          DownloadedTagsColumns.tableName,
+          {DownloadedTagsColumns.parentId: newPrimaryId},
+          where: '${DownloadedTagsColumns.parentId} IN ($aliasPlaceholders)',
+          whereArgs: aliasIds,
+        );
       }
     });
   }

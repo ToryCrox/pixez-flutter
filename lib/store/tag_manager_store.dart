@@ -241,6 +241,7 @@ abstract class _TagManagerStore with Store {
     
     // 直接在内存中更新受影响的标签，避免重新加载所有标签
     final allAffectedIds = {...allTagIds, if (removedIds != null) ...removedIds};
+    final aliasIds = allTagIds.where((id) => id != newPrimaryId).toSet();
     
     for (int i = 0; i < tags.length; i++) {
       final tagId = tags[i].tag.id;
@@ -254,6 +255,12 @@ abstract class _TagManagerStore with Store {
         tags[i] = oldData.copyWith(
           tag: oldData.tag.copyWith(referencedTagId: newReferencedTagId),
           hasEquivalentTags: hasEquivalentTags,
+        );
+      } else if (aliasIds.contains(tags[i].tag.parentId)) {
+        // 将非主标签成员的子标签的 parentId 重指向主标签
+        final oldData = tags[i];
+        tags[i] = oldData.copyWith(
+          tag: oldData.tag.copyWith(parentId: newPrimaryId),
         );
       }
     }
