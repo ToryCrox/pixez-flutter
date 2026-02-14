@@ -820,13 +820,9 @@ class _DownloadedPageState extends State<DownloadedPage> {
     final isMulti = _store.isMultiSelectMode;
     final selectedCount = _store.selectedIllustIds.length;
 
-    // 如果在多选模式下，且当前item未选中，则只对当前item操作?
-    // 或者通常右键点击未选中项会选中它并取消其他？
-    // 这里简化逻辑：如果是多选模式，且当前item已选中，则对所有选中项操作。
-    // 如果未选中，则只对当前item操作（如同单选）。
+    // 确定目标作品列表
     final isSelectedInMulti =
         isMulti && _store.selectedIllustIds.contains(illust.illustId);
-
     final targetIllusts =
         isSelectedInMulti
             ? _store.filteredIllusts
@@ -834,132 +830,27 @@ class _DownloadedPageState extends State<DownloadedPage> {
                 .toList()
             : [illust];
 
-    final status = _store.illustDownloadStatus[illust.illustId];
-    final isDownloading =
-        status == DownloadTaskStatus.downloading ||
-        status == DownloadTaskStatus.pending;
-    final isPaused = status == DownloadTaskStatus.paused;
-    final isFailed = status == DownloadTaskStatus.failed;
-
     showMenu(
       context: context,
       position: RelativeRect.fromRect(
-        localPosition & Size(40, 40),
+        localPosition & const Size(40, 40),
         Offset.zero & overlay.size,
       ),
       items: [
         if (isMulti)
           PopupMenuItem(child: Text('已选择 $selectedCount 项'), enabled: false),
 
-        // 切换多选模式
-        _buildContextMenuItem(
-          icon: isMulti ? Icons.check_box_outline_blank : Icons.check_box,
-          label: isMulti ? '退出多选模式' : '进入多选模式',
-          onTap: () {
-            if (isMulti) {
-              _store.exitMultiSelectMode();
-            } else {
-              _store.enterMultiSelectMode();
-              _store.selectItem(illust.illustId);
-            }
-          },
-        ),
-
+        _buildSelectionToggleItem(isMulti, isSelectedInMulti, illust),
         _buildContextMenuItem(
           icon: Icons.open_in_new,
           label: I18n.of(context).detail,
           onTap: () => _navigateToPictureList(illust),
         ),
 
-        if (!isMulti) ...[
-          if (_store.filterTagId != null)
-            _buildContextMenuItem(
-              icon:
-                  _store.isExample(illust.illustId)
-                      ? Icons.star
-                      : Icons.star_border,
-              label: _store.isExample(illust.illustId) ? '取消示例插画' : '设置为示例插画',
-              onTap: () async {
-                final tagData = _store.filterTagData;
-                if (tagData != null) {
-                  final imageUrls = illust.getImageUrls();
-                  String coverUrl = imageUrls.squareMedium;
-                  if (coverUrl.isEmpty) {
-                    final illusts = illust.toIllusts();
-                    coverUrl = illusts.imageUrls.squareMedium;
-                  }
-                  await tagManagerStore.toggleExampleIllust(
-                    tagData.tag.id,
-                    illust.illustId,
-                    coverUrl,
-                  );
-                }
-              },
-            ),
-          _buildContextMenuItem(
-            icon: Icons.folder_open,
-            label: I18n.of(context).save_path,
-            onTap: () => _openIllustFolder(illust),
-          ),
-          _buildContextMenuItem(
-            icon: Icons.copy,
-            label: '复制路径',
-            onTap: () {
-              final path = downloadStore.getIllustDirectoryPath(illust);
-              if (path != null) {
-                // 在这里为复制的路径添加双引号，方便在其他地方粘贴使用
-                Clipboard.setData(ClipboardData(text: path));
-                ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(const SnackBar(content: Text('路径已复制到剪贴板')));
-              }
-            },
-          ),
-          if (isDownloading)
-            _buildContextMenuItem(
-              icon: Icons.pause,
-              label: '暂停',
-              onTap: () => downloadStore.pauseIllustDownload(illust.illustId),
-            ),
-          if (isPaused || isFailed)
-            _buildContextMenuItem(
-              icon: Icons.play_arrow,
-              label: I18n.of(context).retry,
-              onTap: () => downloadStore.resumeIllustDownload(illust.illustId),
-            ),
-        ],
-        ...[
-          _buildContextMenuItem(
-            icon: illust.bookmark > 0 ? Icons.favorite : Icons.favorite_border,
-            iconColor: illust.bookmark > 0 ? Colors.red : null,
-            label:
-                isSelectedInMulti
-                    ? '收藏/取消选中 ($selectedCount)'
-                    : (illust.bookmark > 0 ? '取消收藏' : '收藏'),
-            onTap: () async {
-              if (isSelectedInMulti) {
-                final newBookmark = illust.bookmark > 0 ? 0 : 1;
-                for (var item in targetIllusts) {
-                  await _store.updateBookmark(item.illustId, newBookmark);
-                }
-              } else {
-                final newBookmark = illust.bookmark > 0 ? 0 : 1;
-                await _store.updateBookmark(illust.illustId, newBookmark);
-              }
-            },
-          ),
-          _buildContextMenuItem(
-            icon: Icons.priority_high,
-            label: isSelectedInMulti ? '设置选中优先级 ($selectedCount)' : '设置收藏优先级',
-            onTap: () {
-              if (isSelectedInMulti) {
-                _showBatchPriorityDialog(context, targetIllusts);
-              } else {
-                _showSinglePriorityDialog(context, illust);
-              }
-            },
-          ),
-        ],
+        if (!isMulti) ..._buildSingleModeMenus(context, illust),
+
+        _buildBookmarkMenuItem(isSelectedInMulti, selectedCount, illust, targetIllusts),
+        _buildPriorityMenuItem(isSelectedInMulti, selectedCount, illust, targetIllusts),
 
         _buildContextMenuItem(
           icon: Icons.update,
@@ -973,6 +864,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
             _store.loadData();
           },
         ),
+
         _buildContextMenuItem(
           icon: Icons.delete,
           iconColor: Colors.red,
@@ -984,6 +876,147 @@ class _DownloadedPageState extends State<DownloadedPage> {
           onTap: () => _deleteIllusts(targetIllusts),
         ),
       ],
+    );
+  }
+
+  /// 构建多选/退出选择切换项
+  PopupMenuItem<void> _buildSelectionToggleItem(bool isMulti, bool isSelectedInMulti, DownloadedIllust illust) {
+    final icon = isMulti ? Icons.check_box_outline_blank : Icons.check_box;
+    final label = isMulti ? '退出多选模式' : '进入多选模式';
+    return _buildContextMenuItem(
+      icon: icon,
+      label: label,
+      onTap: () {
+        if (isMulti) {
+          _store.exitMultiSelectMode();
+        } else {
+          _store.enterMultiSelectMode();
+          _store.selectItem(illust.illustId);
+        }
+      },
+    );
+  }
+
+  /// 构建单选模式特有的菜单项
+  List<PopupMenuEntry<void>> _buildSingleModeMenus(BuildContext context, DownloadedIllust illust) {
+    final status = _store.illustDownloadStatus[illust.illustId];
+    final isDownloading =
+        status == DownloadTaskStatus.downloading ||
+        status == DownloadTaskStatus.pending;
+    final isPaused = status == DownloadTaskStatus.paused;
+    final isFailed = status == DownloadTaskStatus.failed;
+
+    return [
+      if (_store.filterTagId != null)
+        _buildContextMenuItem(
+          icon: _store.isExample(illust.illustId) ? Icons.star : Icons.star_border,
+          label: _store.isExample(illust.illustId) ? '取消示例插画' : '设置为示例插画',
+          onTap: () => _handleSetExampleIllust(illust),
+        ),
+      _buildContextMenuItem(
+        icon: Icons.folder_open,
+        label: I18n.of(context).save_path,
+        onTap: () => _openIllustFolder(illust),
+      ),
+      _buildContextMenuItem(
+        icon: Icons.copy,
+        label: '复制路径',
+        onTap: () => _copyIllustPath(context, illust),
+      ),
+      if (isDownloading)
+        _buildContextMenuItem(
+          icon: Icons.pause,
+          label: '暂停',
+          onTap: () => downloadStore.pauseIllustDownload(illust.illustId),
+        ),
+      if (isPaused || isFailed)
+        _buildContextMenuItem(
+          icon: Icons.play_arrow,
+          label: I18n.of(context).retry,
+          onTap: () => downloadStore.resumeIllustDownload(illust.illustId),
+        ),
+    ];
+  }
+
+  /// 处理设置/取消示例插画
+  Future<void> _handleSetExampleIllust(DownloadedIllust illust) async {
+    final tagData = _store.filterTagData;
+    if (tagData != null) {
+      final imageUrls = illust.getImageUrls();
+      String coverUrl = imageUrls.squareMedium;
+      if (coverUrl.isEmpty) {
+        final illusts = illust.toIllusts();
+        coverUrl = illusts.imageUrls.squareMedium;
+      }
+      await tagManagerStore.toggleExampleIllust(
+        tagData.tag.id,
+        illust.illustId,
+        coverUrl,
+      );
+    }
+  }
+
+  /// 复制插画路径
+  void _copyIllustPath(BuildContext context, DownloadedIllust illust) {
+    final path = downloadStore.getIllustDirectoryPath(illust);
+    if (path != null) {
+      Clipboard.setData(ClipboardData(text: path));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('路径已复制到剪贴板')),
+      );
+    }
+  }
+
+  /// 收藏/取消收藏菜单项
+  PopupMenuItem<void> _buildBookmarkMenuItem(
+    bool isSelectedInMulti,
+    int selectedCount,
+    DownloadedIllust illust,
+    List<DownloadedIllust> targetIllusts,
+  ) {
+    final isBookmarked = illust.bookmark > 0;
+    String label;
+    if (isSelectedInMulti) {
+      label = '收藏/取消选中 ($selectedCount)';
+    } else {
+      label = isBookmarked ? '取消收藏' : '收藏';
+    }
+
+    return _buildContextMenuItem(
+      icon: isBookmarked ? Icons.favorite : Icons.favorite_border,
+      iconColor: isBookmarked ? Colors.red : null,
+      label: label,
+      onTap: () async {
+        final newBookmark = isBookmarked ? 0 : 1;
+        if (isSelectedInMulti) {
+          for (var item in targetIllusts) {
+            await _store.updateBookmark(item.illustId, newBookmark);
+          }
+        } else {
+          await _store.updateBookmark(illust.illustId, newBookmark);
+        }
+      },
+    );
+  }
+
+  /// 设置优先级菜单项
+  PopupMenuItem<void> _buildPriorityMenuItem(
+    bool isSelectedInMulti,
+    int selectedCount,
+    DownloadedIllust illust,
+    List<DownloadedIllust> targetIllusts,
+  ) {
+    final label = isSelectedInMulti ? '设置选中优先级 ($selectedCount)' : '设置收藏优先级';
+    return _buildContextMenuItem(
+      icon: Icons.priority_high,
+      label: label,
+      onTap: () {
+        if (isSelectedInMulti) {
+          _showBatchPriorityDialog(context, targetIllusts);
+        } else {
+          _showSinglePriorityDialog(context, illust);
+        }
+      },
     );
   }
 
@@ -1170,23 +1203,19 @@ class _DownloadedIllustCard extends StatelessWidget {
     DownloadTaskStatus? status,
     bool isSelected,
   ) {
-    final isDownloading = status == DownloadTaskStatus.downloading;
-    final isPending = status == DownloadTaskStatus.pending;
-    final isPaused = status == DownloadTaskStatus.paused;
-    final isFailed = status == DownloadTaskStatus.failed;
     final isMarked = store.unprocessedIllustIds.contains(illust.illustId);
+
     return Card(
       clipBehavior: Clip.antiAlias,
-      shape:
-          isSelected
-              ? RoundedRectangleBorder(
-                side: BorderSide(
-                  color: Theme.of(context).colorScheme.primary,
-                  width: 3,
-                ),
-                borderRadius: BorderRadius.circular(4),
-              )
-              : null,
+      shape: isSelected
+          ? RoundedRectangleBorder(
+              side: BorderSide(
+                color: Theme.of(context).colorScheme.primary,
+                width: 3,
+              ),
+              borderRadius: BorderRadius.circular(4),
+            )
+          : null,
       child: InkWell(
         onTap: () {
           if (store.isMultiSelectMode) {
@@ -1207,67 +1236,89 @@ class _DownloadedIllustCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Expanded(
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      _buildThumbnail(context),
-                      _buildFolderButton(context),
-
-                      if (illust.isUgoira) _buildUgoiraBadge(context),
-                      if (isMarked) _buildUnprocessedBadge(context),
-                      if (store.isExample(illust.illustId))
-                        _buildExampleBadge(context),
-                      _buildBookmarkButton(context),
-                      _buildLastReadBadge(context),
-                      if (isDownloading) _buildDownloadingOverlay(),
-                      if (isPending) _buildPendingOverlay(context),
-                      if (isPaused)
-                        _buildStatusBadge(
-                          context,
-                          I18n.of(context).paused,
-                          Colors.orange,
-                        ),
-                      if (isFailed)
-                        _buildStatusBadge(
-                          context,
-                          I18n.of(context).failed,
-                          Colors.red,
-                        ),
-                      // 多选模式下的复选框指示器
-                      if (store.isMultiSelectMode)
-                        Positioned(
-                          top: 4,
-                          right: 4,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color:
-                                  isSelected
-                                      ? Theme.of(context).colorScheme.primary
-                                      : Colors.black45,
-                              border: Border.all(color: Colors.white, width: 2),
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(4.0),
-                              child:
-                                  isSelected
-                                      ? Icon(
-                                        Icons.check,
-                                        size: 16,
-                                        color: Colors.white,
-                                      )
-                                      : SizedBox(width: 16, height: 16),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
+                  child: _buildThumbnailStack(context, status, isMarked, isSelected),
                 ),
                 _buildInfoSection(context),
               ],
             ),
             _buildHistoryProgress(context),
           ],
+        ),
+      ),
+    );
+  }
+
+  /// 构建缩略图区域的 Stack，包含图层覆盖和各种 Badge
+  Widget _buildThumbnailStack(
+    BuildContext context,
+    DownloadTaskStatus? status,
+    bool isMarked,
+    bool isSelected,
+  ) {
+    final isDownloading = status == DownloadTaskStatus.downloading;
+    final isPending = status == DownloadTaskStatus.pending;
+    final isPaused = status == DownloadTaskStatus.paused;
+    final isFailed = status == DownloadTaskStatus.failed;
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        _buildThumbnail(context),
+        _buildFolderButton(context),
+        if (illust.isUgoira) _buildUgoiraBadge(context),
+        if (isMarked) _buildUnprocessedBadge(context),
+        if (store.isExample(illust.illustId)) _buildExampleBadge(context),
+        _buildBookmarkButton(context),
+        _buildLastReadBadge(context),
+        if (isDownloading) _buildDownloadingOverlay(),
+        if (isPending) _buildPendingOverlay(context),
+        if (isPaused)
+          _buildStatusBadge(
+            context,
+            I18n.of(context).paused,
+            Colors.orange,
+          ),
+        if (isFailed)
+          _buildStatusBadge(
+            context,
+            I18n.of(context).failed,
+            Colors.red,
+          ),
+        // 多选模式下的复选框指示器
+        if (store.isMultiSelectMode) _buildSelectionOverlay(context, isSelected),
+      ],
+    );
+  }
+
+  /// 构建选择模式下的覆盖层
+  Widget _buildSelectionOverlay(BuildContext context, bool isSelected) {
+    final color = isSelected
+        ? Theme.of(context).colorScheme.primary
+        : Colors.black45;
+
+    Widget child;
+    if (isSelected) {
+      child = const Icon(
+        Icons.check,
+        size: 16,
+        color: Colors.white,
+      );
+    } else {
+      child = const SizedBox(width: 16, height: 16);
+    }
+
+    return Positioned(
+      top: 4,
+      right: 4,
+      child: Container(
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: color,
+          border: Border.all(color: Colors.white, width: 2),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(4.0),
+          child: child,
         ),
       ),
     );
@@ -1451,14 +1502,21 @@ class _DownloadedIllustCard extends StatelessWidget {
     return Observer(
       builder: (context) {
         final history = HistoryManager.instance.getHistory(illust.illustId);
-        final readTime = history?.timestamp.toRelativeTime();
-        if (readTime == null) return const SizedBox.shrink();
+        if (history == null) return const SizedBox.shrink();
+
+        final readTime = history.timestamp.toRelativeTime();
+        // 移除 readTime == null 的检查，因为 toRelativeTime() 总是返回 String
+
+        String labelText = readTime;
+        if (history.totalPages > 1) {
+          labelText = "$readTime · ${history.lastPage + 1}/${history.totalPages}P";
+        }
 
         return Positioned(
           right: 4,
           bottom: 4,
           child: Container(
-            padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
             decoration: BoxDecoration(
               color: Colors.black54,
               borderRadius: BorderRadius.circular(4),
@@ -1466,13 +1524,11 @@ class _DownloadedIllustCard extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.history, color: Colors.white, size: 10),
-                SizedBox(width: 4),
+                const Icon(Icons.history, color: Colors.white, size: 10),
+                const SizedBox(width: 4),
                 Text(
-                  history!.totalPages > 1
-                      ? "$readTime · ${history.lastPage + 1}/${history.totalPages}P"
-                      : readTime,
-                  style: TextStyle(
+                  labelText,
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
@@ -1503,45 +1559,15 @@ class _DownloadedIllustCard extends StatelessWidget {
 
   Widget _buildInfoSection(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.all(8),
+      padding: const EdgeInsets.all(8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildTitleRow(context),
-          SizedBox(height: 2),
+          const SizedBox(height: 2),
           Row(
             children: [
-              Expanded(
-                child:
-                    onAuthorTap != null
-                        ? InkWell(
-                          onTap: store.isMultiSelectMode ? null : onAuthorTap,
-                          borderRadius: BorderRadius.circular(4),
-                          child: Text(
-                            illust.userName,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(
-                              context,
-                            ).textTheme.bodySmall?.copyWith(
-                              color: Theme.of(context).colorScheme.primary,
-                              decoration: TextDecoration.underline,
-                              decorationColor:
-                                  Theme.of(context).colorScheme.primary,
-                            ),
-                          ),
-                        )
-                        : Text(
-                          illust.userName,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(
-                            context,
-                          ).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                        ),
-              ),
+              Expanded(child: _buildAuthorName(context)),
               Text(
                 illust.createDate.toShortDate(),
                 maxLines: 1,
@@ -1558,6 +1584,38 @@ class _DownloadedIllustCard extends StatelessWidget {
     );
   }
 
+  /// 构建作者名称显示，处理跳转逻辑
+  Widget _buildAuthorName(BuildContext context) {
+    final style = Theme.of(context).textTheme.bodySmall?.copyWith(
+      color: Theme.of(context).colorScheme.primary,
+    );
+
+    // 如果不能点击跳转，直接显示文本
+    if (onAuthorTap == null) {
+      return Text(
+        illust.userName,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: style,
+      );
+    }
+
+    // 处理跳转逻辑
+    return InkWell(
+      onTap: store.isMultiSelectMode ? null : onAuthorTap,
+      borderRadius: BorderRadius.circular(4),
+      child: Text(
+        illust.userName,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: style?.copyWith(
+          decoration: TextDecoration.underline,
+          decorationColor: Theme.of(context).colorScheme.primary,
+        ),
+      ),
+    );
+  }
+
   Widget _buildTitleRow(BuildContext context) {
     return Text(
       illust.title,
@@ -1566,8 +1624,6 @@ class _DownloadedIllustCard extends StatelessWidget {
       style: Theme.of(context).textTheme.bodyMedium,
     );
   }
-
-  // 移除旧的 _buildReadIndicator，逻辑已整合进 _buildReadBadge 和 _buildTitleRow
 
   Widget _buildStatsRow(BuildContext context) {
     final totalFileSize = illust.totalFileSize; // 使用物化字段
