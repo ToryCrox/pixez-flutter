@@ -874,7 +874,10 @@ class _DownloadedPageState extends State<DownloadedPage> {
         if (!isMulti) ...[
           if (_store.filterTagId != null)
             _buildContextMenuItem(
-              icon: _store.isExample(illust.illustId) ? Icons.star : Icons.star_border,
+              icon:
+                  _store.isExample(illust.illustId)
+                      ? Icons.star
+                      : Icons.star_border,
               label: _store.isExample(illust.illustId) ? '取消示例插画' : '设置为示例插画',
               onTap: () async {
                 final tagData = _store.filterTagData;
@@ -1417,59 +1420,70 @@ class _DownloadedIllustCard extends StatelessWidget {
       ),
     );
   }
+
   Widget _buildHistoryProgress(BuildContext context) {
-    return Observer(builder: (context) {
-      final history = HistoryManager.instance.getHistory(illust.illustId);
-      if (history == null || history.totalPages <= 1) {
-        return const SizedBox.shrink();
-      }
-      return Positioned(
-        bottom: 0,
-        left: 0,
-        right: 0,
-        child: LinearProgressIndicator(
-          value: history.progress.clamp(0.0, 1.0),
-          minHeight: 3,
-          backgroundColor: Colors.black26,
-          valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).colorScheme.primary),
-        ),
-      );
-    });
+    return Observer(
+      builder: (context) {
+        final history = HistoryManager.instance.getHistory(illust.illustId);
+        if (history == null || history.totalPages <= 1) {
+          return const SizedBox.shrink();
+        }
+        return Positioned(
+          bottom: 0,
+          left: 0,
+          right: 0,
+          child: LinearProgressIndicator(
+            value: history.progress.clamp(0.0, 1.0),
+            minHeight: 3,
+            backgroundColor: Colors.black26,
+            valueColor: AlwaysStoppedAnimation<Color>(
+              Theme.of(context).colorScheme.primary,
+            ),
+          ),
+        );
+      },
+    );
   }
 
   // 移除 _buildReadBadge
 
   Widget _buildLastReadBadge(BuildContext context) {
-    return Observer(builder: (context) {
-      final history = HistoryManager.instance.getHistory(illust.illustId);
-      final readTime = history?.timestamp.toRelativeTime();
-      if (readTime == null) return const SizedBox.shrink();
+    return Observer(
+      builder: (context) {
+        final history = HistoryManager.instance.getHistory(illust.illustId);
+        final readTime = history?.timestamp.toRelativeTime();
+        if (readTime == null) return const SizedBox.shrink();
 
-      return Positioned(
-        right: 4,
-        bottom: 4,
-        child: Container(
-          padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-          decoration: BoxDecoration(
-            color: Colors.black54,
-            borderRadius: BorderRadius.circular(4),
+        return Positioned(
+          right: 4,
+          bottom: 4,
+          child: Container(
+            padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+            decoration: BoxDecoration(
+              color: Colors.black54,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.history, color: Colors.white, size: 10),
+                SizedBox(width: 4),
+                Text(
+                  history!.totalPages > 1
+                      ? "$readTime · ${history.lastPage + 1}/${history.totalPages}P"
+                      : readTime,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.history, color: Colors.white, size: 10),
-              SizedBox(width: 4),
-              Text(
-                history!.totalPages > 1
-                    ? "$readTime · ${history.lastPage + 1}/${history.totalPages}P"
-                    : readTime,
-                style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-              ),
-            ],
-          ),
-        ),
-      );
-    });
+        );
+      },
+    );
   }
 
   Widget _buildStatusBadge(BuildContext context, String text, Color color) {
