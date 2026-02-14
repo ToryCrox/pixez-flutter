@@ -23,6 +23,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
+import 'package:scrollview_observer/scrollview_observer.dart';
 import 'package:pixez/component/ban_page.dart';
 import 'package:pixez/component/common_back_area.dart';
 import 'package:pixez/component/null_hero.dart';
@@ -154,6 +155,7 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
   late IllustAboutStore _aboutStore;
   late ScrollController _scrollController;
   late EasyRefreshController _refreshController;
+  late ListObserverController _observerController;
   bool tempView = false;
 
   @override
@@ -163,6 +165,7 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
         controlFinishLoad: true, controlFinishRefresh: true);
     _scrollController = ScrollController();
     _illustStore = widget.store ?? IllustStore(widget.id, null);
+    _observerController = ListObserverController(controller: scrollController);
     _illustStore.fetch(force: true);
     _aboutStore = IllustAboutStore(widget.id, _refreshController);
     super.initState();
@@ -333,7 +336,12 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
               child: Stack(
                 children: [
                   _buildContent(context, _illustStore.illusts),
-                  _buildAppbar()
+                  _buildAppbar(),
+                  Positioned(
+                    bottom: 80,
+                    left: 16,
+                    child: Observer(builder: (_) => _buildJumpHint()),
+                  ),
                 ],
               ),
             );
@@ -443,10 +451,13 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
         await _aboutStore.next();
       },
       childBuilder: (context, physics, scrollController) {
-        return CustomScrollView(
-          physics: physics,
-          controller: scrollController,
-          slivers: [
+        return ListViewObserver(
+          controller: _observerController,
+          onObserve: _onObserve,
+          child: CustomScrollView(
+            physics: physics,
+            controller: scrollController,
+            slivers: [
             if (userSetting.isBangs || ((data.width / data.height) > 5))
               SliverToBoxAdapter(
                   child: Container(height: MediaQuery.of(context).padding.top)),
@@ -539,7 +550,7 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
                 gridDelegate:
                     SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3))
           ],
-        );
+        ));
       },
     );
   }
@@ -635,6 +646,60 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
                 ),
               ),
     ];
+  }
+
+  void _onObserve(ListViewObserveModel observeModel) {
+    if (_illustStore.illusts == null || _illustStore.illusts!.pageCount <= 1) {
+      return;
+    }
+    final firstVisibleIndex = observeModel.firstChild?.index ?? 0;
+    if (firstVisibleIndex != _illustStore.currentPage) {
+      _illustStore.updateCurrentPage(firstVisibleIndex);
+    }
+  }
+
+  Widget _buildJumpHint() {
+    if (!_illustStore.showJumpHint) return const SizedBox.shrink();
+    return AnimatedOpacity(
+      opacity: _illustStore.showJumpHint ? 1.0 : 0.0,
+      duration: const Duration(milliseconds: 300),
+      child: Material(
+        color: Theme.of(context).colorScheme.primary.withOpacity(0.9),
+        elevation: 8,
+        borderRadius: BorderRadius.circular(20),
+        child: InkWell(
+          mouseCursor: SystemMouseCursors.click,
+          borderRadius: BorderRadius.circular(20),
+          onTap: () {
+            _illustStore.hideJumpHint();
+            _observerController.animateTo(
+              index: _illustStore.lastReadPage,
+              duration: const Duration(milliseconds: 500),
+              curve: Curves.easeInOut,
+            );
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.history, color: Colors.white, size: 18),
+                const SizedBox(width: 8),
+                Text(
+                  "跳转到上次阅读位置 (第 ${_illustStore.lastReadPage + 1} 页)",
+                  style: const TextStyle(color: Colors.white, fontSize: 13),
+                ),
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: () => _illustStore.hideJumpHint(),
+                  child: Icon(Icons.close, color: Colors.white70, size: 16),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   Center _buildErrorContent(BuildContext context) {

@@ -79,8 +79,10 @@ abstract class _IllustStoreBase with Store {
       ObservableMap<int, LocalImageInfo?>();
 
   StreamSubscription<IllustDownloadStatus>? _downloadStatusSubscription;
+  Timer? _jumpHintTimer;
 
   void dispose() {
+    _jumpHintTimer?.cancel();
     if (_downloadStatusSubscription != null) {
       Log.d(() => {'illust_id': id, 'method': 'dispose'});
       _downloadStatusSubscription?.cancel();
@@ -227,6 +229,8 @@ abstract class _IllustStoreBase with Store {
     _initDownloadStatusListener();
 
     if (force) {
+      currentPage = 0;
+      showJumpHint = false;
       checkJumpHint();
     }
 
@@ -533,6 +537,8 @@ abstract class _IllustStoreBase with Store {
   @action
   void hideJumpHint() {
     showJumpHint = false;
+    _jumpHintTimer?.cancel();
+    _jumpHintTimer = null;
   }
 
   /// 检查并显示跳转提示
@@ -546,7 +552,8 @@ abstract class _IllustStoreBase with Store {
       lastReadPage = history.lastPage;
       showJumpHint = true;
       // 5秒后自动隐藏提示
-      Future.delayed(const Duration(seconds: 5), () {
+      _jumpHintTimer?.cancel();
+      _jumpHintTimer = Timer(const Duration(seconds: 10), () {
         hideJumpHint();
       });
     }
