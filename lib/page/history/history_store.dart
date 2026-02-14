@@ -44,11 +44,7 @@ abstract class _HistoryStore with Store {
   String? currentKeyword;
 
   _HistoryStore() {
-    _init();
-  }
-
-  Future<void> _init() async {
-    await _dbProvider.open();
+    fetch(refresh: true);
   }
 
   @action
@@ -68,7 +64,6 @@ abstract class _HistoryStore with Store {
     }
 
     try {
-      await _dbProvider.open();
       final offset = page * _pageSize;
       final list = await _dbProvider.query(
         keyword: currentKeyword,
@@ -144,7 +139,6 @@ abstract class _HistoryStore with Store {
 
   Future<void> exportData(BuildContext context) async {
     try {
-       await _dbProvider.open();
        final list = await _dbProvider.query();
        final entity = list.map((e) => e.toJson()).toList();
        final exportJson = jsonEncode(entity);
@@ -174,7 +168,6 @@ abstract class _HistoryStore with Store {
       if (bytes != null) {
         final jsonStr = utf8.decode(bytes);
         final List list = jsonDecode(jsonStr);
-        await _dbProvider.open();
         for (var item in list) {
           try {
             await _dbProvider.insert(Illusts.fromJson(item));

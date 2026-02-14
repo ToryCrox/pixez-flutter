@@ -1,4 +1,5 @@
 
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:path/path.dart';
@@ -40,6 +41,7 @@ class HistoryDatabaseProvider {
   factory HistoryDatabaseProvider() => instance;
 
   Database? _db;
+  Future<void>? _openFuture;
 
   static const String tableHistory = 'history';
   static const String cIllustId = 'illust_id';
@@ -53,36 +55,42 @@ class HistoryDatabaseProvider {
   static const int maxRecordCount = 10000;
 
   Future<Database> get db async {
-    if (_db != null) return _db!;
+    final database = _db;
+    if (database != null) return database;
     await open();
     return _db!;
   }
 
-  Future<void> open() async {
-    if (_db != null) return;
-    String databasesPath = await getDatabasesPath();
-    String path = join(databasesPath, 'pixez_history.db');
-    
-    // 注册到数据库管理中心
-    DatabaseRegistry.instance.register(
-      '插画阅读历史',
-      path,
-      () async => _db!,
-    );
+  FutureOr<void> open() {
+    if (_db != null) return null;
+    return _openFuture ??= _openInternal();
+  }
 
-    _db = await openDatabase(
-      path,
-      version: 2,
-      onUpgrade: (db, oldVersion, newVersion) async {
-        if (oldVersion < 2) {
-          await db.execute(
-              'ALTER TABLE $tableHistory ADD COLUMN $cLastPage INTEGER DEFAULT 0');
-          await db.execute(
-              'ALTER TABLE $tableHistory ADD COLUMN $cTotalPages INTEGER DEFAULT 0');
-        }
-      },
-      onCreate: (Database db, int version) async {
-        await db.execute('''
+  Future<void> _openInternal() async {
+    try {
+      String databasesPath = await getDatabasesPath();
+      String path = join(databasesPath, 'pixez_history.db');
+
+      // 注册到数据库管理中心
+      DatabaseRegistry.instance.register(
+        '插画阅读历史',
+        path,
+        () async => _db!,
+      );
+
+      _db = await openDatabase(
+        path,
+        version: 2,
+        onUpgrade: (db, oldVersion, newVersion) async {
+          if (oldVersion < 2) {
+            await db.execute(
+                'ALTER TABLE $tableHistory ADD COLUMN $cLastPage INTEGER DEFAULT 0');
+            await db.execute(
+                'ALTER TABLE $tableHistory ADD COLUMN $cTotalPages INTEGER DEFAULT 0');
+          }
+        },
+        onCreate: (Database db, int version) async {
+          await db.execute('''
           CREATE TABLE $tableHistory (
             $cIllustId INTEGER PRIMARY KEY,
             $cData TEXT NOT NULL,
@@ -94,11 +102,14 @@ class HistoryDatabaseProvider {
             $cTotalPages INTEGER DEFAULT 0
           )
         ''');
-        // 创建索引以加速搜索和排序
-        await db.execute(
-            'CREATE INDEX index_timestamp ON $tableHistory ($cTimestamp)');
-      },
-    );
+          // 创建索引以加速搜索和排序
+          await db.execute(
+              'CREATE INDEX index_timestamp ON $tableHistory ($cTimestamp)');
+        },
+      );
+    } finally {
+      _openFuture = null;
+    }
   }
 
   Future<void> insert(Illusts illust, {int lastPage = 0}) async {
