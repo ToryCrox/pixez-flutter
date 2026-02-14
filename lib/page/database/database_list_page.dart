@@ -37,7 +37,7 @@ class _DatabaseListPageState extends State<DatabaseListPage> {
 
           return ListView.builder(
             itemCount: _store.entries.length,
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
             itemBuilder: (context, index) {
               final entry = _store.entries[index];
               return _buildDatabaseCard(entry);
@@ -50,7 +50,14 @@ class _DatabaseListPageState extends State<DatabaseListPage> {
 
   Widget _buildDatabaseCard(DatabaseEntry entry) {
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color: Theme.of(context).colorScheme.outlineVariant.withOpacity(0.5),
+        ),
+      ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () {
@@ -62,45 +69,52 @@ class _DatabaseListPageState extends State<DatabaseListPage> {
           );
         },
         child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
             children: [
-              Row(
-                children: [
-                  const Icon(Icons.storage_rounded, color: Colors.blue),
-                  const SizedBox(width: 12),
-                  Text(
-                    entry.name,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.storage_rounded, color: Colors.blue, size: 20),
               ),
-              const SizedBox(height: 12),
-              Text(
-                '路径: ${entry.path}',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      entry.name,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      entry.path,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 8),
-              // 我们在这里不直接加载大小，留给详情页或者在进入页面时加载
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton.icon(
-                    onPressed: () => FileUtils.openFileOrDirectory(Path.dirname(entry.path)),
-                    icon: const Icon(Icons.folder_open, size: 18),
-                    label: const Text('定位文件'),
-                  ),
-                  const SizedBox(width: 8),
-                  const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
-                ],
+              const SizedBox(width: 8),
+              IconButton(
+                onPressed: () => FileUtils.openFileOrDirectory(Path.dirname(entry.path)),
+                icon: const Icon(Icons.folder_open, size: 20),
+                tooltip: '定位文件',
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
               ),
+              const SizedBox(width: 4),
+              const Icon(Icons.arrow_forward_ios, size: 12, color: Colors.grey),
             ],
           ),
         ),
