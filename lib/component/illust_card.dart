@@ -234,7 +234,6 @@ class _IllustCardState extends State<IllustCard> {
             _buildBadges(),
             _buildTimeStamp(),
             _buildLastReadBadge(),
-            _buildHistoryProgress(),
           ],
         ),
       );
@@ -248,7 +247,6 @@ class _IllustCardState extends State<IllustCard> {
             _buildBadges(),
             _buildTimeStamp(),
             _buildLastReadBadge(),
-            _buildHistoryProgress(),
           ],
         ),
       );
@@ -260,15 +258,20 @@ class _IllustCardState extends State<IllustCard> {
       color: Theme.of(context).colorScheme.surface,
       child: _buildAnimationWraper(
         context,
-        Column(
-          children: <Widget>[
-            imageArea,
-            _buildFooter(context),
+        Stack(
+          children: [
+            Column(
+              children: <Widget>[
+                imageArea,
+                _buildFooter(context),
+              ],
+            ),
+            _buildHistoryProgress(),
           ],
         ),
       ),
     );
-  }
+}
 
   /// 构建徽章区域（AI徽章 + 页数/类型徽章）
   Widget _buildBadges() {
@@ -297,7 +300,7 @@ class _IllustCardState extends State<IllustCard> {
 
       return Positioned(
         right: 4.0,
-        bottom: 6.0, // 降低高度，使其紧贴进度条上方
+        bottom: 4.0,
         child: Container(
           decoration: BoxDecoration(
             color: Colors.black54,
@@ -309,9 +312,11 @@ class _IllustCardState extends State<IllustCard> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(Icons.history, color: Colors.white, size: 10),
-                SizedBox(width: 2),
+                SizedBox(width: 4),
                 Text(
-                  readTime,
+                  history!.totalPages > 1
+                      ? "$readTime · ${history.lastPage + 1}/${history.totalPages}P"
+                      : readTime,
                   style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
                 ),
               ],
@@ -645,25 +650,11 @@ class _IllustCardState extends State<IllustCard> {
         bottom: 0,
         left: 0,
         right: 0,
-        child: Container(
-          height: 4,
-          color: Colors.black45, // 加深背景轨道
-          child: FractionallySizedBox(
-            alignment: Alignment.centerLeft,
-            widthFactor: history.progress.clamp(0.0, 1.0),
-            child: Container(
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary, // 使用饱和度更高的原色
-                boxShadow: [
-                  BoxShadow(
-                    color: Theme.of(context).colorScheme.primary.withOpacity(0.5),
-                    blurRadius: 2,
-                    spreadRadius: 1,
-                  )
-                ],
-              ),
-            ),
-          ),
+        child: LinearProgressIndicator(
+          value: history.progress.clamp(0.0, 1.0),
+          minHeight: 3,
+          backgroundColor: Colors.black26,
+          valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).colorScheme.primary),
         ),
       );
     });

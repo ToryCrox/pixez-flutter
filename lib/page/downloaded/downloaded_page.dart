@@ -1198,68 +1198,72 @@ class _DownloadedIllustCard extends StatelessWidget {
           onTapPosition(details.globalPosition);
           onSecondaryTap();
         },
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+        child: Stack(
           children: [
-            Expanded(
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  _buildThumbnail(context),
-                  _buildFolderButton(context),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      _buildThumbnail(context),
+                      _buildFolderButton(context),
 
-                  if (illust.isUgoira) _buildUgoiraBadge(context),
-                  if (isMarked) _buildUnprocessedBadge(context),
-                  if (store.isExample(illust.illustId))
-                    _buildExampleBadge(context),
-                  _buildBookmarkButton(context),
-                  _buildHistoryProgress(context),
-                  _buildLastReadBadge(context),
-                  if (isDownloading) _buildDownloadingOverlay(),
-                  if (isPending) _buildPendingOverlay(context),
-                  if (isPaused)
-                    _buildStatusBadge(
-                      context,
-                      I18n.of(context).paused,
-                      Colors.orange,
-                    ),
-                  if (isFailed)
-                    _buildStatusBadge(
-                      context,
-                      I18n.of(context).failed,
-                      Colors.red,
-                    ),
-                  // 多选模式下的复选框指示器
-                  if (store.isMultiSelectMode)
-                    Positioned(
-                      top: 4,
-                      right: 4,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color:
-                              isSelected
-                                  ? Theme.of(context).colorScheme.primary
-                                  : Colors.black45,
-                          border: Border.all(color: Colors.white, width: 2),
+                      if (illust.isUgoira) _buildUgoiraBadge(context),
+                      if (isMarked) _buildUnprocessedBadge(context),
+                      if (store.isExample(illust.illustId))
+                        _buildExampleBadge(context),
+                      _buildBookmarkButton(context),
+                      _buildLastReadBadge(context),
+                      if (isDownloading) _buildDownloadingOverlay(),
+                      if (isPending) _buildPendingOverlay(context),
+                      if (isPaused)
+                        _buildStatusBadge(
+                          context,
+                          I18n.of(context).paused,
+                          Colors.orange,
                         ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(4.0),
-                          child:
-                              isSelected
-                                  ? Icon(
-                                    Icons.check,
-                                    size: 16,
-                                    color: Colors.white,
-                                  )
-                                  : SizedBox(width: 16, height: 16),
+                      if (isFailed)
+                        _buildStatusBadge(
+                          context,
+                          I18n.of(context).failed,
+                          Colors.red,
                         ),
-                      ),
-                    ),
-                ],
-              ),
+                      // 多选模式下的复选框指示器
+                      if (store.isMultiSelectMode)
+                        Positioned(
+                          top: 4,
+                          right: 4,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color:
+                                  isSelected
+                                      ? Theme.of(context).colorScheme.primary
+                                      : Colors.black45,
+                              border: Border.all(color: Colors.white, width: 2),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(4.0),
+                              child:
+                                  isSelected
+                                      ? Icon(
+                                        Icons.check,
+                                        size: 16,
+                                        color: Colors.white,
+                                      )
+                                      : SizedBox(width: 16, height: 16),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                _buildInfoSection(context),
+              ],
             ),
-            _buildInfoSection(context),
+            _buildHistoryProgress(context),
           ],
         ),
       ),
@@ -1423,25 +1427,11 @@ class _DownloadedIllustCard extends StatelessWidget {
         bottom: 0,
         left: 0,
         right: 0,
-        child: Container(
-          height: 4,
-          color: Colors.black45, // 加深背景
-          child: FractionallySizedBox(
-            alignment: Alignment.centerLeft,
-            widthFactor: history.progress.clamp(0.0, 1.0),
-            child: Container(
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary,
-                boxShadow: [
-                  BoxShadow(
-                    color: Theme.of(context).colorScheme.primary.withOpacity(0.5),
-                    blurRadius: 2,
-                    spreadRadius: 1,
-                  )
-                ],
-              ),
-            ),
-          ),
+        child: LinearProgressIndicator(
+          value: history.progress.clamp(0.0, 1.0),
+          minHeight: 3,
+          backgroundColor: Colors.black26,
+          valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).colorScheme.primary),
         ),
       );
     });
@@ -1457,7 +1447,7 @@ class _DownloadedIllustCard extends StatelessWidget {
 
       return Positioned(
         right: 4,
-        bottom: 6, // 这里也降低，与收藏按钮(bottom:4)在视觉上基本齐平
+        bottom: 4,
         child: Container(
           padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
           decoration: BoxDecoration(
@@ -1468,9 +1458,11 @@ class _DownloadedIllustCard extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(Icons.history, color: Colors.white, size: 10),
-              SizedBox(width: 2),
+              SizedBox(width: 4),
               Text(
-                readTime,
+                history!.totalPages > 1
+                    ? "$readTime · ${history.lastPage + 1}/${history.totalPages}P"
+                    : readTime,
                 style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
               ),
             ],
