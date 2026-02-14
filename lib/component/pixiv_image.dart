@@ -546,6 +546,7 @@ class PixivCacheManager extends CacheManager with ImageCacheManager {
     return null;
   }
 
+
   @override
   Stream<FileResponse> getImageFile(
     String url, {

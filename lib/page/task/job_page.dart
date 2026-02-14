@@ -13,68 +13,28 @@
  *  this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-import 'dart:async';
-
 import 'package:flutter/material.dart';
-import 'package:pixez/component/pixiv_image.dart';
+import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:pixez/component/sort_group.dart';
 import 'package:pixez/i18n.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/page/downloaded/downloaded_page.dart';
-import 'package:pixez/page/picture/illust_lighting_page.dart';
 import 'package:pixez/store/download_store.dart';
+import 'package:pixez/page/task/widgets/task_item_widget.dart';
 
 class JobPage extends StatefulWidget {
   @override
   _JobPageState createState() => _JobPageState();
 }
 
-class _JobPageState extends State<JobPage> with SingleTickerProviderStateMixin {
-  Timer? _timer;
-  ScrollController _scrollController = ScrollController();
-  bool _itemSimple = true;
+class _JobPageState extends State<JobPage> {
+  int currentIndex = 0;
 
-  // 新下载器任务列表
-  List<DownloadTask> _downloaderTasks = [];
-
-  // 待确认的下载任务
-  List<DownloadTask> _pendingTasks = [];
-  StreamSubscription<DownloadTask>? _downloaderSubscription;
-
-  @override
-  void initState() {
-    super.initState();
-    initMethod();
-
-    // 监听新下载器进度
-    _downloaderSubscription = downloadStore.progressStream.listen((progress) {
-      if (mounted) {
-        _updateDownloaderTasks();
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    _timer?.cancel();
-    _downloaderSubscription?.cancel();
-    super.dispose();
-  }
-
-  void _updateDownloaderTasks() async {
-    if (mounted) {
-      setState(() {
-        _downloaderTasks = downloadStore.downloadingTasks.values.toList();
-      });
-    }
-  }
-
-  initMethod() async {
-    _updateDownloaderTasks();
-    _timer = Timer.periodic(Duration(seconds: 1), (time) {
-      _updateDownloaderTasks();
-    });
+  String _formatSpeed(double bytes) {
+    if (bytes <= 0) return '0 B/s';
+    if (bytes < 1024) return '${bytes.toStringAsFixed(1)} B/s';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB/s';
+    return '${(bytes / 1024 / 1024).toStringAsFixed(1)} MB/s';
   }
 
   @override
@@ -85,358 +45,244 @@ class _JobPageState extends State<JobPage> with SingleTickerProviderStateMixin {
         title: Text(I18n.of(context).task_progress),
         actions: [
           IconButton(
-              onPressed: () {
-                setState(() {
-                  _itemSimple = !_itemSimple;
-                });
-              },
-              icon: (_itemSimple ? Icon(Icons.hide_image) : Icon(Icons.image))),
-          buildIconButton(context),
+            tooltip: '清除已完成',
+            icon: const Icon(Icons.cleaning_services_rounded),
+            onPressed: () => downloadStore.clearCompletedTasks(),
+          ),
+          IconButton(
+            tooltip: '全部取消',
+            icon: const Icon(Icons.delete_sweep_rounded),
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('确认取消'),
+                  content: const Text('确定要取消所有下载任务吗？'),
+                  actions: [
+                    TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消')),
+                    TextButton(
+                      onPressed: () {
+                        downloadStore.cancelAllDownload();
+                        Navigator.pop(context);
+                      },
+                      child: const Text('全部取消', style: TextStyle(color: Colors.red)),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
         ],
       ),
       body: SafeArea(
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [_buildTopChip(), Expanded(child: _body())],
+          children: [
+            _buildControlPanel(),
+            _buildTabSection(),
+            Expanded(child: _buildTaskList()),
+          ],
         ),
       ),
     );
   }
 
-  IconButton buildIconButton(BuildContext context) {
-    return IconButton(
-        icon: Icon(Icons.more_vert),
-        onPressed: () async {
-          await showModalBottomSheet(
-              context: context,
-              shape: RoundedRectangleBorder(
-                  borderRadius:
-                      BorderRadius.vertical(top: Radius.circular(16.0))),
-              builder: (_) {
-                return SafeArea(
-                  child: Column(
-                    children: <Widget>[
-                      ListTile(
-                        title: Text(I18n.of(context).retry_seed_task),
-                        onTap: () async {
-                          downloadStore.addDownloadTasks(_pendingTasks);
-                          Navigator.of(context).pop();
-                        },
+  Widget _buildControlPanel() {
+    return Observer(
+      builder: (_) {
+        final totalSpeed = downloadStore.totalSpeed;
+        final tasks = downloadStore.downloadingTasks.values.toList();
+        final runningCount = tasks.where((t) => t.status == DownloadTaskStatus.downloading).length;
+        final pendingCount = tasks.where((t) => t.status == DownloadTaskStatus.pending).length;
+        final pausedCount = tasks.where((t) => t.status == DownloadTaskStatus.paused || t.status == DownloadTaskStatus.failed).length;
+
+        return Container(
+          margin: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                Theme.of(context).colorScheme.primary,
+                Theme.of(context).colorScheme.primary.withValues(alpha: 0.8),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
+                blurRadius: 15,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        '总下载速度',
+                        style: TextStyle(color: Colors.white70, fontSize: 11),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        _formatSpeed(totalSpeed),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ],
-                    mainAxisSize: MainAxisSize.min,
                   ),
-                );
-              });
-          initMethod();
-        });
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.white24,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '队列: ${tasks.length}',
+                      style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _buildStatButton(
+                    icon: Icons.pause_rounded,
+                    label: '全部暂停',
+                    onTap: () => downloadStore.pauseAllDownload(),
+                    enabled: runningCount + pendingCount > 0,
+                  ),
+                  _buildStatButton(
+                    icon: Icons.play_arrow_rounded,
+                    label: '全部开始',
+                    onTap: () => downloadStore.resumeAllDownload(),
+                    enabled: pausedCount > 0,
+                  ),
+                  _buildStatButton(
+                    icon: Icons.folder_open_rounded,
+                    label: '浏览本地',
+                    onTap: () => DownloadedPage.open(context),
+                    enabled: true,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
-  int currentIndex = 0;
+  Widget _buildStatButton({required IconData icon, required String label, required VoidCallback onTap, required bool enabled}) {
+    return InkWell(
+      onTap: enabled ? onTap : null,
+      borderRadius: BorderRadius.circular(12),
+      child: Opacity(
+        opacity: enabled ? 1.0 : 0.5,
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: const BoxDecoration(
+                color: Colors.white24,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: Colors.white, size: 20),
+            ),
+            const SizedBox(height: 2),
+            Text(label, style: const TextStyle(color: Colors.white, fontSize: 11)),
+          ],
+        ),
+      ),
+    );
+  }
 
-  Widget _buildTopChip() {
+  Widget _buildTabSection() {
     return Padding(
-      padding: const EdgeInsets.only(left: 16.0),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       child: SortGroup(
         children: [
           I18n.of(context).all,
           I18n.of(context).running,
-          I18n.of(context).complete,
           I18n.of(context).failed,
         ],
         onChange: (index) {
-          _scrollController.jumpTo(0);
           setState(() {
-            this.currentIndex = index;
+            currentIndex = index;
           });
         },
       ),
     );
   }
 
-  Widget _body() {
-    // 合并正在下载和待确认的任务
-    List<DownloadTask> allTasks = [..._downloaderTasks];
+  Widget _buildTaskList() {
+    return Observer(
+      builder: (_) {
+        List<DownloadTask> tasks = downloadStore.downloadingTasks.values.toList();
+        
+        // 排序规则：正在下载 > 等待 > 暂停 > 失败 > 完成
+        tasks.sort((a, b) {
+          int score(DownloadTaskStatus status) {
+            switch (status) {
+              case DownloadTaskStatus.downloading: return 0;
+              case DownloadTaskStatus.pending: return 1;
+              case DownloadTaskStatus.paused: return 2;
+              case DownloadTaskStatus.failed: return 3;
+              case DownloadTaskStatus.completed: return 4;
+              default: return 5;
+            }
+          }
+          return score(a.status).compareTo(score(b.status));
+        });
 
-    // 根据当前选中的标签过滤任务
-    List<DownloadTask> filteredTasks = allTasks;
-    if (currentIndex == 1) {
-      // 只显示正在运行的任务
-      filteredTasks = _downloaderTasks
-          .where((t) =>
-              t.status == DownloadTaskStatus.pending ||
-              t.status == DownloadTaskStatus.downloading)
-          .toList();
-    } else if (currentIndex == 0) {
-      // 显示所有任务
-      filteredTasks = allTasks;
-    }
+        if (currentIndex == 1) {
+          tasks = tasks.where((t) => t.status == DownloadTaskStatus.downloading || t.status == DownloadTaskStatus.pending).toList();
+        } else if (currentIndex == 2) {
+          tasks = tasks.where((t) => t.status == DownloadTaskStatus.failed).toList();
+        }
 
-    if (filteredTasks.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              "[ ]",
-              style: Theme.of(context)
-                  .textTheme
-                  .bodyMedium!
-                  .copyWith(fontSize: 24),
-            ),
-            SizedBox(height: 16),
-            if (currentIndex == 0)
-              TextButton.icon(
-                onPressed: () {
-                  DownloadedPage.open(context);
-                },
-                icon: Icon(Icons.folder_open),
-                label: Text(I18n.of(context).history),
-              ),
-          ],
-        ),
-      );
-    }
-
-    return ListView.builder(
-      controller: _scrollController,
-      itemCount: filteredTasks.length,
-      itemBuilder: (context, index) {
-        final task = filteredTasks[index];
-        final isPending = _pendingTasks.contains(task);
-        return _buildNewDownloaderItem(task, isPending: isPending);
-      },
-    );
-  }
-
-  Widget _buildNewDownloaderItem(DownloadTask task, {bool isPending = false}) {
-    final illusts = task.illusts;
-    final progress = task.total > 0 ? task.received / task.total : 0.0;
-    final isRunning = task.status == DownloadTaskStatus.downloading ||
-        task.status == DownloadTaskStatus.pending;
-    final isFailed = task.status == DownloadTaskStatus.failed;
-
-    return Card(
-      margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(12))),
-      child: InkWell(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => IllustLightingPage(id: illusts.id),
-            ),
-          );
-        },
-        child: Stack(
-          children: [
-            Row(
+        if (tasks.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                if (!_itemSimple)
-                  Container(
-                    height: 100,
-                    width: 100,
-                    child: Stack(
-                      children: [
-                        PixivImage(
-                          illusts.imageUrls.medium,
-                          fit: BoxFit.cover,
-                          height: 100,
-                          width: 100,
-                        ),
-                        if (isRunning && !isPending)
-                          Container(
-                            height: 100,
-                            width: 100,
-                            child: Center(
-                              child: CircularProgressIndicator(
-                                value: progress > 0 ? progress : null,
-                                backgroundColor: Colors.grey[200],
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  )
-                else
-                  Container(width: 8),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(
-                            child: Padding(
-                              padding: const EdgeInsets.all(8.0),
-                              child: Row(
-                                children: [
-                                  if (isPending)
-                                    Padding(
-                                      padding:
-                                          const EdgeInsets.only(right: 8.0),
-                                      child: Icon(
-                                        Icons.pause_circle_outline,
-                                        size: 16,
-                                        color: Colors.orange,
-                                      ),
-                                    ),
-                                  Expanded(
-                                    child: Text(
-                                      '${illusts.title} (p${task.part})',
-                                      maxLines: 1,
-                                      overflow: TextOverflow.clip,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          if (_itemSimple) ...[
-                            if (isPending)
-                              InkWell(
-                                onTap: () async {
-                                  await downloadStore.addDownloadTasks([task]);
-                                  _updateDownloaderTasks();
-                                },
-                                child: Padding(
-                                  padding: const EdgeInsets.all(8.0),
-                                  child: Icon(Icons.play_arrow,
-                                      color: Colors.green),
-                                ),
-                              )
-                            else if (isFailed)
-                              InkWell(
-                                onTap: () {
-                                  downloadStore.retryTask(task.taskKey);
-                                },
-                                child: Icon(Icons.refresh),
-                              ),
-                            Padding(
-                              padding: const EdgeInsets.all(8.0),
-                              child: InkWell(
-                                onTap: () {
-                                  if (isPending) {
-                                    downloadStore
-                                        .clearPendingTasks([task.taskKey]);
-                                  } else {
-                                    downloadStore.cancelTask(task.taskKey);
-                                  }
-                                  _updateDownloaderTasks();
-                                },
-                                child: Icon(Icons.delete),
-                              ),
-                            ),
-                          ],
-                          if (!isPending)
-                            Padding(
-                              padding: const EdgeInsets.only(right: 16.0),
-                              child: _buildNewDownloaderStatus(task.status),
-                            ),
-                        ],
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                        child: Text(
-                          illusts.user.name,
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodyLarge!
-                              .copyWith(
-                                color: Theme.of(context).colorScheme.primary,
-                                fontSize: 12,
-                              ),
-                        ),
-                      ),
-                      if (!_itemSimple)
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(" "),
-                            Row(
-                              children: [
-                                if (isPending)
-                                  IconButton(
-                                    onPressed: () async {
-                                      await downloadStore
-                                          .addDownloadTasks([task]);
-                                      _updateDownloaderTasks();
-                                    },
-                                    icon: Icon(Icons.play_arrow,
-                                        color: Colors.green),
-                                  )
-                                else if (isFailed)
-                                  IconButton(
-                                    onPressed: () {
-                                      downloadStore.retryTask(task.taskKey);
-                                    },
-                                    icon: Icon(Icons.refresh),
-                                  ),
-                                IconButton(
-                                  onPressed: () {
-                                    if (isPending) {
-                                      downloadStore
-                                          .clearPendingTasks([task.taskKey]);
-                                    } else {
-                                      downloadStore.cancelTask(task.taskKey);
-                                    }
-                                    _updateDownloaderTasks();
-                                  },
-                                  icon: Icon(Icons.delete),
-                                ),
-                              ],
-                            ),
-                          ],
-                        )
-                      else
-                        Container(height: 10),
-                    ],
-                  ),
+                Icon(Icons.inbox_rounded, size: 64, color: Theme.of(context).dividerColor.withValues(alpha: 0.5)),
+                const SizedBox(height: 16),
+                Text(
+                  '暂无下载任务',
+                  style: TextStyle(color: Theme.of(context).dividerColor),
                 ),
               ],
             ),
-            if (isRunning && !isPending)
-              Positioned(
-                left: 0.0,
-                right: 0.0,
-                bottom: 0.0,
-                child: LinearProgressIndicator(
-                  value: progress > 0 ? progress : null,
-                  backgroundColor: Colors.grey[200],
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
+          );
+        }
 
-  Widget _buildNewDownloaderStatus(DownloadTaskStatus status) {
-    switch (status) {
-      case DownloadTaskStatus.pending:
-        return Text(
-          'seed',
-          style: Theme.of(context).textTheme.bodyMedium!.copyWith(fontSize: 12),
+        return ListView.builder(
+          padding: const EdgeInsets.only(bottom: 24),
+          itemCount: tasks.length,
+          itemBuilder: (context, index) {
+            final task = tasks[index];
+            return TaskItemWidget(
+              key: ValueKey(task.taskKey),
+              task: task,
+              downloadStore: downloadStore,
+              onDelete: () => downloadStore.cancelTask(task.taskKey),
+              onRetry: () => downloadStore.retryTask(task.taskKey),
+              onResume: () => downloadStore.resumeIllustDownload(task.illusts.id), // 注意这里是恢复整个插画的任务
+            );
+          },
         );
-      case DownloadTaskStatus.downloading:
-        return Text(
-          I18n.of(context).running,
-          style: Theme.of(context).textTheme.bodyMedium!.copyWith(fontSize: 12),
-        );
-      case DownloadTaskStatus.completed:
-        return Icon(Icons.check_circle, color: Colors.green, size: 16);
-      case DownloadTaskStatus.paused:
-        return Text(
-          I18n.of(context).paused,
-          style: Theme.of(context).textTheme.bodyMedium!.copyWith(fontSize: 12),
-        );
-      case DownloadTaskStatus.failed:
-        return Icon(Icons.error, size: 16);
-      case DownloadTaskStatus.deleted:
-        return const SizedBox();
-    }
+      },
+    );
   }
 }

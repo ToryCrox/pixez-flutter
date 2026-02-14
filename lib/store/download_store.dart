@@ -18,6 +18,7 @@ import 'dart:collection';
 import 'dart:convert';
 import 'dart:isolate';
 import 'package:dio/dio.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'dart:io';
 
 import 'package:bot_toast/bot_toast.dart';
@@ -78,6 +79,11 @@ class DownloadTask {
   String? error;
   int bookmark;
 
+  // 速度计算相关
+  int _lastReceived = 0;
+  int _lastTime = 0;
+  double speed = 0; // 字节/秒
+
   DownloadTask({
     required this.illusts,
     required this.part,
@@ -88,7 +94,38 @@ class DownloadTask {
     this.total = 0,
     this.error,
     this.bookmark = 0,
-  });
+  }) {
+    _lastReceived = received;
+    _lastTime = DateTime.now().millisecondsSinceEpoch;
+  }
+
+  // 计算速度并更新进度，返回是否需要刷新 UI
+  bool updateProgress(int received, int total) {
+    this.received = received;
+    this.total = total;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final deltaT = now - _lastTime;
+    
+    // 如果间隔太短（比如小于 300ms），则不触发界面更新，除非下载已完成
+    if (deltaT < 300 && received < total) {
+      return false;
+    }
+
+    if (deltaT >= 500) { // 每500ms计算一次速度
+      final deltaR = received - _lastReceived;
+      speed = (deltaR * 1000) / deltaT;
+      _lastReceived = received;
+      _lastTime = now;
+    }
+    return true;
+  }
+
+  // 预计剩余时间 (秒)
+  int get eta {
+    if (speed <= 0 || total <= 0) return -1;
+    final remaining = total - received;
+    return (remaining / speed).ceil();
+  }
 
   String get taskKey => '${illusts.id}_$part';
 
@@ -216,6 +253,10 @@ abstract class _DownloadStoreBase with Store {
 
   @observable
   int totalDownloaded = 0;
+
+  /// 队列是否处于暂停状态
+  @observable
+  bool isQueuePaused = false;
 
   /// 初始化完成
   bool _isInit = false;
@@ -1108,6 +1149,8 @@ abstract class _DownloadStoreBase with Store {
   }
 
   void _processQueue() {
+    if (isQueuePaused) return; // 如果队列暂停，则不启动新任务
+
     while (_pendingQueue.isNotEmpty && _runningTask.length < _maxConcurrent) {
       final task = _pendingQueue.removeFirst();
       if (!downloadingTasks.containsKey(task.taskKey)) {
@@ -1166,11 +1209,25 @@ abstract class _DownloadStoreBase with Store {
       return;
     }
 
-    // 2. 使用pixivCacheManager下载
-    final fileInfo = await pixivCacheManager.downloadFile(
+    // 2. 使用pixivCacheManager下载流，获取进度
+    FileInfo? fileInfo;
+    await for (final response in pixivCacheManager.getFileStream(
       task.url,
-      authHeaders: Hoster.header(url: task.url),
-    );
+      headers: Hoster.header(url: task.url),
+      withProgress: true,
+    )) {
+      if (response is DownloadProgress) {
+        if (task.updateProgress(response.downloaded, response.totalSize ?? 0)) {
+          _notifyProgress(task);
+        }
+      } else if (response is FileInfo) {
+        fileInfo = response;
+      }
+    }
+
+    if (fileInfo == null) {
+      throw Exception('下载失败：未能获取文件信息');
+    }
 
     // 3. 复制到目标目录
     await fileInfo.file.copy(targetPath);
@@ -1228,11 +1285,26 @@ abstract class _DownloadStoreBase with Store {
         '$previewFileName$previewExtension'
       );
 
-      final previewFile = await pixivCacheManager.getSingleFile(
+      // 下载预览图，获取进度
+      FileInfo? previewFileInfo;
+      await for (final response in pixivCacheManager.getFileStream(
         previewUrl,
         headers: Hoster.header(url: previewUrl),
-      );
-      await previewFile.copy(previewPath);
+        withProgress: true,
+      )) {
+        if (response is DownloadProgress) {
+          if (task.updateProgress(response.downloaded, response.totalSize ?? 0)) {
+            _notifyProgress(task);
+          }
+        } else if (response is FileInfo) {
+          previewFileInfo = response;
+        }
+      }
+
+      if (previewFileInfo == null) {
+        throw Exception('获取预览图失败');
+      }
+      await previewFileInfo.file.copy(previewPath);
 
       // 4. 保存数据库记录（传递帧文件列表）
       await _recordUgoiraDownload(
@@ -1403,8 +1475,7 @@ abstract class _DownloadStoreBase with Store {
   void updateProgress(String taskKey, int received, int total) {
     final task = downloadingTasks[taskKey];
     if (task != null) {
-      task.received = received;
-      task.total = total;
+      task.updateProgress(received, total);
       _notifyProgress(task);
     }
   }
@@ -1482,6 +1553,74 @@ abstract class _DownloadStoreBase with Store {
     for (final key in keysToRemove) {
       _cancelTaskInternal(key, deletePending: deletePending);
     }
+  }
+
+  /// 全部暂停 (队列暂停模式)
+  @action
+  Future<void> pauseAllDownload() async {
+    isQueuePaused = true;
+    
+    // 将所有排队中的任务状态设为暂停
+    final pendingTasks = downloadingTasks.values
+        .where((t) => t.status == DownloadTaskStatus.pending)
+        .toList();
+    
+    _pendingQueue.clear(); 
+
+    for (final task in pendingTasks) {
+      task.status = DownloadTaskStatus.paused;
+      task.speed = 0;
+      await _dbProvider.updatePendingDownloadStatus(
+          task.taskKey, task.status.name);
+      _notifyProgress(task);
+    }
+  }
+
+  /// 全部恢复
+  @action
+  Future<void> resumeAllDownload() async {
+    isQueuePaused = false;
+    
+    final tasks = downloadingTasks.values
+        .where((t) =>
+            t.status == DownloadTaskStatus.paused ||
+            t.status == DownloadTaskStatus.failed)
+        .toList();
+
+    for (final task in tasks) {
+      task.status = DownloadTaskStatus.pending;
+      task.error = null;
+      task.speed = 0;
+      await _dbProvider.updatePendingDownloadStatus(
+          task.taskKey, task.status.name);
+      _pendingQueue.add(task);
+      _notifyProgress(task);
+    }
+    
+    _processQueue();
+  }
+
+  /// 全部取消
+  @action
+  Future<void> cancelAllDownload() async {
+    final keys = downloadingTasks.keys.toList();
+    for (final key in keys) {
+      cancelTask(key);
+    }
+  }
+
+  /// 清除已完成任务
+  @action
+  void clearCompletedTasks() {
+    downloadingTasks.removeWhere((key, task) => task.status == DownloadTaskStatus.completed);
+  }
+
+  /// 获取当前总下载速度
+  @computed
+  double get totalSpeed {
+    return downloadingTasks.values
+        .where((t) => t.status == DownloadTaskStatus.downloading)
+        .fold(0.0, (prev, t) => prev + t.speed);
   }
 
   void _notifyProgress(DownloadTask task) {
