@@ -18,9 +18,7 @@ import 'package:dio/dio.dart';
 import 'package:easy_refresh/easy_refresh.dart';
 import 'package:mobx/mobx.dart';
 import 'package:pixez/custom/disk_cache.dart';
-import 'package:pixez/exts.dart';
 import 'package:pixez/main.dart';
-import 'package:pixez/models/glance_illust_persist.dart';
 import 'package:pixez/models/illust.dart';
 import 'package:pixez/models/recommend.dart';
 import 'package:pixez/network/api_client.dart';
@@ -74,11 +72,9 @@ abstract class _LightingStoreBase with Store {
   String? portal;
   @observable
   ObservableList<IllustStore> iStores = ObservableList();
+  
   @observable
   bool refreshing = false;
-
-  GlanceIllustPersistProvider glanceIllustPersistProvider =
-      GlanceIllustPersistProvider();
 
   @observable
   String? filter;
@@ -203,17 +199,7 @@ abstract class _LightingStoreBase with Store {
       }
       iStores.clear();
       iStores.addAll(recommend.illusts.map((e) => IllustStore(e.id, e)));
-      String? glanceKey = source.glanceKey;
       refreshing = false;
-      if (glanceKey != null && glanceKey.isNotEmpty) {
-        await glanceIllustPersistProvider.open();
-        Future.microtask(() async {
-          await glanceIllustPersistProvider.insertAll(recommend.illusts
-              .where((element) => !element.hateByUser(includeR18Setting: true))
-              .toGlancePersist(
-                  glanceKey, DateTime.now().microsecondsSinceEpoch));
-        });
-      }
 
       // 3. 更新缓存
       if (cacheKey != null && cacheKey.isNotEmpty) {

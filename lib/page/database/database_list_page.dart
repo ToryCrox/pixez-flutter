@@ -3,6 +3,7 @@ import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:pixez/page/database/database_explorer_store.dart';
 import 'package:pixez/page/database/database_registry.dart';
 import 'package:pixez/utils/file_utils.dart';
+import 'package:path/path.dart' as Path;
 
 import 'database_detail_page.dart';
 
@@ -92,7 +93,7 @@ class _DatabaseListPageState extends State<DatabaseListPage> {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   TextButton.icon(
-                    onPressed: () => FileUtils.openFileOrDirectory(entry.path),
+                    onPressed: () => FileUtils.openFileOrDirectory(Path.dirname(entry.path)),
                     icon: const Icon(Icons.folder_open, size: 18),
                     label: const Text('定位文件'),
                   ),

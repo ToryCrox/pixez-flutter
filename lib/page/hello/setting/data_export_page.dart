@@ -6,7 +6,6 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pixez/i18n.dart';
 import 'package:pixez/main.dart';
-import 'package:pixez/models/glance_illust_persist.dart';
 import 'package:pixez/page/history/history_store.dart';
 import 'package:pixez/custom/log.dart';
 
@@ -225,18 +224,9 @@ class _DataExportPageState extends State<DataExportPage> {
           try {
             Directory tempDir = await getTemporaryDirectory();
             tempDir.deleteSync(recursive: true);
-            cleanGlanceData();
           } catch (e) {}
         }
         break;
     }
-  }
-
-  void cleanGlanceData() async {
-    GlanceIllustPersistProvider glanceIllustPersistProvider =
-        GlanceIllustPersistProvider();
-    await glanceIllustPersistProvider.open();
-    await glanceIllustPersistProvider.deleteAll();
-    await glanceIllustPersistProvider.close();
   }
 }

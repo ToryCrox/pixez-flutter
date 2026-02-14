@@ -26,7 +26,6 @@ import 'package:pixez/er/leader.dart';
 import 'package:pixez/er/prefer.dart';
 import 'package:pixez/i18n.dart';
 import 'package:pixez/main.dart';
-import 'package:pixez/models/glance_illust_persist.dart';
 import 'package:pixez/page/about/languages.dart';
 import 'package:pixez/page/hello/setting/copy_text_page.dart';
 import 'package:pixez/page/hello/setting/setting_cross_adapter_page.dart';
@@ -44,8 +43,6 @@ class _SettingQualityPageState extends State<SettingQualityPage>
     with TickerProviderStateMixin {
   final _typeList = ["follow_illust", "recom", "rank"];
   int _widgetTypeIndex = -1;
-  GlanceIllustPersistProvider glanceIllustPersistProvider =
-      GlanceIllustPersistProvider();
 
   @override
   void initState() {
@@ -325,8 +322,6 @@ class _SettingQualityPageState extends State<SettingQualityPage>
                     try {
                       final type = _typeList[index];
                       await Prefer.setString("widget_illust_type", type);
-                      await glanceIllustPersistProvider.open();
-                      await glanceIllustPersistProvider.deleteAll();
                     } catch (e) {}
                   },
                 ),
