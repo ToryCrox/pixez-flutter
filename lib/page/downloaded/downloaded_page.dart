@@ -40,6 +40,7 @@ import 'package:pixez/store/download_store.dart';
 import 'package:pixez/component/pixez_default_header.dart';
 import 'package:pixez/component/sort_group.dart';
 import 'package:pixez/constants.dart';
+import 'package:pixez/page/history/history_manager.dart';
 import '../../component/pixiv_image.dart';
 
 class DownloadedPage extends StatefulWidget {
@@ -1088,7 +1089,7 @@ class _DownloadedIllustCard extends StatelessWidget {
     final bool isBookmarked = illust.bookmark > 0;
     return Positioned(
       bottom: 4,
-      right: 4,
+      left: 4,
       child: Material(
         color: Colors.black54,
         borderRadius: BorderRadius.circular(20),
@@ -1212,6 +1213,8 @@ class _DownloadedIllustCard extends StatelessWidget {
                   if (store.isExample(illust.illustId))
                     _buildExampleBadge(context),
                   _buildBookmarkButton(context),
+                  _buildHistoryProgress(context),
+                  _buildLastReadBadge(context),
                   if (isDownloading) _buildDownloadingOverlay(),
                   if (isPending) _buildPendingOverlay(context),
                   if (isPaused)
@@ -1410,6 +1413,72 @@ class _DownloadedIllustCard extends StatelessWidget {
       ),
     );
   }
+  Widget _buildHistoryProgress(BuildContext context) {
+    return Observer(builder: (context) {
+      final history = HistoryManager.instance.getHistory(illust.illustId);
+      if (history == null || history.totalPages <= 1) {
+        return const SizedBox.shrink();
+      }
+      return Positioned(
+        bottom: 0,
+        left: 0,
+        right: 0,
+        child: Container(
+          height: 4,
+          color: Colors.black45, // 加深背景
+          child: FractionallySizedBox(
+            alignment: Alignment.centerLeft,
+            widthFactor: history.progress.clamp(0.0, 1.0),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary,
+                boxShadow: [
+                  BoxShadow(
+                    color: Theme.of(context).colorScheme.primary.withOpacity(0.5),
+                    blurRadius: 2,
+                    spreadRadius: 1,
+                  )
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    });
+  }
+
+  // 移除 _buildReadBadge
+
+  Widget _buildLastReadBadge(BuildContext context) {
+    return Observer(builder: (context) {
+      final history = HistoryManager.instance.getHistory(illust.illustId);
+      final readTime = history?.timestamp.toRelativeTime();
+      if (readTime == null) return const SizedBox.shrink();
+
+      return Positioned(
+        right: 4,
+        bottom: 6, // 这里也降低，与收藏按钮(bottom:4)在视觉上基本齐平
+        child: Container(
+          padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+          decoration: BoxDecoration(
+            color: Colors.black54,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.history, color: Colors.white, size: 10),
+              SizedBox(width: 2),
+              Text(
+                readTime,
+                style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+        ),
+      );
+    });
+  }
 
   Widget _buildStatusBadge(BuildContext context, String text, Color color) {
     return Positioned(
@@ -1432,12 +1501,7 @@ class _DownloadedIllustCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            illust.title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
+          _buildTitleRow(context),
           SizedBox(height: 2),
           Row(
             children: [
@@ -1487,6 +1551,17 @@ class _DownloadedIllustCard extends StatelessWidget {
       ),
     );
   }
+
+  Widget _buildTitleRow(BuildContext context) {
+    return Text(
+      illust.title,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: Theme.of(context).textTheme.bodyMedium,
+    );
+  }
+
+  // 移除旧的 _buildReadIndicator，逻辑已整合进 _buildReadBadge 和 _buildTitleRow
 
   Widget _buildStatsRow(BuildContext context) {
     final totalFileSize = illust.totalFileSize; // 使用物化字段

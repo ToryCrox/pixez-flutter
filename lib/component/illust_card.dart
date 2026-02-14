@@ -24,6 +24,8 @@ import 'package:pixez/component/pixiv_image.dart';
 import 'package:pixez/component/star_icon.dart';
 import 'package:pixez/component/local_or_cached_image.dart';
 import 'package:pixez/constants.dart';
+import 'package:pixez/exts.dart';
+import 'package:pixez/page/history/history_manager.dart';
 import 'package:pixez/custom/log.dart';
 
 import 'package:pixez/er/prefer.dart';
@@ -31,7 +33,6 @@ import 'package:pixez/i18n.dart';
 import 'package:pixez/lighting/lighting_store.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/models/illust.dart';
-import 'package:pixez/page/downloaded/bookmark_priority_dialog.dart';
 import 'package:pixez/page/picture/illust_lighting_page.dart';
 import 'package:pixez/page/picture/illust_store.dart';
 import 'package:pixez/page/picture/picture_list_page.dart';
@@ -232,6 +233,8 @@ class _IllustCardState extends State<IllustCard> {
             Positioned.fill(child: _buildPic(tag)),
             _buildBadges(),
             _buildTimeStamp(),
+            _buildLastReadBadge(),
+            _buildHistoryProgress(),
           ],
         ),
       );
@@ -244,6 +247,8 @@ class _IllustCardState extends State<IllustCard> {
             _buildPic(tag),
             _buildBadges(),
             _buildTimeStamp(),
+            _buildLastReadBadge(),
+            _buildHistoryProgress(),
           ],
         ),
       );
@@ -278,6 +283,43 @@ class _IllustCardState extends State<IllustCard> {
         ],
       ),
     );
+  }
+
+  // 移除 _buildReadBadge
+
+  // 移除 _buildReadBadge
+
+  Widget _buildLastReadBadge() {
+    return Observer(builder: (context) {
+      final history = HistoryManager.instance.getHistory(store.id);
+      final readTime = history?.timestamp.toRelativeTime();
+      if (readTime == null) return const SizedBox.shrink();
+
+      return Positioned(
+        right: 4.0,
+        bottom: 6.0, // 降低高度，使其紧贴进度条上方
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.black54,
+            borderRadius: BorderRadius.all(Radius.circular(4.0)),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 2.0, horizontal: 4.0),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.history, color: Colors.white, size: 10),
+                SizedBox(width: 2),
+                Text(
+                  readTime,
+                  style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    });
   }
 
   /// 构建底部区域（信息 + 系列作品链接）
@@ -452,13 +494,7 @@ class _IllustCardState extends State<IllustCard> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  store.illusts!.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodyMedium,
-                  strutStyle: StrutStyle(forceStrutHeight: true, leading: 0),
-                ),
+                _buildTitleRow(context),
                 InkWell(
                   onTap: () {
                     Navigator.of(context).push(MaterialPageRoute(
@@ -587,6 +623,50 @@ class _IllustCardState extends State<IllustCard> {
     } catch (e) {
       return createDate;
     }
+  }
+
+  Widget _buildTitleRow(BuildContext context) {
+    return Text(
+      store.illusts!.title,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: Theme.of(context).textTheme.bodyMedium,
+      strutStyle: StrutStyle(forceStrutHeight: true, leading: 0),
+    );
+  }
+
+  Widget _buildHistoryProgress() {
+    return Observer(builder: (context) {
+      final history = HistoryManager.instance.getHistory(store.id);
+      if (history == null || history.totalPages <= 1) {
+        return const SizedBox.shrink();
+      }
+      return Positioned(
+        bottom: 0,
+        left: 0,
+        right: 0,
+        child: Container(
+          height: 4,
+          color: Colors.black45, // 加深背景轨道
+          child: FractionallySizedBox(
+            alignment: Alignment.centerLeft,
+            widthFactor: history.progress.clamp(0.0, 1.0),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary, // 使用饱和度更高的原色
+                boxShadow: [
+                  BoxShadow(
+                    color: Theme.of(context).colorScheme.primary.withOpacity(0.5),
+                    blurRadius: 2,
+                    spreadRadius: 1,
+                  )
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    });
   }
 }
 

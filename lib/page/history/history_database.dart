@@ -6,6 +6,31 @@ import 'package:pixez/custom/type_util.dart';
 import 'package:pixez/models/illust.dart';
 import 'package:sqflite/sqflite.dart';
 
+class HistorySummary {
+  final int illustId;
+  final int timestamp;
+  final int lastPage;
+  final int totalPages;
+
+  HistorySummary({
+    required this.illustId,
+    required this.timestamp,
+    required this.lastPage,
+    required this.totalPages,
+  });
+
+  factory HistorySummary.fromMap(Map<String, dynamic> map) {
+    return HistorySummary(
+      illustId: map[HistoryDatabaseProvider.cIllustId] as int,
+      timestamp: map[HistoryDatabaseProvider.cTimestamp] as int,
+      lastPage: map[HistoryDatabaseProvider.cLastPage] as int,
+      totalPages: map[HistoryDatabaseProvider.cTotalPages] as int,
+    );
+  }
+
+  double get progress => totalPages > 1 ? lastPage / (totalPages - 1) : 1.0;
+}
+
 class HistoryDatabaseProvider {
   // Singleton pattern
   HistoryDatabaseProvider._privateConstructor();
@@ -22,6 +47,8 @@ class HistoryDatabaseProvider {
   static const String cTitle = 'title';
   static const String cUserName = 'user_name';
   static const String cTags = 'tags';
+  static const String cLastPage = 'last_page';
+  static const String cTotalPages = 'total_pages';
   static const int maxRecordCount = 10000;
 
   Future<Database> get db async {
@@ -36,7 +63,15 @@ class HistoryDatabaseProvider {
     String path = join(databasesPath, 'pixez_history.db');
     _db = await openDatabase(
       path,
-      version: 1,
+      version: 2,
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) {
+          await db.execute(
+              'ALTER TABLE $tableHistory ADD COLUMN $cLastPage INTEGER DEFAULT 0');
+          await db.execute(
+              'ALTER TABLE $tableHistory ADD COLUMN $cTotalPages INTEGER DEFAULT 0');
+        }
+      },
       onCreate: (Database db, int version) async {
         await db.execute('''
           CREATE TABLE $tableHistory (
@@ -45,7 +80,9 @@ class HistoryDatabaseProvider {
             $cTimestamp INTEGER NOT NULL,
             $cTitle TEXT,
             $cUserName TEXT,
-            $cTags TEXT
+            $cTags TEXT,
+            $cLastPage INTEGER DEFAULT 0,
+            $cTotalPages INTEGER DEFAULT 0
           )
         ''');
         // 创建索引以加速搜索和排序
@@ -55,7 +92,7 @@ class HistoryDatabaseProvider {
     );
   }
 
-  Future<void> insert(Illusts illust) async {
+  Future<void> insert(Illusts illust, {int lastPage = 0}) async {
     final database = await db;
     // 1. 序列化并压缩数据
     final jsonStr = jsonEncode(illust.toJson());
@@ -76,6 +113,8 @@ class HistoryDatabaseProvider {
         cTitle: title,
         cUserName: userName,
         cTags: tags,
+        cLastPage: lastPage,
+        cTotalPages: illust.pageCount,
       },
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
@@ -148,6 +187,27 @@ class HistoryDatabaseProvider {
   Future<int> deleteAll() async {
     final database = await db;
     return await database.delete(tableHistory);
+  }
+
+  /// 查询所有已读作品的摘要信息，用于内存缓存
+  Future<List<HistorySummary>> queryAllReadSummaries() async {
+    final database = await db;
+    final List<Map<String, dynamic>> maps = await database.query(
+      tableHistory,
+      columns: [cIllustId, cTimestamp, cLastPage, cTotalPages],
+    );
+    return maps.map((e) => HistorySummary.fromMap(e)).toList();
+  }
+
+  /// 批量查询作品阅读进度摘要
+  Future<List<HistorySummary>> queryHistorySummaries(List<int> ids) async {
+    final database = await db;
+    final List<Map<String, dynamic>> maps = await database.query(
+      tableHistory,
+      columns: [cIllustId, cTimestamp, cLastPage, cTotalPages],
+      where: '$cIllustId IN (${ids.join(',')})',
+    );
+    return maps.map((e) => HistorySummary.fromMap(e)).toList();
   }
 
   Future<void> close() async {

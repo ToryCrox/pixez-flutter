@@ -145,6 +145,44 @@ extension TimeExts on String {
     
     return result;
   }
+
+  String toRelativeTime() {
+    try {
+      final dateTime = DateTime.parse(this).toLocal();
+      return dateTime.toRelativeTime();
+    } catch (e) {
+      return this;
+    }
+  }
+}
+
+extension DateTimeExts on DateTime {
+  String toRelativeTime() {
+    final now = DateTime.now();
+    final difference = now.difference(this);
+
+    if (difference.inSeconds < 60) {
+      return '刚刚';
+    } else if (difference.inMinutes < 60) {
+      return '${difference.inMinutes}分钟前';
+    } else if (difference.inHours < 24) {
+      return '${difference.inHours}小时前';
+    } else if (difference.inDays < 7) {
+      return '${difference.inDays}天前';
+    } else if (difference.inDays < 30) {
+      return '${(difference.inDays / 7).floor()}周前';
+    } else if (difference.inDays < 365) {
+      return '${(difference.inDays / 30).floor()}个月前';
+    } else {
+      return '${(difference.inDays / 365).floor()}年前';
+    }
+  }
+}
+
+extension IntTimeExts on int {
+  String toRelativeTime() {
+    return DateTime.fromMillisecondsSinceEpoch(this).toRelativeTime();
+  }
 }
 
 extension NovelExts on Novel {

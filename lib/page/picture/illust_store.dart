@@ -29,7 +29,7 @@ import 'package:pixez/models/illust_series_detail.dart';
 import 'package:pixez/models/ugoira_metadata_response.dart';
 import 'package:pixez/network/api_client.dart';
 import 'package:pixez/store/download_store.dart';
-import 'package:pixez/page/history/history_database.dart';
+import 'package:pixez/page/history/history_manager.dart';
 
 part 'illust_store.g.dart';
 
@@ -360,11 +360,7 @@ abstract class _IllustStoreBase with Store {
     }
 
     if (illusts != null) {
-      try {
-        await HistoryDatabaseProvider.instance.insert(illusts!);
-      } catch (e) {
-        Log.e('Failed to insert history', error: e);
-      }
+      HistoryManager.instance.updateHistory(illusts!, lastPage: currentPage);
     }
     if (illusts?.series != null && illustSeriesDetailResponse == null) {
       try {
@@ -490,6 +486,10 @@ abstract class _IllustStoreBase with Store {
   void updateCurrentPage(int page) {
     if (page != currentPage && page >= 0 && page < totalPages) {
       currentPage = page;
+      // 实时更新历史进度
+      if (illusts != null) {
+        HistoryManager.instance.updateHistory(illusts!, lastPage: currentPage);
+      }
     }
   }
 
