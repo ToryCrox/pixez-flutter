@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:sqflite/sqflite.dart';
 
 /// 数据库项定义
@@ -9,7 +10,7 @@ class DatabaseEntry {
   final String path;
 
   /// 获取数据库实例的回调 (解耦具体的实现)
-  final Future<Database> Function() getDatabase;
+  final FutureOr<Database> Function() getDatabase;
 
   DatabaseEntry({
     required this.name,
@@ -29,7 +30,7 @@ class DatabaseRegistry {
   List<DatabaseEntry> get entries => List.unmodifiable(_entries);
 
   /// 注册一个数据库
-  void register(String name, String path, Future<Database> Function() getDatabase) {
+  void register(String name, String path, FutureOr<Database> Function() getDatabase) {
     // 避免重复注册同名数据库
     if (_entries.any((e) => e.name == name)) return;
     

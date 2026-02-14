@@ -16,6 +16,7 @@
 
 import 'package:json_annotation/json_annotation.dart';
 import 'package:path/path.dart';
+import 'package:pixez/page/database/database_registry.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 part 'illust_persist.g.dart';
@@ -103,6 +104,12 @@ create table $tableIllustPersist (
         }
         await batch.commit();
       },
+    );
+    // 注册到数据库管理中心
+    DatabaseRegistry.instance.register(
+      '作品收藏数据库',
+      path,
+      () => db,
     );
   }
 

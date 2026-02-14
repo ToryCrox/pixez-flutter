@@ -14,6 +14,7 @@
  */
 
 import 'package:json_annotation/json_annotation.dart';
+import 'package:pixez/page/database/database_registry.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:path/path.dart';
 
@@ -77,6 +78,12 @@ create table $tableNovelPersist (
   )
 ''');
     });
+    // 注册到数据库管理中心
+    DatabaseRegistry.instance.register(
+      '小说收藏数据库',
+      path,
+      () => db,
+    );
   }
 
   Future<NovelPersist> insert(NovelPersist todo) async {

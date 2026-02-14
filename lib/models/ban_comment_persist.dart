@@ -1,5 +1,6 @@
 import 'package:json_annotation/json_annotation.dart';
 import 'package:path/path.dart';
+import 'package:pixez/page/database/database_registry.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 part 'ban_comment_persist.g.dart';
 
@@ -39,6 +40,12 @@ create table $tableBanComment (
   )
 ''');
     });
+    // 注册到数据库管理中心
+    DatabaseRegistry.instance.register(
+      '评论屏蔽数据库',
+      path,
+      () => db,
+    );
   }
 
   Future<BanCommentPersist> insert(BanCommentPersist todo) async {

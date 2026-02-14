@@ -71,13 +71,6 @@ class HistoryDatabaseProvider {
       String databasesPath = await getDatabasesPath();
       String path = join(databasesPath, 'pixez_history.db');
 
-      // 注册到数据库管理中心
-      DatabaseRegistry.instance.register(
-        '插画阅读历史',
-        path,
-        () async => _db!,
-      );
-
       _db = await openDatabase(
         path,
         version: 2,
@@ -106,6 +99,12 @@ class HistoryDatabaseProvider {
           await db.execute(
               'CREATE INDEX index_timestamp ON $tableHistory ($cTimestamp)');
         },
+      );
+      // 注册到数据库管理中心
+      DatabaseRegistry.instance.register(
+        '插画阅读历史',
+        path,
+        () => _db!,
       );
     } finally {
       _openFuture = null;

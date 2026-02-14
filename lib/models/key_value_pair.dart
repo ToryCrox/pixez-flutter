@@ -1,4 +1,5 @@
 import 'package:json_annotation/json_annotation.dart';
+import 'package:pixez/page/database/database_registry.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'dart:convert' show json;
 import 'package:path/path.dart';
@@ -55,6 +56,12 @@ create table $tableKVPair (
   )
 ''');
     });
+    // 注册到数据库管理中心
+    DatabaseRegistry.instance.register(
+      '配置数据库',
+      path,
+      () => db,
+    );
   }
 
   Future<void> insert(KVPair todo) async {

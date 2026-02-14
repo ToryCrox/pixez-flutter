@@ -249,7 +249,7 @@ abstract class _DownloadStoreBase with Store {
     DatabaseRegistry.instance.register(
       '下载数据库',
       _dbProvider.dbPathStr,
-      () async => _dbProvider.db,
+      () => _dbProvider.db,
     );
   }
 

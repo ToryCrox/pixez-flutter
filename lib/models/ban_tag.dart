@@ -15,6 +15,7 @@
  */
 import 'package:json_annotation/json_annotation.dart';
 import 'package:path/path.dart';
+import 'package:pixez/page/database/database_registry.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 part 'ban_tag.g.dart';
 
@@ -71,6 +72,12 @@ create table $tableBanTag (
   )
 ''');
     });
+    // 注册到数据库管理中心
+    DatabaseRegistry.instance.register(
+      '标签屏蔽数据库',
+      path,
+      () => db,
+    );
   }
 
   Future<BanTagPersist> insert(BanTagPersist todo) async {

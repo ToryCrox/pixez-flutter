@@ -14,6 +14,7 @@
  *
  */
 import 'package:path/path.dart';
+import 'package:pixez/page/database/database_registry.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 class BanUserIdPersist {
@@ -59,6 +60,12 @@ create table $tableBanUserId (
   )
 ''');
     });
+    // 注册到数据库管理中心
+    DatabaseRegistry.instance.register(
+      '用户屏蔽数据库',
+      path,
+      () => db,
+    );
   }
 
   Future<BanUserIdPersist> insert(BanUserIdPersist todo) async {

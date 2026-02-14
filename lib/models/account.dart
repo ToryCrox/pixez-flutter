@@ -15,6 +15,7 @@
  */
 import 'package:json_annotation/json_annotation.dart';
 import 'package:path/path.dart';
+import 'package:pixez/page/database/database_registry.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 part 'account.g.dart';
@@ -72,6 +73,12 @@ create table $tableAccount (
   )
 ''');
     });
+    // 注册到数据库管理中心
+    DatabaseRegistry.instance.register(
+      '账号数据库',
+      path,
+      () => db,
+    );
   }
 
   Future<AccountPersist> insert(AccountPersist todo) async {
