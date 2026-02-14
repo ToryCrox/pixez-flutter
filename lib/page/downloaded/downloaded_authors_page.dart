@@ -16,7 +16,7 @@
 import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
-import 'package:pixez/component/downloaded_author_card.dart';
+import 'package:pixez/page/downloaded/widgets/downloaded_author_card.dart';
 import 'package:pixez/component/pixez_default_header.dart';
 import 'package:pixez/component/pixez_easy_refresh.dart';
 import 'package:pixez/component/sort_group.dart';
