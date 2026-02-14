@@ -57,6 +57,14 @@ abstract class _IllustStoreBase with Store {
   @observable
   UgoiraMetadataResponse? ugoiraMetadata;
 
+  /// 是否显示跳转到上次阅读位置的提示
+  @observable
+  bool showJumpHint = false;
+
+  /// 上次阅读的页码
+  @observable
+  int lastReadPage = 0;
+
   /// 当前浏览的页数（用于多页插画）
   @observable
   int currentPage = 0;
@@ -218,6 +226,10 @@ abstract class _IllustStoreBase with Store {
     errorMessage = null;
     _initDownloadStatusListener();
 
+    if (force) {
+      checkJumpHint();
+    }
+
     // // 并行加载首帧图片信息和其余图片信息
     // if (downloadStore.isInitialized) {
     //   final t1 = DateTime.now();
@@ -360,7 +372,13 @@ abstract class _IllustStoreBase with Store {
     }
 
     if (illusts != null) {
-      HistoryManager.instance.updateHistory(illusts!, lastPage: currentPage);
+      // 记录/更新历史记录（即使是在第 0 页进来的也要记录，以便在历史页显示）
+      // 如果当前在第 0 页且我们有旧的阅读记录，则保留旧进度字段，只更新时间戳
+      int pageToRecord = currentPage;
+      if (currentPage == 0 && lastReadPage > 0) {
+        pageToRecord = lastReadPage;
+      }
+      HistoryManager.instance.updateHistory(illusts!, lastPage: pageToRecord);
     }
     if (illusts?.series != null && illustSeriesDetailResponse == null) {
       try {
@@ -509,5 +527,28 @@ abstract class _IllustStoreBase with Store {
   @action
   void updateUgoiraMetadata(UgoiraMetadataResponse? metadata) {
     ugoiraMetadata = metadata;
+  }
+
+  /// 隐藏跳转提示
+  @action
+  void hideJumpHint() {
+    showJumpHint = false;
+  }
+
+  /// 检查并显示跳转提示
+  @action
+  void checkJumpHint() {
+    // 如果已经显示了提示，或者已经在阅读中（不是第0页），则不检查
+    if (showJumpHint || currentPage != 0) return;
+
+    final history = HistoryManager.instance.getHistory(id);
+    if (history != null && history.lastPage > 0) {
+      lastReadPage = history.lastPage;
+      showJumpHint = true;
+      // 5秒后自动隐藏提示
+      Future.delayed(const Duration(seconds: 5), () {
+        hideJumpHint();
+      });
+    }
   }
 }

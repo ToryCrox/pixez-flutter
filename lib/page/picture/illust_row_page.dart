@@ -100,7 +100,9 @@ class _IllustRowPageState extends State<IllustRowPage>
     _scrollController = ScrollController();
     _photoScrollController = ScrollController();
     _focusNode = FocusNode();
-    _observerController = ListObserverController(); // 初始化观察控制器
+    _observerController = ListObserverController(
+      controller: _photoScrollController,
+    ); // 初始化观察控制器
     _illustStore = widget.store ?? IllustStore(widget.id, null);
     _illustStore.fetch(force: true);
     _aboutStore = IllustAboutStore(widget.id, _refreshController);
@@ -525,6 +527,12 @@ class _IllustRowPageState extends State<IllustRowPage>
                       child: Container(width: dividerWidth),
                     ),
                   ),
+                // 跳转到上次阅读位置提示
+                Positioned(
+                  bottom: 60, // 在页数指示器上方
+                  left: 10,
+                  child: Observer(builder: (_) => _buildJumpHint()),
+                ),
                 // 页数指示器
                 if (data.pageCount > 1)
                   Positioned(
@@ -780,6 +788,49 @@ class _IllustRowPageState extends State<IllustRowPage>
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildJumpHint() {
+    if (!_illustStore.showJumpHint) return const SizedBox.shrink();
+    return AnimatedOpacity(
+      opacity: _illustStore.showJumpHint ? 1.0 : 0.0,
+      duration: const Duration(milliseconds: 300),
+      child: Material(
+        color: Theme.of(context).colorScheme.primary.withOpacity(0.9),
+        borderRadius: BorderRadius.circular(20),
+        child: InkWell(
+          mouseCursor: SystemMouseCursors.click,
+          borderRadius: BorderRadius.circular(20),
+          onTap: () {
+            _illustStore.hideJumpHint();
+            _observerController.animateTo(
+              index: _illustStore.lastReadPage,
+              duration: const Duration(milliseconds: 500),
+              curve: Curves.easeInOut,
+            );
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.history, color: Colors.white, size: 18),
+                const SizedBox(width: 8),
+                Text(
+                  "跳转到上次阅读位置 (第 ${_illustStore.lastReadPage + 1} 页)",
+                  style: const TextStyle(color: Colors.white, fontSize: 13),
+                ),
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: () => _illustStore.hideJumpHint(),
+                  child: Icon(Icons.close, color: Colors.white70, size: 16),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
