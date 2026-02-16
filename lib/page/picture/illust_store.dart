@@ -96,11 +96,11 @@ abstract class _IllustStoreBase with Store {
   }
 
   /// 预加载首帧图片信息（用于进入详情页前预加载，避免尺寸跳动）
-  Future<void> preloadFirstImage() async {
+  Future<void> preloadFirstImage({String? relativePath}) async {
     if (!downloadStore.isInitialized) return;
     if (localImageInfos.containsKey(0)) return;
     
-    final firstImageInfo = await downloadStore.dbProvider.getLocalImageInfoByPart(id, 0);
+    final firstImageInfo = await downloadStore.dbProvider.getLocalImageInfoByPart(id, 0, relativePath: relativePath);
     if (firstImageInfo != null) {
       localImageInfos[0] = firstImageInfo;
     }

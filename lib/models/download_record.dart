@@ -190,7 +190,6 @@ class DownloadDatabaseProvider {
             ${DownloadedImageColumns.extension} TEXT NOT NULL,
             ${DownloadedImageColumns.fileSize} INTEGER NOT NULL,
             ${DownloadedImageColumns.originalUrl} TEXT NOT NULL,
-            ${DownloadedImageColumns.relativePath} TEXT NOT NULL,
             ${DownloadedImageColumns.width} INTEGER,
             ${DownloadedImageColumns.height} INTEGER,
             UNIQUE(${DownloadedImageColumns.illustId}, ${DownloadedImageColumns.part})
@@ -1314,6 +1313,7 @@ class DownloadDatabaseProvider {
     // 检查是否为动图类型
     final illust = await getIllustByIllustId(illustId);
     final isUgoira = illust?.isUgoira;
+    final relPath = illust?.relativePath;
 
     // 对于动图，默认只处理预览图(part=0)，过滤掉所有帧文件(part>=1)
     // 如果 includeUgoiraFrames 为 true，则包含所有帧文件
@@ -1326,7 +1326,7 @@ class DownloadDatabaseProvider {
 
     // 并行处理所有图片，大幅提升性能
     final futures = filteredImages.map((image) async {
-      final foundPath = await findImagePathForImage(image);
+      final foundPath = await findImagePathForImage(image, relativePath: relPath);
       if (foundPath != null) {
         return MapEntry(
             image.part,
@@ -1337,7 +1337,7 @@ class DownloadDatabaseProvider {
               fileSize: image.fileSize,
             ));
       } else {
-        Log.w('未找到图片: ${image.illustId}-${image.part}, $_downloadPath, ${image.relativePath}, ${image.fileName}');
+        Log.w('未找到图片: ${image.illustId}-${image.part}, $_downloadPath, $relPath, ${image.fileName}');
       }
       return null;
     });
@@ -1353,12 +1353,32 @@ class DownloadDatabaseProvider {
     return result;
   }
 
+  /// 获取插画的相对路径（优先使用缓存，否则查询数据库并更新缓存）
+  Future<String?> getIllustRelativePath(int illustId) async {
+    if (_illustRelPathCache.containsKey(illustId)) {
+      return _illustRelPathCache[illustId];
+    }
+    final illust = await getIllustByIllustId(illustId);
+    if (illust != null) {
+      _illustRelPathCache[illustId] = illust.relativePath;
+      return illust.relativePath;
+    }
+    return null;
+  }
+
   /// 根据图片记录查找实际存在的文件路径（自动检测后缀名）
   Future<String?> findImagePathForImage(DownloadedImage image,
-      {bool update = true}) async {
+      {String? relativePath, bool update = true}) async {
+    // 优先使用传入的路径，否则通过插画 ID 获取
+    final relPath = relativePath ?? await getIllustRelativePath(image.illustId);
+    if (relPath == null) {
+      Log.w('无法获取插画相对路径: ${image.illustId}');
+      return null;
+    }
+
     // 使用标准的相对路径和文件名构建路径（对动图帧文件也适用，因为 relativePath 已包含 ugoira 子目录）
     final basePath = getAbsolutePath(
-      image.relativePath.replaceAll('\\', '/'),
+      relPath.replaceAll('\\', '/'),
       image.fileName
     );
 
@@ -1630,8 +1650,8 @@ class DownloadDatabaseProvider {
 
   /// 尝试找到图片文件（自动检测后缀名）
   Future<String?> findImagePath(int illustId, int part,
-      {bool update = true}) async {
-    return (await getLocalImageInfoByPart(illustId, part, update: update))?.path;
+      {String? relativePath, bool update = true}) async {
+    return (await getLocalImageInfoByPart(illustId, part, relativePath: relativePath, update: update))?.path;
   }
 
   /// 获取指定页面的本地图片信息（路径和宽高）
@@ -1639,11 +1659,12 @@ class DownloadDatabaseProvider {
   Future<LocalImageInfo?> getLocalImageInfoByPart(
     int illustId,
     int part, {
+    String? relativePath,
     bool update = true,
   }) async {
     final image = await getImage(illustId, part);
     if (image == null) return null;
-    final imagePath = await findImagePathForImage(image);
+    final imagePath = await findImagePathForImage(image, relativePath: relativePath, update: update);
     if (imagePath == null) return null;
     return LocalImageInfo(
       path: imagePath,
@@ -1653,10 +1674,10 @@ class DownloadDatabaseProvider {
     );
   }
 
-  Future<LocalImageInfo?> getLocalImageInfoByUrl(String url) async {
+  Future<LocalImageInfo?> getLocalImageInfoByUrl(String url, {String? relativePath}) async {
     final image = await getImageByOriginalUrl(url);
     if (image == null) return null;
-    final imagePath = await findImagePathForImage(image);
+    final imagePath = await findImagePathForImage(image, relativePath: relativePath);
     if (imagePath == null) return null;
     return LocalImageInfo(
       path: imagePath,
@@ -2350,7 +2371,6 @@ class DownloadDatabaseProvider {
           extension: '.webp',
           fileSize: fileSize,
           originalUrl: '', // 本地生成，无原始URL
-          relativePath: relativePath,
           width: width,
           height: height,
         ).toJson(),

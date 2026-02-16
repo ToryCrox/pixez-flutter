@@ -379,13 +379,13 @@ abstract class _DownloadStoreBase with Store {
   }
 
   Future<String?> getLocalImagePath(int illustId, int part,
-      {bool update = true}) async {
-    return await _dbProvider.findImagePath(illustId, part, update: update);
+      {String? relativePath, bool update = true}) async {
+    return await _dbProvider.findImagePath(illustId, part, relativePath: relativePath, update: update);
   }
 
   Future<String?> getLocalImagePathFromImage(DownloadedImage image,
-      {bool update = true}) async {
-    return await _dbProvider.findImagePathForImage(image, update: update);
+      {String? relativePath, bool update = true}) async {
+    return await _dbProvider.findImagePathForImage(image, relativePath: relativePath, update: update);
   }
 
   /// 获取封面缓存路径（分质量目录存储格式）
@@ -863,14 +863,14 @@ abstract class _DownloadStoreBase with Store {
 
 
 
-  Future<({String fullPath, String relativePath})?> _tryFindExistingImageFile(DownloadTask task) async {
+  Future<({String fullPath})?> _tryFindExistingImageFile(DownloadTask task) async {
     final relativePath = await _dbProvider.resolveRelativePath(task.illusts);
     final fileName =
         DownloadDatabaseProvider.buildFileName(task.illusts.id, task.part);
     for (final ext in kImageExtensions) {
       final fullPath = _dbProvider.getAbsolutePath(relativePath, '$fileName$ext');
       if (await File(fullPath).exists()) {
-        return (fullPath: fullPath, relativePath: relativePath);
+        return (fullPath: fullPath);
       }
     }
     return null;
@@ -1014,7 +1014,6 @@ abstract class _DownloadStoreBase with Store {
                 : task.illusts.metaPages[task.part].imageUrls!.original;
             await _recordDownload(
               task.illusts,
-              relativePath: result.relativePath,
               part: task.part,
               url: url,
               filePath: result.fullPath,
@@ -1123,7 +1122,6 @@ abstract class _DownloadStoreBase with Store {
         // 文件已存在，直接记录到数据库
         await _recordDownload(
           task.illusts,
-          relativePath: result.relativePath,
           part: task.part,
           url: url,
           filePath: result.fullPath,
@@ -1205,7 +1203,7 @@ abstract class _DownloadStoreBase with Store {
     if (cached != null && await cached.file.exists()) {
       // 从缓存复制到目标目录
       await cached.file.copy(targetPath);
-      await _onDownloadSuccess(task, targetPath, relativePath);
+      await _onDownloadSuccess(task, targetPath);
       return;
     }
 
@@ -1233,7 +1231,7 @@ abstract class _DownloadStoreBase with Store {
     await fileInfo.file.copy(targetPath);
 
     // 4. 清理任务
-    await _onDownloadSuccess(task, targetPath, relativePath);
+    await _onDownloadSuccess(task, targetPath);
   }
 
   /// 下载动图任务
@@ -1254,7 +1252,7 @@ abstract class _DownloadStoreBase with Store {
         // 但为了保持接口一致，这里尝试获取一下，或者传递空字符串（如果下面不用的话）
         // 实际上 _onDownloadSuccess 会调用 _recordDownload，所以需要 relativePath
         // 既然已经存在，可以直接从 existingIllust 获取
-        await _onDownloadSuccess(task, '', existingIllust.relativePath);
+        await _onDownloadSuccess(task, '');
         return;
       }
 
@@ -1320,7 +1318,7 @@ abstract class _DownloadStoreBase with Store {
       await downloader.cleanupTempExtractDir(illustId);
 
       // 6. 完成下载
-      await _onDownloadSuccess(task, previewPath, relativePath);
+      await _onDownloadSuccess(task, previewPath);
     } catch (e) {
       // 失败时清理临时解压目录
       try {
@@ -1366,7 +1364,6 @@ abstract class _DownloadStoreBase with Store {
       extension: path.extension(previewPath),
       fileSize: previewFileSize,
       originalUrl: previewUrl,
-      relativePath: relativePath,
     );
 
     await _dbProvider.insertImage(downloadedImage);
@@ -1396,7 +1393,6 @@ abstract class _DownloadStoreBase with Store {
         final fileNameWithoutExtension = path.basenameWithoutExtension(frameFile.path);
         final extension = path.extension(frameFile.path);
 
-        final frameRelativePath = path.join(relativePath, 'ugoira'); // 帧文件在 ugoira 子目录中
 
         final downloadedFrame = DownloadedImage(
           illustId: illusts.id,
@@ -1405,7 +1401,6 @@ abstract class _DownloadStoreBase with Store {
           extension: extension,
           fileSize: fileSize,
           originalUrl: '', // 帧文件没有原始 URL
-          relativePath: frameRelativePath,
           width: frameWidth,
           height: frameHeight,
         );
@@ -1418,7 +1413,7 @@ abstract class _DownloadStoreBase with Store {
     await _dbProvider.updateAuthorStats(illusts.user.id);
   }
 
-  Future<void> _onDownloadSuccess(DownloadTask task, String targetPath, String relativePath) async {
+  Future<void> _onDownloadSuccess(DownloadTask task, String targetPath) async {
     Log.d(() => "下载成功: ${task.taskKey}, $targetPath");
 
     // 检查任务是否已被取消（例如用户删除了该插画）
@@ -1442,7 +1437,6 @@ abstract class _DownloadStoreBase with Store {
     task.status = DownloadTaskStatus.completed;
     await _recordDownload(
       task.illusts,
-      relativePath: relativePath,
       part: task.part,
       url: task.url,
       filePath: targetPath,
@@ -1748,7 +1742,6 @@ abstract class _DownloadStoreBase with Store {
   // 记录下载完成
   Future<void> _recordDownload(
     Illusts illusts, {
-    required String relativePath,
     required int part,
     required String url,
     required String filePath,
@@ -1789,7 +1782,6 @@ abstract class _DownloadStoreBase with Store {
       extension: extension,
       fileSize: fileSize,
       originalUrl: url,
-      relativePath: relativePath,
       width: imageWidth,
       height: imageHeight,
     );

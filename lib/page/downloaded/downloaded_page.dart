@@ -643,7 +643,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
     final currentStore = iStores[currentIndex];
 
     // 预加载首帧图片信息，避免详情页渲染时的尺寸跳动
-    await currentStore.preloadFirstImage();
+    await currentStore.preloadFirstImage(relativePath: illust.relativePath);
 
     if (!context.mounted) return;
 

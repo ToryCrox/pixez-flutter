@@ -385,7 +385,6 @@ class DownloadedImage {
   final String extension;
   final int fileSize;
   final String originalUrl;
-  final String relativePath;
   final int? width; // 图片宽度
   final int? height; // 图片高度
 
@@ -396,7 +395,6 @@ class DownloadedImage {
     required this.extension,
     required this.fileSize,
     required this.originalUrl,
-    required this.relativePath,
     this.width,
     this.height,
   });
@@ -412,8 +410,6 @@ class DownloadedImage {
       extension: TypeUtil.parseString(json[DownloadedImageColumns.extension]),
       fileSize: TypeUtil.parseInt(json[DownloadedImageColumns.fileSize]),
       originalUrl: PixivUrlUtil.decompressOriginalUrl(compressedUrl),
-      relativePath:
-          TypeUtil.parseString(json[DownloadedImageColumns.relativePath]),
       width: TypeUtil.parseInt(json[DownloadedImageColumns.width]),
       height: TypeUtil.parseInt(json[DownloadedImageColumns.height]),
     );
@@ -429,7 +425,6 @@ class DownloadedImage {
     // 写入数据库时压缩 URL
     data[DownloadedImageColumns.originalUrl] =
         PixivUrlUtil.compressOriginalUrl(originalUrl);
-    data[DownloadedImageColumns.relativePath] = relativePath;
     data[DownloadedImageColumns.width] = width;
     data[DownloadedImageColumns.height] = height;
     return data;
@@ -452,7 +447,6 @@ class DownloadedImage {
     String? extension,
     int? fileSize,
     String? originalUrl,
-    String? relativePath,
     int? width,
     int? height,
   }) {
@@ -463,7 +457,6 @@ class DownloadedImage {
       extension: extension ?? this.extension,
       fileSize: fileSize ?? this.fileSize,
       originalUrl: originalUrl ?? this.originalUrl,
-      relativePath: relativePath ?? this.relativePath,
       width: width ?? this.width,
       height: height ?? this.height,
     );
@@ -509,7 +502,6 @@ class DownloadedImageColumns {
   static const String extension = 'extension';
   static const String fileSize = 'file_size';
   static const String originalUrl = 'original_url';
-  static const String relativePath = 'relative_path';
   static const String width = 'width';
   static const String height = 'height';
 }
