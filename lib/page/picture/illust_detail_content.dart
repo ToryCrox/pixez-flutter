@@ -762,24 +762,40 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
                         fontSize: isClassified ? 10 : 12,
                       ),
                     ),
-                    TextSpan(text: f.name),
-                    if (displayTranslation != null) ...[
-                      const TextSpan(text: " "),
+                    if (localTag != null) ...[
                       TextSpan(
-                        text: displayTranslation,
+                        text: localTag.tag.displayName,
                         style: TextStyle(
                           color: isCustom ? Colors.purple : null,
                         ),
                       ),
+                      TextSpan(
+                        text: "(${localTag.tag.count})",
+                        style: theme.textTheme.labelSmall!.copyWith(
+                          color: theme.colorScheme.primary.withOpacity(0.6),
+                          fontSize: 10,
+                        ),
+                      ),
+                    ] else ...[
+                      TextSpan(text: f.name),
+                      if (displayTranslation != null) ...[
+                        const TextSpan(text: " "),
+                        TextSpan(
+                          text: displayTranslation,
+                          style: TextStyle(
+                            color: isCustom ? Colors.purple : null,
+                          ),
+                        ),
+                      ],
                     ],
                     if (parentName != null && parentName.isNotEmpty)
-                        TextSpan(
-                            text: "($parentName)",
-                             style: theme.textTheme.titleSmall!.copyWith(
-                                color: theme.colorScheme.primary.withOpacity(0.7),
-                                fontSize: 11,
-                             ),
+                      TextSpan(
+                        text: "($parentName)",
+                        style: theme.textTheme.titleSmall!.copyWith(
+                          color: theme.colorScheme.primary.withOpacity(0.7),
+                          fontSize: 11,
                         ),
+                      ),
                   ],
                   style: theme.textTheme.titleSmall!.copyWith(
                     color:
