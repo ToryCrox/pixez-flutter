@@ -622,12 +622,7 @@ class _IllustCardState extends State<IllustCard> {
   /// 格式化创建日期
   String _formatCreateDate(String createDate) {
     if (createDate.isEmpty) return '';
-    try {
-      final dateTime = DateTime.parse(createDate);
-      return '${dateTime.year}-${dateTime.month.toString().padLeft(2, '0')}-${dateTime.day.toString().padLeft(2, '0')}';
-    } catch (e) {
-      return createDate;
-    }
+    return createDate.toShortDate();
   }
 
   Widget _buildTitleRow(BuildContext context) {
