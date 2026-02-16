@@ -360,6 +360,13 @@ class _IllustRowPageState extends State<IllustRowPage>
                   right: _sidebarVisible ? sidebarWidth : 0,
                   child: GestureDetector(
                     behavior: HitTestBehavior.translucent,
+                    onTap: () {
+                      if (_showComments) {
+                        setState(() {
+                          _showComments = false;
+                        });
+                      }
+                    },
                     onDoubleTap: () {
                       // 双击切换侧边栏显示/隐藏
                       setState(() {
@@ -444,8 +451,7 @@ class _IllustRowPageState extends State<IllustRowPage>
                     ),
                   ),
                 ),
-                // 侧边栏，使用 AnimatedPositioned 实现从右侧滑入/滑出
-                // 侧边栏，使用 AnimatedPositioned 实现从右侧滑入/滑出
+// 侧边栏，使用 AnimatedPositioned 实现从右侧滑入/滑出
                 AnimatedPositioned(
                   duration: animationDuration,
                   curve: Curves.easeInOut,
@@ -948,17 +954,16 @@ class _IllustRowPageState extends State<IllustRowPage>
                 int index,
               ) {
                 return InkWell(
+                  onTap: () {
+                    // 点击左侧区域关闭评论区
+                    if (_showComments) {
+                      setState(() {
+                        _showComments = false;
+                      });
+                    }
+                  },
                   onLongPress: () {
                     _pressSave(data, index);
-                  },
-                  onTap: () {
-                    // Leader.push(
-                    //     context,
-                    //     PhotoZoomPage(
-                    //       index: index,
-                    //       illusts: data,
-                    //       illustStore: _illustStore,
-                    //     ));
                   },
                   child: Observer(
                     builder: (context) {
@@ -984,8 +989,16 @@ class _IllustRowPageState extends State<IllustRowPage>
           String quality = userSetting.previewQuality;
 
           Widget placeWidget = Container(height: height);
-          // 移除点击打开大图，保留长按保存
+          // 移除单独图片项的点击行为，统一通过 InkWell 处理点击关闭评论逻辑
           return InkWell(
+            onTap: () {
+              // 点击左侧区域关闭评论区
+              if (_showComments) {
+                setState(() {
+                  _showComments = false;
+                });
+              }
+            },
             onLongPress: () {
               _pressSave(data, 0);
             },
