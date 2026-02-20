@@ -72,9 +72,9 @@ sqlite3 "E:\Pictures\pixez_downloads\download.db" ".mode json" "SELECT name, tra
   "version": 1,
   "updates": [
     {
-      "name": "原始标签名（必须与数据库 name 完全一致）",
+      "name": "原始标签名（必须与数据库 name 字段字形、字符完全一致，严禁转换繁简或修改日文汉字）",
       "category": 2,
-      "custom_translated_name": "中文翻译（null 表示不更改）",
+      "custom_translated_name": "中文翻译（推荐使用简体中文，null 表示不更改）",
       "parent_name": "父标签的原名（对应数据库 `name` 字段，null 表示不设置，必须在数据库中存在，严禁使用翻译名）",
       "reason": "分析理由（仅供预览显示）"
     }
@@ -88,6 +88,7 @@ sqlite3 "E:\Pictures\pixez_downloads\download.db" ".mode json" "SELECT name, tra
 
 ## 注意事项
 
+- **字符一致性（核心）**：JSON 中的 `name` 字段是查找记录的唯一标识。**绝对禁止**将数据库中的繁体字、日文汉字自动转换为简体中文。例如数据库中是 `鳴潮`，`name` 必须写 `鳴潮` 而不是 `鸣潮`。
 - 每次只处理 20 条，重复调用此 Skill 可继续处理余下标签
 - 已分类的标签（`category != 0`）不会被查询到，自动跳过
 - 如标签含义不确定，`category` 保持 `0`（未分类），`custom_translated_name` 设为 `null`
