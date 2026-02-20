@@ -19,7 +19,7 @@ description: 从数据库读取高频未处理标签，AI 分析并生成导入 
 执行以下 SQL 查询未分类（`category = 0`）的标签，按 `count` 降序排列，取前 20 条：
 
 ```powershell
-sqlite3 "E:\Pictures\pixez_downloads\download.db" ".mode json" "SELECT id, name, translated_name, custom_translated_name, category, count, parent_id, referenced_tag_id FROM downloaded_tags WHERE category = 0 AND count > 0 ORDER BY count DESC LIMIT 20"
+sqlite3 "E:\Pictures\pixez_downloads\download.db" ".mode json" "SELECT id, name, translated_name, custom_translated_name, category, count, parent_id, referenced_tag_id FROM downloaded_tags WHERE category = 0 AND count > 0 ORDER BY count DESC LIMIT 20" > e:\Workspace\flutter\pixez_flutter\build\pending_tags.json
 ```
 
 ### 2. AI 分析标签
@@ -29,7 +29,7 @@ sqlite3 "E:\Pictures\pixez_downloads\download.db" ".mode json" "SELECT id, name,
 **信息导出规则（推荐）**：
 为了提高匹配精度并减少重复查询数据库，建议在开始分析前，先导出当前的标签基础信息（特别是未分类和作品分类的标签）：
 ```powershell
-sqlite3 "E:\Pictures\pixez_downloads\download.db" ".mode json" "SELECT name, translated_name, custom_translated_name, category FROM downloaded_tags WHERE category IN (0, 1)"
+sqlite3 "E:\Pictures\pixez_downloads\download.db" ".mode json" "SELECT name, translated_name, custom_translated_name, category FROM downloaded_tags WHERE category IN (0, 1)" > e:\Workspace\flutter\pixez_flutter\build\tag_context.json
 ```
 将此信息作为上下文，用于更准确地判断 `parent_name` 是否在库中存在，以及匹配同义主标签。
 
@@ -49,17 +49,17 @@ sqlite3 "E:\Pictures\pixez_downloads\download.db" ".mode json" "SELECT name, tra
 - **英文标签** → 如果有常用中文名则提供（如 `maid` → `女仆`），否则保留英文
 
 **归属规则**：
-- 角色标签名中包含 `（作品名）` 或 `(作品名)` → 设置 `parent_name` 为该作品名
-- 角色标签名中没有包含作品名 → **优先从已导出的标签信息中匹配**，若无匹配再使用 `search_web` 工具确认角色所属作品
-- **重要**：作品在数据库中可能有多个同义 tag（如 `fgo` 和 `Fate/Grand_Order`），`parent_name` 应指向**主 tag**（通常是 `count` 最高或名称最完整的那个）
-- **父标签必须在数据库表 `downloaded_tags` 中存在**（参考导出的标签信息），如果不存在则不填 `parent_name`
+- 角色标签名中包含 `（作品名）` 或 `(作品名)` → 设置 `parent_name` 为该作品名的 **`name` 字段值**
+- 角色标签名中没有包含作品名 → **优先从已导出的标签信息中匹配**，若无匹配再使用 `search_web` 工具确认角色所属作品，并获取其在库中的 **`name` 字段值**
+- **重要**：作品在数据库中可能有多个同义 tag（如 `fgo` 和 `Fate/Grand_Order`），`parent_name` 应指向**主标签的原名（`name` 字段）**（通常是 `count` 最高或名称最完整的那个）
+- **父标签必须在数据库表 `downloaded_tags` 中存在**，且 `parent_name` 必须使用该标签在数据库中的 **`name` 字段值**（原始名，如日文或英文），**严禁使用翻译名**。
 - 如果不确定归属，可留空 `parent_name`
 
 **额外归属规则**：
 以下为自定义归属映射，优先于默认归属规则：
-- 隶属于 **彩虹社（にじさんじ / Nijisanji）** 的角色 → `parent_name` 设为 `虚拟主播`
-- 隶属于 **Hololive** 的角色 → `parent_name` 设为 `虚拟主播`
-- 其他虚拟主播（VTuber）→ `parent_name` 设为 `虚拟主播`
+- 隶属于 **彩虹社（にじさんじ / Nijisanji）** 的角色 → `parent_name` 设为 `バーチャルYouTuber`
+- 隶属于 **Hololive** 的角色 → `parent_name` 设为 `バーチャルYouTuber`
+- 其他虚拟主播（VTuber）→ `parent_name` 设为 `バーチャルYouTuber`
 
 ### 3. 生成结果 JSON
 
@@ -73,7 +73,7 @@ sqlite3 "E:\Pictures\pixez_downloads\download.db" ".mode json" "SELECT name, tra
       "name": "原始标签名（必须与数据库 name 完全一致）",
       "category": 2,
       "custom_translated_name": "中文翻译（null 表示不更改）",
-      "parent_name": "父标签名（用于归属，null 表示不设置，必须在数据库中存在）",
+      "parent_name": "父标签的原名（对应数据库 `name` 字段，null 表示不设置，必须在数据库中存在，严禁使用翻译名）",
       "reason": "分析理由（仅供预览显示）"
     }
   ]
