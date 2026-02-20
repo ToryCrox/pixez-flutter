@@ -524,6 +524,12 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
               },
               child: const Text("查看本地下载"),
             ),
+            SimpleDialogOption(
+              onPressed: () {
+                Navigator.pop(context, 5);
+              },
+              child: const Text("搜索标签"),
+            ),
             if (tagManagerStore.getTagDisplayData(f.name) != null)
               SimpleDialogOption(
                 onPressed: () {
@@ -571,6 +577,16 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
       case 4:
         _showEditTagDialog(context, f);
         break;
+      case 5:
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => ResultPage(
+              word: f.name,
+              translatedName: f.translatedName ?? "",
+            ),
+          ),
+        );
+        break;
     }
   }
 
@@ -616,6 +632,16 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
               Icon(Icons.folder_open, size: 20),
               SizedBox(width: 12),
               Text('查看本地下载'),
+            ],
+          ),
+        ),
+        const PopupMenuItem<int>(
+          value: 6,
+          child: Row(
+            children: [
+              Icon(Icons.search, size: 20),
+              SizedBox(width: 12),
+              Text('搜索标签'),
             ],
           ),
         ),
@@ -678,6 +704,16 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
           await tagManagerStore.removeCustomTagFromIllust(_illusts.id, f.name);
           await _checkDownloadStatus(); // 刷新状态
           break;
+        case 6:
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => ResultPage(
+                word: f.name,
+                translatedName: f.translatedName ?? "",
+              ),
+            ),
+          );
+          break;
       }
       }
     }
@@ -709,16 +745,21 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
         await _longPressTag(context, f);
       },
       onTap: () {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (context) {
-              return ResultPage(
-                word: f.name,
-                translatedName: f.translatedName ?? "",
-              );
-            },
-          ),
-        );
+        final localTagData = tagManagerStore.getTagDisplayData(f.name);
+        if (localTagData != null) {
+          DownloadedPage.open(context, tagId: localTagData.tag.id);
+        } else {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) {
+                return ResultPage(
+                  word: f.name,
+                  translatedName: f.translatedName ?? "",
+                );
+              },
+            ),
+          );
+        }
       },
       onSecondaryTapDown: (details) async {
         await _showTagContextMenu(context, f, details.globalPosition);

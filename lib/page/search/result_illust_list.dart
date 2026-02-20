@@ -27,6 +27,7 @@ import 'package:pixez/main.dart';
 import 'package:pixez/models/illust.dart';
 import 'package:pixez/models/recommend.dart';
 import 'package:pixez/network/api_client.dart';
+import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:pixez/page/search/result_illust_store.dart';
 import 'package:pixez/page/search/suggest/search_suggestion_page.dart';
 
@@ -34,8 +35,10 @@ import '../../custom/log.dart';
 
 class ResultIllustList extends StatefulWidget {
   final String word;
+  final String translatedName;
 
-  const ResultIllustList({Key? key, required this.word}) : super(key: key);
+  const ResultIllustList({Key? key, required this.word, this.translatedName = ''})
+      : super(key: key);
 
   @override
   _ResultIllustListState createState() => _ResultIllustListState();
@@ -163,11 +166,27 @@ class _ResultIllustListState extends State<ResultIllustList> {
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: Padding(
-                      padding: EdgeInsets.only(left: 16.0),
-                      child: Text(
-                        widget.word,
-                        textAlign: TextAlign.center,
-                      ),
+                      padding: const EdgeInsets.only(left: 16.0),
+                      child: Observer(builder: (context) {
+                        final localTag =
+                            tagManagerStore.getTagDisplayData(widget.word);
+                        String translation =
+                            localTag?.tag.displayTranslatedName ?? '';
+                        if (translation.isEmpty) {
+                          translation = widget.translatedName;
+                        }
+
+                        final String titleText = translation.isNotEmpty
+                            ? '${widget.word} ($translation)'
+                            : widget.word;
+
+                        return Text(
+                          titleText,
+                          textAlign: TextAlign.left,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        );
+                      }),
                     ),
                   ),
                 ),

@@ -23,12 +23,9 @@ import 'package:pixez/utils/file_utils.dart';
 import 'package:pixez/exts.dart';
 import 'package:pixez/i18n.dart';
 import 'package:pixez/models/download_record.dart';
-import 'package:pixez/models/illust.dart';
 import 'package:pixez/page/downloaded/downloaded_page_store.dart';
 import 'package:pixez/page/downloaded/optimize_json_dialog.dart';
 import 'package:pixez/page/downloaded/sync_bookmarks_dialog.dart';
-
-import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 
 import 'package:pixez/page/downloaded/update_illust_info_dialog.dart';
 import 'package:pixez/page/downloaded/bookmark_priority_dialog.dart';
@@ -36,13 +33,11 @@ import 'package:pixez/main.dart';
 import 'package:pixez/component/pixez_default_header.dart';
 import 'package:pixez/page/picture/illust_store.dart';
 import 'package:pixez/page/picture/picture_list_page.dart';
-import 'package:pixez/page/history/history_manager.dart';
 import 'package:pixez/er/leader.dart';
 import 'package:pixez/store/download_store.dart';
 import 'package:pixez/component/sort_group.dart';
-import 'package:pixez/constants.dart';
 import 'package:pixez/page/downloaded/widgets/downloaded_illust_card.dart';
-import '../../component/pixiv_image.dart';
+import 'package:pixez/page/user/users_page.dart';
 
 class DownloadedPage extends StatefulWidget {
   final int? initialUserId;
@@ -218,10 +213,25 @@ class _DownloadedPageState extends State<DownloadedPage> {
       }
     }
     String title = _store.filterUserName ?? tagNameTitle ?? '已下载';
+
+    Widget titleWidget = Text(title);
+    if (_store.filterUserId != null) {
+      titleWidget = InkWell(
+        onTap: () {
+          Navigator.of(context, rootNavigator: true).push(
+            MaterialPageRoute(
+              builder: (context) => UsersPage(id: _store.filterUserId!),
+            ),
+          );
+        },
+        child: titleWidget,
+      );
+    }
+
     final stats = _store.stats;
 
     if (stats == null) {
-      return Text(title);
+      return titleWidget;
     }
 
     final illustCount = stats['illust_count'] ?? 0;
@@ -229,13 +239,13 @@ class _DownloadedPageState extends State<DownloadedPage> {
     final fileSize = stats['file_size'] ?? 0;
 
     if (illustCount == 0 && imageCount == 0 && fileSize == 0) {
-      return Text(title);
+      return titleWidget;
     }
 
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(title),
+        titleWidget,
         SizedBox(width: 8),
         Text(
           '${illustCount}作品 · ${imageCount}图 · ${fileSize.formatFileSize()}',
