@@ -536,6 +536,98 @@ abstract class _TagManagerStore with Store {
     );
   }
 
+  /// 导入标签更新数据
+  /// [updates] 是解析后的 JSON updates 数组
+  /// 返回每项的匹配和变更结果
+  Future<List<TagImportResult>> importTagUpdates(
+      List<TagImportItem> items) async {
+    final results = <TagImportResult>[];
+
+    for (final item in items) {
+      // 按 name 查找本地标签
+      final tagData = tagNameMap[item.name];
+      if (tagData == null) {
+        results.add(TagImportResult(
+          item: item,
+          matched: false,
+          tagData: null,
+        ));
+        continue;
+      }
+
+      // 解析父标签：查找并定位到主标签
+      String? resolvedParentName = item.parentName;
+      if (resolvedParentName != null && resolvedParentName.isNotEmpty) {
+        resolvedParentName = resolveToMainTagName(resolvedParentName);
+      }
+
+      results.add(TagImportResult(
+        item: item,
+        matched: true,
+        tagData: tagData,
+        editableCategory: item.category,
+        editableParentName: resolvedParentName,
+        editableTranslation: item.customTranslatedName,
+      ));
+    }
+    return results;
+  }
+
+  /// 将标签名解析为主标签名
+  /// 如果目标标签有 referencedTagId（是同义标签），则返回主标签名
+  /// 如果目标标签在 tagNameMap 中不存在，返回 null
+  String? resolveToMainTagName(String tagName) {
+    final data = tagNameMap[tagName];
+    if (data == null) return null; // 不存在于数据库
+
+    // 如果该标签是同义标签，定位到主标签
+    if (data.tag.referencedTagId != 0) {
+      final mainData = tagIdMap[data.tag.referencedTagId];
+      if (mainData != null) {
+        return mainData.tag.name;
+      }
+    }
+    return tagName;
+  }
+
+  /// 应用已确认的导入结果
+  /// 使用 TagImportResult 上的可编辑字段
+  @action
+  Future<int> applyImportResults(List<TagImportResult> results) async {
+    int applied = 0;
+    for (final result in results) {
+      if (!result.matched || !result.selected || result.tagData == null) {
+        continue;
+      }
+
+      var tag = result.tagData!.tag;
+
+      // 更新 category (使用可编辑的值)
+      if (result.editableCategory != null) {
+        tag = tag.copyWith(category: result.editableCategory);
+      }
+
+      // 更新 customTranslatedName（使用可编辑的值）
+      final translation = result.editableTranslation;
+      if (translation != null && translation.isNotEmpty) {
+        tag = tag.copyWith(customTranslatedName: translation);
+      }
+
+      // 更新 parentId（使用可编辑的父标签名，已经过同义词解析）
+      final parentName = result.editableParentName;
+      if (parentName != null && parentName.isNotEmpty) {
+        final parentData = tagNameMap[parentName];
+        if (parentData != null) {
+          tag = tag.copyWith(parentId: parentData.tag.id);
+        }
+      }
+
+      await updateTag(tag);
+      applied++;
+    }
+    return applied;
+  }
+
   /// 清理资源
   void dispose() {
     _tagChangesSubscription?.cancel();
@@ -555,3 +647,87 @@ class TagAssociationProposal {
     this.suggestionReason = '正则匹配',
   });
 }
+
+/// 从 JSON 解析的标签更新项
+class TagImportItem {
+  final String name;
+  final int? category;
+  final String? customTranslatedName;
+  final String? parentName;
+  final String reason;
+
+  TagImportItem({
+    required this.name,
+    this.category,
+    this.customTranslatedName,
+    this.parentName,
+    this.reason = '',
+  });
+
+  factory TagImportItem.fromJson(Map<String, dynamic> json) {
+    return TagImportItem(
+      name: json['name'] as String,
+      category: json['category'] as int?,
+      customTranslatedName: json['custom_translated_name'] as String?,
+      parentName: json['parent_name'] as String?,
+      reason: (json['reason'] as String?) ?? '',
+    );
+  }
+}
+
+/// 导入结果（含匹配状态、选中状态和可编辑字段）
+class TagImportResult {
+  final TagImportItem item;
+  final bool matched;
+  final TagDisplayData? tagData;
+  bool selected;
+
+  /// 可编辑的分类
+  int? editableCategory;
+
+  /// 可编辑的父标签名（已经过同义词解析，指向主标签）
+  String? editableParentName;
+
+  /// 可编辑的自定义翻译
+  String? editableTranslation;
+
+  TagImportResult({
+    required this.item,
+    required this.matched,
+    this.tagData,
+    this.selected = true,
+    this.editableCategory,
+    this.editableParentName,
+    this.editableTranslation,
+  });
+
+  /// 获取变更描述列表
+  List<String> get changeDescriptions {
+    final changes = <String>[];
+    if (!matched) {
+      changes.add('未找到匹配标签');
+      return changes;
+    }
+    final tag = tagData!.tag;
+
+    if (editableCategory != null && editableCategory != tag.category) {
+      final oldCat = TagCategory.fromValue(tag.category).label;
+      final newCat = TagCategory.fromValue(editableCategory!).label;
+      changes.add('分类: $oldCat → $newCat');
+    }
+
+    if (editableTranslation != null &&
+        editableTranslation!.isNotEmpty &&
+        editableTranslation != tag.customTranslatedName) {
+      final old = tag.displayTranslatedName.isNotEmpty
+          ? tag.displayTranslatedName
+          : '(无)';
+      changes.add('翻译: $old → $editableTranslation');
+    }
+    if (editableParentName != null && editableParentName!.isNotEmpty) {
+      changes.add('归属: → $editableParentName');
+    }
+    return changes;
+  }
+}
+

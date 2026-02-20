@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/models/download_record.dart';
+import 'package:pixez/page/downloaded/tag_manager/tag_import_dialog.dart';
 import 'package:pixez/page/downloaded/tag_manager/tag_item.dart';
 import 'package:pixez/page/downloaded/tag_manager/tag_manager_page_store.dart';
 import 'package:pixez/component/sort_group.dart';
@@ -263,6 +264,9 @@ class _TagManagerPageState extends State<TagManagerPage> {
                 case 'auto_associate':
                   _showAutoAssociateDialog();
                   break;
+                case 'import_tags':
+                  TagImportDialog.show(context);
+                  break;
                 case 'sync':
                   _showSyncDialog();
                   break;
@@ -277,6 +281,16 @@ class _TagManagerPageState extends State<TagManagerPage> {
                         Icon(Icons.auto_awesome, size: 20),
                         SizedBox(width: 8),
                         Text('智能关联识别'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'import_tags',
+                    child: Row(
+                      children: [
+                        Icon(Icons.file_download, size: 20),
+                        SizedBox(width: 8),
+                        Text('导入标签数据'),
                       ],
                     ),
                   ),
