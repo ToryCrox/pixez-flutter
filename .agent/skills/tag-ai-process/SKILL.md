@@ -26,12 +26,12 @@ sqlite3 "E:\Pictures\pixez_downloads\download.db" ".mode json" "SELECT id, name,
 
 对查询结果中的每个标签，根据以下规则进行分析：
 
-**信息导出规则（推荐）**：
-为了提高匹配精度并减少重复查询数据库，建议在开始分析前，先导出当前的标签基础信息（特别是未分类和作品分类的标签）：
+**信息导出规则（必做）**：
+为了提取归属并彻底杜绝重复查询数据库，在开始分析标签前，**必须执行以下命令**导出当前的标签上下文数据（包含未分类、作品分类及数量统计）：
 ```powershell
-sqlite3 "E:\Pictures\pixez_downloads\download.db" ".mode json" "SELECT name, translated_name, custom_translated_name, category FROM downloaded_tags WHERE category IN (0, 1)" > e:\Workspace\flutter\pixez_flutter\build\tag_context.json
+sqlite3 "E:\Pictures\pixez_downloads\download.db" ".mode json" "SELECT name, translated_name, custom_translated_name, category, count FROM downloaded_tags WHERE category IN (0, 1) ORDER BY count DESC" > e:\Workspace\flutter\pixez_flutter\build\tag_context.json
 ```
-将此信息作为上下文，用于更准确地判断 `parent_name` 是否在库中存在，以及匹配同义主标签。
+将此导出的 JSON 文件内容作为本地上下文库，唯一且直接地用于判断 `parent_name` 是否存在，以及匹配最高级的同义主标签。
 
 **分类规则**（`category` 值）：
 - `1` = 作品（动漫/游戏/漫画作品名，如 `Fate/Grand_Order`、`原神`）
@@ -51,11 +51,12 @@ sqlite3 "E:\Pictures\pixez_downloads\download.db" ".mode json" "SELECT name, tra
 - **英文标签** → 如果有常用中文名则提供（如 `maid` → `女仆`），否则保留英文。
 
 **归属规则**：
-- 角色标签名中包含 `（作品名）` 或 `(作品名)` → 设置 `parent_name` 为该作品名的 **`name` 字段值**
-- 角色标签名中没有包含作品名 → **优先从已导出的标签信息中匹配**，若无匹配再使用 `search_web` 工具确认角色所属作品，并获取其在库中的 **`name` 字段值**
-- **重要**：作品在数据库中可能有多个同义 tag（如 `fgo` 和 `Fate/Grand_Order`），`parent_name` 应指向**主标签的原名（`name` 字段）**（通常是 `count` 最高或名称最完整的那个）
-- **父标签必须在数据库表 `downloaded_tags` 中存在**，且 `parent_name` 必须使用该标签在数据库中的 **`name` 字段值**（原始名，如日文或英文），**严禁使用翻译名**。
-- 如果不确定归属，可留空 `parent_name`
+- **核心原则**：分析归属时，**必须直接读取 `e:\Workspace\flutter\pixez_flutter\build\tag_context.json` 文件进行查找匹配，绝对不要再使用 SQL 重复查询数据库**。
+- 角色标签名中包含 `（作品名）` 或 `(作品名)` → 在 `tag_context.json` 中查找该作品，设置 `parent_name` 为匹配到的 **`name` 字段值**。
+- 角色标签名中没有包含作品名 → 使用 `search_web` 工具确认角色所属作品，然后在 `tag_context.json` 中查找对应的作品，获取其 **`name` 字段值**。
+- **重要**：同一个作品可能有多个同义 tag（如 `fgo` 和 `Fate/Grand_Order`），`parent_name` 应指向在 `tag_context.json` 文件中 `count` 最高或名称最完整的主标签的 `name` 字段。
+- **父标签必须在 `tag_context.json` 中存在**：赋给 `parent_name` 的值必须是对应标签在 JSON 里的原始名（`name` 字段），**严禁使用翻译名**。
+- 如果不确定归属，或者在 `tag_context.json` 中无法匹配到该作品项，可留空 `parent_name`。
 
 **额外归属规则**：
 以下为自定义归属映射，优先于默认归属规则：
@@ -75,7 +76,7 @@ sqlite3 "E:\Pictures\pixez_downloads\download.db" ".mode json" "SELECT name, tra
       "name": "原始标签名（必须与数据库 name 字段字形、字符完全一致，严禁转换繁简或修改日文汉字）",
       "category": 2,
       "custom_translated_name": "中文翻译（推荐使用简体中文，null 表示不更改）",
-      "parent_name": "父标签的原名（对应数据库 `name` 字段，null 表示不设置，必须在数据库中存在，严禁使用翻译名）",
+      "parent_name": "父标签的原名（对应 tag_context.json 中的 `name` 字段，null 表示不设置，必须在上下文库中存在，严禁使用翻译名）",
       "reason": "分析理由（仅供预览显示）"
     }
   ]
@@ -94,4 +95,4 @@ sqlite3 "E:\Pictures\pixez_downloads\download.db" ".mode json" "SELECT name, tra
 - 如标签含义不确定，`category` 保持 `0`（未分类），`custom_translated_name` 设为 `null`
 - `reason` 字段帮助用户在 App 中预览时理解建议依据
 - 归属不确定时宁可不填，不要猜测
-- 父标签必须在数据库中存在，否则不设置归属
+- 父标签必须能在 tag_context.json 中查找到，否则切勿猜测并查询数据库，应直接不设置归属
