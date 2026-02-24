@@ -218,7 +218,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
     if (_store.filterUserId != null) {
       titleWidget = InkWell(
         onTap: () {
-          Navigator.of(context, rootNavigator: true).push(
+          Navigator.of(context).push(
             MaterialPageRoute(
               builder: (context) => UsersPage(id: _store.filterUserId!),
             ),
