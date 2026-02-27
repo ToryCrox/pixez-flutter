@@ -1,10 +1,11 @@
 ---
+name: tag-ai-process
 description: 从数据库读取高频未处理标签，AI 分析并生成导入 JSON
 ---
 
 # 标签智能处理 Skill
 
-每次从 `downloaded_tags` 表读取 20 条插画数量最多且未分类的标签，交由 AI 分析后生成 `tag_updates.json` 供 App 导入。
+每次从 `downloaded_tags` 表读取 50 条插画数量最多且未分类的标签，交由 AI 分析后生成 `tag_updates.json` 供 App 导入。
 
 ## 前置条件
 
@@ -16,10 +17,10 @@ description: 从数据库读取高频未处理标签，AI 分析并生成导入 
 ### 1. 读取待处理标签
 
 // turbo
-执行以下 SQL 查询未分类（`category = 0`）的标签，按 `count` 降序排列，取前 20 条：
+执行以下 SQL 查询未分类（`category = 0`）的标签，按 `count` 降序排列，取前 50 条：
 
 ```powershell
-sqlite3 "E:\Pictures\pixez_downloads\download.db" ".mode json" "SELECT id, name, translated_name, custom_translated_name, category, count, parent_id, referenced_tag_id FROM downloaded_tags WHERE category = 0 AND count > 0 ORDER BY count DESC LIMIT 20" > e:\Workspace\flutter\pixez_flutter\build\pending_tags.json
+sqlite3 "E:\Pictures\pixez_downloads\download.db" ".mode json" "SELECT id, name, translated_name, custom_translated_name, category, count, parent_id, referenced_tag_id FROM downloaded_tags WHERE category = 0 AND count > 0 ORDER BY count DESC LIMIT 50" > e:\Workspace\flutter\pixez_flutter\build\pending_tags.json
 ```
 
 ### 2. AI 分析标签
@@ -90,7 +91,7 @@ sqlite3 "E:\Pictures\pixez_downloads\download.db" ".mode json" "SELECT name, tra
 ## 注意事项
 
 - **字符一致性（核心）**：JSON 中的 `name` 字段是查找记录的唯一标识。**绝对禁止**将数据库中的繁体字、日文汉字自动转换为简体中文。例如数据库中是 `鳴潮`，`name` 必须写 `鳴潮` 而不是 `鸣潮`。
-- 每次只处理 20 条，重复调用此 Skill 可继续处理余下标签
+- 每次只处理 50 条，重复调用此 Skill 可继续处理余下标签
 - 已分类的标签（`category != 0`）不会被查询到，自动跳过
 - 如标签含义不确定，`category` 保持 `0`（未分类），`custom_translated_name` 设为 `null`
 - `reason` 字段帮助用户在 App 中预览时理解建议依据
