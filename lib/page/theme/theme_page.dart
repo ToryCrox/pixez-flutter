@@ -13,7 +13,7 @@
  *  this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-import 'dart:math';
+
 
 import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
@@ -39,143 +39,147 @@ class _ColorPickPageState extends State<ColorPickPage> {
     super.initState();
   }
 
-  final skinList = [
-    ThemeData(
-      brightness: Brightness.light,
-      primaryColor: Colors.cyan[500], tabBarTheme: TabBarThemeData(indicatorColor: Colors.cyan[500]),
-    ),
-    ThemeData(
-      brightness: Brightness.light,
-      primaryColor: Colors.pink[500], tabBarTheme: TabBarThemeData(indicatorColor: Colors.pink[500]),
-    ),
-    ThemeData(
-      brightness: Brightness.light,
-      primaryColor: Colors.green[500], tabBarTheme: TabBarThemeData(indicatorColor: Colors.green[600]),
-    ),
-    ThemeData(
-      brightness: Brightness.light,
-      primaryColor: Colors.brown[500], tabBarTheme: TabBarThemeData(indicatorColor: Colors.brown[600]),
-    ),
-    ThemeData(
-      brightness: Brightness.light,
-      primaryColor: Colors.purple[500], tabBarTheme: TabBarThemeData(indicatorColor: Colors.purple[600]),
-    ),
-    ThemeData(
-      brightness: Brightness.light,
-      primaryColor: Colors.blue[500], tabBarTheme: TabBarThemeData(indicatorColor: Colors.blue[500]),
-    ),
-    ThemeData(
-      brightness: Brightness.light,
-      primaryColor: Color(0xFFFB7299), tabBarTheme: TabBarThemeData(indicatorColor: Color(0xFFFB7299)),
-    ),
-  ];
+
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(I18n.of(context).pick_a_color),
-        actions: <Widget>[
-          IconButton(
-              icon: Icon(Icons.edit),
-              onPressed: () async {
-                final TextEditingController textEditingController =
-                    TextEditingController(
-                        text: pickerColor.toHexString(
-                            includeHashSign: true,
-                            enableAlpha: false,
-                            toUpperCase: false));
-
-                String result = await showDialog(
-                    context: context,
-                    builder: (context) {
-                      return AlertDialog(
-                        title: Text("16 radix RGB"),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8.0),
-                        ),
-                        content: TextField(
-                          controller: textEditingController,
-                          maxLength: 6,
-                          decoration: InputDecoration(
-                              prefix: Text("color(0xff"), suffix: Text(")")),
-                        ),
-                        actions: <Widget>[
-                          TextButton(
-                              onPressed: () {
-                                final result = textEditingController.text
-                                    .trim()
-                                    .toLowerCase();
-                                if (result.length != 6) {
-                                  return;
-                                }
-                                Navigator.of(context)
-                                    .pop("color(0xff${result})");
-                              },
-                              child: Text(I18n.of(context).ok)),
-                          TextButton(
-                              onPressed: () {
-                                Navigator.of(context).pop();
-                              },
-                              child: Text(I18n.of(context).cancel)),
-                        ],
-                      );
-                    });
-                Color color = _stringToColor(result); //迅速throw出来
+    return AlertDialog(
+      title: Text(I18n.of(context).pick_a_color),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ColorPicker(
+              enableAlpha: false,
+              pickerColor: pickerColor,
+              onColorChanged: (Color color) {
                 setState(() {
                   pickerColor = color;
                 });
-              }),
-          IconButton(
-              icon: Icon(Icons.save),
-              onPressed: () {
-                Navigator.of(context).pop(pickerColor);
-              })
-        ],
-      ),
-      body: LayoutBuilder(builder: (context, snapshot) {
-        final rowCount = max(3, (snapshot.maxWidth / 200).floor());
-        return CustomScrollView(
-          slivers: [
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: ColorPicker(
-                  enableAlpha: false,
-                  pickerColor: pickerColor,
-                  onColorChanged: (Color color) {
-                    setState(() {
-                      pickerColor = color;
-                    });
-                  },
-                  pickerAreaHeightPercent: 0.8,
-                ),
-              ),
+                _applyColor(color);
+              },
+              pickerAreaHeightPercent: 0.8,
             ),
-            SliverGrid.count(
-              crossAxisCount: rowCount,
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
               children: [
-                for (final i in skinList)
+                for (final color in Colors.primaries)
                   InkWell(
                     onTap: () {
                       setState(() {
-                        pickerColor = i.primaryColor;
+                        pickerColor = color;
                       });
+                      _applyColor(color);
                     },
                     child: Container(
-                      margin: EdgeInsets.all(16),
+                      width: 40,
+                      height: 40,
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(10),
-                        color: i.primaryColor,
+                        shape: BoxShape.circle,
+                        color: color,
+                        border: pickerColor.value == color.value
+                            ? Border.all(color: Colors.white, width: 3)
+                            : null,
+                        boxShadow: pickerColor.value == color.value
+                            ? [
+                                BoxShadow(
+                                  color: Colors.black26,
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                )
+                              ]
+                            : null,
                       ),
+                      child: pickerColor.value == color.value
+                          ? const Icon(Icons.check,
+                              color: Colors.white, size: 24)
+                          : null,
                     ),
                   )
               ],
-            )
+            ),
           ],
-        );
-      }),
+        ),
+      ),
+      actions: <Widget>[
+        IconButton(
+          icon: const Icon(Icons.edit),
+          tooltip: "16 radix RGB",
+          onPressed: () async {
+            final TextEditingController textEditingController =
+                TextEditingController(
+                    text: pickerColor.toHexString(
+                        includeHashSign: false,
+                        enableAlpha: false,
+                        toUpperCase: false));
+
+            String? result = await showDialog<String>(
+                context: context,
+                builder: (context) {
+                  return AlertDialog(
+                    title: const Text("16 radix RGB"),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8.0),
+                    ),
+                    content: TextField(
+                      controller: textEditingController,
+                      maxLength: 6,
+                      decoration: const InputDecoration(
+                          prefix: Text("color(0xff"), suffix: Text(")")),
+                    ),
+                    actions: <Widget>[
+                      TextButton(
+                          onPressed: () {
+                            final result = textEditingController.text
+                                .trim()
+                                .toLowerCase();
+                            if (result.length != 6) {
+                              return;
+                            }
+                            Navigator.of(context)
+                                .pop("color(0xff${result})");
+                          },
+                          child: Text(I18n.of(context).ok)),
+                      TextButton(
+                          onPressed: () {
+                            Navigator.of(context).pop();
+                          },
+                          child: Text(I18n.of(context).cancel)),
+                    ],
+                  );
+                });
+            if (result != null) {
+              Color color = _stringToColor(result); //迅速throw出来
+              if (!context.mounted) return;
+              setState(() {
+                pickerColor = color;
+              });
+              _applyColor(color);
+            }
+          },
+        ),
+        TextButton(
+          onPressed: () {
+            _applyColor(widget.initialColor);
+            Navigator.of(context).pop();
+          },
+          child: const Text("还原"),
+        ),
+        TextButton(
+          onPressed: () {
+            Navigator.of(context).pop(pickerColor);
+          },
+          child: Text(I18n.of(context).ok),
+        ),
+      ],
     );
+  }
+
+  void _applyColor(Color color) {
+    userSetting.setThemeData(color);
+    topStore.setTop("main");
   }
 
   Color _stringToColor(String colorString) {
@@ -272,11 +276,14 @@ class _ThemePageState extends State<ThemePage> with TickerProviderStateMixin {
   }
 
   _pickColor() async {
-    Color? result = await Navigator.of(context).push(MaterialPageRoute(
-        builder: (context) =>
-            ColorPickPage(initialColor: userSetting.seedColor)));
-    if (result != null) {
-      await userSetting.setThemeData(result);
+    Color? result = await showDialog<Color>(
+      context: context,
+      barrierColor: Colors.transparent,
+      builder: (context) => ColorPickPage(initialColor: userSetting.seedColor),
+    );
+    if (result == null) {
+      // 预防返回键等意外退出没有走到 pop(pickerColor) 导致主题无法恢复
+      await userSetting.setThemeData(userSetting.seedColor);
       topStore.setTop("main");
     }
   }

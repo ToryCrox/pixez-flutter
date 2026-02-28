@@ -281,6 +281,7 @@ class _HelloPageState extends State<HelloPage> {
             onPressed: () async {
               await showDialog(
                 context: context,
+                barrierColor: Colors.transparent,
                 builder: (context) {
                   return Dialog(
                     child: ConstrainedBox(
