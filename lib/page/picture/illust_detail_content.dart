@@ -807,7 +807,7 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
                       TextSpan(
                         text: localTag.tag.displayName,
                         style: TextStyle(
-                          color: isCustom ? Colors.purple : null,
+                          color: isCustom ? (isBookmarked ? null : Colors.purple) : null,
                         ),
                       ),
                       TextSpan(
@@ -824,7 +824,7 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
                         TextSpan(
                           text: displayTranslation,
                           style: TextStyle(
-                            color: isCustom ? Colors.purple : null,
+                            color: isCustom ? (isBookmarked ? null : Colors.purple) : null,
                           ),
                         ),
                       ],
@@ -841,7 +841,7 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
                   style: theme.textTheme.titleSmall!.copyWith(
                     color:
                         isBookmarked
-                            ? Colors.deepOrange
+                            ? Colors.red
                             : theme.colorScheme.primary,
                     fontSize: 12,
                     fontWeight: isBookmarked ? FontWeight.bold : null,
