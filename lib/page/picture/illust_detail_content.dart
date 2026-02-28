@@ -1,9 +1,11 @@
 import 'dart:io';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:pixez/component/selectable_html.dart';
+import 'package:pixez/component/mouse_drag_blocker.dart';
 import 'package:pixez/er/leader.dart';
 import 'package:pixez/exts.dart';
 import 'package:pixez/i18n.dart';
@@ -386,15 +388,17 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
             child: Container(
               width: double.infinity,
-              child: SelectionArea(
-                focusNode: _focusNode,
-                onSelectionChanged: (value) {
-                  _selectedText = value?.plainText ?? "";
-                },
-                contextMenuBuilder: (context, selectableRegionState) {
-                  return _buildSelectionMenu(selectableRegionState, context);
-                },
-                child: SelectableHtml(data: caption.isEmpty ? "~" : caption),
+              child: MouseDragBlocker(
+                child: SelectionArea(
+                  focusNode: _focusNode,
+                  onSelectionChanged: (value) {
+                    _selectedText = value?.plainText ?? "";
+                  },
+                  contextMenuBuilder: (context, selectableRegionState) {
+                    return _buildSelectionMenu(selectableRegionState, context);
+                  },
+                  child: SelectableHtml(data: caption.isEmpty ? "~" : caption),
+                ),
               ),
             ),
           ),
@@ -1143,3 +1147,4 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
     }
   }
 }
+
