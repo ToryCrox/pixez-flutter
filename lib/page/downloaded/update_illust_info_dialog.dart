@@ -205,7 +205,8 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
   int _updatingProgress = 0; // 当前更新进度（已更新的作品数）
   int _totalToUpdate = 0; // 需要更新的总作品数
   UpdateResultType? _filterType;
-  String? _errorMessage;
+  List<int> _displayingChildIndexList = []; // 当前处于视口的项索引列表
+  String? _errorMessage = null;
   late int _concurrentCount; // 每个作品内并发扫描的图片数量（从 userSetting 读取）
   late ListObserverController _observerController;
   late ScrollController _scrollController;
@@ -575,15 +576,7 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
       }
       if (!mounted) return;
 
-      final filteredIndex = i;
-      if (filteredIndex != -1 && _scrollController.hasClients) {
-        _observerController.animateTo(
-          index: filteredIndex,
-          duration: Duration(milliseconds: 50),
-          curve: Curves.easeIn,
-          alignment: 0,
-        );
-      }
+      _autoScrollTo(i);
 
       await _scanSingleIllust(i);
     }
@@ -598,6 +591,32 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
           info.isScanning = false;
         }
       });
+    }
+  }
+
+  void _autoScrollTo(int index) {
+    if (index != -1 && _scrollController.hasClients && _filterType == null) {
+      // 逻辑：只有当当前扫描的索引 index 达到了当前屏幕显示的最后一个索引时，才触发滚动
+      // 这样可以确保手动扫描完一屏后再滚动
+      if (_displayingChildIndexList.isNotEmpty) {
+        final lastVisibleIndex = _displayingChildIndexList.last;
+        if (index >= lastVisibleIndex || index == 0) {
+          _observerController.animateTo(
+            index: index,
+            duration: const Duration(milliseconds: 100),
+            curve: Curves.easeInOut,
+            alignment: 0,
+          );
+        }
+      } else if (index == 0) {
+        // 初始滚动
+        _observerController.animateTo(
+          index: 0,
+          duration: const Duration(milliseconds: 100),
+          curve: Curves.easeInOut,
+          alignment: 0,
+        );
+      }
     }
   }
 
@@ -1019,6 +1038,10 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
                       )
                       : ListViewObserver(
                         controller: _observerController,
+                        onObserve: (resultModel) {
+                          _displayingChildIndexList =
+                              resultModel.displayingChildIndexList;
+                        },
                         child: ListView.builder(
                           controller: _scrollController,
                           itemCount: _filteredInfos.length,
