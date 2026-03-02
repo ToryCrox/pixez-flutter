@@ -378,6 +378,8 @@ class LocalImageInfo {
 
 // 下载的图片记录
 class DownloadedImage {
+  /// 动图合并后的 WebP 文件标识
+  static const int partUgoiraWebP = -1;
 
   final int illustId;
   final int part;

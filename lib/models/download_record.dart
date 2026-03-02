@@ -2410,7 +2410,7 @@ class DownloadDatabaseProvider {
         DownloadedImageColumns.tableName,
         DownloadedImage(
           illustId: illustId,
-          part: -1, // WebP动图标识
+          part: DownloadedImage.partUgoiraWebP, // WebP动图标识
           fileName: '$illustId',
           extension: '.webp',
           fileSize: fileSize,
@@ -2437,7 +2437,7 @@ class DownloadDatabaseProvider {
 
   /// 获取WebP动图记录（part=-1）
   Future<DownloadedImage?> getWebPImage(int illustId) async {
-    return await getImage(illustId, -1);
+    return await getImage(illustId, DownloadedImage.partUgoiraWebP);
   }
 
   // ============ Tag 操作 ============

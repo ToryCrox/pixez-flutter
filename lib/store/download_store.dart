@@ -2033,7 +2033,7 @@ abstract class _DownloadStoreBase with Store {
   /// 1. 检查是否为动图且已下载序列帧
   /// 2. 调用WebPEncoder进行转换
   /// 3. 删除序列帧文件和数据库记录（保留part=0预览图）
-  /// 4. 添加WebP动图记录（part=-1）
+  /// 4. 添加WebP动图记录（part=DownloadedImage.partUgoiraWebP）
   /// 
   /// 返回转换后的WebP文件路径，失败返回null
   Future<String?> convertUgoiraToWebP(int illustId, {int quality = 80}) async {
@@ -2055,10 +2055,10 @@ abstract class _DownloadStoreBase with Store {
       return null;
     }
 
-    // 2. 检查是否已有WebP动图（part=-1）
-    final existingWebP = await _dbProvider.getImage(illustId, -1);
+    // 2. 检查是否已有WebP动图（part=DownloadedImage.partUgoiraWebP）
+    final existingWebP = await _dbProvider.getImage(illustId, DownloadedImage.partUgoiraWebP);
     if (existingWebP != null) {
-      final webpPath = await _dbProvider.findImagePath(illustId, -1);
+      final webpPath = await _dbProvider.findImagePath(illustId, DownloadedImage.partUgoiraWebP);
       if (webpPath != null && await File(webpPath).exists()) {
         Log.d('convertUgoiraToWebP: 已存在WebP动图 $webpPath');
         return webpPath;

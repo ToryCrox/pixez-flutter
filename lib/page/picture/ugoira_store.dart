@@ -182,7 +182,7 @@ abstract class _UgoiraStoreBase with Store {
 
       ugoiraMetadataResponse = UgoiraMetadataResponse(ugoiraMetadata: metadata);
 
-      // 优先检测是否存在WebP动图（part=-1）
+      // 优先检测是否存在WebP动图（part=DownloadedImage.partUgoiraWebP）
       final webpImage = await downloadStore.dbProvider.getWebPImage(id);
       if (webpImage != null) {
         final existingWebPPath = await downloadStore.getUgoiraWebPPath(id);

@@ -98,9 +98,17 @@ class UpdateIllustInfo {
       final metadata = illust.getUgoiraMetadata();
       final expectedFrames = metadata?.frames.length ?? 0;
 
-      // 动图完整：有预览图 且 帧数符合预期
+      final hasWebP = imageUpdates.any(
+        (e) =>
+            e.originalImage.part == DownloadedImage.partUgoiraWebP &&
+            !e.isBroken &&
+            !e.isFileNotFound,
+      );
+
+      // 动图完整：有预览图 且 (帧数符合预期 或 存在WebP合并文件)
       isIncomplete =
-          !hasPreview || (expectedFrames > 0 && frameCount < expectedFrames);
+          !hasPreview ||
+          (expectedFrames > 0 && frameCount < expectedFrames && !hasWebP);
     } else {
       // 普通插画：比较 pageCount 和实际下载的图片数量
       final downloadedCount =
