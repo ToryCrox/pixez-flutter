@@ -285,9 +285,7 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
     int? newFileSize;
     try {
       final file = File(actualPath);
-      if (await file.exists()) {
-        newFileSize = await file.length();
-      }
+      newFileSize = await file.length();
     } catch (e) {
       // 忽略错误
     }
