@@ -15,6 +15,7 @@
  */
 
 import 'dart:io';
+import 'dart:io' as io;
 import 'package:archive/archive.dart';
 import 'package:path/path.dart' as path;
 import 'package:pixez/component/pixiv_image.dart';
@@ -23,6 +24,7 @@ import 'package:pixez/er/hoster.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/models/ugoira_metadata_response.dart';
 import 'package:pixez/network/api_client.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 
 /// Ugoira 下载结果
 ///
@@ -46,6 +48,9 @@ class UgoiraDownloadResult {
 
 final ugoiraDownloader = UgoiraDownloader._();
 
+/// Ugoira 下载进度回调
+typedef UgoiraProgressCallback = void Function(int received, int total);
+
 /// Ugoira 下载工具类
 ///
 /// 提供动图下载、解压的公共方法，供 download_store 和 ugoira_store 共用
@@ -55,6 +60,8 @@ class UgoiraDownloader {
 
   /// 获取动图元数据、下载并解压序列帧
   ///
+  /// 下载进度回调 [onProgress] 会在下载过程中被调用
+  ///
   /// 下载优先级：
   /// 1. 方法二：逐帧下载原始图片（最高质量）-> {id}_frames
   /// 2. 方法一：下载高清 ZIP (1920x1080) -> {id}_original
@@ -62,8 +69,9 @@ class UgoiraDownloader {
   ///
   /// 返回 [UgoiraDownloadResult] 包含元数据和解压后的帧文件列表
   Future<UgoiraDownloadResult> fetchMetadataAndExtractFrames(
-    int illustId,
-  ) async {
+    int illustId, {
+    UgoiraProgressCallback? onProgress,
+  }) async {
     // 1. 获取元数据
     final metadata = await fetchMetadata(illustId);
     final mediumUrl = metadata.ugoiraMetadata.zipUrls.medium;
@@ -79,30 +87,31 @@ class UgoiraDownloader {
 
     // 2. 尝试方法二：逐帧下载原始图片
     Log.d(() => 'Ugoira $illustId: 尝试方法二 - 逐帧下载原始图片');
-    frameFiles = await _tryDownloadOriginalFrames(
-      illustId: illustId,
-      mediumUrl: mediumUrl,
-      frames: frames,
-      extractDir: framesDir,
-    );
-    if (frameFiles != null) successDir = framesDir;
+      frameFiles = await _tryDownloadOriginalFrames(
+        illustId: illustId,
+        mediumUrl: mediumUrl,
+        frames: frames,
+        extractDir: framesDir,
+        onProgress: onProgress,
+      );
+      if (frameFiles != null) successDir = framesDir;
 
-    // 3. 尝试方法一：下载高清 ZIP
-    if (frameFiles == null) {
-      Log.d(() => 'Ugoira $illustId: 尝试方法一 - 下载高清 ZIP');
-      final originalUrl = getOriginalZipUrl(mediumUrl);
-      if (originalUrl != null) {
-        frameFiles = await _tryDownloadAndExtractZip(originalUrl, originalDir);
-        if (frameFiles != null) successDir = originalDir;
+      // 3. 尝试方法一：下载高清 ZIP
+      if (frameFiles == null) {
+        Log.d(() => 'Ugoira $illustId: 尝试方法一 - 下载高清 ZIP');
+        final originalUrl = getOriginalZipUrl(mediumUrl);
+        if (originalUrl != null) {
+          frameFiles = await _tryDownloadAndExtractZip(originalUrl, originalDir, onProgress: onProgress);
+          if (frameFiles != null) successDir = originalDir;
+        }
       }
-    }
 
-    // 4. 使用现有方法：下载 medium ZIP
-    if (frameFiles == null) {
-      Log.d(() => 'Ugoira $illustId: 使用 medium ZIP');
-      frameFiles = await _tryDownloadAndExtractZip(mediumUrl, mediumDir);
-      if (frameFiles != null) successDir = mediumDir;
-    }
+      // 4. 使用现有方法：下载 medium ZIP
+      if (frameFiles == null) {
+        Log.d(() => 'Ugoira $illustId: 使用 medium ZIP');
+        frameFiles = await _tryDownloadAndExtractZip(mediumUrl, mediumDir, onProgress: onProgress);
+        if (frameFiles != null) successDir = mediumDir;
+      }
 
     // 5. 如果全部失败，抛出异常
     if (frameFiles == null || frameFiles.isEmpty) {
@@ -162,6 +171,7 @@ class UgoiraDownloader {
     required String mediumUrl,
     required List<Frame> frames,
     required Directory extractDir,
+    UgoiraProgressCallback? onProgress,
   }) async {
     try {
       // 检查目录是否已有图片，已有则直接返回
@@ -185,6 +195,7 @@ class UgoiraDownloader {
       }
       
       final frameFiles = <File>[];
+      int totalReceived = 0;
       int failCount = 0;
 
       for (int i = 0; i < frames.length; i++) {
@@ -200,6 +211,14 @@ class UgoiraDownloader {
           final bytes = await file.readAsBytes();
           await File(filePath).writeAsBytes(bytes);
           frameFiles.add(File(filePath));
+          
+          totalReceived += bytes.length;
+          
+          // 基于当前已下载帧的平均大小动态估算总大小，这样会比仅用第一张估算更准
+          final currentEstimatedTotal = (totalReceived / frameFiles.length * frames.length).toInt();
+          
+          // 回传进度：以累计字节数作为进度
+          onProgress?.call(totalReceived, currentEstimatedTotal);
         } catch (e) {
           failCount++;
           // 如果前3帧都失败，认为方法二不可用
@@ -237,8 +256,9 @@ class UgoiraDownloader {
   /// 返回帧文件列表，如果失败返回 null
   Future<List<File>?> _tryDownloadAndExtractZip(
     String zipUrl,
-    Directory extractDir,
-  ) async {
+    Directory extractDir, {
+    UgoiraProgressCallback? onProgress,
+  }) async {
     try {
       // 检查目录是否已有图片，已有则直接返回
       final existingFiles = await _getExistingImageFiles(extractDir);
@@ -247,15 +267,27 @@ class UgoiraDownloader {
         return existingFiles;
       }
 
-      // 确保目录存在
       if (!await extractDir.exists()) {
         await extractDir.create(recursive: true);
       }
 
-      final zipFile = await pixivCacheManager.getSingleFile(
+      // 改为流式下载以获取进度
+      io.File? zipFile;
+      await for (final response in pixivCacheManager.getFileStream(
         zipUrl,
         headers: Hoster.header(url: zipUrl),
-      );
+        withProgress: true,
+      )) {
+        if (response is DownloadProgress) {
+          onProgress?.call(response.downloaded, response.totalSize ?? 0);
+        } else if (response is FileInfo) {
+          zipFile = response.file as io.File;
+        }
+      }
+
+      if (zipFile == null) {
+        throw Exception('ZIP 下载失败');
+      }
 
       final bytes = await zipFile.readAsBytes();
       final archive = ZipDecoder().decodeBytes(bytes);

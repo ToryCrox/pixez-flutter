@@ -62,22 +62,32 @@ abstract class _UgoiraStoreBase with Store {
   void _onDownloadStatusChanged(IllustDownloadStatus status) {
     if (status.status == DownloadTaskStatus.downloading ||
         status.status == DownloadTaskStatus.pending) {
-      Log.d(() =>'动图 $id 开始下载，清空当前帧列表');
+      Log.d(() => '动图 $id 开始/正在下载');
+      
       // 下载开始时，清空当前帧列表，避免使用即将被删除的临时文件
-      drawPool = [];
+      if (status.status == DownloadTaskStatus.pending) {
+        drawPool = [];
+      }
+      
       // 如果当前不是进度状态，设置为进度状态
       if (this.status != UgoiraStatus.progress) {
         this.status = UgoiraStatus.progress;
       }
     } else if (status.status == DownloadTaskStatus.completed) {
-      Log.d(() =>'动图 $id 下载完成，重新加载本地文件');
+      Log.d(() => '动图 $id 下载完成，重新加载本地文件');
       // 下载完成时，重新从已下载目录加载
       _loadFromDownloadDirectory();
     } else if (status.status == DownloadTaskStatus.failed) {
-      Log.d(() =>'动图 $id 下载失败');
+      Log.d(() => '动图 $id 下载失败');
       // 下载失败时，恢复到初始状态
       this.status = UgoiraStatus.pre;
     }
+  }
+
+  @action
+  void updateProgress(int count, int total) {
+    this.count = count;
+    this.total = total;
   }
 
   @observable
@@ -255,7 +265,10 @@ abstract class _UgoiraStoreBase with Store {
 
     try {
       // 使用统一的下载方法获取元数据和帧文件
-      final result = await ugoiraDownloader.fetchMetadataAndExtractFrames(id);
+      final result = await ugoiraDownloader.fetchMetadataAndExtractFrames(
+        id,
+        onProgress: updateProgress,
+      );
       Log.d(() => '动图 $id 下载元数据和解压序列帧成功: ${result.metadata}, ${result.frameFiles}');
       ugoiraMetadataResponse = result.metadata;
       drawPool = result.frameFiles;

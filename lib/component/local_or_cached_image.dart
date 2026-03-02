@@ -142,7 +142,10 @@ class _DownloadStatusIndicatorState extends State<DownloadStatusIndicator> {
   }
 
   Widget _buildDownloadUncompletedIcon() {
-    final fileSize = _status?.fileSize ?? 0;
+    final status = _status;
+    if (status == null) return const SizedBox.shrink();
+
+    final fileSize = status.totalReceivedBytes;
     final icon = Icon(
       Icons.download,
       size: widget.size,
@@ -168,7 +171,10 @@ class _DownloadStatusIndicatorState extends State<DownloadStatusIndicator> {
   }
 
   Widget _buildDownloadedIcon() {
-    final fileSize = _status?.fileSize ?? 0;
+    final status = _status;
+    if (status == null) return const SizedBox.shrink();
+
+    final fileSize = status.totalReceivedBytes;
     final icon = Icon(
       Icons.download_done,
       size: widget.size,
@@ -309,7 +315,7 @@ class _IllustDownloadButtonState extends State<IllustDownloadButton> {
   Widget build(BuildContext context) {
     final status = _status;
     final taskStatus = status?.status;
-    final fileSize = status?.fileSize ?? 0;
+    final fileSize = status?.totalReceivedBytes ?? 0;
     final showFileSize =
         taskStatus != null && taskStatus != DownloadTaskStatus.deleted;
 
@@ -480,9 +486,9 @@ class _IllustDownloadButtonState extends State<IllustDownloadButton> {
                   leading: Icon(Icons.check_circle, color: Colors.green),
                   title: Text('已下载'),
                   subtitle:
-                      status?.fileSize != null && status!.fileSize > 0
+                      (status?.totalReceivedBytes ?? 0) > 0
                           ? Text(
-                            status.fileSize.formatFileSize(),
+                            (status?.totalReceivedBytes ?? 0).formatFileSize(),
                             style: TextStyle(fontSize: 12, color: Colors.grey),
                           )
                           : null,

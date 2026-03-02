@@ -174,7 +174,9 @@ class IllustDownloadStatus {
   final DownloadedIllust illusts;
   final int totalCount;
   final int completedCount;
-  final int fileSize; // 文件大小（字节）
+  final int fileSize; // 已完成的文件大小（字节）
+  final int receivedBytes; // 正在下载的实时字节数
+  final int totalBytes; // 正在下载的总字节数
 
   IllustDownloadStatus({
     required this.status,
@@ -182,7 +184,16 @@ class IllustDownloadStatus {
     required this.totalCount,
     required this.completedCount,
     this.fileSize = 0,
+    this.receivedBytes = 0,
+    this.totalBytes = 0,
   });
+
+  /// 累计已下载的总字节数（数据库已存大小 + 内存实时接收大小）
+  int get totalReceivedBytes => fileSize + receivedBytes;
+
+  /// 累计的总字节数（如果有实时任务则包含实时任务的总量，否则为已存大小）
+  /// 注意：在下载过程中，totalBytes 是当前任务的总大小，如果有多页任务，这可能只是部分
+  int get totalTotalBytes => fileSize + (totalBytes > 0 ? totalBytes : receivedBytes);
 
   bool get isAllDownloaded {
     // 对于动图，只要状态是 completed 且有至少一条记录就认为下载完成
@@ -196,7 +207,7 @@ class IllustDownloadStatus {
 
   @override
   String toString() {
-    return 'IllustDownloadStatus{status: $status, illusts: $illusts, totalCount: $totalCount, completedCount: $completedCount, fileSize: $fileSize}';
+    return 'IllustDownloadStatus{status: $status, illusts: $illusts, totalCount: $totalCount, completedCount: $completedCount, fileSize: $fileSize, receivedBytes: $receivedBytes, totalBytes: $totalBytes}';
   }
 }
 
@@ -717,6 +728,9 @@ abstract class _DownloadStoreBase with Store {
     final completedCount = illust.downloadedImageCount;
     final fileSize = illust.totalFileSize;
 
+    int receivedBytes = 0;
+    int totalBytes = 0;
+
     // 优化状态判断：单次遍历，按优先级确定状态
     DownloadTaskStatus status;
     if (completedCount >= totalCount) {
@@ -731,6 +745,16 @@ abstract class _DownloadStoreBase with Store {
       if (tasks.isEmpty) {
         status = DownloadTaskStatus.completed;
       } else {
+        // 计算实时进度
+        int currentReceived = 0;
+        int currentTotal = 0;
+        for (final task in tasks) {
+          currentReceived += task.received;
+          currentTotal += task.total;
+        }
+        receivedBytes = currentReceived;
+        totalBytes = currentTotal;
+
         // 按优先级顺序检查：downloading > pending > failed > paused
         final priorities = [
           DownloadTaskStatus.downloading,
@@ -752,6 +776,8 @@ abstract class _DownloadStoreBase with Store {
       totalCount: totalCount,
       completedCount: completedCount,
       fileSize: fileSize,
+      receivedBytes: receivedBytes,
+      totalBytes: totalBytes,
     );
   }
 
@@ -1277,7 +1303,14 @@ abstract class _DownloadStoreBase with Store {
       }
 
       // 1. 使用统一的下载方法获取元数据和帧文件
-      final result = await downloader.fetchMetadataAndExtractFrames(illustId);
+      final result = await downloader.fetchMetadataAndExtractFrames(
+        illustId,
+        onProgress: (received, total) {
+          if (task.updateProgress(received, total)) {
+            _notifyProgress(task);
+          }
+        },
+      );
       final metadata = result.metadata;
       final tempFrameFiles = result.frameFiles;
 
