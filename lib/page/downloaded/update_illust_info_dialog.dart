@@ -195,6 +195,7 @@ class UpdateIllustInfoDialog extends StatefulWidget {
   State<UpdateIllustInfoDialog> createState() => _UpdateIllustInfoDialogState();
 }
 
+
 class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
   List<UpdateIllustInfo> _updateInfos = [];
   bool _isScanning = false; // 是否正在扫描
@@ -212,6 +213,9 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
   late ScrollController _scrollController;
   bool _isFastScan = true; // 快速扫描模式
   Duration? _scanDuration; // 扫描耗时
+
+  // 优化相关的字段
+  DateTime _lastSetStateTime = DateTime.fromMillisecondsSinceEpoch(0); // 用于限流 UI 更新
 
   @override
   void initState() {
@@ -237,33 +241,47 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
     super.dispose();
   }
 
-  /// 扫描单张图片
-  /// [knownWidth] 和 [knownHeight] 是已知的宽高，如果提供则跳过解析
+  void _throttledSetState(VoidCallback fn, {bool force = false}) {
+    if (force ||
+        DateTime.now().difference(_lastSetStateTime).inMilliseconds > 100) {
+      if (mounted) {
+        setState(fn);
+        _lastSetStateTime = DateTime.now();
+      }
+    } else {
+      fn();
+    }
+  }
+
+
+
+  /// 扫描单张图片 (全异步版本)
   Future<ImageUpdateInfo> _scanSingleImage(
     DownloadedImage image, {
-    required DownloadedIllust illust, // Added illust parameter
+    required DownloadedIllust illust,
     int? knownWidth,
     int? knownHeight,
     bool isFastScan = true,
   }) async {
-    // 查找本地文件路径
-    final actualPath = await downloadStore.getLocalImagePathFromImage(image,
-        relativePath: illust.relativePath, isUgoira: illust.isUgoira,
+    // 异步查找本地文件路径
+    final actualPath = await downloadStore.getLocalImagePathFromImage(
+      image,
+      relativePath: illust.relativePath,
+      isUgoira: illust.isUgoira,
       update: false,
     );
-    String? foundExtension;
+
     if (actualPath == null) {
-      // 文件不存在
       return ImageUpdateInfo(
         originalImage: image,
         isFileNotFound: true,
-        scannedFilePath: null, // 文件不存在，路径为 null
+        scannedFilePath: null,
       );
     }
 
-    foundExtension = p.extension(actualPath);
+    final foundExtension = p.extension(actualPath);
 
-    // 获取文件大小
+    // 异步获取文件大小
     int? newFileSize;
     try {
       final file = File(actualPath);
@@ -304,25 +322,23 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
       newWidth: newWidth,
       newHeight: newHeight,
       isBroken: isBroken,
-      scannedFilePath: actualPath, // 保存扫描阶段获取的文件路径
+      scannedFilePath: actualPath,
     );
   }
 
-  /// 扫描单个作品
-  Future<void> _scanSingleIllust(int index) async {
+  /// 扫描单个作品 (异步版本)
+  Future<void> _scanSingleIllust(
+    int index,
+    List<DownloadedImage> images,
+  ) async {
     if (!mounted) return;
 
     // 开始扫描当前作品，设置扫描状态为 true
-    if (mounted) {
-      setState(() {
-        _updateInfos[index].isScanning = true;
-      });
-    }
+    _throttledSetState(() {
+      _updateInfos[index].isScanning = true;
+    });
 
     final illust = _updateInfos[index].illust;
-    final images = await downloadStore.dbProvider.getImagesByIllustId(
-      illust.illustId,
-    );
 
     // 先计算数据库中的总大小
     int dbTotalSize = 0;
@@ -331,24 +347,20 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
     }
 
     // 更新总图片数和数据库总大小
-    if (mounted) {
-      setState(() {
-        _updateInfos[index].updateScanProgress(images.length, 0);
-        _updateInfos[index].totalSizeInDb = dbTotalSize;
-      });
-    }
+    _throttledSetState(() {
+      _updateInfos[index].updateScanProgress(images.length, 0);
+      _updateInfos[index].totalSizeInDb = dbTotalSize;
+    });
 
     // 如果没有关联的图片，保持扫描中状态直到所有illust扫描完成
     if (images.isEmpty) {
-      if (mounted) {
-        setState(() {
-          _updateInfos[index].isScanning = true;
-          _updateInfos[index].updateScanProgress(0, 0);
-          // 没有图片记录时标记为未下载完整（动图和普通插画都适用）
-          _updateInfos[index].isIncomplete = true;
-          _scannedCount++;
-        });
-      }
+      _throttledSetState(() {
+        _updateInfos[index].isScanning = true;
+        _updateInfos[index].updateScanProgress(0, 0);
+        // 没有图片记录时标记为未下载完整（动图和普通插画都适用）
+        _updateInfos[index].isIncomplete = true;
+        _scannedCount++;
+      });
       return;
     }
 
@@ -358,19 +370,16 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
     int? knownHeight;
     final imageUpdates = <ImageUpdateInfo>[];
 
-    for (int batchStart = 0; batchStart < images.length;) {
+    for (int batchStart = 0; batchStart < images.length; ) {
       if (!mounted) return;
 
-      // 检查是否暂停，如果暂停则等待
       while (_isPaused && mounted) {
-        await Future.delayed(Duration(milliseconds: 100));
+        await Future.delayed(const Duration(milliseconds: 100));
       }
       if (!mounted) return;
 
-      // 计算当前批次的结束索引
       final batchEnd = (batchStart + batchCount).clamp(0, images.length);
 
-      // 创建当前批次的扫描任务
       final futures = <Future<ImageUpdateInfo>>[];
       for (int j = batchStart; j < batchEnd; j++) {
         final image = images[j];
@@ -395,13 +404,12 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
       final batchResults = await Future.wait(futures);
       imageUpdates.addAll(batchResults);
 
-      // 动图：从第一批结果中获取第一帧(part=1)宽高，之后恢复用户设置的并发数
       if (illust.isUgoira && knownWidth == null && batchResults.isNotEmpty) {
         final firstFrameResult = batchResults.firstWhere(
-          (r) => r.originalImage.part == 1,
+          (r) => r.originalImage.part >= 1,
           orElse: () => batchResults.first,
         );
-        // 只有当扫描的是帧图片时才提取宽高
+        // 动图：从第一批结果中获取第一帧(part=1)宽高，之后恢复用户设置的并发数
         if (firstFrameResult.originalImage.part >= 1) {
           knownWidth =
               firstFrameResult.newWidth ?? firstFrameResult.originalImage.width;
@@ -413,25 +421,20 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
       }
 
       // 实时更新扫描进度
-      if (mounted) {
-        setState(() {
-          _updateInfos[index].updateScanProgress(images.length, batchEnd);
-          _updateInfos[index].updateImageUpdates(List.from(imageUpdates));
-        });
-      }
+      _throttledSetState(() {
+        _updateInfos[index].updateScanProgress(images.length, batchEnd);
+        _updateInfos[index].updateImageUpdates(List.from(imageUpdates));
+      });
 
       batchStart = batchEnd;
     }
 
     // 更新当前作品的扫描结果
-    if (mounted) {
-      setState(() {
-        _scannedCount++;
-        _updateInfos[index].isScanning = false;
-        _updateInfos[index].updateImageUpdates(imageUpdates);
-        // isIncomplete 已在 updateImageUpdates -> refreshFlags() 中自动计算
-      });
-    }
+    _throttledSetState(() {
+      _scannedCount++;
+      _updateInfos[index].isScanning = false;
+      _updateInfos[index].updateImageUpdates(imageUpdates);
+    });
   }
 
   /// 加载所有插画
@@ -556,6 +559,7 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
       _isPaused = false;
       _scannedCount = 0;
       _scanDuration = null; // 重置耗时
+      _lastSetStateTime = DateTime.fromMillisecondsSinceEpoch(0);
       // 重置所有作品的扫描状态，但不设置为正在扫描
       for (var info in _updateInfos) {
         info.isScanning = false; // 初始状态为 false，只有开始扫描时才设置为 true
@@ -565,20 +569,33 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
     });
 
     final stopwatch = Stopwatch()..start();
+    const int dbBatchSize = 10; // 每 20 个作品一批查询数据库
 
-    // 顺序扫描作品，每个作品内的图片会并发扫描
-    for (int i = 0; i < _updateInfos.length; i++) {
+    for (int i = 0; i < _updateInfos.length; i += dbBatchSize) {
       if (!mounted) return;
 
-      // 检查是否暂停，如果暂停则等待
-      while (_isPaused && mounted) {
-        await Future.delayed(Duration(milliseconds: 100));
+      final end = (i + dbBatchSize).clamp(0, _updateInfos.length);
+      final batchIds =
+          _updateInfos.sublist(i, end).map((e) => e.illust.illustId).toList();
+
+      // 批量预加载图片信息
+      final Map<int, List<DownloadedImage>> imageCache = await downloadStore
+          .dbProvider
+          .getImagesByIllustIds(batchIds);
+
+      for (int j = i; j < end; j++) {
+        if (!mounted) return;
+
+        while (_isPaused && mounted) {
+          await Future.delayed(const Duration(milliseconds: 100));
+        }
+        if (!mounted) return;
+
+        _autoScrollTo(j);
+
+        final images = imageCache[_updateInfos[j].illust.illustId] ?? [];
+        await _scanSingleIllust(j, images);
       }
-      if (!mounted) return;
-
-      _autoScrollTo(i);
-
-      await _scanSingleIllust(i);
     }
 
     if (mounted) {

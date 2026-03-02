@@ -1297,6 +1297,28 @@ class DownloadDatabaseProvider {
     return maps.map((e) => DownloadedImage.fromJson(e)).toList();
   }
 
+  /// 批量获取多个插画的图片信息
+  /// 返回 Map<illustId, List<DownloadedImage>>
+  Future<Map<int, List<DownloadedImage>>> getImagesByIllustIds(
+    List<int> illustIds,
+  ) async {
+    if (illustIds.isEmpty) return {};
+    final placeholders = List.filled(illustIds.length, '?').join(',');
+    final List<Map<String, dynamic>> maps = await db.query(
+      DownloadedImageColumns.tableName,
+      where: '${DownloadedImageColumns.illustId} IN ($placeholders)',
+      whereArgs: illustIds,
+      orderBy: '${DownloadedImageColumns.part} ASC',
+    );
+
+    final result = <int, List<DownloadedImage>>{};
+    for (var map in maps) {
+      final image = DownloadedImage.fromJson(map);
+      result.putIfAbsent(image.illustId, () => []).add(image);
+    }
+    return result;
+  }
+
 
   /// 批量获取插画的所有图片信息及其完整路径（自动检测后缀名）
   /// 返回 Map<part, LocalImageInfo>
