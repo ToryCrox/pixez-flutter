@@ -240,14 +240,14 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
   /// [knownWidth] 和 [knownHeight] 是已知的宽高，如果提供则跳过解析
   Future<ImageUpdateInfo> _scanSingleImage(
     DownloadedImage image, {
-    String? relativePath,
+    required DownloadedIllust illust, // Added illust parameter
     int? knownWidth,
     int? knownHeight,
     bool isFastScan = true,
   }) async {
-    final actualPath = await downloadStore.getLocalImagePathFromImage(
-      image,
-      relativePath: relativePath,
+    // 查找本地文件路径
+    final actualPath = await downloadStore.getLocalImagePathFromImage(image,
+        relativePath: illust.relativePath, isUgoira: illust.isUgoira,
       update: false,
     );
     String? foundExtension;
@@ -382,7 +382,7 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
         futures.add(
           _scanSingleImage(
             image,
-            relativePath: illust.relativePath,
+            illust: illust,
             knownWidth: useKnownSize ? knownWidth : null,
             knownHeight: useKnownSize ? knownHeight : null,
             isFastScan: _isFastScan,

@@ -1367,18 +1367,27 @@ class DownloadDatabaseProvider {
   }
 
   /// 根据图片记录查找实际存在的文件路径（自动检测后缀名）
-  Future<String?> findImagePathForImage(DownloadedImage image,
-      {String? relativePath, bool update = true}) async {
-    // 优先使用传入的路径，否则通过插画 ID 获取
+  Future<String?> findImagePathForImage(
+    DownloadedImage image, {
+    String? relativePath,
+    bool isUgoira = false,
+    bool update = true,
+  }) async {
+    // 优先使用传入的路径，否则通过插画 ID 获取（带缓存）
     final relPath = relativePath ?? await getIllustRelativePath(image.illustId);
     if (relPath == null) {
       Log.w('无法获取插画相对路径: ${image.illustId}');
       return null;
     }
 
-    // 使用标准的相对路径和文件名构建路径（对动图帧文件也适用，因为 relativePath 已包含 ugoira 子目录）
+    // 确定实际的搜索目录
+    String searchRelPath = (isUgoira && image.part > 0)
+        ? getUgoiraFrameDirPath(relPath)
+        : relPath;
+
+    // 使用标准的相对路径和文件名构建路径
     final basePath = getAbsolutePath(
-      relPath.replaceAll('\\', '/'),
+      searchRelPath.replaceAll('\\', '/'),
       image.fileName
     );
 
@@ -1394,25 +1403,24 @@ class DownloadDatabaseProvider {
     final checkFutures = otherExtensions.map((ext) async {
       final testPath = '$basePath$ext';
       if (await File(testPath).exists()) {
-        return testPath;
+        return (path: testPath, ext: ext);
       }
       return null;
     });
 
     final results = await Future.wait(checkFutures);
-    for (int i = 0; i < results.length; i++) {
-      if (results[i] != null) {
-        final foundPath = results[i]!;
+    for (final result in results) {
+      if (result != null) {
         if (update) {
           // 更新数据库中的后缀名（异步执行，不阻塞返回）
-          updateImageExtension(image.illustId, image.part, otherExtensions[i])
+          updateImageExtension(image.illustId, image.part, result.ext)
               .catchError((e) {
             Log.e('Failed to update image extension: $e');
             return 0; // 返回默认值以满足 catchError 的要求
           });
         }
 
-        return foundPath;
+        return result.path;
       }
     }
 
@@ -1649,9 +1657,20 @@ class DownloadDatabaseProvider {
 
 
   /// 尝试找到图片文件（自动检测后缀名）
-  Future<String?> findImagePath(int illustId, int part,
-      {String? relativePath, bool update = true}) async {
-    return (await getLocalImageInfoByPart(illustId, part, relativePath: relativePath, update: update))?.path;
+  Future<String?> findImagePath(
+    int illustId,
+    int part, {
+    String? relativePath,
+    bool isUgoira = false,
+    bool update = true,
+  }) async {
+    return (await getLocalImageInfoByPart(
+      illustId,
+      part,
+      relativePath: relativePath,
+      isUgoira: isUgoira,
+      update: update,
+    ))?.path;
   }
 
   /// 获取指定页面的本地图片信息（路径和宽高）
@@ -1660,11 +1679,12 @@ class DownloadDatabaseProvider {
     int illustId,
     int part, {
     String? relativePath,
+    bool isUgoira = false,
     bool update = true,
   }) async {
     final image = await getImage(illustId, part);
     if (image == null) return null;
-    final imagePath = await findImagePathForImage(image, relativePath: relativePath, update: update);
+    final imagePath = await findImagePathForImage(image, relativePath: relativePath, isUgoira: isUgoira, update: update);
     if (imagePath == null) return null;
     return LocalImageInfo(
       path: imagePath,
@@ -1677,7 +1697,9 @@ class DownloadDatabaseProvider {
   Future<LocalImageInfo?> getLocalImageInfoByUrl(String url, {String? relativePath}) async {
     final image = await getImageByOriginalUrl(url);
     if (image == null) return null;
-    final imagePath = await findImagePathForImage(image, relativePath: relativePath);
+    final illust = await getIllustByIllustId(image.illustId);
+    final isUgoira = illust?.isUgoira ?? false;
+    final imagePath = await findImagePathForImage(image, relativePath: relativePath, isUgoira: isUgoira);
     if (imagePath == null) return null;
     return LocalImageInfo(
       path: imagePath,

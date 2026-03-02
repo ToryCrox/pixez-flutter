@@ -378,14 +378,34 @@ abstract class _DownloadStoreBase with Store {
     return await _dbProvider.getIllustByIllustId(illustId);
   }
 
-  Future<String?> getLocalImagePath(int illustId, int part,
-      {String? relativePath, bool update = true}) async {
-    return await _dbProvider.findImagePath(illustId, part, relativePath: relativePath, update: update);
+  Future<String?> getLocalImagePath(
+    int illustId,
+    int part, {
+    String? relativePath,
+    bool isUgoira = false,
+    bool update = true,
+  }) async {
+    return await _dbProvider.findImagePath(
+      illustId,
+      part,
+      relativePath: relativePath,
+      isUgoira: isUgoira,
+      update: update,
+    );
   }
 
-  Future<String?> getLocalImagePathFromImage(DownloadedImage image,
-      {String? relativePath, bool update = true}) async {
-    return await _dbProvider.findImagePathForImage(image, relativePath: relativePath, update: update);
+  Future<String?> getLocalImagePathFromImage(
+    DownloadedImage image, {
+    String? relativePath,
+    bool isUgoira = false,
+    bool update = true,
+  }) async {
+    return await _dbProvider.findImagePathForImage(
+      image,
+      relativePath: relativePath,
+      isUgoira: isUgoira,
+      update: update,
+    );
   }
 
   /// 获取封面缓存路径（分质量目录存储格式）
