@@ -257,6 +257,7 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
   Stopwatch? _stopwatch;
   Timer? _timer;
 
+  int _dbBatchSize = 30; // 数据库批查询大小
   // 优化相关的字段
   DateTime _lastSetStateTime = DateTime.fromMillisecondsSinceEpoch(0); // 用于限流 UI 更新
 
@@ -264,6 +265,7 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
   void initState() {
     super.initState();
     _concurrentCount = userSetting.updateIllustConcurrentCount;
+    _dbBatchSize = userSetting.prefs.getInt('update_illust_db_batch_size') ?? 30;
     _totalCount = widget.illusts.length;
     // 初始化时只创建作品列表，不扫描
     _updateInfos =
@@ -674,7 +676,7 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
  
     _stopwatch = Stopwatch()..start();
     _startTimer();
-    const int dbBatchSize = 10; // 每 20 个作品一批查询数据库
+    final int dbBatchSize = _dbBatchSize; // 每批查询数据库的作品数
 
     for (int i = 0; i < _updateInfos.length; i += dbBatchSize) {
       if (!mounted) return;
@@ -999,82 +1001,40 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
   // 构建标题栏
   Widget _buildTitleBar() {
     return Container(
-      padding: EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         border: Border(bottom: BorderSide(color: Colors.grey[300]!)),
       ),
       child: Row(
         children: [
           Text('更新插画信息', style: Theme.of(context).textTheme.titleLarge),
-          SizedBox(width: 16),
-          // 并发数设置
-          Text('并发数:', style: TextStyle(fontSize: 14)),
-          SizedBox(width: 8),
-          Container(
-            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey[400]!),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: DropdownButton<int>(
-              value: _concurrentCount,
-              underline: SizedBox(),
-              isDense: true,
-              items:
-                  List.generate(10, (index) => index + 1)
-                      .map(
-                        (value) => DropdownMenuItem(
-                          value: value,
-                          child: Text('$value'),
-                        ),
-                      )
-                      .toList(),
-              onChanged:
-                  _isScanning || _isUpdating
-                      ? null
-                      : (value) {
-                        if (value != null) {
-                          setState(() {
-                            _concurrentCount = value;
-                          });
-                          userSetting.setUpdateIllustConcurrentCount(value);
-                        }
-                      },
-            ),
+          const SizedBox(width: 16),
+          _ConcurrentCountSelector(
+            value: _concurrentCount,
+            enabled: !_isScanning && !_isUpdating,
+            onChanged: (value) {
+              setState(() => _concurrentCount = value);
+              userSetting.setUpdateIllustConcurrentCount(value);
+            },
           ),
-          SizedBox(width: 16),
-          // 快速扫描选项
-          Row(
-            children: [
-              Checkbox(
-                value: _isFastScan,
-                onChanged:
-                    _isScanning || _isUpdating
-                        ? null
-                        : (value) {
-                          if (value != null) {
-                            setState(() {
-                              _isFastScan = value;
-                            });
-                          }
-                        },
-              ),
-              Text(
-                '快速扫描',
-                style: TextStyle(fontSize: 14),
-                // 添加 tooltip 解释快速扫描
-              ),
-              Tooltip(
-                message: '如果文件大小未发生变化，则跳过图片尺寸校验。\n这将显著加快扫描速度。',
-                child: Icon(
-                  Icons.help_outline,
-                  size: 16,
-                  color: Colors.grey[600],
-                ),
-              ),
-            ],
+          const SizedBox(width: 16),
+          _DbBatchSizeSelector(
+            value: _dbBatchSize,
+            enabled: !_isScanning && !_isUpdating,
+            onChanged: (value) {
+              setState(() => _dbBatchSize = value);
+              userSetting.prefs.setInt('update_illust_db_batch_size', value);
+            },
           ),
-          Spacer(),
+          const SizedBox(width: 16),
+          _FastScanToggle(
+            value: _isFastScan,
+            enabled: !_isScanning && !_isUpdating,
+            onChanged: (value) {
+              setState(() => _isFastScan = value);
+            },
+          ),
+          const Spacer(),
           if (_isScanning || _isUpdating)
             Padding(
               padding: EdgeInsets.only(right: 8),
@@ -1995,3 +1955,111 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
 }
 
 
+
+class _ConcurrentCountSelector extends StatelessWidget {
+  final int value;
+  final bool enabled;
+  final ValueChanged<int> onChanged;
+
+  const _ConcurrentCountSelector({
+    required this.value,
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Text('并发数:', style: TextStyle(fontSize: 14)),
+        const SizedBox(width: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey[400]!),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: DropdownButton<int>(
+            value: value,
+            underline: const SizedBox(),
+            isDense: true,
+            items: List.generate(10, (index) => index + 1)
+                .map((v) => DropdownMenuItem(value: v, child: Text('$v')))
+                .toList(),
+            onChanged: enabled ? (v) => v != null ? onChanged(v) : null : null,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _DbBatchSizeSelector extends StatelessWidget {
+  final int value;
+  final bool enabled;
+  final ValueChanged<int> onChanged;
+
+  const _DbBatchSizeSelector({
+    required this.value,
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Text('数据库批大小:', style: TextStyle(fontSize: 14)),
+        const SizedBox(width: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey[400]!),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: DropdownButton<int>(
+            value: value,
+            underline: const SizedBox(),
+            isDense: true,
+            items: [10, 20, 30, 40, 50]
+                .map((v) => DropdownMenuItem(value: v, child: Text('$v')))
+                .toList(),
+            onChanged: enabled ? (v) => v != null ? onChanged(v) : null : null,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _FastScanToggle extends StatelessWidget {
+  final bool value;
+  final bool enabled;
+  final ValueChanged<bool> onChanged;
+
+  const _FastScanToggle({
+    required this.value,
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Checkbox(
+          value: value,
+          onChanged: enabled ? (v) => v != null ? onChanged(v) : null : null,
+        ),
+        const Text('快速扫描', style: TextStyle(fontSize: 14)),
+        const Tooltip(
+          message: '如果文件大小未发生变化，则跳过图片尺寸校验。\n这将显著加快扫描速度。',
+          child: Icon(Icons.help_outline, size: 16, color: Colors.grey),
+        ),
+      ],
+    );
+  }
+}
