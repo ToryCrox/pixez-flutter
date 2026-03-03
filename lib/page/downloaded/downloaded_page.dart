@@ -302,26 +302,14 @@ class _DownloadedPageState extends State<DownloadedPage> {
       case 'filter_all':
         _store.onFilterChanged(DownloadFilter.all);
         break;
-      case 'filter_downloading':
-        _store.onFilterChanged(DownloadFilter.downloading);
-        break;
-      case 'filter_completed':
-        _store.onFilterChanged(DownloadFilter.completed);
-        break;
       case 'filter_incomplete':
         _store.onFilterChanged(DownloadFilter.incomplete);
-        break;
-      case 'update_info':
-        _showUpdateIllustInfoDialog();
         break;
       case 'pause_all':
         _store.pauseAll();
         break;
       case 'resume_all':
         _store.resumeAll();
-        break;
-      case 'cancel_all':
-        _store.cancelAll();
         break;
       case 'toggle_enable_drag':
         _store.toggleEnableDrag();
@@ -342,18 +330,6 @@ class _DownloadedPageState extends State<DownloadedPage> {
         icon: Icons.list,
         label: I18n.of(context).all,
         isSelected: _store.downloadFilter == DownloadFilter.all,
-      ),
-      _buildFilterMenuItem(
-        value: 'filter_downloading',
-        icon: Icons.downloading,
-        label: I18n.of(context).running,
-        isSelected: _store.downloadFilter == DownloadFilter.downloading,
-      ),
-      _buildFilterMenuItem(
-        value: 'filter_completed',
-        icon: Icons.check_circle_outline,
-        label: I18n.of(context).complete,
-        isSelected: _store.downloadFilter == DownloadFilter.completed,
       ),
       _buildFilterMenuItem(
         value: 'filter_incomplete',
@@ -390,12 +366,6 @@ class _DownloadedPageState extends State<DownloadedPage> {
 
   List<PopupMenuEntry<String>> _buildActionMenuItems() {
     return [
-      PopupMenuItem(
-        value: 'update_info',
-        child: Row(
-          children: [Icon(Icons.update), SizedBox(width: 8), Text('更新插画信息')],
-        ),
-      ),
       PopupMenuItem(
         value: 'optimize_json',
         child: Row(
@@ -438,19 +408,6 @@ class _DownloadedPageState extends State<DownloadedPage> {
             Icon(Icons.play_circle_outline),
             SizedBox(width: 8),
             Text('${I18n.of(context).start}${I18n.of(context).all}'),
-          ],
-        ),
-      ),
-      PopupMenuItem(
-        value: 'cancel_all',
-        child: Row(
-          children: [
-            Icon(Icons.cancel, color: Colors.red),
-            SizedBox(width: 8),
-            Text(
-              '取消${I18n.of(context).all}',
-              style: TextStyle(color: Colors.red),
-            ),
           ],
         ),
       ),
