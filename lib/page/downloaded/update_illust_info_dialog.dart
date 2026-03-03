@@ -14,6 +14,7 @@
  */
 
 import 'dart:io';
+import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -220,7 +221,10 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
   late ListObserverController _observerController;
   late ScrollController _scrollController;
   bool _isFastScan = true; // 快速扫描模式
-  Duration? _scanDuration; // 扫描耗时
+  Duration? _scanDuration; // 扫描结束后的总耗时
+  Duration? _elapsedDuration; // 实时扫描耗时
+  Stopwatch? _stopwatch;
+  Timer? _timer;
 
   // 优化相关的字段
   DateTime _lastSetStateTime = DateTime.fromMillisecondsSinceEpoch(0); // 用于限流 UI 更新
@@ -245,8 +249,25 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
 
   @override
   void dispose() {
+    _stopTimer();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _startTimer() {
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (mounted && _stopwatch != null) {
+        setState(() {
+          _elapsedDuration = _stopwatch!.elapsed;
+        });
+      }
+    });
+  }
+
+  void _stopTimer() {
+    _timer?.cancel();
+    _timer = null;
   }
 
   void _throttledSetState(VoidCallback fn, {bool force = false}) {
@@ -599,6 +620,7 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
       _isScanning = true;
       _isPaused = false;
       _scannedCount = 0;
+      _elapsedDuration = null; // 重置实时耗时
       _scanDuration = null; // 重置耗时
       _lastSetStateTime = DateTime.fromMillisecondsSinceEpoch(0);
       // 重置所有作品的扫描状态，但不设置为正在扫描
@@ -608,8 +630,9 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
         info.updateScanProgress(0, 0);
       }
     });
-
-    final stopwatch = Stopwatch()..start();
+ 
+    _stopwatch = Stopwatch()..start();
+    _startTimer();
     const int dbBatchSize = 10; // 每 20 个作品一批查询数据库
 
     for (int i = 0; i < _updateInfos.length; i += dbBatchSize) {
@@ -640,10 +663,12 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
     }
 
     if (mounted) {
-      stopwatch.stop();
+      _stopwatch?.stop();
+      _stopTimer();
       setState(() {
         _isScanning = false;
-        _scanDuration = stopwatch.elapsed;
+        _scanDuration = _stopwatch?.elapsed;
+        _stopwatch = null;
         // 扫描完成后，确保所有作品的扫描状态都被重置
         for (var info in _updateInfos) {
           info.isScanning = false;
@@ -681,12 +706,16 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
   void _pauseScan() {
     setState(() {
       _isPaused = true;
+      _stopwatch?.stop();
+      _stopTimer();
     });
   }
 
   void _resumeScan() {
     setState(() {
       _isPaused = false;
+      _stopwatch?.start();
+      _startTimer();
     });
   }
 
@@ -1048,7 +1077,7 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
           _buildFilterChip('无变化', UpdateResultType.unchanged),
           Spacer(),
           Text(
-            '${_scanDuration != null ? '耗时: ${_scanDuration!.inSeconds}s | ' : ''}'
+            '${_isScanning ? '耗时: ${_elapsedDuration?.inSeconds ?? 0}s | ' : (_scanDuration != null ? '耗时: ${_scanDuration!.inSeconds}s | ' : '')}'
             '总计: ${_updateInfos.length} | '
             '有变化: ${_updateInfos.where((e) => e.hasChanges).length} | '
             '损坏: ${_updateInfos.where((e) => e.hasBroken).length} | '
