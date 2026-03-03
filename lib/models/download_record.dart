@@ -657,6 +657,7 @@ class DownloadDatabaseProvider {
 
   /// 获取包含非 WebP 图片的插画（排除动图）
   Future<List<DownloadedIllust>> getIllustsWithNonWebPImages({
+    int? userId,
     int? limit,
     int? offset,
     String? orderBy,
@@ -668,15 +669,28 @@ class DownloadDatabaseProvider {
       orderByClause = 'di.${DownloadedIllustColumns.bookmark} DESC, $orderByClause';
     }
 
-    final bookmarkCondition = filterBookmarks ? 'AND di.${DownloadedIllustColumns.bookmark} > 0' : '';
+    final conditions = <String>[];
+    final args = <dynamic>[];
+
+    conditions.add("di.${DownloadedIllustColumns.type} != '${Constants.ugoira}'");
+    
+    if (userId != null) {
+      conditions.add('di.${DownloadedIllustColumns.userId} = ?');
+      args.add(userId);
+    }
+
+    if (filterBookmarks) {
+      conditions.add('di.${DownloadedIllustColumns.bookmark} > 0');
+    }
+
+    final whereClause = conditions.join(' AND ');
 
     // 查询包含非 .webp 后缀图片的普通插画 (ugoira 除外)
     // 使用 EXISTS 子查询避免重复记录
     var query = '''
       SELECT di.*
       FROM ${DownloadedIllustColumns.tableName} di
-      WHERE di.${DownloadedIllustColumns.type} != '${Constants.ugoira}'
-      $bookmarkCondition
+      WHERE $whereClause
       AND EXISTS (
         SELECT 1 
         FROM ${DownloadedImageColumns.tableName} dim 
@@ -685,8 +699,7 @@ class DownloadDatabaseProvider {
       )
       ORDER BY $orderByClause
     ''';
-    
-    final args = <dynamic>[];
+
     if (limit != null) {
       query += ' LIMIT ?';
       args.add(limit);

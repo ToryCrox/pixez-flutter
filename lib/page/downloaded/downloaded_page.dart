@@ -722,7 +722,11 @@ class _DownloadedPageState extends State<DownloadedPage> {
     await showDialog(
       context: context,
       useRootNavigator: false, // 使用当前 Navigator 而不是根 Navigator
-      builder: (context) => UpdateIllustInfoDialog(illusts: illustsToUpdate),
+      builder:
+          (context) => UpdateIllustInfoDialog(
+            illusts: illustsToUpdate,
+            userId: _store.filterUserId,
+          ),
     );
 
     _store.loadData();
@@ -845,7 +849,10 @@ class _DownloadedPageState extends State<DownloadedPage> {
             await showDialog(
               context: context,
               builder:
-                  (context) => UpdateIllustInfoDialog(illusts: targetIllusts),
+                  (context) => UpdateIllustInfoDialog(
+                    illusts: targetIllusts,
+                    userId: _store.filterUserId,
+                  ),
             );
             _store.loadData();
           },

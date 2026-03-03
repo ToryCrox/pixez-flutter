@@ -226,8 +226,9 @@ class ImageUpdateInfo {
 
 class UpdateIllustInfoDialog extends StatefulWidget {
   final List<DownloadedIllust> illusts;
+  final int? userId;
 
-  const UpdateIllustInfoDialog({Key? key, required this.illusts})
+  const UpdateIllustInfoDialog({Key? key, required this.illusts, this.userId})
     : super(key: key);
 
   @override
@@ -554,8 +555,13 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
 
     if (confirm != true) return;
 
-    // 加载所有插画
-    final allIllusts = await downloadStore.getAllDownloaded();
+    // 加载插画
+    final List<DownloadedIllust> allIllusts;
+    if (widget.userId != null) {
+      allIllusts = await downloadStore.getDownloadedByUser(widget.userId!);
+    } else {
+      allIllusts = await downloadStore.getAllDownloaded();
+    }
 
     if (allIllusts.isEmpty) {
       if (mounted) {
@@ -613,7 +619,9 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
     if (confirm != true) return;
 
     // 加载非 WebP 插画
-    final illusts = await downloadStore.getDownloadedWithNonWebPImages();
+    final illusts = await downloadStore.getDownloadedWithNonWebPImages(
+      userId: widget.userId,
+    );
 
     if (illusts.isEmpty) {
       if (mounted) {

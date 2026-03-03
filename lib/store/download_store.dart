@@ -588,12 +588,14 @@ abstract class _DownloadStoreBase with Store {
 
   /// 获取包含非 WebP 图片的插画（排除动图）
   Future<List<DownloadedIllust>> getDownloadedWithNonWebPImages({
+    int? userId,
     int? limit,
     int? offset,
     String? orderBy,
     bool filterBookmarks = false,
   }) async {
     return await _dbProvider.getIllustsWithNonWebPImages(
+      userId: userId,
       limit: limit,
       offset: offset,
       orderBy: orderBy,
