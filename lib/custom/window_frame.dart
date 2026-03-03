@@ -14,6 +14,7 @@ import 'package:pixez/page/hello/setting/setting_quality_page.dart';
 import 'package:pixez/page/log/log_viewer_page.dart';
 import 'package:pixez/page/task/job_page.dart';
 import 'package:window_manager/window_manager.dart';
+import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:pixez/custom/log.dart';
 
 import '../page/downloaded/downloaded_authors_page.dart';
@@ -153,7 +154,12 @@ class _WindowFrameState extends State<WindowFrame> {
                             return Row(
                               children: [
                                 if (!Platform.isMacOS)
-                                  buildMenuButton(windowFrameController, context)
+                                  Observer(
+                                    builder: (context) => Visibility(
+                                      visible: !fullScreenStore.fullscreen,
+                                      child: buildMenuButton(windowFrameController, context),
+                                    ),
+                                  )
                                 else
                                   // macOS 信号灯区域占位，但仍可拖动
                                   const DragToMoveArea(
@@ -184,7 +190,12 @@ class _WindowFrameState extends State<WindowFrame> {
                                 if (!Platform.isMacOS)
                                   const WindowButtons()
                                 else
-                                  buildMenuButton(windowFrameController, context),
+                                  Observer(
+                                    builder: (context) => Visibility(
+                                      visible: !fullScreenStore.fullscreen,
+                                      child: buildMenuButton(windowFrameController, context),
+                                    ),
+                                  ),
                               ],
                             );
                           }),
@@ -495,93 +506,103 @@ class _WindowButtonsState extends State<WindowButtons> with WindowListener {
     final color = dark ? Colors.white : Colors.black;
     final hoverColor = dark ? Colors.white30 : Colors.black12;
 
-    return SizedBox(
-      width: 138,
-      height: _kTitleBarHeight,
-      child: Row(
-        children: [
-          WindowButton(
-            icon: MinimizeIcon(color: color),
-            hoverColor: hoverColor,
-            onPressed: () async {
-              bool isMinimized = await windowManager.isMinimized();
-              if (isMinimized) {
-                windowManager.restore();
-              } else {
-                windowManager.minimize();
-              }
-            },
-          ),
-          if (isMaximized)
-            WindowButton(
-              icon: RestoreIcon(
-                color: color,
-              ),
-              hoverColor: hoverColor,
-              onPressed: () {
-                windowManager.unmaximize();
-              },
-            )
-          else
-            WindowButton(
-              icon: MaximizeIcon(
-                color: color,
-              ),
-              hoverColor: hoverColor,
-              onPressed: () {
-                windowManager.maximize();
-              },
-            ),
-          WindowButton(
-            icon: CloseIcon(
-              color: color,
-            ),
-            hoverIcon: CloseIcon(
-              color: !dark ? Colors.white : Colors.black,
-            ),
-            hoverColor: Colors.red,
-            onPressed: () {
-              showDialog(
-                  context: globalNavigatorKey.currentContext!,
-                  builder: (context) {
-                    bool isCheck = false;
-                    return AlertDialog(
-                      title: Text('是否退出程序?'),
-                      content: StatefulBuilder(builder: (context, setState) {
-                        return Row(
-                          children: [
-                            Checkbox(
-                              value: isCheck,
-                              onChanged: (value) {
-                                setState(() {
-                                  isCheck = value!;
-                                });
+    return Observer(
+      builder: (context) {
+        return SizedBox(
+          width: fullScreenStore.fullscreen ? 46 : 138,
+          height: _kTitleBarHeight,
+          child: Row(
+            children: [
+              if (!fullScreenStore.fullscreen) ...[
+                WindowButton(
+                  icon: MinimizeIcon(color: color),
+                  hoverColor: hoverColor,
+                  onPressed: () async {
+                    bool isMinimized = await windowManager.isMinimized();
+                    if (isMinimized) {
+                      windowManager.restore();
+                    } else {
+                      windowManager.minimize();
+                    }
+                  },
+                ),
+                if (isMaximized)
+                  WindowButton(
+                    icon: RestoreIcon(
+                      color: color,
+                    ),
+                    hoverColor: hoverColor,
+                    onPressed: () {
+                      windowManager.unmaximize();
+                    },
+                  )
+                else
+                  WindowButton(
+                    icon: MaximizeIcon(
+                      color: color,
+                    ),
+                    hoverColor: hoverColor,
+                    onPressed: () {
+                      windowManager.maximize();
+                    },
+                  ),
+              ],
+              WindowButton(
+                icon: CloseIcon(
+                  color: color,
+                ),
+                hoverIcon: CloseIcon(
+                  color: !dark ? Colors.white : Colors.black,
+                ),
+                hoverColor: Colors.red,
+                onPressed: () {
+                  if (fullScreenStore.fullscreen) {
+                    fullScreenStore.setFullScreen(false);
+                    return;
+                  }
+                  showDialog(
+                      context: globalNavigatorKey.currentContext!,
+                      builder: (context) {
+                        bool isCheck = false;
+                        return AlertDialog(
+                          title: Text('是否退出程序?'),
+                          content: StatefulBuilder(builder: (context, setState) {
+                            return Row(
+                              children: [
+                                Checkbox(
+                                  value: isCheck,
+                                  onChanged: (value) {
+                                    setState(() {
+                                      isCheck = value!;
+                                    });
+                                  },
+                                ),
+                                Text('不再提示'),
+                              ],
+                            );
+                          }),
+                          actions: [
+                            TextButton(
+                              onPressed: () {
+                                Navigator.of(context).pop();
                               },
+                              child: Text('否'),
                             ),
-                            Text('不再提示'),
+                            TextButton(
+                              onPressed: () {
+                                windowManager.close();
+                              },
+                              child: Text('是'),
+                            ),
                           ],
                         );
-                      }),
-                      actions: [
-                        TextButton(
-                          onPressed: () {
-                            Navigator.of(context).pop();
-                          },
-                          child: Text('否'),
-                        ),
-                        TextButton(
-                          onPressed: () {
-                            windowManager.close();
-                          },
-                          child: Text('是'),
-                        ),
-                      ],
-                    );
-                  });
-            },
-          )
-        ],
-      ),
+                      });
+                },
+              )
+            ],
+          ),
+        );
+      },
     );
   }
 }

@@ -176,10 +176,16 @@ class _HelloPageState extends State<HelloPage> {
             builder: (context) => Row(
               children: <Widget>[
                 if (wide) ...[
-                  SideRail(
-                    width: 36,
-                    selectedIndex: index,
-                    onDestinationSelected: (int index) {
+                  Observer(
+                    builder: (context) => Visibility(
+                      visible: !fullScreenStore.fullscreen,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SideRail(
+                            width: 36,
+                            selectedIndex: index,
+                            onDestinationSelected: (int index) {
                       // 如果右侧 Navigator 有子页面，先清除栈回到主页面
                       if (_contentNavigatorKey.currentState != null) {
                         _contentNavigatorKey.currentState!
@@ -218,9 +224,13 @@ class _HelloPageState extends State<HelloPage> {
                         label: Text('标签管理'),
                       )
                     ],
-                    trailing: _buildTrailing(context),
+                            trailing: _buildTrailing(context),
+                          ),
+                          const VerticalDivider(thickness: 1, width: 1),
+                        ],
+                      ),
+                    ),
                   ),
-                  const VerticalDivider(thickness: 1, width: 1),
                 ],
                 Expanded(
                   child: _buildPageView(context, wide),

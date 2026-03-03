@@ -16,12 +16,15 @@
 
 import 'dart:convert';
 
+
+
 import 'package:bot_toast/bot_toast.dart';
 import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
+import 'package:mobx/mobx.dart' hide Listener;
 import 'package:scrollview_observer/scrollview_observer.dart';
 import 'package:pixez/component/ban_page.dart';
 import 'package:pixez/component/common_back_area.dart';
@@ -90,6 +93,8 @@ class _IllustRowPageState extends State<IllustRowPage>
   Ticker? _autoScrollTicker;
   bool _isAutoScrolling = false;
   bool _showComments = false;
+  bool _sidebarVisibleBeforeFullscreen = true;
+  ReactionDisposer? _fullScreenReaction;
 
   @override
   void initState() {
@@ -106,6 +111,23 @@ class _IllustRowPageState extends State<IllustRowPage>
     _illustStore = widget.store ?? IllustStore(widget.id, null);
     _illustStore.fetch(force: true);
     _aboutStore = IllustAboutStore(widget.id, _refreshController);
+
+    _fullScreenReaction = reaction(
+      (_) => fullScreenStore.fullscreen,
+      (bool isFullscreen) {
+        if (isFullscreen) {
+          _sidebarVisibleBeforeFullscreen = _sidebarVisible;
+          setState(() {
+            _sidebarVisible = false;
+          });
+        } else {
+          setState(() {
+            _sidebarVisible = _sidebarVisibleBeforeFullscreen;
+          });
+        }
+      },
+    );
+
     super.initState();
   }
 
@@ -160,7 +182,12 @@ class _IllustRowPageState extends State<IllustRowPage>
     _autoScrollTicker?.dispose();
     _focusNode.dispose();
     _refreshController.dispose();
+    _fullScreenReaction?.call();
     super.dispose();
+  }
+
+  void _toggleFullScreen() {
+    fullScreenStore.toggle();
   }
 
   Widget _buildAppbar() {
@@ -173,7 +200,17 @@ class _IllustRowPageState extends State<IllustRowPage>
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              CommonBackArea(),
+              Observer(
+                builder: (context) {
+                  return fullScreenStore.canFullScreen && fullScreenStore.fullscreen
+                      ? IconButton(
+                          icon: Icon(Icons.fullscreen_exit),
+                          tooltip: '退出全屏',
+                          onPressed: _toggleFullScreen,
+                        )
+                      : CommonBackArea();
+                },
+              ),
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -539,13 +576,22 @@ class _IllustRowPageState extends State<IllustRowPage>
                   left: 10,
                   child: Observer(builder: (_) => _buildJumpHint()),
                 ),
-                // 页数指示器
-                if (data.pageCount > 1)
-                  Positioned(
-                    bottom: 20,
-                    left: 10,
-                    child: Observer(builder: (_) => _buildPageIndicator()),
+                // 页数指示器及全屏按钮
+                Positioned(
+                  bottom: 20,
+                  left: 10,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (data.pageCount > 1)
+                        Observer(builder: (_) => _buildPageIndicator()),
+                      if (fullScreenStore.canFullScreen) ...[
+                        if (data.pageCount > 1) SizedBox(width: 8),
+                        _buildFullScreenButton(),
+                      ],
+                    ],
                   ),
+                ),
               ],
             ),
           );
@@ -556,6 +602,16 @@ class _IllustRowPageState extends State<IllustRowPage>
 
   KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
     if (event is KeyDownEvent) {
+      if (event.logicalKey == LogicalKeyboardKey.f11) {
+        _toggleFullScreen();
+        return KeyEventResult.handled;
+      }
+      if (event.logicalKey == LogicalKeyboardKey.escape) {
+        if (fullScreenStore.fullscreen) {
+          fullScreenStore.setFullScreen(false);
+          return KeyEventResult.handled;
+        }
+      }
       if (event.logicalKey == LogicalKeyboardKey.arrowUp ||
           event.logicalKey == LogicalKeyboardKey.arrowDown) {
         if (!_photoScrollController.hasClients) return KeyEventResult.ignored;
@@ -837,6 +893,32 @@ class _IllustRowPageState extends State<IllustRowPage>
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildFullScreenButton() {
+    return Observer(
+      builder: (context) {
+        return Material(
+          color: Colors.black.withOpacity(0.6),
+          borderRadius: BorderRadius.circular(20),
+          child: InkWell(
+            mouseCursor: SystemMouseCursors.click,
+            borderRadius: BorderRadius.circular(20),
+            onTap: _toggleFullScreen,
+            child: Container(
+              padding: EdgeInsets.all(8),
+              child: Icon(
+                fullScreenStore.fullscreen
+                    ? Icons.fullscreen_exit
+                    : Icons.fullscreen,
+                color: Colors.white,
+                size: 18,
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
