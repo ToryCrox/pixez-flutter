@@ -1394,6 +1394,7 @@ class DownloadDatabaseProvider {
     String? relativePath,
     bool isUgoira = false,
     bool update = true,
+    bool checkExists = true,
   }) async {
     // 优先使用传入的路径，否则通过插画 ID 获取（带缓存）
     final relPath = relativePath ?? await getIllustRelativePath(image.illustId);
@@ -1415,6 +1416,9 @@ class DownloadDatabaseProvider {
 
     // 首先尝试数据库中记录的后缀（最常见的情况）
     String fullPath = '$basePath${image.extension}';
+    if (!checkExists) {
+      return fullPath;
+    }
     if (await File(fullPath).exists()) {
       return fullPath;
     }

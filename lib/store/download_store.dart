@@ -410,12 +410,14 @@ abstract class _DownloadStoreBase with Store {
     String? relativePath,
     bool isUgoira = false,
     bool update = true,
+    bool checkExists = true,
   }) async {
     return await _dbProvider.findImagePathForImage(
       image,
       relativePath: relativePath,
       isUgoira: isUgoira,
       update: update,
+      checkExists: checkExists,
     );
   }
 

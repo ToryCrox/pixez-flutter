@@ -270,13 +270,21 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
     int? knownWidth,
     int? knownHeight,
     bool isFastScan = true,
+    Map<String, String>? existingFileMap,
   }) async {
-    // 异步查找本地文件路径
-    final actualPath = await downloadStore.getLocalImagePathFromImage(
+    String? actualPath;
+    if (existingFileMap != null) {
+      // 优先从预获取的文件映射中查找（基于文件名）
+      actualPath = existingFileMap[image.fileName];
+    }
+
+    // 如果没有预获取或者预获取中没找到，回退到原始方式（带磁盘检查）
+    actualPath ??= await downloadStore.getLocalImagePathFromImage(
       image,
       relativePath: illust.relativePath,
       isUgoira: illust.isUgoira,
       update: false,
+      checkExists: existingFileMap == null, // 如果有 map 但没找到，说明确实不存在，这里传 true 会触发后缀遍历检查
     );
 
     if (actualPath == null) {
@@ -376,6 +384,9 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
     int? knownHeight;
     final imageUpdates = <ImageUpdateInfo>[];
 
+    // 预先获取插画所在目录的所有文件，减少后续 exists 调用
+    final existingFileMap = await _getExistingFileMap(illust.relativePath);
+
     for (int batchStart = 0; batchStart < images.length; ) {
       if (!mounted) return;
 
@@ -402,6 +413,7 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
             knownWidth: useKnownSize ? knownWidth : null,
             knownHeight: useKnownSize ? knownHeight : null,
             isFastScan: _isFastScan,
+            existingFileMap: existingFileMap,
           ),
         );
       }
@@ -441,6 +453,29 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
       _updateInfos[index].isScanning = false;
       _updateInfos[index].updateImageUpdates(imageUpdates);
     });
+  }
+
+  /// 预先获取插画所在目录的所有文件，减少后续 exists 调用
+  Future<Map<String, String>?> _getExistingFileMap(String relativePath) async {
+    try {
+      final illustPath = downloadStore.dbProvider.getIllustAbsolutePath(relativePath);
+      final dir = Directory(illustPath);
+      if (await dir.exists()) {
+        final Map<String, String> existingFileMap = {};
+        // 递归列出所有文件，处理动图的 ugoira 子目录
+        final entities = dir.list(recursive: true, followLinks: false);
+        await for (final entity in entities) {
+          if (entity is File) {
+            final fileName = p.basenameWithoutExtension(entity.path);
+            existingFileMap[fileName] = entity.path;
+          }
+        }
+        return existingFileMap;
+      }
+    } catch (e) {
+      Log.w('预获取文件列表失败: $e');
+    }
+    return null;
   }
 
   /// 加载所有插画
