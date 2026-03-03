@@ -385,6 +385,11 @@ abstract class _DownloadStoreBase with Store {
     return await _dbProvider.isIllustDownloaded(illustId);
   }
 
+  /// 批量查询插画是否已下载
+  Future<Set<int>> getDownloadedIds(List<int> ids) async {
+    return await _dbProvider.getDownloadedIds(ids);
+  }
+
   Future<DownloadedIllust?> getDownloadedIllust(int illustId) async {
     return await _dbProvider.getIllustByIllustId(illustId);
   }

@@ -618,6 +618,21 @@ class DownloadDatabaseProvider {
     return result != null;
   }
 
+  /// 批量查询作品是否已下载，返回已下载的作品 ID 集合
+  Future<Set<int>> getDownloadedIds(List<int> ids) async {
+    if (ids.isEmpty) return {};
+    final placeholders = List.filled(ids.length, '?').join(',');
+    final List<Map<String, dynamic>> maps = await db.query(
+      DownloadedIllustColumns.tableName,
+      columns: [DownloadedIllustColumns.illustId],
+      where: '${DownloadedIllustColumns.illustId} IN ($placeholders)',
+      whereArgs: ids,
+    );
+    return maps
+        .map((e) => TypeUtil.parseInt(e[DownloadedIllustColumns.illustId]))
+        .toSet();
+  }
+
   Future<List<DownloadedIllust>> getAllIllusts({
     int? limit,
     int? offset,

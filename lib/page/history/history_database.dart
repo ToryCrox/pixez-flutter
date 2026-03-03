@@ -2,8 +2,10 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:bot_toast/bot_toast.dart';
 import 'package:path/path.dart';
 import 'package:pixez/custom/type_util.dart';
+import 'package:pixez/main.dart';
 import 'package:pixez/models/illust.dart';
 import 'package:pixez/page/database/database_registry.dart';
 import 'package:sqflite/sqflite.dart';
@@ -52,7 +54,7 @@ class HistoryDatabaseProvider {
   static const String cTags = 'tags';
   static const String cLastPage = 'last_page';
   static const String cTotalPages = 'total_pages';
-  static const int maxRecordCount = 10000;
+  static const int maxRecordCount = 20000;
 
   Future<Database> get db async {
     final database = _db;
@@ -142,19 +144,68 @@ class HistoryDatabaseProvider {
     // 简单的清理策略：仅在启动app后第一次插入数据的时候检查
     if (!_hasCheckedCleanup) {
       _hasCheckedCleanup = true;
-      final count = Sqflite.firstIntValue(
-          await database.rawQuery('SELECT COUNT(*) FROM $tableHistory'));
-      if (count != null && count > maxRecordCount) {
-        // 删除 timestamp 最小的 (最旧的)
-        // 计算需要删除多少条
-        final deleteCount = count - maxRecordCount;
-        await database.execute('''
-        DELETE FROM $tableHistory 
-        WHERE $cIllustId IN (
-          SELECT $cIllustId FROM $tableHistory ORDER BY $cTimestamp ASC LIMIT $deleteCount
-        )
-      ''');
+      _checkAndCleanHistory(database);
+    }
+  }
+
+  Future<void> _checkAndCleanHistory(Database database) async {
+    final count = Sqflite.firstIntValue(
+        await database.rawQuery('SELECT COUNT(*) FROM $tableHistory'));
+    if (count == null || count <= maxRecordCount) return;
+
+    final int overflowCount = count - maxRecordCount;
+    int totalDeleted = 0;
+    int offset = 0;
+    const int chunkSize = 100;
+    // 限制最大搜索深度，避免全下载情况下循环过久
+    final int maxSearchDepth = maxRecordCount;
+
+    while (totalDeleted < overflowCount && offset < maxSearchDepth) {
+      final List<Map<String, dynamic>> oldRecords = await database.query(
+        tableHistory,
+        columns: [cIllustId],
+        orderBy: '$cTimestamp ASC',
+        limit: chunkSize,
+        offset: offset,
+      );
+
+      if (oldRecords.isEmpty) break;
+
+      final List<int> oldIds =
+          oldRecords.map((e) => e[cIllustId] as int).toList();
+      // 批量查询下载状态
+      final downloadedIds = await downloadStore.getDownloadedIds(oldIds);
+
+      // 找出未下载的 ID
+      final idsToDelete =
+          oldIds.where((id) => !downloadedIds.contains(id)).toList();
+
+      if (idsToDelete.isNotEmpty) {
+        // 限制删除数量，不要超过 overflowCount - totalDeleted
+        final int batchTarget = overflowCount - totalDeleted;
+        final List<int> finalDeleteIds = idsToDelete.length > batchTarget
+            ? idsToDelete.take(batchTarget).toList()
+            : idsToDelete;
+
+        final deleteCount = await database.delete(
+          tableHistory,
+          where: '$cIllustId IN (${finalDeleteIds.join(',')})',
+        );
+        totalDeleted += deleteCount;
+
+        // 更新 offset：增加本批次中被跳过（已下载）的数量
+        offset += (oldIds.length - finalDeleteIds.length);
+      } else {
+        // 全部都是已下载，offset 直接步进
+        offset += oldIds.length;
       }
+
+      // 如果这一页没满，说明后面没数据了
+      if (oldRecords.length < chunkSize) break;
+    }
+
+    if (totalDeleted > 0) {
+      BotToast.showText(text: '已自动清理了 $totalDeleted 条旧历史记录');
     }
   }
 
