@@ -53,7 +53,10 @@ class UpdateIllustInfo {
   bool isUpdated = false; // 是否已成功更新
   String? updateError; // 更新失败的错误信息
 
+  bool isScanned = false; // 是否已扫描完成至少一次
+
   UpdateResultType get resultType {
+    if (!isScanned) return UpdateResultType.unchanged;
     if (hasBroken) return UpdateResultType.broken;
     if (isIncomplete) return UpdateResultType.incomplete;
     if (hasChanges) return UpdateResultType.changed;
@@ -74,10 +77,19 @@ class UpdateIllustInfo {
   }
 
   void refreshFlags() {
+    if (!isScanned) {
+      hasChanges = false;
+      hasBroken = false;
+      isIncomplete = false;
+      hasStatsInconsistency = false;
+      return;
+    }
+
     hasChanges = imageUpdates.any((e) => e.hasChange);
     hasBroken = imageUpdates.any((e) => e.isBroken || e.isFileNotFound);
 
     // 检测是否未下载完整
+    final hasMissingFile = imageUpdates.any((e) => e.isFileNotFound);
 
     final isUgoira = illust.isUgoira;
     if (isUgoira) {
@@ -107,19 +119,32 @@ class UpdateIllustInfo {
       );
 
       // 动图完整：有预览图 且 (帧数符合预期 或 存在WebP合并文件)
-      isIncomplete =
-          !hasPreview ||
-          (expectedFrames > 0 && frameCount < expectedFrames && !hasWebP);
+      if (isScanning) {
+        // 扫描中：发现明确的文件缺失（isFileNotFound）即为不完整
+        isIncomplete = hasMissingFile;
+      } else {
+        // 扫描完：严格判定
+        isIncomplete =
+            !hasPreview ||
+            (expectedFrames > 0 && frameCount < expectedFrames && !hasWebP);
+      }
     } else {
       // 普通插画：比较 pageCount 和实际下载的图片数量
       final downloadedCount =
           imageUpdates.where((e) => !e.isBroken && !e.isFileNotFound).length;
-      isIncomplete = downloadedCount < illust.pageCount;
+
+      if (isScanning) {
+        // 扫描中：只有发现文件不存在才算不完整，数量不足可能是还没扫到
+        isIncomplete = hasMissingFile;
+      } else {
+        // 扫描完：数量不足即为不完整
+        isIncomplete = hasMissingFile || downloadedCount < illust.pageCount;
+      }
     }
 
     // 检测物化字段是否一致
     // 只在扫描完成后检测（imageUpdates 不为空）
-    if (imageUpdates.isNotEmpty) {
+    if (!isScanning && imageUpdates.isNotEmpty) {
       final actualCount =
           imageUpdates.where((e) => !e.isBroken && !e.isFileNotFound).length;
 
@@ -127,10 +152,15 @@ class UpdateIllustInfo {
       hasStatsInconsistency =
           illust.downloadedImageCount != actualCount ||
           illust.totalFileSize != totalSizeScanned;
+    } else {
+      hasStatsInconsistency = false;
     }
   }
 
   void updateImageUpdates(List<ImageUpdateInfo> updates) {
+    if (updates.isNotEmpty) {
+      isScanned = true;
+    }
     imageUpdates = updates;
     refreshFlags();
     // 计算总大小
@@ -390,7 +420,8 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
     // 如果没有关联的图片，保持扫描中状态直到所有illust扫描完成
     if (images.isEmpty) {
       _throttledSetState(() {
-        _updateInfos[index].isScanning = true;
+        _updateInfos[index].isScanned = true;
+        _updateInfos[index].isScanning = false; // 直接标记完成
         _updateInfos[index].updateScanProgress(0, 0);
         // 没有图片记录时标记为未下载完整（动图和普通插画都适用）
         _updateInfos[index].isIncomplete = true;
@@ -625,8 +656,10 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
       _lastSetStateTime = DateTime.fromMillisecondsSinceEpoch(0);
       // 重置所有作品的扫描状态，但不设置为正在扫描
       for (var info in _updateInfos) {
+        info.isScanned = false; // 重置扫描标记
         info.isScanning = false; // 初始状态为 false，只有开始扫描时才设置为 true
-        info.updateImageUpdates([]);
+        info.imageUpdates = []; // 直接赋空值，不调用 updateImageUpdates 避免触发 isScanned
+        info.refreshFlags();
         info.updateScanProgress(0, 0);
       }
     });
@@ -1079,11 +1112,11 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
           Text(
             '${_isScanning ? '耗时: ${_elapsedDuration?.inSeconds ?? 0}s | ' : (_scanDuration != null ? '耗时: ${_scanDuration!.inSeconds}s | ' : '')}'
             '总计: ${_updateInfos.length} | '
-            '有变化: ${_updateInfos.where((e) => e.hasChanges).length} | '
-            '损坏: ${_updateInfos.where((e) => e.hasBroken).length} | '
-            '统计不一致: ${_updateInfos.where((e) => e.hasStatsInconsistency).length} | '
-            '未完整: ${_updateInfos.where((e) => e.isIncomplete).length} | '
-            '无变化: ${_updateInfos.where((e) => !e.hasChanges && !e.hasBroken && !e.hasStatsInconsistency).length}',
+            '有变化: ${_updateInfos.where((e) => e.resultType == UpdateResultType.changed).length} | '
+            '损坏: ${_updateInfos.where((e) => e.resultType == UpdateResultType.broken).length} | '
+            '统计不一致: ${_updateInfos.where((e) => e.resultType == UpdateResultType.inconsistent).length} | '
+            '未完整: ${_updateInfos.where((e) => e.resultType == UpdateResultType.incomplete).length} | '
+            '无变化: ${_updateInfos.where((e) => e.resultType == UpdateResultType.unchanged).length}',
             style: TextStyle(fontSize: 12, color: Colors.grey[600]),
           ),
         ],
@@ -1279,12 +1312,12 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
     final isWaiting =
         _isScanning &&
         !info.isScanning &&
-        info.imageUpdates.isEmpty &&
+        !info.isScanned &&
         !isPaused;
     final isNotScanned =
         !_isScanning &&
         !isScanning &&
-        info.imageUpdates.isEmpty &&
+        !info.isScanned &&
         _scannedCount == 0;
 
     return (
