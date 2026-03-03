@@ -119,6 +119,8 @@ abstract class _HistoryManagerBase with Store {
     }
   }
 
+  static const int _maxCacheSize = 5000;
+
   @action
   Future<void> updateHistory(Illusts illust, {int lastPage = 0}) async {
     final illustId = illust.id;
@@ -131,7 +133,7 @@ abstract class _HistoryManagerBase with Store {
       totalPages: totalPages,
     );
     
-    if (progressCache.length > 500) {
+    if (progressCache.length > _maxCacheSize) {
       // 简单清理策略
       final firstKey = progressCache.keys.first;
       progressCache.remove(firstKey);
