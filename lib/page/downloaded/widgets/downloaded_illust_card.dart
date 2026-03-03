@@ -697,12 +697,18 @@ class DownloadedIllustCard extends StatelessWidget {
     final downloadedCount = illust.downloadedImageCount; // 使用物化字段
 
     // 动图的 downloadedCount 包含预览图(part=0)和所有帧(part=1,2,3...)
-    // 实际帧数 = downloadedCount - 1（如果下载完整的话）
-    final frameCount = downloadedCount > 0 ? downloadedCount - 1 : 0;
+    // Ugoira 的 pageCount 通常为 1，因此需要从元数据解析真实总帧数
+    final totalFrames = illust.getUgoiraFrames()?.length ?? 0;
+    
+    // 如果 downloadedCount 为 2 且元数据中记录的帧数 > 1，说明已经合并为单个 WebP (预览图 + WebP)
+    final isMerged = illust.isUgoira && downloadedCount == 2 && totalFrames > 1;
+    
+    // 实际帧数逻辑：已合并则取 totalFrames，未合并取已下载数-1
+    final frameCount = isMerged ? totalFrames : (downloadedCount > 0 ? downloadedCount - 1 : 0);
 
     String frameText;
     if (frameCount > 0) {
-      frameText = '${frameCount}帧';
+      frameText = isMerged ? '${frameCount}帧(合并)' : '${frameCount}帧';
     } else {
       frameText = '动图';
     }
