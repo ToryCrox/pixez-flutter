@@ -38,4 +38,8 @@ class Constants {
   static const int qualityLevelMedium = 0;
   static const int qualityLevelLarge = 1;
   static const int qualityLevelOriginal = 2;
+
+  static const String ugoira = 'ugoira';
+  static const String filterNoUgoira = 'no_ugoira';
+  static const String filterOnlyUgoira = 'only_ugoira';
 }

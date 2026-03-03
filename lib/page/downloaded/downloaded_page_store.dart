@@ -14,11 +14,11 @@
  */
 
 import 'dart:async';
-
 import 'package:bot_toast/bot_toast.dart';
 import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/material.dart';
 import 'package:mobx/mobx.dart';
+import 'package:pixez/constants.dart';
 import 'package:pixez/custom/log.dart';
 import 'package:pixez/er/prefer.dart';
 import 'package:pixez/main.dart';
@@ -33,6 +33,8 @@ enum DownloadFilter {
   downloading,
   completed,
   incomplete, // 未下载完整
+  noUgoira, // 排除动图
+  onlyUgoira, // 仅显示动图
 }
 
 /// 插画排序类型
@@ -172,8 +174,10 @@ abstract class _DownloadedPageStoreBase with Store {
   @computed
   List<DownloadedIllust> get filteredIllusts {
     if (_downloadFilter == DownloadFilter.all ||
-        _downloadFilter == DownloadFilter.incomplete) {
-      // 未下载完整过滤：直接从数据库查询，不需要在应用层过滤
+        _downloadFilter == DownloadFilter.incomplete ||
+        _downloadFilter == DownloadFilter.noUgoira ||
+        _downloadFilter == DownloadFilter.onlyUgoira) {
+      // 数据库层已处理，直接返回
       return _illusts.toList();
     }
 
@@ -197,6 +201,15 @@ abstract class _DownloadedPageStoreBase with Store {
       }
       return true;
     }).toList();
+  }
+
+  String? get _typeFilter {
+    if (_downloadFilter == DownloadFilter.noUgoira) {
+      return Constants.filterNoUgoira;
+    } else if (_downloadFilter == DownloadFilter.onlyUgoira) {
+      return Constants.filterOnlyUgoira;
+    }
+    return null;
   }
 
   /// 获取排序SQL（使用物化字段名）
@@ -353,6 +366,7 @@ abstract class _DownloadedPageStoreBase with Store {
           offset: 0,
           orderBy: orderBy,
           filterBookmarks: _showBookmarksOnly,
+          typeFilter: _typeFilter,
         );
       } else if (_filterTagId != null) {
         illusts = await downloadStore.searchDownloadedByTagId(
@@ -362,6 +376,7 @@ abstract class _DownloadedPageStoreBase with Store {
           orderBy: orderBy,
           exampleIllustIds: filterTagData?.tag.exampleIllustIds,
           filterBookmarks: _showBookmarksOnly,
+          typeFilter: _typeFilter,
         );
       } else if (_filterUserId != null) {
         illusts = await downloadStore.getDownloadedByUser(
@@ -370,6 +385,7 @@ abstract class _DownloadedPageStoreBase with Store {
           offset: 0,
           orderBy: orderBy,
           filterBookmarks: _showBookmarksOnly,
+          typeFilter: _typeFilter,
         );
       } else if (_searchKeyword != null && _searchKeyword!.isNotEmpty) {
         illusts = await downloadStore.searchDownloaded(
@@ -378,6 +394,7 @@ abstract class _DownloadedPageStoreBase with Store {
           offset: 0,
           orderBy: orderBy,
           filterBookmarks: _showBookmarksOnly,
+          typeFilter: _typeFilter,
         );
       } else {
         illusts = await downloadStore.getAllDownloaded(
@@ -385,6 +402,7 @@ abstract class _DownloadedPageStoreBase with Store {
           offset: 0,
           orderBy: orderBy,
           filterBookmarks: _showBookmarksOnly,
+          typeFilter: _typeFilter,
         );
       }
       final timeSpent = DateTime.now().difference(t1);
@@ -435,6 +453,7 @@ abstract class _DownloadedPageStoreBase with Store {
           offset: offset,
           orderBy: orderBy,
           filterBookmarks: _showBookmarksOnly,
+          typeFilter: _typeFilter,
         );
       } else if (_filterTagId != null) {
         moreIllusts = await downloadStore.searchDownloadedByTagId(
@@ -444,6 +463,7 @@ abstract class _DownloadedPageStoreBase with Store {
           orderBy: orderBy,
           exampleIllustIds: filterTagData?.tag.exampleIllustIds,
           filterBookmarks: _showBookmarksOnly,
+          typeFilter: _typeFilter,
         );
       } else if (_filterUserId != null) {
         moreIllusts = await downloadStore.getDownloadedByUser(
@@ -452,6 +472,7 @@ abstract class _DownloadedPageStoreBase with Store {
           offset: offset,
           orderBy: orderBy,
           filterBookmarks: _showBookmarksOnly,
+          typeFilter: _typeFilter,
         );
       } else if (_searchKeyword != null && _searchKeyword!.isNotEmpty) {
         moreIllusts = await downloadStore.searchDownloaded(
@@ -460,6 +481,7 @@ abstract class _DownloadedPageStoreBase with Store {
           offset: offset,
           orderBy: orderBy,
           filterBookmarks: _showBookmarksOnly,
+          typeFilter: _typeFilter,
         );
       } else {
         moreIllusts = await downloadStore.getAllDownloaded(
@@ -467,6 +489,7 @@ abstract class _DownloadedPageStoreBase with Store {
           offset: offset,
           orderBy: orderBy,
           filterBookmarks: _showBookmarksOnly,
+          typeFilter: _typeFilter,
         );
       }
 
@@ -520,6 +543,7 @@ abstract class _DownloadedPageStoreBase with Store {
         tagId: tagId,
         searchKeyword: searchKeyword,
         filterBookmarks: _showBookmarksOnly,
+        typeFilter: _typeFilter,
       );
 
       _stats = stats;

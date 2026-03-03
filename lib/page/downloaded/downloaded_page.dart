@@ -305,6 +305,12 @@ class _DownloadedPageState extends State<DownloadedPage> {
       case 'filter_incomplete':
         _store.onFilterChanged(DownloadFilter.incomplete);
         break;
+      case 'filter_no_ugoira':
+        _store.onFilterChanged(DownloadFilter.noUgoira);
+        break;
+      case 'filter_only_ugoira':
+        _store.onFilterChanged(DownloadFilter.onlyUgoira);
+        break;
       case 'pause_all':
         _store.pauseAll();
         break;
@@ -336,6 +342,18 @@ class _DownloadedPageState extends State<DownloadedPage> {
         icon: Icons.warning_amber,
         label: '未下载完整',
         isSelected: _store.downloadFilter == DownloadFilter.incomplete,
+      ),
+      _buildFilterMenuItem(
+        value: 'filter_no_ugoira',
+        icon: Icons.videocam_off_outlined,
+        label: '排除动图',
+        isSelected: _store.downloadFilter == DownloadFilter.noUgoira,
+      ),
+      _buildFilterMenuItem(
+        value: 'filter_only_ugoira',
+        icon: Icons.movie_filter_outlined,
+        label: '仅显示动图',
+        isSelected: _store.downloadFilter == DownloadFilter.onlyUgoira,
       ),
     ];
   }

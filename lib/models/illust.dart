@@ -15,6 +15,7 @@
  */
 import 'package:flutter/foundation.dart';
 import 'package:json_annotation/json_annotation.dart';
+import 'package:pixez/constants.dart';
 import 'package:pixez/main.dart';
 
 import '../custom/type_util.dart';
@@ -289,7 +290,7 @@ class Illusts {
   });
 
   /// 判断是否为动图
-  bool get isUgoira => type == 'ugoira';
+  bool get isUgoira => type == Constants.ugoira;
 
   bool get isEmpty =>
       id == 0 &&

@@ -23,6 +23,7 @@ import 'package:pixez/custom/type_util.dart';
 import 'package:pixez/exts.dart';
 import 'package:pixez/models/illust.dart';
 import 'package:pixez/models/ugoira_metadata_response.dart';
+import 'package:pixez/constants.dart';
 import 'package:pixez/platform/macos_file_access.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
@@ -623,6 +624,7 @@ class DownloadDatabaseProvider {
     bool desc = true,
     String? orderBy,
     bool filterBookmarks = false,
+    String? typeFilter,
   }) async {
     // total_file_size 已物化到表中，无需 JOIN 查询
     String orderByClause = orderBy ??
@@ -631,9 +633,21 @@ class DownloadDatabaseProvider {
       orderByClause = '${DownloadedIllustColumns.bookmark} DESC, $orderByClause';
     }
 
+    final whereConditions = <String>[];
+    if (filterBookmarks) {
+      whereConditions.add('${DownloadedIllustColumns.bookmark} > 0');
+    }
+    if (typeFilter == Constants.filterNoUgoira) {
+      whereConditions.add("${DownloadedIllustColumns.type} != '${Constants.ugoira}'");
+    } else if (typeFilter == Constants.filterOnlyUgoira) {
+      whereConditions.add("${DownloadedIllustColumns.type} = '${Constants.ugoira}'");
+    }
+
+    final String? where = whereConditions.isNotEmpty ? whereConditions.join(' AND ') : null;
+
     List<Map<String, dynamic>> maps = await db.query(
       DownloadedIllustColumns.tableName,
-      where: filterBookmarks ? '${DownloadedIllustColumns.bookmark} > 0' : null,
+      where: where,
       orderBy: orderByClause,
       limit: limit,
       offset: offset,
@@ -661,7 +675,7 @@ class DownloadDatabaseProvider {
     var query = '''
       SELECT di.*
       FROM ${DownloadedIllustColumns.tableName} di
-      WHERE di.${DownloadedIllustColumns.type} != 'ugoira'
+      WHERE di.${DownloadedIllustColumns.type} != '${Constants.ugoira}'
       $bookmarkCondition
       AND EXISTS (
         SELECT 1 
@@ -692,6 +706,7 @@ class DownloadDatabaseProvider {
     int? offset,
     String? orderBy,
     bool filterBookmarks = false,
+    String? typeFilter,
   }) async {
     // total_file_size 已物化到表中，无需 JOIN 查询
     String orderByClause =
@@ -703,6 +718,11 @@ class DownloadDatabaseProvider {
     final whereConditions = ['${DownloadedIllustColumns.userId} = ?'];
     if (filterBookmarks) {
       whereConditions.add('${DownloadedIllustColumns.bookmark} > 0');
+    }
+    if (typeFilter == Constants.filterNoUgoira) {
+      whereConditions.add("${DownloadedIllustColumns.type} != '${Constants.ugoira}'");
+    } else if (typeFilter == Constants.filterOnlyUgoira) {
+      whereConditions.add("${DownloadedIllustColumns.type} = '${Constants.ugoira}'");
     }
 
     List<Map<String, dynamic>> maps = await db.query(
@@ -722,6 +742,7 @@ class DownloadDatabaseProvider {
     int? offset,
     String? orderBy,
     bool filterBookmarks = false,
+    String? typeFilter,
   }) async {
     // 1. Find tag ID first
     final tagResults = await db.query(
@@ -738,7 +759,8 @@ class DownloadDatabaseProvider {
         limit: limit,
         offset: offset,
         orderBy: orderBy,
-        filterBookmarks: filterBookmarks);
+        filterBookmarks: filterBookmarks,
+        typeFilter: typeFilter);
   }
 
   Future<List<DownloadedIllust>> searchIllustsByTagId(
@@ -748,6 +770,7 @@ class DownloadDatabaseProvider {
     String? orderBy,
     List<int>? exampleIllustIds,
     bool filterBookmarks = false,
+    String? typeFilter,
   }) async {
     final exampleCase = (exampleIllustIds != null && exampleIllustIds.isNotEmpty)
         ? 'CASE WHEN di.${DownloadedIllustColumns.illustId} IN (${exampleIllustIds.join(',')}) THEN 0 ELSE 1 END ASC,'
@@ -767,6 +790,11 @@ class DownloadDatabaseProvider {
     final whereConditions = <String>[];
     if (filterBookmarks) {
       whereConditions.add('di.${DownloadedIllustColumns.bookmark} > 0');
+    }
+    if (typeFilter == Constants.filterNoUgoira) {
+      whereConditions.add("di.${DownloadedIllustColumns.type} != '${Constants.ugoira}'");
+    } else if (typeFilter == Constants.filterOnlyUgoira) {
+      whereConditions.add("di.${DownloadedIllustColumns.type} = '${Constants.ugoira}'");
     }
     final String whereClause = whereConditions.isNotEmpty ? 'WHERE ${whereConditions.join(' AND ')}' : '';
 
@@ -966,6 +994,7 @@ class DownloadDatabaseProvider {
     int? offset,
     String? orderBy,
     bool filterBookmarks = false,
+    String? typeFilter,
   }) async {
     // total_file_size 已物化到表中，无需 JOIN 查询
     String orderByClause =
@@ -979,6 +1008,11 @@ class DownloadDatabaseProvider {
     ];
     if (filterBookmarks) {
       whereConditions.add('${DownloadedIllustColumns.bookmark} > 0');
+    }
+    if (typeFilter == Constants.filterNoUgoira) {
+      whereConditions.add("${DownloadedIllustColumns.type} != '${Constants.ugoira}'");
+    } else if (typeFilter == Constants.filterOnlyUgoira) {
+      whereConditions.add("${DownloadedIllustColumns.type} = '${Constants.ugoira}'");
     }
 
     List<Map<String, dynamic>> maps = await db.query(
@@ -999,6 +1033,7 @@ class DownloadDatabaseProvider {
     int? offset,
     String? orderBy,
     bool filterBookmarks = false,
+    String? typeFilter,
   }) async {
     // 使用物化字段 downloaded_image_count 直接过滤
     String orderByClause = orderBy ?? '${DownloadedIllustColumns.downloadTime} DESC';
@@ -1011,6 +1046,11 @@ class DownloadDatabaseProvider {
     ];
     if (filterBookmarks) {
       whereConditions.add('${DownloadedIllustColumns.bookmark} > 0');
+    }
+    if (typeFilter == Constants.filterNoUgoira) {
+      whereConditions.add("${DownloadedIllustColumns.type} != '${Constants.ugoira}'");
+    } else if (typeFilter == Constants.filterOnlyUgoira) {
+      whereConditions.add("${DownloadedIllustColumns.type} = '${Constants.ugoira}'");
     }
 
     var query = '''
@@ -2095,12 +2135,23 @@ class DownloadDatabaseProvider {
     String? searchKeyword,
     String? tagName,
     bool filterBookmarks = false,
+    String? typeFilter,
   }) async {
     String whereClause = '';
     final whereArgs = <dynamic>[];
 
+    final conditions = <String>[];
     if (filterBookmarks) {
-      whereClause = 'WHERE di.${DownloadedIllustColumns.bookmark} > 0';
+      conditions.add('di.${DownloadedIllustColumns.bookmark} > 0');
+    }
+    if (typeFilter == Constants.filterNoUgoira) {
+      conditions.add("di.${DownloadedIllustColumns.type} != '${Constants.ugoira}'");
+    } else if (typeFilter == Constants.filterOnlyUgoira) {
+      conditions.add("di.${DownloadedIllustColumns.type} = '${Constants.ugoira}'");
+    }
+    
+    if (conditions.isNotEmpty) {
+      whereClause = 'WHERE ${conditions.join(' AND ')}';
     }
 
     if (filterType == 'user' && userId != null) {
