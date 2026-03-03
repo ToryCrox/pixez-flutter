@@ -260,12 +260,7 @@ class DownloadedIllustCard extends StatelessWidget {
             I18n.of(context).paused,
             Colors.orange,
           ),
-        if (isFailed)
-          _buildStatusBadge(
-            context,
-            I18n.of(context).failed,
-            Colors.red,
-          ),
+        if (isFailed) _buildFailedOverlay(context),
         // 多选模式下的复选框指示器
         if (store.isMultiSelectMode) _buildSelectionOverlay(context, isSelected),
       ],
@@ -448,6 +443,41 @@ class DownloadedIllustCard extends StatelessWidget {
               SizedBox(height: 4),
               Text('等待下载', style: TextStyle(color: Colors.white, fontSize: 12)),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFailedOverlay(BuildContext context) {
+    return Positioned.fill(
+      child: Container(
+        color: Colors.black45,
+        child: Center(
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () => downloadStore.resumeIllustDownload(illust.illustId),
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.refresh, color: Colors.red, size: 32),
+                    const SizedBox(height: 4),
+                    Text(
+                      I18n.of(context).failed,
+                      style: const TextStyle(color: Colors.white, fontSize: 12),
+                    ),
+                    const Text(
+                      '点击重试',
+                      style: TextStyle(color: Colors.white, fontSize: 10),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
         ),
       ),
