@@ -469,9 +469,9 @@ class _WindowButtonsState extends State<WindowButtons> with WindowListener {
   void initState() {
     windowManager.addListener(this);
     windowManager.isMaximized().then((value) {
-      if (value) {
+      if (mounted) {
         setState(() {
-          isMaximized = true;
+          isMaximized = value;
         });
       }
     });
@@ -498,6 +498,34 @@ class _WindowButtonsState extends State<WindowButtons> with WindowListener {
       isMaximized = false;
     });
     super.onWindowUnmaximize();
+  }
+
+  @override
+  void onWindowResized() {
+    _updateMaximizedState();
+    super.onWindowResized();
+  }
+
+  @override
+  void onWindowEnterFullScreen() {
+    _updateMaximizedState();
+    super.onWindowEnterFullScreen();
+  }
+
+  @override
+  void onWindowLeaveFullScreen() {
+    _updateMaximizedState();
+    super.onWindowLeaveFullScreen();
+  }
+
+  void _updateMaximizedState() {
+    windowManager.isMaximized().then((value) {
+      if (mounted && isMaximized != value) {
+        setState(() {
+          isMaximized = value;
+        });
+      }
+    });
   }
 
   @override
