@@ -1416,7 +1416,8 @@ class DownloadDatabaseProvider {
 
     // 并行处理所有图片，大幅提升性能
     final futures = filteredImages.map((image) async {
-      final foundPath = await findImagePathForImage(image, relativePath: relPath);
+      final foundPath = await findImagePathForImage(image,
+          relativePath: relPath, isUgoira: isUgoira ?? false);
       if (foundPath != null) {
         return MapEntry(
             image.part,
