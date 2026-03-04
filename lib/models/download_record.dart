@@ -1461,7 +1461,7 @@ class DownloadDatabaseProvider {
   Future<String?> findImagePathForImage(
     DownloadedImage image, {
     String? relativePath,
-    bool isUgoira = false,
+    required bool isUgoira,
     bool update = true,
     bool checkExists = true,
   }) async {

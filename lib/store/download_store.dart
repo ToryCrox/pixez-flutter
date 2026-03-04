@@ -413,7 +413,7 @@ abstract class _DownloadStoreBase with Store {
   Future<String?> getLocalImagePathFromImage(
     DownloadedImage image, {
     String? relativePath,
-    bool isUgoira = false,
+    required bool isUgoira,
     bool update = true,
     bool checkExists = true,
   }) async {
