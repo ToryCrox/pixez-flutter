@@ -177,59 +177,73 @@ class _HelloPageState extends State<HelloPage> {
               children: <Widget>[
                 if (wide) ...[
                   Observer(
-                    builder: (context) => Visibility(
-                      visible: !fullScreenStore.fullscreen,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          SideRail(
-                            width: 36,
-                            selectedIndex: index,
-                            onDestinationSelected: (int index) {
-                      // 如果右侧 Navigator 有子页面，先清除栈回到主页面
-                      if (_contentNavigatorKey.currentState != null) {
-                        _contentNavigatorKey.currentState!
-                            .popUntil((route) => route.isFirst);
-                      }
-                      _pageController.jumpToPage(index);
+                    builder: (context) {
+                      final bool isFullscreen = fullScreenStore.fullscreen;
+                      return AnimatedContainer(
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeOutCubic,
+                        width: isFullscreen ? 0 : 37, // 36 (SideRail) + 1 (Divider)
+                        child: ClipRect(
+                          child: OverflowBox(
+                            minWidth: 37,
+                            maxWidth: 37,
+                            alignment: Alignment.centerLeft,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                SideRail(
+                                  width: 36,
+                                  selectedIndex: index,
+                                  onDestinationSelected: (int index) {
+                                    // 如果右侧 Navigator 有子页面，先清除栈回到主页面
+                                    if (_contentNavigatorKey.currentState !=
+                                        null) {
+                                      _contentNavigatorKey.currentState!
+                                          .popUntil((route) => route.isFirst);
+                                    }
+                                    _pageController.jumpToPage(index);
 
-                      setState(() {
-                        this.index = index;
-                      });
-                    },
-                    destinations: <NavigationRailDestination>[
-                      NavigationRailDestination(
-                          icon: Icon(Icons.home),
-                          label: Text(I18n.of(context).home)),
-                      NavigationRailDestination(
-                          icon: Icon(Icons.leaderboard),
-                          label: Text(I18n.of(context).rank)),
-                      NavigationRailDestination(
-                          icon: Icon(Icons.favorite),
-                          label: Text(I18n.of(context).quick_view)),
-                      NavigationRailDestination(
-                          icon: Icon(Icons.search),
-                          label: Text(I18n.of(context).search)),
-                      NavigationRailDestination(
-                          icon: Icon(Icons.more_horiz),
-                          label: Text(I18n.of(context).more)),
-                      NavigationRailDestination(
-                          icon: Icon(Icons.download), label: Text('下载')),
-                      NavigationRailDestination(
-                        icon: Icon(Icons.person),
-                        label: Text('作者'),
-                      ),
-                      NavigationRailDestination(
-                        icon: Icon(Icons.label),
-                        label: Text('标签管理'),
-                      )
-                    ],
-                            trailing: _buildTrailing(context),
+                                    setState(() {
+                                      this.index = index;
+                                    });
+                                  },
+                                  destinations: <NavigationRailDestination>[
+                                    NavigationRailDestination(
+                                        icon: Icon(Icons.home),
+                                        label: Text(I18n.of(context).home)),
+                                    NavigationRailDestination(
+                                        icon: Icon(Icons.leaderboard),
+                                        label: Text(I18n.of(context).rank)),
+                                    NavigationRailDestination(
+                                        icon: Icon(Icons.favorite),
+                                        label: Text(I18n.of(context).quick_view)),
+                                    NavigationRailDestination(
+                                        icon: Icon(Icons.search),
+                                        label: Text(I18n.of(context).search)),
+                                    NavigationRailDestination(
+                                        icon: Icon(Icons.more_horiz),
+                                        label: Text(I18n.of(context).more)),
+                                    NavigationRailDestination(
+                                        icon: Icon(Icons.download),
+                                        label: Text('下载')),
+                                    NavigationRailDestination(
+                                      icon: Icon(Icons.person),
+                                      label: Text('作者'),
+                                    ),
+                                    NavigationRailDestination(
+                                      icon: Icon(Icons.label),
+                                      label: Text('标签管理'),
+                                    )
+                                  ],
+                                  trailing: _buildTrailing(context),
+                                ),
+                                const VerticalDivider(thickness: 1, width: 1),
+                              ],
+                            ),
                           ),
-                          const VerticalDivider(thickness: 1, width: 1),
-                        ],
-                      ),
-                    ),
+                        ),
+                      );
+                    },
                   ),
                 ],
                 Expanded(
