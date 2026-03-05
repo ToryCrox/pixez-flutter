@@ -28,6 +28,7 @@ import 'package:pixez/models/download_record.dart';
 import 'package:pixez/page/downloaded/downloaded_page.dart';
 import 'package:pixez/page/user/user_store.dart';
 import 'package:pixez/page/user/users_page.dart';
+import 'package:pixez/component/hover_scale_container.dart';
 
 class DownloadedAuthorCard extends StatelessWidget {
   final DownloadedAuthor author;
@@ -49,17 +50,16 @@ class DownloadedAuthorCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: () {
-        DownloadedPage.open(
-          context,
-          userId: author.userId,
-          userName: author.userName,
-        );
-      },
-      onLongPress: () => _showPriorityDialog(context),
-      child: Card(
-        clipBehavior: Clip.antiAlias,
+    return HoverScaleCard(
+      child: InkWell(
+        onTap: () {
+          DownloadedPage.open(
+            context,
+            userId: author.userId,
+            userName: author.userName,
+          );
+        },
+        onLongPress: () => _showPriorityDialog(context),
         child: Column(
           children: [_buildPreviewSection(context), _buildAuthorInfo(context)],
         ),

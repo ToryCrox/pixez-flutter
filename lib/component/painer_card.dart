@@ -24,6 +24,7 @@ import 'package:pixez/page/novel/user/novel_users_page.dart';
 import 'package:pixez/page/picture/user_follow_button.dart';
 import 'package:pixez/page/user/user_store.dart';
 import 'package:pixez/page/user/users_page.dart';
+import 'package:pixez/component/hover_scale_container.dart';
 
 class PainterCard extends StatefulWidget {
   final UserPreviews user;
@@ -48,24 +49,23 @@ class _PainterCardState extends State<PainterCard> {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: () async {
-        await Navigator.of(context)
-            .push(MaterialPageRoute(builder: (BuildContext context) {
-          if (isNovel) {
-            return NovelUsersPage(
+    return HoverScaleCard(
+      child: InkWell(
+        onTap: () async {
+          await Navigator.of(context)
+              .push(MaterialPageRoute(builder: (BuildContext context) {
+            if (isNovel) {
+              return NovelUsersPage(
+                id: _user.user.id,
+              );
+            }
+            return UsersPage(
               id: _user.user.id,
+              userStore: UserStore(_user.user.id, null, _user.user),
             );
-          }
-          return UsersPage(
-            id: _user.user.id,
-            userStore: UserStore(_user.user.id, null, _user.user),
-          );
-        }));
-        setState(() {});
-      },
-      child: Card(
-        clipBehavior: Clip.antiAlias,
+          }));
+          setState(() {});
+        },
         child: Container(
           child: Column(
             children: [_buildPreviewSlivers(context), buildPadding(context)],

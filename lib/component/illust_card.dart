@@ -27,6 +27,7 @@ import 'package:pixez/constants.dart';
 import 'package:pixez/exts.dart';
 import 'package:pixez/page/history/history_manager.dart';
 import 'package:pixez/custom/log.dart';
+import 'package:pixez/component/hover_scale_container.dart';
 
 import 'package:pixez/er/prefer.dart';
 import 'package:pixez/i18n.dart';
@@ -252,10 +253,8 @@ class _IllustCardState extends State<IllustCard> {
       );
     }
 
-    return Card(
+    return HoverScaleCard(
       margin: EdgeInsets.all(8.0),
-      clipBehavior: Clip.antiAlias,
-      color: Theme.of(context).colorScheme.surface,
       child: _buildAnimationWraper(
         context,
         Stack(
