@@ -384,6 +384,8 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
       gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
         maxCrossAxisExtent: 600,
         mainAxisExtent: 210,
+        crossAxisSpacing: 8,
+        mainAxisSpacing: 8,
       ),
     );
   }

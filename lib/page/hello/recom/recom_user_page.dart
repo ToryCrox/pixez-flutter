@@ -75,6 +75,8 @@ class _RecomUserPageState extends State<RecomUserPage> {
     return WaterfallFlow.builder(
       gridDelegate: SliverWaterfallFlowDelegateWithMaxCrossAxisExtent(
         maxCrossAxisExtent: 600,
+        crossAxisSpacing: 8,
+        mainAxisSpacing: 8,
       ),
       itemCount: _recomUserStore.users.length,
       itemBuilder: (context, index) {

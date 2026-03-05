@@ -115,6 +115,8 @@ class _PainterListState extends State<PainterList> {
       }, childCount: _painterListStore.users.length),
       gridDelegate: SliverWaterfallFlowDelegateWithMaxCrossAxisExtent(
         maxCrossAxisExtent: 600,
+        crossAxisSpacing: 8,
+        mainAxisSpacing: 8,
       ),
     );
   }
