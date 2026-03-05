@@ -26,6 +26,7 @@ import 'package:pixez/page/history/history_manager.dart';
 import 'package:pixez/store/download_store.dart';
 import 'package:pixez/component/pixiv_image.dart';
 import 'package:super_drag_and_drop/super_drag_and_drop.dart';
+import 'package:pixez/component/hover_scale_container.dart';
 
 /// 已下载插画卡片组件
 class DownloadedIllustCard extends StatelessWidget {
@@ -187,17 +188,9 @@ class DownloadedIllustCard extends StatelessWidget {
   ) {
     final isMarked = store.unprocessedIllustIds.contains(illust.illustId);
 
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      shape: isSelected
-          ? RoundedRectangleBorder(
-              side: BorderSide(
-                color: Theme.of(context).colorScheme.primary,
-                width: 3,
-              ),
-              borderRadius: BorderRadius.circular(4),
-            )
-          : null,
+    // 修改：直接使用封装好的 HoverScaleCard 提供悬浮效果和原生的 Surface Tint
+    return HoverScaleCard(
+      isSelected: isSelected,
       child: InkWell(
         onTap: () {
           if (store.isMultiSelectMode) {
