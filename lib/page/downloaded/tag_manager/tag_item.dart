@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:pixez/models/download_record.dart';
 import 'package:pixez/page/downloaded/tag_manager/tag_edit_dialog.dart';
 import 'package:pixez/page/downloaded/tag_manager/tag_selection_dialog.dart';
+import 'package:pixez/component/hover_scale_container.dart';
 
 import 'package:pixez/component/pixiv_image.dart';
 import 'package:pixez/page/downloaded/downloaded_page.dart';
@@ -59,17 +60,8 @@ class TagItem extends StatelessWidget {
       onSecondaryTap: () {
         _showContextMenu(context);
       },
-      child: Card(
-        clipBehavior: Clip.antiAlias,
-        shape: isSelected
-            ? RoundedRectangleBorder(
-                side: BorderSide(
-                  color: Theme.of(context).colorScheme.primary,
-                  width: 3,
-                ),
-                borderRadius: BorderRadius.circular(12),
-              )
-            : null,
+      child: HoverScaleCard(
+        isSelected: isSelected,
         child: InkWell(
           onTap: () {
             if (isSelectionMode) {
