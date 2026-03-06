@@ -3,6 +3,7 @@ import 'dart:ui';
 
 import 'package:bot_toast/bot_toast.dart';
 import 'package:flutter/material.dart';
+import 'package:pixez/component/pixiv_image.dart';
 import 'package:pixez/er/leader.dart';
 import 'package:open_file/open_file.dart';
 import 'package:pixez/component/hover_scale_container.dart';
@@ -190,13 +191,15 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
     if (_excludeUgoira) {
       conditions.add(const ExcludeUgoiraCondition());
     }
-    if (_excludeWebp) {
-      conditions.add(const NonWebpCondition());
-    }
+    // 先做“前/后N张”截取，再做 webp 过滤。
+    // 这样可以保证 N 的计算包含 webp，随后再排除 webp。
     if (_pickMode == _PerIllustPickMode.last) {
       conditions.add(LastNPerIllustCondition(n: _pickCount));
     } else {
       conditions.add(FirstNPerIllustCondition(n: _pickCount));
+    }
+    if (_excludeWebp) {
+      conditions.add(const NonWebpCondition());
     }
     return AuthorImageFilterEngine(conditions: conditions);
   }
@@ -553,14 +556,10 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
-                      Image.file(
-                        File(item.path),
+                      PixivImage(
+                        Uri.file(item.path).toString(),
                         fit: BoxFit.cover,
-                        errorBuilder:
-                            (_, __, ___) => const ColoredBox(
-                              color: Colors.black12,
-                              child: Center(child: Icon(Icons.broken_image)),
-                            ),
+                        memCacheWidth: 250,
                       ),
                       Positioned(
                         top: 4,
@@ -626,7 +625,7 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        '${item.resolutionText} · ${item.fileSize.formatFileSize()} · ${item.partText}',
+                        '${item.resolutionText} · ${item.fileSize.formatFileSize()} · ${item.imageType} · ${item.partText}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -760,6 +759,13 @@ class _AuthorImageDisplayItem {
 
   /// 文件名（包含后缀）。
   String get fileNameWithExt => image.getFullFileName();
+
+  /// 图片类型（png/webp/jpg...）。
+  String get imageType {
+    final ext = image.extension.trim().toLowerCase();
+    if (ext.isEmpty) return 'unknown';
+    return ext.startsWith('.') ? ext.substring(1) : ext;
+  }
 
   String get partText => 'P${image.part}';
 

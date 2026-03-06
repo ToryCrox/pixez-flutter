@@ -799,7 +799,7 @@ class _PixivImageState extends State<PixivImage> {
                     onPressed: () {
                       setState(() {});
                     },
-                    child: Text(":("),
+                    child: Icon(Icons.broken_image),
                   ),
                 ),
               ),
