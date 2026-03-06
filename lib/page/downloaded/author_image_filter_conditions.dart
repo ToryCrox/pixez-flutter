@@ -92,6 +92,34 @@ class LastNPerIllustCondition extends AuthorImageFilterCondition {
   }
 }
 
+/// 条件：每个作品仅保留最前 N 张（按 part 升序取头部）。
+class FirstNPerIllustCondition extends AuthorImageFilterCondition {
+  final int n;
+
+  const FirstNPerIllustCondition({required this.n});
+
+  @override
+  List<AuthorImageCandidate> apply(
+    List<AuthorImageCandidate> candidates,
+    AuthorImageFilterContext context,
+  ) {
+    if (n <= 0) return const [];
+
+    final Map<int, List<AuthorImageCandidate>> grouped = {};
+    for (final candidate in candidates) {
+      grouped.putIfAbsent(candidate.illust.illustId, () => []).add(candidate);
+    }
+
+    final List<AuthorImageCandidate> result = [];
+    for (final group in grouped.values) {
+      group.sort((a, b) => a.image.part.compareTo(b.image.part));
+      final end = group.length > n ? n : group.length;
+      result.addAll(group.sublist(0, end));
+    }
+    return result;
+  }
+}
+
 /// 条件执行器：按顺序执行条件链。
 class AuthorImageFilterEngine {
   final List<AuthorImageFilterCondition> conditions;
@@ -125,7 +153,7 @@ class AuthorImageFilterEngine {
       conditions: [
         ExcludeUgoiraCondition(),
         NonWebpCondition(),
-        LastNPerIllustCondition(n: 3),
+        LastNPerIllustCondition(n: 4),
       ],
     );
   }

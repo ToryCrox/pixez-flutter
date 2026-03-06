@@ -15,6 +15,15 @@ import 'package:pixez/page/picture/picture_list_page.dart';
 import 'package:pixez/utils/file_utils.dart';
 import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 
+enum _PerIllustPickMode { last, first }
+
+// 筛选项持久化 key（仅在当前页面使用，不放入 UserSetting）。
+const String _kAuthorOrganizerExcludeWebpKey = 'author_organizer_exclude_webp';
+const String _kAuthorOrganizerExcludeUgoiraKey =
+    'author_organizer_exclude_ugoira';
+const String _kAuthorOrganizerPickModeKey = 'author_organizer_pick_mode';
+const String _kAuthorOrganizerPickCountKey = 'author_organizer_pick_count';
+
 class AuthorImageOrganizerPage extends StatefulWidget {
   final DownloadedAuthor author;
 
@@ -43,11 +52,53 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
   bool _isMultiSelectMode = false;
   final Set<String> _selectedItemIds = {};
   final Map<String, _AuthorImageDisplayItem> _itemMap = {};
+  bool _excludeWebp = true;
+  bool _excludeUgoira = true;
+  _PerIllustPickMode _pickMode = _PerIllustPickMode.last;
+  int _pickCount = 4;
 
   @override
   void initState() {
     super.initState();
+    _loadFilterPrefs();
     _loadItems();
+  }
+
+  /// 从 UserSetting.prefs 读取筛选配置。
+  void _loadFilterPrefs() {
+    _excludeWebp =
+        userSetting.prefs.getBool(_kAuthorOrganizerExcludeWebpKey) ?? true;
+    _excludeUgoira =
+        userSetting.prefs.getBool(_kAuthorOrganizerExcludeUgoiraKey) ?? true;
+
+    final modeIndex = userSetting.prefs.getInt(_kAuthorOrganizerPickModeKey);
+    if (modeIndex != null &&
+        modeIndex >= 0 &&
+        modeIndex < _PerIllustPickMode.values.length) {
+      _pickMode = _PerIllustPickMode.values[modeIndex];
+    }
+
+    final pickCount = userSetting.prefs.getInt(_kAuthorOrganizerPickCountKey);
+    if (pickCount != null) {
+      _pickCount = pickCount.clamp(1, 20);
+    }
+  }
+
+  /// 将筛选配置写入 UserSetting.prefs。
+  Future<void> _persistFilterPrefs() async {
+    await userSetting.prefs.setBool(
+      _kAuthorOrganizerExcludeWebpKey,
+      _excludeWebp,
+    );
+    await userSetting.prefs.setBool(
+      _kAuthorOrganizerExcludeUgoiraKey,
+      _excludeUgoira,
+    );
+    await userSetting.prefs.setInt(
+      _kAuthorOrganizerPickModeKey,
+      _pickMode.index,
+    );
+    await userSetting.prefs.setInt(_kAuthorOrganizerPickCountKey, _pickCount);
   }
 
   /// 核心加载流程：
@@ -79,7 +130,7 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
         illusts: illusts,
         imagesByIllustId: imagesByIllustId,
       );
-      final filterEngine = AuthorImageFilterEngine.defaultEngine();
+      final filterEngine = _buildFilterEngine();
       final candidates = await filterEngine.run(context);
 
       final resolved = await Future.wait(
@@ -131,6 +182,23 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
       result.addAll(chunkMap);
     }
     return result;
+  }
+
+  /// 根据菜单状态组装筛选条件，便于后续继续扩展。
+  AuthorImageFilterEngine _buildFilterEngine() {
+    final conditions = <AuthorImageFilterCondition>[];
+    if (_excludeUgoira) {
+      conditions.add(const ExcludeUgoiraCondition());
+    }
+    if (_excludeWebp) {
+      conditions.add(const NonWebpCondition());
+    }
+    if (_pickMode == _PerIllustPickMode.last) {
+      conditions.add(LastNPerIllustCondition(n: _pickCount));
+    } else {
+      conditions.add(FirstNPerIllustCondition(n: _pickCount));
+    }
+    return AuthorImageFilterEngine(conditions: conditions);
   }
 
   /// 将筛选后的候选项解析为可展示项（补齐本地文件路径）。
@@ -240,6 +308,85 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
     }
   }
 
+  /// 处理筛选菜单动作，并按需重新加载数据。
+  Future<void> _onFilterMenuSelected(String value) async {
+    var shouldReload = false;
+    switch (value) {
+      case 'toggle_webp':
+        setState(() => _excludeWebp = !_excludeWebp);
+        shouldReload = true;
+        break;
+      case 'toggle_ugoira':
+        setState(() => _excludeUgoira = !_excludeUgoira);
+        shouldReload = true;
+        break;
+      case 'mode_last':
+        setState(() => _pickMode = _PerIllustPickMode.last);
+        shouldReload = true;
+        break;
+      case 'mode_first':
+        setState(() => _pickMode = _PerIllustPickMode.first);
+        shouldReload = true;
+        break;
+      case 'set_count':
+        final count = await _showPickCountDialog();
+        if (count != null && count != _pickCount) {
+          setState(() => _pickCount = count);
+          shouldReload = true;
+        }
+        break;
+    }
+    if (shouldReload) {
+      await _persistFilterPrefs();
+    }
+    if (shouldReload) {
+      _loadItems();
+    }
+  }
+
+  /// 设置“每个作品取几张”。
+  Future<int?> _showPickCountDialog() async {
+    var tempCount = _pickCount;
+    return showDialog<int>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('设置图片数量'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('每个作品: $tempCount 张'),
+                  Slider(
+                    value: tempCount.toDouble(),
+                    min: 1,
+                    max: 20,
+                    divisions: 19,
+                    label: '$tempCount',
+                    onChanged: (value) {
+                      setDialogState(() => tempCount = value.round());
+                    },
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: const Text('取消'),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(dialogContext, tempCount),
+                  child: const Text('确定'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -250,6 +397,43 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
               : '${widget.author.userName} 图片整理',
         ),
         actions: [
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.filter_alt_outlined),
+            tooltip: '筛选条件',
+            position: PopupMenuPosition.under,
+            onSelected: (value) {
+              _onFilterMenuSelected(value);
+            },
+            itemBuilder: (context) {
+              return [
+                CheckedPopupMenuItem(
+                  value: 'toggle_webp',
+                  checked: _excludeWebp,
+                  child: const Text('排除 WebP'),
+                ),
+                CheckedPopupMenuItem(
+                  value: 'toggle_ugoira',
+                  checked: _excludeUgoira,
+                  child: const Text('排除动图'),
+                ),
+                const PopupMenuDivider(),
+                CheckedPopupMenuItem(
+                  value: 'mode_last',
+                  checked: _pickMode == _PerIllustPickMode.last,
+                  child: const Text('最后几张'),
+                ),
+                CheckedPopupMenuItem(
+                  value: 'mode_first',
+                  checked: _pickMode == _PerIllustPickMode.first,
+                  child: const Text('最前几张'),
+                ),
+                PopupMenuItem(
+                  value: 'set_count',
+                  child: Text('每作品数量: $_pickCount'),
+                ),
+              ];
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: '刷新',
@@ -424,27 +608,22 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        item.fileNameWithExt,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                      Text(
-                        '${item.resolutionText} · ${item.fileSize.formatFileSize()}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
                         '${item.illust.illustId} · ${item.illust.title}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodyMedium,
+                        style: Theme.of(
+                          context,
+                        ).textTheme.bodySmall?.copyWith(fontSize: 11),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${item.resolutionText} · ${item.fileSize.formatFileSize()} · ${item.partText}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          fontSize: 10,
+                          color: Colors.grey[600],
+                        ),
                       ),
                     ],
                   ),
@@ -572,6 +751,8 @@ class _AuthorImageDisplayItem {
 
   /// 文件名（包含后缀）。
   String get fileNameWithExt => image.getFullFileName();
+
+  String get partText => 'P${image.part}';
 
   /// 分辨率展示文案。
   String get resolutionText {
