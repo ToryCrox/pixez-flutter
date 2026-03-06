@@ -18,13 +18,30 @@ import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 
 enum _PerIllustPickMode { last, first }
 
+enum _AuthorOrganizerSortOption {
+  downloadTimeAsc,
+  downloadTimeDesc,
+  fileSizeAsc,
+  fileSizeDesc,
+  resolutionWidthAsc,
+  resolutionWidthDesc,
+  resolutionHeightAsc,
+  resolutionHeightDesc,
+  resolutionAreaAsc,
+  resolutionAreaDesc,
+}
+
 // 筛选项持久化 key（仅在当前页面使用，不放入 UserSetting）。
 const String _kAuthorOrganizerExcludeWebpKey = 'author_organizer_exclude_webp';
 const String _kAuthorOrganizerExcludeUgoiraKey =
     'author_organizer_exclude_ugoira';
 const String _kAuthorOrganizerPickModeKey = 'author_organizer_pick_mode';
 const String _kAuthorOrganizerPickCountKey = 'author_organizer_pick_count';
-const String _kAuthorOrganizerSortDescKey = 'author_organizer_sort_desc';
+const String _kAuthorOrganizerSortOptionKey = 'author_organizer_sort_option';
+const String _kAuthorOrganizerWidthOpKey = 'author_organizer_width_op';
+const String _kAuthorOrganizerWidthValueKey = 'author_organizer_width_value';
+const String _kAuthorOrganizerHeightOpKey = 'author_organizer_height_op';
+const String _kAuthorOrganizerHeightValueKey = 'author_organizer_height_value';
 
 class AuthorImageOrganizerPage extends StatefulWidget {
   final DownloadedAuthor author;
@@ -58,7 +75,12 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
   bool _excludeUgoira = true;
   _PerIllustPickMode _pickMode = _PerIllustPickMode.last;
   int _pickCount = 4;
-  bool _sortDesc = true;
+  ResolutionFilterOp _widthOp = ResolutionFilterOp.none;
+  int? _widthValue;
+  ResolutionFilterOp _heightOp = ResolutionFilterOp.none;
+  int? _heightValue;
+  _AuthorOrganizerSortOption _sortOption =
+      _AuthorOrganizerSortOption.downloadTimeDesc;
 
   @override
   void initState() {
@@ -85,7 +107,38 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
     if (pickCount != null) {
       _pickCount = pickCount.clamp(1, 20);
     }
-    _sortDesc = userSetting.prefs.getBool(_kAuthorOrganizerSortDescKey) ?? true;
+
+    final widthOpIndex = userSetting.prefs.getInt(_kAuthorOrganizerWidthOpKey);
+    if (widthOpIndex != null &&
+        widthOpIndex >= 0 &&
+        widthOpIndex < ResolutionFilterOp.values.length) {
+      _widthOp = ResolutionFilterOp.values[widthOpIndex];
+    }
+    final widthValue = userSetting.prefs.getInt(_kAuthorOrganizerWidthValueKey);
+    if (widthValue != null && widthValue > 0) {
+      _widthValue = widthValue;
+    }
+
+    final heightOpIndex =
+        userSetting.prefs.getInt(_kAuthorOrganizerHeightOpKey);
+    if (heightOpIndex != null &&
+        heightOpIndex >= 0 &&
+        heightOpIndex < ResolutionFilterOp.values.length) {
+      _heightOp = ResolutionFilterOp.values[heightOpIndex];
+    }
+    final heightValue =
+        userSetting.prefs.getInt(_kAuthorOrganizerHeightValueKey);
+    if (heightValue != null && heightValue > 0) {
+      _heightValue = heightValue;
+    }
+
+    final sortOptionIndex =
+        userSetting.prefs.getInt(_kAuthorOrganizerSortOptionKey);
+    if (sortOptionIndex != null &&
+        sortOptionIndex >= 0 &&
+        sortOptionIndex < _AuthorOrganizerSortOption.values.length) {
+      _sortOption = _AuthorOrganizerSortOption.values[sortOptionIndex];
+    }
   }
 
   /// 将筛选配置写入 UserSetting.prefs。
@@ -103,7 +156,28 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
       _pickMode.index,
     );
     await userSetting.prefs.setInt(_kAuthorOrganizerPickCountKey, _pickCount);
-    await userSetting.prefs.setBool(_kAuthorOrganizerSortDescKey, _sortDesc);
+    await userSetting.prefs.setInt(_kAuthorOrganizerWidthOpKey, _widthOp.index);
+    if (_widthValue != null && _widthValue! > 0) {
+      await userSetting.prefs.setInt(
+        _kAuthorOrganizerWidthValueKey,
+        _widthValue!,
+      );
+    } else {
+      await userSetting.prefs.remove(_kAuthorOrganizerWidthValueKey);
+    }
+    await userSetting.prefs.setInt(_kAuthorOrganizerHeightOpKey, _heightOp.index);
+    if (_heightValue != null && _heightValue! > 0) {
+      await userSetting.prefs.setInt(
+        _kAuthorOrganizerHeightValueKey,
+        _heightValue!,
+      );
+    } else {
+      await userSetting.prefs.remove(_kAuthorOrganizerHeightValueKey);
+    }
+    await userSetting.prefs.setInt(
+      _kAuthorOrganizerSortOptionKey,
+      _sortOption.index,
+    );
   }
 
   /// 核心加载流程：
@@ -143,16 +217,7 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
       );
       var displayItems = resolved.whereType<_AuthorImageDisplayItem>().toList();
 
-      displayItems.sort((a, b) {
-        final t = a.illust.downloadTime.compareTo(b.illust.downloadTime);
-        if (t != 0) return t;
-        final i = a.illust.illustId.compareTo(b.illust.illustId);
-        if (i != 0) return i;
-        return a.image.part.compareTo(b.image.part);
-      });
-      if (_sortDesc) {
-        displayItems = displayItems.reversed.toList();
-      }
+      displayItems.sort(_compareBySortOption);
 
       for (final item in displayItems) {
         _itemMap[item.id] = item;
@@ -207,7 +272,64 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
     if (_excludeWebp) {
       conditions.add(const NonWebpCondition());
     }
+    conditions.add(
+      ResolutionCondition(
+        widthOp: _widthOp,
+        widthValue: _widthValue,
+        heightOp: _heightOp,
+        heightValue: _heightValue,
+      ),
+    );
     return AuthorImageFilterEngine(conditions: conditions);
+  }
+
+  int _compareBySortOption(
+    _AuthorImageDisplayItem a,
+    _AuthorImageDisplayItem b,
+  ) {
+    final sortBy = switch (_sortOption) {
+      _AuthorOrganizerSortOption.downloadTimeAsc =>
+        a.illust.downloadTime.compareTo(b.illust.downloadTime),
+      _AuthorOrganizerSortOption.downloadTimeDesc =>
+        b.illust.downloadTime.compareTo(a.illust.downloadTime),
+      _AuthorOrganizerSortOption.fileSizeAsc => a.fileSize.compareTo(b.fileSize),
+      _AuthorOrganizerSortOption.fileSizeDesc =>
+        b.fileSize.compareTo(a.fileSize),
+      _AuthorOrganizerSortOption.resolutionWidthAsc =>
+        _compareResolutionValue(a.resolutionWidth, b.resolutionWidth, asc: true),
+      _AuthorOrganizerSortOption.resolutionWidthDesc =>
+        _compareResolutionValue(a.resolutionWidth, b.resolutionWidth, asc: false),
+      _AuthorOrganizerSortOption.resolutionHeightAsc =>
+        _compareResolutionValue(a.resolutionHeight, b.resolutionHeight, asc: true),
+      _AuthorOrganizerSortOption.resolutionHeightDesc =>
+        _compareResolutionValue(
+          a.resolutionHeight,
+          b.resolutionHeight,
+          asc: false,
+        ),
+      _AuthorOrganizerSortOption.resolutionAreaAsc =>
+        _compareResolutionValue(a.resolutionArea, b.resolutionArea, asc: true),
+      _AuthorOrganizerSortOption.resolutionAreaDesc =>
+        _compareResolutionValue(a.resolutionArea, b.resolutionArea, asc: false),
+    };
+    if (sortBy != 0) return sortBy;
+    return _compareFallback(a, b);
+  }
+
+  int _compareResolutionValue(int? a, int? b, {required bool asc}) {
+    final aKnown = a != null && a > 0;
+    final bKnown = b != null && b > 0;
+    if (!aKnown && !bKnown) return 0;
+    if (!aKnown) return 1;
+    if (!bKnown) return -1;
+    final cmp = a.compareTo(b);
+    return asc ? cmp : -cmp;
+  }
+
+  int _compareFallback(_AuthorImageDisplayItem a, _AuthorImageDisplayItem b) {
+    final i = a.illust.illustId.compareTo(b.illust.illustId);
+    if (i != 0) return i;
+    return a.image.part.compareTo(b.image.part);
   }
 
   /// 将筛选后的候选项解析为可展示项（补齐本地文件路径）。
@@ -344,12 +466,25 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
           shouldReload = true;
         }
         break;
-      case 'sort_asc':
-        setState(() => _sortDesc = false);
-        shouldReload = true;
+      case 'set_resolution_filter':
+        final result = await _showResolutionFilterDialog();
+        if (result != null) {
+          setState(() {
+            _widthOp = result.widthOp;
+            _widthValue = result.widthValue;
+            _heightOp = result.heightOp;
+            _heightValue = result.heightValue;
+          });
+          shouldReload = true;
+        }
         break;
-      case 'sort_desc':
-        setState(() => _sortDesc = true);
+      case 'clear_resolution_filter':
+        setState(() {
+          _widthOp = ResolutionFilterOp.none;
+          _widthValue = null;
+          _heightOp = ResolutionFilterOp.none;
+          _heightValue = null;
+        });
         shouldReload = true;
         break;
     }
@@ -359,6 +494,13 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
     if (shouldReload) {
       _loadItems();
     }
+  }
+
+  Future<void> _onSortOptionChanged(_AuthorOrganizerSortOption? value) async {
+    if (value == null || value == _sortOption) return;
+    setState(() => _sortOption = value);
+    await _persistFilterPrefs();
+    _loadItems();
   }
 
   /// 设置“每个作品取几张”。
@@ -404,6 +546,170 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
     );
   }
 
+  Future<_ResolutionFilterDialogResult?> _showResolutionFilterDialog() async {
+    var tempWidthOp = _widthOp;
+    var tempWidthValue = _widthValue;
+    var tempHeightOp = _heightOp;
+    var tempHeightValue = _heightValue;
+    final widthController = TextEditingController(
+      text: tempWidthValue?.toString() ?? '',
+    );
+    final heightController = TextEditingController(
+      text: tempHeightValue?.toString() ?? '',
+    );
+
+    final result = await showDialog<_ResolutionFilterDialogResult>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('分辨率过滤'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildResolutionFilterRow(
+                      label: '宽',
+                      op: tempWidthOp,
+                      controller: widthController,
+                      onOpChanged: (op) {
+                        setDialogState(() => tempWidthOp = op);
+                      },
+                      onValueChanged: (value) {
+                        tempWidthValue = value;
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    _buildResolutionFilterRow(
+                      label: '高',
+                      op: tempHeightOp,
+                      controller: heightController,
+                      onOpChanged: (op) {
+                        setDialogState(() => tempHeightOp = op);
+                      },
+                      onValueChanged: (value) {
+                        tempHeightValue = value;
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(
+                      dialogContext,
+                      const _ResolutionFilterDialogResult(
+                        widthOp: ResolutionFilterOp.none,
+                        widthValue: null,
+                        heightOp: ResolutionFilterOp.none,
+                        heightValue: null,
+                      ),
+                    );
+                  },
+                  child: const Text('清空'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: const Text('取消'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(
+                      dialogContext,
+                      _ResolutionFilterDialogResult(
+                        widthOp: tempWidthOp,
+                        widthValue: tempWidthValue,
+                        heightOp: tempHeightOp,
+                        heightValue: tempHeightValue,
+                      ),
+                    );
+                  },
+                  child: const Text('确定'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    widthController.dispose();
+    heightController.dispose();
+    return result;
+  }
+
+  Widget _buildResolutionFilterRow({
+    required String label,
+    required ResolutionFilterOp op,
+    required TextEditingController controller,
+    required ValueChanged<ResolutionFilterOp> onOpChanged,
+    required ValueChanged<int?> onValueChanged,
+  }) {
+    return Row(
+      children: [
+        SizedBox(width: 20, child: Text(label)),
+        const SizedBox(width: 8),
+        DropdownButton<ResolutionFilterOp>(
+          value: op,
+          items:
+              ResolutionFilterOp.values
+                  .map(
+                    (e) => DropdownMenuItem<ResolutionFilterOp>(
+                      value: e,
+                      child: Text(_resolutionOpLabel(e)),
+                    ),
+                  )
+                  .toList(),
+          onChanged: (value) {
+            if (value != null) {
+              onOpChanged(value);
+            }
+          },
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: TextField(
+            controller: controller,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              hintText: '像素值',
+              isDense: true,
+            ),
+            onChanged: (value) {
+              final parsed = int.tryParse(value.trim());
+              onValueChanged(parsed != null && parsed > 0 ? parsed : null);
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _resolutionOpLabel(ResolutionFilterOp op) {
+    return switch (op) {
+      ResolutionFilterOp.none => '不限制',
+      ResolutionFilterOp.gt => '大于',
+      ResolutionFilterOp.lt => '小于',
+    };
+  }
+
+  String _sortOptionLabel(_AuthorOrganizerSortOption option) {
+    return switch (option) {
+      _AuthorOrganizerSortOption.downloadTimeAsc => '下载时间-顺序',
+      _AuthorOrganizerSortOption.downloadTimeDesc => '下载时间-倒序',
+      _AuthorOrganizerSortOption.fileSizeAsc => '文件大小-顺序',
+      _AuthorOrganizerSortOption.fileSizeDesc => '文件大小-倒序',
+      _AuthorOrganizerSortOption.resolutionWidthAsc => '分辨率(宽)-顺序',
+      _AuthorOrganizerSortOption.resolutionWidthDesc => '分辨率(宽)-倒序',
+      _AuthorOrganizerSortOption.resolutionHeightAsc => '分辨率(高)-顺序',
+      _AuthorOrganizerSortOption.resolutionHeightDesc => '分辨率(高)-倒序',
+      _AuthorOrganizerSortOption.resolutionAreaAsc => '分辨率(宽x高)-顺序',
+      _AuthorOrganizerSortOption.resolutionAreaDesc => '分辨率(宽x高)-倒序',
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -414,6 +720,28 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
               : '${widget.author.userName} 图片整理',
         ),
         actions: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Center(
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<_AuthorOrganizerSortOption>(
+                  value: _sortOption,
+                  icon: const Icon(Icons.sort),
+                  onChanged: _loading ? null : _onSortOptionChanged,
+                  items:
+                      _AuthorOrganizerSortOption.values
+                          .map(
+                            (option) =>
+                                DropdownMenuItem<_AuthorOrganizerSortOption>(
+                                  value: option,
+                                  child: Text(_sortOptionLabel(option)),
+                                ),
+                          )
+                          .toList(),
+                ),
+              ),
+            ),
+          ),
           PopupMenuButton<String>(
             icon: const Icon(Icons.filter_alt_outlined),
             tooltip: '筛选条件',
@@ -449,15 +777,13 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
                   child: Text('每作品数量: $_pickCount'),
                 ),
                 const PopupMenuDivider(),
-                CheckedPopupMenuItem(
-                  value: 'sort_asc',
-                  checked: !_sortDesc,
-                  child: const Text('顺序'),
+                const PopupMenuItem(
+                  value: 'set_resolution_filter',
+                  child: Text('分辨率过滤设置'),
                 ),
-                CheckedPopupMenuItem(
-                  value: 'sort_desc',
-                  checked: _sortDesc,
-                  child: const Text('倒序'),
+                const PopupMenuItem(
+                  value: 'clear_resolution_filter',
+                  child: Text('清空分辨率过滤'),
                 ),
               ];
             },
@@ -782,6 +1108,25 @@ class _AuthorImageDisplayItem {
 
   int get fileSize => image.fileSize;
 
+  int? get resolutionWidth {
+    final w = image.width;
+    if (w == null || w <= 0) return null;
+    return w;
+  }
+
+  int? get resolutionHeight {
+    final h = image.height;
+    if (h == null || h <= 0) return null;
+    return h;
+  }
+
+  int? get resolutionArea {
+    final w = resolutionWidth;
+    final h = resolutionHeight;
+    if (w == null || h == null) return null;
+    return w * h;
+  }
+
   /// 文件名（包含后缀）。
   String get fileNameWithExt => image.getFullFileName();
 
@@ -803,4 +1148,18 @@ class _AuthorImageDisplayItem {
     }
     return '${w}x$h';
   }
+}
+
+class _ResolutionFilterDialogResult {
+  final ResolutionFilterOp widthOp;
+  final int? widthValue;
+  final ResolutionFilterOp heightOp;
+  final int? heightValue;
+
+  const _ResolutionFilterDialogResult({
+    required this.widthOp,
+    required this.widthValue,
+    required this.heightOp,
+    required this.heightValue,
+  });
 }

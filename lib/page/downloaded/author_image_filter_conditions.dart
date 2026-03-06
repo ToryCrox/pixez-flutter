@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:pixez/models/download_record.dart';
 
+enum ResolutionFilterOp { none, gt, lt }
+
 /// 作者图片筛选执行所需的上下文。
 class AuthorImageFilterContext {
   final DownloadedAuthor author;
@@ -117,6 +119,59 @@ class FirstNPerIllustCondition extends AuthorImageFilterCondition {
       result.addAll(group.sublist(0, end));
     }
     return result;
+  }
+}
+
+/// 条件：按宽高分辨率过滤。
+/// op 为 none 时不参与过滤；gt/lt 为严格大于/小于。
+class ResolutionCondition extends AuthorImageFilterCondition {
+  final ResolutionFilterOp widthOp;
+  final int? widthValue;
+  final ResolutionFilterOp heightOp;
+  final int? heightValue;
+
+  const ResolutionCondition({
+    required this.widthOp,
+    required this.widthValue,
+    required this.heightOp,
+    required this.heightValue,
+  });
+
+  @override
+  List<AuthorImageCandidate> apply(
+    List<AuthorImageCandidate> candidates,
+    AuthorImageFilterContext context,
+  ) {
+    return candidates.where((candidate) {
+      final w = candidate.image.width;
+      final h = candidate.image.height;
+
+      if (!_matchesSingleDimension(widthOp, widthValue, w)) {
+        return false;
+      }
+      if (!_matchesSingleDimension(heightOp, heightValue, h)) {
+        return false;
+      }
+      return true;
+    }).toList();
+  }
+
+  bool _matchesSingleDimension(
+    ResolutionFilterOp op,
+    int? threshold,
+    int? value,
+  ) {
+    if (op == ResolutionFilterOp.none || threshold == null || threshold <= 0) {
+      return true;
+    }
+    if (value == null || value <= 0) {
+      // 开启了该维度过滤时，未知宽高直接排除。
+      return false;
+    }
+    if (op == ResolutionFilterOp.gt) {
+      return value > threshold;
+    }
+    return value < threshold;
   }
 }
 
