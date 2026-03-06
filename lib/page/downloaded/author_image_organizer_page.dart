@@ -535,6 +535,15 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
             _openIllustDetail(item);
           }
         },
+        onLongPress: () {
+          // 长按进入选择模式，并选中当前卡片。
+          if (!_isMultiSelectMode) {
+            setState(() {
+              _isMultiSelectMode = true;
+              _selectedItemIds.add(item.id);
+            });
+          }
+        },
         child: Stack(
           children: [
             Column(
