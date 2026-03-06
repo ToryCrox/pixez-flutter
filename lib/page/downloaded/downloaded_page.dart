@@ -24,6 +24,7 @@ import 'package:pixez/exts.dart';
 import 'package:pixez/i18n.dart';
 import 'package:pixez/models/download_record.dart';
 import 'package:pixez/page/downloaded/downloaded_page_store.dart';
+import 'package:pixez/page/downloaded/author_image_organizer_page.dart';
 import 'package:pixez/page/downloaded/optimize_json_dialog.dart';
 import 'package:pixez/page/downloaded/sync_bookmarks_dialog.dart';
 
@@ -160,6 +161,17 @@ class _DownloadedPageState extends State<DownloadedPage> {
           onPressed: _toggleSearch,
         ),
         if (!_store.isSearching) ...[
+          if (_store.filterUserId != null)
+            IconButton(
+              icon: const Icon(Icons.photo_library_outlined),
+              tooltip: '图片整理',
+              onPressed: () async {
+                final author = await downloadStore.getAuthorByUserId(_store.filterUserId!);
+                if (author != null && context.mounted) {
+                  AuthorImageOrganizerPage.open(context, author: author);
+                }
+              },
+            ),
           IconButton(
             icon: const Icon(Icons.update),
             tooltip: '更新插画信息',
