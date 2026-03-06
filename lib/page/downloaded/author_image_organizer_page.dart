@@ -24,6 +24,7 @@ const String _kAuthorOrganizerExcludeUgoiraKey =
     'author_organizer_exclude_ugoira';
 const String _kAuthorOrganizerPickModeKey = 'author_organizer_pick_mode';
 const String _kAuthorOrganizerPickCountKey = 'author_organizer_pick_count';
+const String _kAuthorOrganizerSortDescKey = 'author_organizer_sort_desc';
 
 class AuthorImageOrganizerPage extends StatefulWidget {
   final DownloadedAuthor author;
@@ -57,6 +58,7 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
   bool _excludeUgoira = true;
   _PerIllustPickMode _pickMode = _PerIllustPickMode.last;
   int _pickCount = 4;
+  bool _sortDesc = true;
 
   @override
   void initState() {
@@ -83,6 +85,7 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
     if (pickCount != null) {
       _pickCount = pickCount.clamp(1, 20);
     }
+    _sortDesc = userSetting.prefs.getBool(_kAuthorOrganizerSortDescKey) ?? true;
   }
 
   /// 将筛选配置写入 UserSetting.prefs。
@@ -100,6 +103,7 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
       _pickMode.index,
     );
     await userSetting.prefs.setInt(_kAuthorOrganizerPickCountKey, _pickCount);
+    await userSetting.prefs.setBool(_kAuthorOrganizerSortDescKey, _sortDesc);
   }
 
   /// 核心加载流程：
@@ -137,16 +141,18 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
       final resolved = await Future.wait(
         candidates.map(_resolveDisplayItemFromCandidate),
       );
-      final displayItems =
-          resolved.whereType<_AuthorImageDisplayItem>().toList();
+      var displayItems = resolved.whereType<_AuthorImageDisplayItem>().toList();
 
       displayItems.sort((a, b) {
-        final t = b.illust.downloadTime.compareTo(a.illust.downloadTime);
+        final t = a.illust.downloadTime.compareTo(b.illust.downloadTime);
         if (t != 0) return t;
-        final i = b.illust.illustId.compareTo(a.illust.illustId);
+        final i = a.illust.illustId.compareTo(b.illust.illustId);
         if (i != 0) return i;
-        return b.image.part.compareTo(a.image.part);
+        return a.image.part.compareTo(b.image.part);
       });
+      if (_sortDesc) {
+        displayItems = displayItems.reversed.toList();
+      }
 
       for (final item in displayItems) {
         _itemMap[item.id] = item;
@@ -338,6 +344,14 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
           shouldReload = true;
         }
         break;
+      case 'sort_asc':
+        setState(() => _sortDesc = false);
+        shouldReload = true;
+        break;
+      case 'sort_desc':
+        setState(() => _sortDesc = true);
+        shouldReload = true;
+        break;
     }
     if (shouldReload) {
       await _persistFilterPrefs();
@@ -433,6 +447,17 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
                 PopupMenuItem(
                   value: 'set_count',
                   child: Text('每作品数量: $_pickCount'),
+                ),
+                const PopupMenuDivider(),
+                CheckedPopupMenuItem(
+                  value: 'sort_asc',
+                  checked: !_sortDesc,
+                  child: const Text('顺序'),
+                ),
+                CheckedPopupMenuItem(
+                  value: 'sort_desc',
+                  checked: _sortDesc,
+                  child: const Text('倒序'),
                 ),
               ];
             },
