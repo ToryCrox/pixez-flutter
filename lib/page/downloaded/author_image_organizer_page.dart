@@ -15,12 +15,15 @@ import 'package:pixez/page/downloaded/update_illust_info_dialog.dart';
 import 'package:pixez/page/picture/illust_store.dart';
 import 'package:pixez/page/picture/picture_list_page.dart';
 import 'package:pixez/utils/file_utils.dart';
+import 'package:scrollview_observer/scrollview_observer.dart';
 import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 
 enum _PerIllustPickMode { last, first, all }
 
 enum _SortType { idAndPart, downloadTime, fileSize, width, height, area }
+
 enum _SortOrder { asc, desc }
+
 enum _GroupType { none, date, illust, type, resolution }
 
 // 筛选项持久化 key（仅在当前页面使用，不放入 UserSetting）。
@@ -54,10 +57,9 @@ class AuthorImageOrganizerPage extends StatefulWidget {
   }) {
     return Navigator.of(context).push<T>(
       MaterialPageRoute(
-        builder: (context) => AuthorImageOrganizerPage(
-          author: author,
-          illustId: illustId,
-        ),
+        builder: (context) {
+          return AuthorImageOrganizerPage(author: author, illustId: illustId);
+        },
       ),
     );
   }
@@ -72,7 +74,7 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
   String? _error;
   List<_AuthorImageDisplayItem> _items = const [];
   List<_GroupedItems> _groupedItems = const [];
-  
+
   // 原始数据缓存
   List<DownloadedIllust>? _rawIllusts;
   Map<int, List<DownloadedImage>>? _rawImagesByIllustId;
@@ -96,12 +98,20 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
   int? _illustIdFilter;
 
   late ScrollController _scrollController;
+  late SliverObserverController _sliverObserverController;
+  final Map<String, GlobalKey> _groupHeaderKeys = {};
+  final Map<String, GlobalKey> _groupObserveKeys = {};
+  final Map<String, GlobalKey> _groupGridKeys = {};
+  String? _currentGroupId;
 
   @override
   void initState() {
     super.initState();
     _illustIdFilter = widget.illustId;
     _scrollController = ScrollController();
+    _sliverObserverController = SliverObserverController(
+      controller: _scrollController,
+    );
     _loadFilterPrefs();
     _loadData(forceReload: true);
   }
@@ -142,36 +152,41 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
       _widthValue = widthValue;
     }
 
-    final heightOpIndex =
-        userSetting.prefs.getInt(_kAuthorOrganizerHeightOpKey);
+    final heightOpIndex = userSetting.prefs.getInt(
+      _kAuthorOrganizerHeightOpKey,
+    );
     if (heightOpIndex != null &&
         heightOpIndex >= 0 &&
         heightOpIndex < ResolutionFilterOp.values.length) {
       _heightOp = ResolutionFilterOp.values[heightOpIndex];
     }
-    final heightValue =
-        userSetting.prefs.getInt(_kAuthorOrganizerHeightValueKey);
+    final heightValue = userSetting.prefs.getInt(
+      _kAuthorOrganizerHeightValueKey,
+    );
     if (heightValue != null && heightValue > 0) {
       _heightValue = heightValue;
     }
 
-    final sortTypeIndex =
-        userSetting.prefs.getInt(_kAuthorOrganizerSortTypeKey);
+    final sortTypeIndex = userSetting.prefs.getInt(
+      _kAuthorOrganizerSortTypeKey,
+    );
     if (sortTypeIndex != null &&
         sortTypeIndex >= 0 &&
         sortTypeIndex < _SortType.values.length) {
       _sortType = _SortType.values[sortTypeIndex];
     }
-    final sortOrderIndex =
-        userSetting.prefs.getInt(_kAuthorOrganizerSortOrderKey);
+    final sortOrderIndex = userSetting.prefs.getInt(
+      _kAuthorOrganizerSortOrderKey,
+    );
     if (sortOrderIndex != null &&
         sortOrderIndex >= 0 &&
         sortOrderIndex < _SortOrder.values.length) {
       _sortOrder = _SortOrder.values[sortOrderIndex];
     }
 
-    final groupTypeIndex =
-        userSetting.prefs.getInt(_kAuthorOrganizerGroupTypeKey);
+    final groupTypeIndex = userSetting.prefs.getInt(
+      _kAuthorOrganizerGroupTypeKey,
+    );
     if (groupTypeIndex != null &&
         groupTypeIndex >= 0 &&
         groupTypeIndex < _GroupType.values.length) {
@@ -203,7 +218,10 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
     } else {
       await userSetting.prefs.remove(_kAuthorOrganizerWidthValueKey);
     }
-    await userSetting.prefs.setInt(_kAuthorOrganizerHeightOpKey, _heightOp.index);
+    await userSetting.prefs.setInt(
+      _kAuthorOrganizerHeightOpKey,
+      _heightOp.index,
+    );
     if (_heightValue != null && _heightValue! > 0) {
       await userSetting.prefs.setInt(
         _kAuthorOrganizerHeightValueKey,
@@ -255,8 +273,9 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
 
         if (_illustIdFilter != null && _illustIdFilter! > 0) {
           // 性能优化：当指定插画 ID 时，直接精确查询单作品数据，无需扫表加载作者全量作品
-          final illust =
-              await downloadStore.getDownloadedIllust(_illustIdFilter!);
+          final illust = await downloadStore.getDownloadedIllust(
+            _illustIdFilter!,
+          );
           if (illust != null) {
             illusts = [illust];
             final images = await downloadStore.dbProvider.getImagesByIllustId(
@@ -318,6 +337,7 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
       setState(() {
         _items = sortedItems;
         _groupedItems = grouped;
+        _syncGroupKeys(grouped);
         _loading = false;
       });
     } catch (e) {
@@ -822,10 +842,7 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
           child: TextField(
             controller: controller,
             keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              hintText: '像素值',
-              isDense: true,
-            ),
+            decoration: const InputDecoration(hintText: '像素值', isDense: true),
             onChanged: (value) {
               final parsed = int.tryParse(value.trim());
               onValueChanged(parsed != null && parsed > 0 ? parsed : null);
@@ -855,7 +872,6 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
     };
   }
 
-
   String _groupTypeLabel(_GroupType type) {
     return switch (type) {
       _GroupType.none => '不分组',
@@ -874,8 +890,8 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
           _isMultiSelectMode
               ? '${widget.author.userName} · 已选 ${_selectedItemIds.length}'
               : _illustIdFilter != null
-                  ? '${widget.author.userName} · 作品 $_illustIdFilter'
-                  : '${widget.author.userName} 图片整理',
+              ? '${widget.author.userName} · 作品 $_illustIdFilter'
+              : '${widget.author.userName} 图片整理',
         ),
         actions: [
           Padding(
@@ -886,14 +902,15 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
               position: PopupMenuPosition.under,
               onSelected: _loading ? null : _onGroupTypeChanged,
               itemBuilder:
-                  (context) => _GroupType.values
-                      .map(
-                        (type) => PopupMenuItem<_GroupType>(
-                          value: type,
-                          child: Text(_groupTypeLabel(type)),
-                        ),
-                      )
-                      .toList(),
+                  (context) =>
+                      _GroupType.values
+                          .map(
+                            (type) => PopupMenuItem<_GroupType>(
+                              value: type,
+                              child: Text(_groupTypeLabel(type)),
+                            ),
+                          )
+                          .toList(),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 child: Row(
@@ -915,14 +932,15 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
               position: PopupMenuPosition.under,
               onSelected: _loading ? null : _onSortTypeChanged,
               itemBuilder:
-                  (context) => _SortType.values
-                      .map(
-                        (type) => PopupMenuItem<_SortType>(
-                          value: type,
-                          child: Text(_sortTypeLabel(type)),
-                        ),
-                      )
-                      .toList(),
+                  (context) =>
+                      _SortType.values
+                          .map(
+                            (type) => PopupMenuItem<_SortType>(
+                              value: type,
+                              child: Text(_sortTypeLabel(type)),
+                            ),
+                          )
+                          .toList(),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 child: Row(
@@ -938,7 +956,8 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
           IconButton(
             icon: Icon(
               _sortOrder == _SortOrder.asc
-                  ? Icons.arrow_upward // 升序图标
+                  ? Icons
+                      .arrow_upward // 升序图标
                   : Icons.arrow_downward, // 降序图标
             ),
             tooltip: _sortOrder == _SortOrder.asc ? '正序' : '倒序',
@@ -1059,8 +1078,6 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
     );
   }
 
-
-
   Widget _buildBody() {
     if (_loading) {
       return const Center(child: CircularProgressIndicator());
@@ -1072,49 +1089,170 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
       return const Center(child: Text('没有符合条件的图片'));
     }
 
-    return ScrollConfiguration(
-      behavior: ScrollConfiguration.of(context).copyWith(
-        dragDevices:
-            ScrollConfiguration.of(
-              context,
-            ).dragDevices.where((k) => k != PointerDeviceKind.mouse).toSet(),
+    return Column(
+      children: [
+        _buildGroupNavigator(),
+        Expanded(
+          child: ScrollConfiguration(
+            behavior: ScrollConfiguration.of(context).copyWith(
+              dragDevices:
+                  ScrollConfiguration.of(context).dragDevices
+                      .where((k) => k != PointerDeviceKind.mouse)
+                      .toSet(),
+            ),
+            child: SliverViewObserver(
+              controller: _sliverObserverController,
+              onObserveViewport: _onObserveViewport,
+              sliverContexts:
+                  () =>
+                      _groupedItems
+                          .map(
+                            (group) =>
+                                _groupObserveKeys[group.id]?.currentContext,
+                          )
+                          .whereType<BuildContext>()
+                          .toList(),
+              child: CustomScrollView(
+                controller: _scrollController,
+                slivers:
+                    _groupedItems.asMap().entries.map((entry) {
+                      final index = entry.key;
+                      final group = entry.value;
+                      return SliverMainAxisGroup(
+                        key: _groupObserveKeys[group.id],
+                        slivers: [
+                          SliverPersistentHeader(
+                            pinned: true,
+                            delegate: _StickyHeaderDelegate(
+                              child: _buildGroupHeader(group, index),
+                              minHeight: 40,
+                              maxHeight: 40,
+                            ),
+                          ),
+                          SliverPadding(
+                            padding: const EdgeInsets.all(8),
+                            sliver: SliverGrid(
+                              key: _groupGridKeys[group.id],
+                              gridDelegate:
+                                  const SliverGridDelegateWithMaxCrossAxisExtent(
+                                    maxCrossAxisExtent: 210,
+                                    childAspectRatio: 0.73,
+                                    crossAxisSpacing: 8,
+                                    mainAxisSpacing: 8,
+                                  ),
+                              delegate: SliverChildBuilderDelegate((
+                                context,
+                                index,
+                              ) {
+                                final item = group.items[index];
+                                final selected = _selectedItemIds.contains(
+                                  item.id,
+                                );
+                                return _buildDraggableCard(item, selected);
+                              }, childCount: group.items.length),
+                            ),
+                          ),
+                        ],
+                      );
+                    }).toList(),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildGroupNavigator() {
+    if (_groupedItems.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return Container(
+      height: 44,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        border: Border(
+          bottom: BorderSide(color: Theme.of(context).dividerColor),
+        ),
       ),
-      child: CustomScrollView(
-        controller: _scrollController,
-        slivers: _groupedItems.asMap().entries.map((entry) {
-          final index = entry.key;
-          final group = entry.value;
-          return SliverMainAxisGroup(
-            slivers: [
-              SliverPersistentHeader(
-                pinned: true,
-                delegate: _StickyHeaderDelegate(
-                  child: _buildGroupHeader(group, index),
-                  minHeight: 40,
-                  maxHeight: 40,
-                ),
-              ),
-              SliverPadding(
-                padding: const EdgeInsets.all(8),
-                sliver: SliverGrid(
-                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                    maxCrossAxisExtent: 210,
-                    childAspectRatio: 0.73,
-                    crossAxisSpacing: 8,
-                    mainAxisSpacing: 8,
-                  ),
-                  delegate: SliverChildBuilderDelegate((context, index) {
-                    final item = group.items[index];
-                    final selected = _selectedItemIds.contains(item.id);
-                    return _buildDraggableCard(item, selected);
-                  }, childCount: group.items.length),
-                ),
-              ),
-            ],
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: _groupedItems.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final group = _groupedItems[index];
+          return ChoiceChip(
+            label: Text(group.title),
+            selected: _currentGroupId == group.id,
+            onSelected: (_) => _scrollToGroup(group),
           );
-        }).toList(),
+        },
       ),
     );
+  }
+
+  void _syncGroupKeys(List<_GroupedItems> groups) {
+    final ids = groups.map((e) => e.id).toSet();
+    _groupHeaderKeys.removeWhere((id, _) => !ids.contains(id));
+    _groupObserveKeys.removeWhere((id, _) => !ids.contains(id));
+    _groupGridKeys.removeWhere((id, _) => !ids.contains(id));
+    for (final group in groups) {
+      _groupHeaderKeys.putIfAbsent(group.id, () => GlobalKey());
+      _groupObserveKeys.putIfAbsent(group.id, () => GlobalKey());
+      _groupGridKeys.putIfAbsent(group.id, () => GlobalKey());
+    }
+    if (_currentGroupId == null || !ids.contains(_currentGroupId)) {
+      _currentGroupId = groups.isNotEmpty ? groups.first.id : null;
+    }
+  }
+
+  Future<void> _scrollToGroup(_GroupedItems group) async {
+    setState(() {
+      _currentGroupId = group.id;
+    });
+
+    final targetGridContext = _groupGridKeys[group.id]?.currentContext;
+    if (targetGridContext != null) {
+      try {
+        await _sliverObserverController.animateTo(
+          index: 0,
+          sliverContext: targetGridContext,
+          duration: const Duration(milliseconds: 260),
+          curve: Curves.easeInOut,
+          alignment: 0,
+        );
+        return;
+      } catch (_) {}
+    }
+
+    final targetHeaderContext = _groupHeaderKeys[group.id]?.currentContext;
+    if (targetHeaderContext != null) {
+      await Scrollable.ensureVisible(
+        targetHeaderContext,
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeInOut,
+        alignment: 0,
+      );
+    }
+  }
+
+  void _onObserveViewport(SliverViewportObserveModel result) {
+    if (_groupedItems.isEmpty) return;
+    final firstContext = result.firstChild.sliverContext;
+    String? visibleGroupId;
+    for (final group in _groupedItems) {
+      final ctx = _groupObserveKeys[group.id]?.currentContext;
+      if (identical(ctx, firstContext)) {
+        visibleGroupId = group.id;
+        break;
+      }
+    }
+    if (visibleGroupId == null || visibleGroupId == _currentGroupId) return;
+    if (!mounted) return;
+    setState(() {
+      _currentGroupId = visibleGroupId;
+    });
   }
 
   Widget _buildGroupHeader(_GroupedItems group, int index) {
@@ -1126,6 +1264,7 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
     );
 
     return Container(
+      key: _groupHeaderKeys[group.id],
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       color: Theme.of(context).colorScheme.surfaceContainerHighest,
       child: Row(
@@ -1133,9 +1272,9 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
           Expanded(
             child: Text(
               group.title,
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
             ),
           ),
           if (_isMultiSelectMode)
