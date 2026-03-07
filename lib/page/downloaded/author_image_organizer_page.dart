@@ -11,6 +11,7 @@ import 'package:pixez/exts.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/models/download_record.dart';
 import 'package:pixez/page/downloaded/author_image_filter_conditions.dart';
+import 'package:pixez/page/downloaded/update_illust_info_dialog.dart';
 import 'package:pixez/page/picture/illust_store.dart';
 import 'package:pixez/page/picture/picture_list_page.dart';
 import 'package:pixez/utils/file_utils.dart';
@@ -479,6 +480,20 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
     }
   }
 
+  /// 弹出更新插画信息对话框 (针对当前作者)
+  void _showUpdateIllustInfoDialog() {
+    showDialog(
+      context: context,
+      useRootNavigator: false,
+      builder: (context) => UpdateIllustInfoDialog(
+        illusts: _buildUniqueIllustList(),
+        userId: widget.author.userId,
+      ),
+    ).then((_) {
+      _loadItems();
+    });
+  }
+
   /// 处理筛选菜单动作，并按需重新加载数据。
   Future<void> _onFilterMenuSelected(String value) async {
     var shouldReload = false;
@@ -904,8 +919,13 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
             },
           ),
           IconButton(
+            icon: const Icon(Icons.update),
+            tooltip: '扫描并更新作者作品信息',
+            onPressed: _loading ? null : _showUpdateIllustInfoDialog,
+          ),
+          IconButton(
             icon: const Icon(Icons.refresh),
-            tooltip: '刷新',
+            tooltip: '列表刷新',
             onPressed: _loading ? null : _loadItems,
           ),
           if (_isMultiSelectMode)
