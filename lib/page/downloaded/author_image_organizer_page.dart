@@ -20,6 +20,7 @@ enum _PerIllustPickMode { last, first, all }
 
 enum _SortType { downloadTime, fileSize, width, height, area }
 enum _SortOrder { asc, desc }
+enum _GroupType { none, date, illust, type }
 
 // 筛选项持久化 key（仅在当前页面使用，不放入 UserSetting）。
 const String _kAuthorOrganizerExcludeWebpKey = 'author_organizer_exclude_webp';
@@ -33,6 +34,7 @@ const String _kAuthorOrganizerWidthOpKey = 'author_organizer_width_op';
 const String _kAuthorOrganizerWidthValueKey = 'author_organizer_width_value';
 const String _kAuthorOrganizerHeightOpKey = 'author_organizer_height_op';
 const String _kAuthorOrganizerHeightValueKey = 'author_organizer_height_value';
+const String _kAuthorOrganizerGroupTypeKey = 'author_organizer_group_type';
 
 class AuthorImageOrganizerPage extends StatefulWidget {
   final DownloadedAuthor author;
@@ -59,6 +61,7 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
   bool _loading = true;
   String? _error;
   List<_AuthorImageDisplayItem> _items = const [];
+  List<_GroupedItems> _groupedItems = const [];
   bool _isMultiSelectMode = false;
   final Set<String> _selectedItemIds = {};
   final Map<String, _AuthorImageDisplayItem> _itemMap = {};
@@ -72,6 +75,7 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
   int? _heightValue;
   _SortType _sortType = _SortType.downloadTime;
   _SortOrder _sortOrder = _SortOrder.desc;
+  _GroupType _groupType = _GroupType.none;
 
   @override
   void initState() {
@@ -137,6 +141,14 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
         sortOrderIndex < _SortOrder.values.length) {
       _sortOrder = _SortOrder.values[sortOrderIndex];
     }
+
+    final groupTypeIndex =
+        userSetting.prefs.getInt(_kAuthorOrganizerGroupTypeKey);
+    if (groupTypeIndex != null &&
+        groupTypeIndex >= 0 &&
+        groupTypeIndex < _GroupType.values.length) {
+      _groupType = _GroupType.values[groupTypeIndex];
+    }
   }
 
   /// 将筛选配置写入 UserSetting.prefs。
@@ -179,6 +191,10 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
     await userSetting.prefs.setInt(
       _kAuthorOrganizerSortOrderKey,
       _sortOrder.index,
+    );
+    await userSetting.prefs.setInt(
+      _kAuthorOrganizerGroupTypeKey,
+      _groupType.index,
     );
   }
 
@@ -225,9 +241,12 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
         _itemMap[item.id] = item;
       }
 
+      final grouped = _groupItems(displayItems);
+
       if (!mounted) return;
       setState(() {
         _items = displayItems;
+        _groupedItems = grouped;
         _loading = false;
       });
     } catch (e) {
@@ -381,6 +400,23 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
     });
   }
 
+  void _toggleGroupSelection(_GroupedItems group) {
+    setState(() {
+      final allSelected = group.items.every(
+        (item) => _selectedItemIds.contains(item.id),
+      );
+      if (allSelected) {
+        for (final item in group.items) {
+          _selectedItemIds.remove(item.id);
+        }
+      } else {
+        for (final item in group.items) {
+          _selectedItemIds.add(item.id);
+        }
+      }
+    });
+  }
+
   /// 进入插画详情页（与下载页一致，传入当前筛选结果中的插画列表）。
   Future<void> _openIllustDetail(_AuthorImageDisplayItem item) async {
     final uniqueIllusts = _buildUniqueIllustList();
@@ -514,6 +550,13 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
   Future<void> _onSortOrderChanged(_SortOrder? value) async {
     if (value == null || value == _sortOrder) return;
     setState(() => _sortOrder = value);
+    await _persistFilterPrefs();
+    _loadItems();
+  }
+
+  Future<void> _onGroupTypeChanged(_GroupType? value) async {
+    if (value == null || value == _groupType) return;
+    setState(() => _groupType = value);
     await _persistFilterPrefs();
     _loadItems();
   }
@@ -727,6 +770,15 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
     };
   }
 
+  String _groupTypeLabel(_GroupType type) {
+    return switch (type) {
+      _GroupType.none => '不分组',
+      _GroupType.date => '按日期',
+      _GroupType.illust => '按作品',
+      _GroupType.type => '按类型',
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -737,6 +789,27 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
               : '${widget.author.userName} 图片整理',
         ),
         actions: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Center(
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<_GroupType>(
+                  value: _groupType,
+                  icon: const Icon(Icons.layers_outlined, size: 20),
+                  onChanged: _loading ? null : _onGroupTypeChanged,
+                  items:
+                      _GroupType.values
+                          .map(
+                            (type) => DropdownMenuItem<_GroupType>(
+                              value: type,
+                              child: Text(_groupTypeLabel(type)),
+                            ),
+                          )
+                          .toList(),
+                ),
+              ),
+            ),
+          ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4),
             child: Center(
@@ -887,20 +960,69 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
               context,
             ).dragDevices.where((k) => k != PointerDeviceKind.mouse).toSet(),
       ),
-      child: GridView.builder(
-        padding: const EdgeInsets.all(8),
-        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-          maxCrossAxisExtent: 210,
-          childAspectRatio: 0.73,
-          crossAxisSpacing: 8,
-          mainAxisSpacing: 8,
-        ),
-        itemCount: _items.length,
-        itemBuilder: (context, index) {
-          final item = _items[index];
-          final selected = _selectedItemIds.contains(item.id);
-          return _buildDraggableCard(item, selected);
-        },
+      child: CustomScrollView(
+        slivers: [
+          ..._groupedItems.expand((group) {
+            return [
+              SliverToBoxAdapter(child: _buildGroupHeader(group)),
+              SliverPadding(
+                padding: const EdgeInsets.all(8),
+                sliver: SliverGrid(
+                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                    maxCrossAxisExtent: 210,
+                    childAspectRatio: 0.73,
+                    crossAxisSpacing: 8,
+                    mainAxisSpacing: 8,
+                  ),
+                  delegate: SliverChildBuilderDelegate((context, index) {
+                    final item = group.items[index];
+                    final selected = _selectedItemIds.contains(item.id);
+                    return _buildDraggableCard(item, selected);
+                  }, childCount: group.items.length),
+                ),
+              ),
+            ];
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGroupHeader(_GroupedItems group) {
+    final allSelected = group.items.every(
+      (item) => _selectedItemIds.contains(item.id),
+    );
+    final anySelected = group.items.any(
+      (item) => _selectedItemIds.contains(item.id),
+    );
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              group.title,
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          if (_isMultiSelectMode)
+            IconButton(
+              icon: Icon(
+                allSelected
+                    ? Icons.check_box
+                    : (anySelected
+                        ? Icons.indeterminate_check_box
+                        : Icons.check_box_outline_blank),
+                size: 20,
+              ),
+              onPressed: () => _toggleGroupSelection(group),
+              tooltip: allSelected ? '全组取消选中' : '全组选中',
+            ),
+        ],
       ),
     );
   }
@@ -1133,6 +1255,81 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
     item.add(Formats.plainText('PixEz Author Image Organizer'));
     return item;
   }
+
+  List<_GroupedItems> _groupItems(List<_AuthorImageDisplayItem> items) {
+    if (_groupType == _GroupType.none) {
+      return [
+        _GroupedItems(
+          title: '所有图片 (${items.length})',
+          items: items,
+          type: _GroupType.none,
+          id: 'none',
+        ),
+      ];
+    }
+
+    final groups = <String, List<_AuthorImageDisplayItem>>{};
+    final groupTitles = <String, String>{};
+    final groupOrder = <String>[];
+
+    for (final item in items) {
+      String groupId;
+      String groupTitle;
+
+      switch (_groupType) {
+        case _GroupType.illust:
+          groupId = 'illust_${item.illust.illustId}';
+          groupTitle = '${item.illust.illustId} · ${item.illust.title}';
+          break;
+        case _GroupType.date:
+          final date = DateTime.fromMillisecondsSinceEpoch(
+            item.illust.downloadTime,
+          );
+          groupId = 'date_${date.year}_${date.month}_${date.day}';
+          groupTitle =
+              '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+          break;
+        case _GroupType.type:
+          groupId = 'type_${item.imageType}';
+          groupTitle = item.imageType.toUpperCase();
+          break;
+        case _GroupType.none:
+          groupId = 'none';
+          groupTitle = '所有图片';
+          break;
+      }
+
+      if (!groups.containsKey(groupId)) {
+        groups[groupId] = [];
+        groupTitles[groupId] = groupTitle;
+        groupOrder.add(groupId);
+      }
+      groups[groupId]!.add(item);
+    }
+
+    return groupOrder.map((id) {
+      return _GroupedItems(
+        title: '${groupTitles[id]} (${groups[id]!.length})',
+        items: groups[id]!,
+        type: _groupType,
+        id: id,
+      );
+    }).toList();
+  }
+}
+
+class _GroupedItems {
+  final String title;
+  final List<_AuthorImageDisplayItem> items;
+  final _GroupType type;
+  final String id;
+
+  const _GroupedItems({
+    required this.title,
+    required this.items,
+    required this.type,
+    required this.id,
+  });
 }
 
 class _AuthorImageDisplayItem {
