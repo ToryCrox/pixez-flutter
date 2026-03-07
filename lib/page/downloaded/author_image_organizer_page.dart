@@ -95,12 +95,21 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
   _GroupType _groupType = _GroupType.none;
   int? _illustIdFilter;
 
+  late ScrollController _scrollController;
+
   @override
   void initState() {
     super.initState();
     _illustIdFilter = widget.illustId;
+    _scrollController = ScrollController();
     _loadFilterPrefs();
     _loadData(forceReload: true);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   /// 从 UserSetting.prefs 读取筛选配置。
@@ -1050,6 +1059,8 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
     );
   }
 
+
+
   Widget _buildBody() {
     if (_loading) {
       return const Center(child: CircularProgressIndicator());
@@ -1069,10 +1080,20 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
             ).dragDevices.where((k) => k != PointerDeviceKind.mouse).toSet(),
       ),
       child: CustomScrollView(
-        slivers: [
-          ..._groupedItems.expand((group) {
-            return [
-              SliverToBoxAdapter(child: _buildGroupHeader(group)),
+        controller: _scrollController,
+        slivers: _groupedItems.asMap().entries.map((entry) {
+          final index = entry.key;
+          final group = entry.value;
+          return SliverMainAxisGroup(
+            slivers: [
+              SliverPersistentHeader(
+                pinned: true,
+                delegate: _StickyHeaderDelegate(
+                  child: _buildGroupHeader(group, index),
+                  minHeight: 40,
+                  maxHeight: 40,
+                ),
+              ),
               SliverPadding(
                 padding: const EdgeInsets.all(8),
                 sliver: SliverGrid(
@@ -1089,14 +1110,14 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
                   }, childCount: group.items.length),
                 ),
               ),
-            ];
-          }),
-        ],
+            ],
+          );
+        }).toList(),
       ),
     );
   }
 
-  Widget _buildGroupHeader(_GroupedItems group) {
+  Widget _buildGroupHeader(_GroupedItems group, int index) {
     final allSelected = group.items.every(
       (item) => _selectedItemIds.contains(item.id),
     );
@@ -1515,4 +1536,38 @@ class _ResolutionFilterDialogResult {
     required this.heightOp,
     required this.heightValue,
   });
+}
+
+class _StickyHeaderDelegate extends SliverPersistentHeaderDelegate {
+  final Widget child;
+  final double minHeight;
+  final double maxHeight;
+
+  _StickyHeaderDelegate({
+    required this.child,
+    required this.minHeight,
+    required this.maxHeight,
+  });
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    return SizedBox.expand(child: child);
+  }
+
+  @override
+  double get maxExtent => maxHeight;
+
+  @override
+  double get minExtent => minHeight;
+
+  @override
+  bool shouldRebuild(covariant _StickyHeaderDelegate oldDelegate) {
+    return oldDelegate.child != child ||
+        oldDelegate.minHeight != minHeight ||
+        oldDelegate.maxHeight != maxHeight;
+  }
 }
