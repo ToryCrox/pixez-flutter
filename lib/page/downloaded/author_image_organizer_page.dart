@@ -1028,6 +1028,8 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
           ),
           if (_isMultiSelectMode)
             IconButton(
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
               icon: Icon(
                 allSelected
                     ? Icons.check_box
