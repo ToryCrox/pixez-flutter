@@ -608,9 +608,9 @@ class _IllustDownloadButtonState extends State<IllustDownloadButton> {
 
       if (!mounted) return;
 
-      await showDialog(
-        context: context,
-        builder: (ctx) => UpdateIllustInfoDialog(illusts: [downloadedIllust]),
+      await UpdateIllustInfoDialog.show(
+        context,
+        illusts: [downloadedIllust],
       );
     } catch (e) {
       Log.e('Failed to open update info dialog: $e');

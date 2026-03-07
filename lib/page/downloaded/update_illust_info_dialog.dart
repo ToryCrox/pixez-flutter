@@ -231,6 +231,19 @@ class UpdateIllustInfoDialog extends StatefulWidget {
   const UpdateIllustInfoDialog({Key? key, required this.illusts, this.userId})
     : super(key: key);
 
+  static Future<T?> show<T>(
+    BuildContext context, {
+    required List<DownloadedIllust> illusts,
+    int? userId,
+  }) {
+    return showDialog<T>(
+      context: context,
+      barrierDismissible: false,
+      builder:
+          (context) => UpdateIllustInfoDialog(illusts: illusts, userId: userId),
+    );
+  }
+
   @override
   State<UpdateIllustInfoDialog> createState() => _UpdateIllustInfoDialogState();
 }

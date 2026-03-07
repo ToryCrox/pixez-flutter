@@ -731,14 +731,10 @@ class _DownloadedPageState extends State<DownloadedPage> {
       return;
     }
 
-    await showDialog(
-      context: context,
-      useRootNavigator: false, // 使用当前 Navigator 而不是根 Navigator
-      builder:
-          (context) => UpdateIllustInfoDialog(
-            illusts: illustsToUpdate,
-            userId: _store.filterUserId,
-          ),
+    await UpdateIllustInfoDialog.show(
+      context,
+      illusts: illustsToUpdate,
+      userId: _store.filterUserId,
     );
 
     _store.loadData();
@@ -858,13 +854,10 @@ class _DownloadedPageState extends State<DownloadedPage> {
           icon: Icons.update,
           label: isSelectedInMulti ? '更新选中信息 ($selectedCount)' : '更新插画信息',
           onTap: () async {
-            await showDialog(
-              context: context,
-              builder:
-                  (context) => UpdateIllustInfoDialog(
-                    illusts: targetIllusts,
-                    userId: _store.filterUserId,
-                  ),
+            await UpdateIllustInfoDialog.show(
+              context,
+              illusts: targetIllusts,
+              userId: _store.filterUserId,
             );
             _store.loadData();
           },

@@ -482,13 +482,10 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
 
   /// 弹出更新插画信息对话框 (针对当前作者)
   void _showUpdateIllustInfoDialog() {
-    showDialog(
-      context: context,
-      useRootNavigator: false,
-      builder: (context) => UpdateIllustInfoDialog(
-        illusts: _buildUniqueIllustList(),
-        userId: widget.author.userId,
-      ),
+    UpdateIllustInfoDialog.show(
+      context,
+      illusts: _buildUniqueIllustList(),
+      userId: widget.author.userId,
     ).then((_) {
       _loadItems();
     });
