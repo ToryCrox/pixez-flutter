@@ -175,6 +175,22 @@ class ResolutionCondition extends AuthorImageFilterCondition {
   }
 }
 
+/// 条件：按插画 ID 过滤。
+class IllustIdCondition extends AuthorImageFilterCondition {
+  final int? illustId;
+
+  const IllustIdCondition({required this.illustId});
+
+  @override
+  List<AuthorImageCandidate> apply(
+    List<AuthorImageCandidate> candidates,
+    AuthorImageFilterContext context,
+  ) {
+    if (illustId == null || illustId == 0) return candidates;
+    return candidates.where((e) => e.illust.illustId == illustId).toList();
+  }
+}
+
 /// 条件执行器：按顺序执行条件链。
 class AuthorImageFilterEngine {
   final List<AuthorImageFilterCondition> conditions;

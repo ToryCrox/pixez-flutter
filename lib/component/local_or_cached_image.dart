@@ -14,23 +14,19 @@
  */
 
 import 'dart:async';
-import 'dart:io';
 
 import 'package:bot_toast/bot_toast.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:pixez/utils/file_utils.dart';
-import 'package:photo_view/photo_view.dart';
-import 'package:pixez/component/pixiv_image.dart';
 import 'package:pixez/custom/log.dart';
-import 'package:pixez/er/hoster.dart';
 import 'package:pixez/exts.dart';
 import 'package:pixez/main.dart';
-import 'package:pixez/page/downloaded/bookmark_priority_dialog.dart';
 import 'package:pixez/models/download_record.dart';
 import 'package:pixez/models/illust.dart';
+import 'package:pixez/page/downloaded/author_image_organizer_page.dart';
+import 'package:pixez/page/downloaded/bookmark_priority_dialog.dart';
 import 'package:pixez/page/downloaded/update_illust_info_dialog.dart';
 import 'package:pixez/store/download_store.dart';
+import 'package:pixez/utils/file_utils.dart';
 import 'package:pixez/utils/ugoira_downloader.dart';
 
 /// 下载状态指示器组件
@@ -527,8 +523,30 @@ class _IllustDownloadButtonState extends State<IllustDownloadButton> {
                     },
                   ),
                 ListTile(
-                  leading: Icon(Icons.info_outline),
-                  title: Text('更新信息'),
+                  leading: const Icon(Icons.photo_library),
+                  title: const Text('查看图集图片'),
+                  subtitle: const Text(
+                    '在管理器中查看该作品的所有下载图片',
+                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                  onTap: () async {
+                    Navigator.pop(ctx);
+                    final author = await downloadStore.getAuthorByUserId(widget.illusts.user.id);
+                    if (!context.mounted) return;
+                    if (author != null) {
+                      AuthorImageOrganizerPage.open(
+                        context,
+                        author: author,
+                        illustId: widget.illusts.id,
+                      );
+                    } else {
+                      BotToast.showText(text: '无法获取本地作者信息');
+                    }
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.info_outline),
+                  title: const Text('更新信息'),
                   onTap: () {
                     Navigator.pop(ctx);
                     _openUpdateInfoDialog();

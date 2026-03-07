@@ -21,7 +21,7 @@ enum _PerIllustPickMode { last, first, all }
 
 enum _SortType { idAndPart, downloadTime, fileSize, width, height, area }
 enum _SortOrder { asc, desc }
-enum _GroupType { none, date, illust, type }
+enum _GroupType { none, date, illust, type, resolution }
 
 // 筛选项持久化 key（仅在当前页面使用，不放入 UserSetting）。
 const String _kAuthorOrganizerExcludeWebpKey = 'author_organizer_exclude_webp';
@@ -39,16 +39,25 @@ const String _kAuthorOrganizerGroupTypeKey = 'author_organizer_group_type';
 
 class AuthorImageOrganizerPage extends StatefulWidget {
   final DownloadedAuthor author;
+  final int? illustId;
 
-  const AuthorImageOrganizerPage({super.key, required this.author});
+  const AuthorImageOrganizerPage({
+    super.key,
+    required this.author,
+    this.illustId,
+  });
 
   static Future<T?> open<T>(
     BuildContext context, {
     required DownloadedAuthor author,
+    int? illustId,
   }) {
     return Navigator.of(context).push<T>(
       MaterialPageRoute(
-        builder: (context) => AuthorImageOrganizerPage(author: author),
+        builder: (context) => AuthorImageOrganizerPage(
+          author: author,
+          illustId: illustId,
+        ),
       ),
     );
   }
@@ -84,10 +93,12 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
   _SortType _sortType = _SortType.idAndPart;
   _SortOrder _sortOrder = _SortOrder.asc;
   _GroupType _groupType = _GroupType.none;
+  int? _illustIdFilter;
 
   @override
   void initState() {
     super.initState();
+    _illustIdFilter = widget.illustId;
     _loadFilterPrefs();
     _loadData(forceReload: true);
   }
@@ -230,15 +241,35 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
     try {
       // 1. 加载原始数据
       if (forceReload || _rawIllusts == null || _rawImagesByIllustId == null) {
-        final illusts = await downloadStore.getDownloadedByUser(
-          widget.author.userId,
-          limit: null,
-          offset: 0,
-          orderBy: '${DownloadedIllustColumns.downloadTime} DESC',
-        );
+        List<DownloadedIllust> illusts;
+        Map<int, List<DownloadedImage>> imagesByIllustId;
 
-        final illustIds = illusts.map((e) => e.illustId).toList();
-        final imagesByIllustId = await _loadImagesByIllustIdsBatched(illustIds);
+        if (_illustIdFilter != null && _illustIdFilter! > 0) {
+          // 性能优化：当指定插画 ID 时，直接精确查询单作品数据，无需扫表加载作者全量作品
+          final illust =
+              await downloadStore.getDownloadedIllust(_illustIdFilter!);
+          if (illust != null) {
+            illusts = [illust];
+            final images = await downloadStore.dbProvider.getImagesByIllustId(
+              _illustIdFilter!,
+            );
+            imagesByIllustId = {illust.illustId: images};
+          } else {
+            illusts = [];
+            imagesByIllustId = {};
+          }
+        } else {
+          // 全量扫表路径
+          illusts = await downloadStore.getDownloadedByUser(
+            widget.author.userId,
+            limit: null,
+            offset: 0,
+            orderBy: '${DownloadedIllustColumns.downloadTime} DESC',
+          );
+
+          final illustIds = illusts.map((e) => e.illustId).toList();
+          imagesByIllustId = await _loadImagesByIllustIdsBatched(illustIds);
+        }
 
         _rawIllusts = illusts;
         _rawImagesByIllustId = imagesByIllustId;
@@ -333,6 +364,9 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
         heightValue: _heightValue,
       ),
     );
+    if (_illustIdFilter != null && _illustIdFilter! > 0) {
+      conditions.add(IllustIdCondition(illustId: _illustIdFilter));
+    }
     return AuthorImageFilterEngine(conditions: conditions);
   }
 
@@ -819,6 +853,7 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
       _GroupType.date => '按日期',
       _GroupType.illust => '按作品',
       _GroupType.type => '按类型',
+      _GroupType.resolution => '按分辨率',
     };
   }
 
@@ -829,7 +864,9 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
         title: Text(
           _isMultiSelectMode
               ? '${widget.author.userName} · 已选 ${_selectedItemIds.length}'
-              : '${widget.author.userName} 图片整理',
+              : _illustIdFilter != null
+                  ? '${widget.author.userName} · 作品 $_illustIdFilter'
+                  : '${widget.author.userName} 图片整理',
         ),
         actions: [
           Padding(
@@ -986,6 +1023,17 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
                           _selectedItemIds.clear();
                         });
                       },
+            ),
+          if (_illustIdFilter != null && !_isMultiSelectMode)
+            IconButton(
+              icon: const Icon(Icons.filter_alt_off),
+              tooltip: '清除作品 ID 过滤',
+              onPressed: () {
+                setState(() {
+                  _illustIdFilter = null;
+                });
+                _loadData(forceReload: true);
+              },
             ),
           IconButton(
             icon: Icon(
@@ -1354,6 +1402,10 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
         case _GroupType.type:
           groupId = 'type_${item.imageType}';
           groupTitle = item.imageType.toUpperCase();
+          break;
+        case _GroupType.resolution:
+          groupId = 'res_${item.resolutionText}';
+          groupTitle = item.resolutionText;
           break;
         case _GroupType.none:
           groupId = 'none';
