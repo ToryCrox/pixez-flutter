@@ -63,6 +63,13 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
   String? _error;
   List<_AuthorImageDisplayItem> _items = const [];
   List<_GroupedItems> _groupedItems = const [];
+  
+  // 原始数据缓存
+  List<DownloadedIllust>? _rawIllusts;
+  Map<int, List<DownloadedImage>>? _rawImagesByIllustId;
+  // 已过滤并解析路径的所有项（中间状态，用于快速排序/分组）
+  List<_AuthorImageDisplayItem> _allFilteredItems = const [];
+
   bool _isMultiSelectMode = false;
   final Set<String> _selectedItemIds = {};
   final Map<String, _AuthorImageDisplayItem> _itemMap = {};
@@ -82,7 +89,7 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
   void initState() {
     super.initState();
     _loadFilterPrefs();
-    _loadItems();
+    _loadData(forceReload: true);
   }
 
   /// 从 UserSetting.prefs 读取筛选配置。
@@ -199,54 +206,77 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
     );
   }
 
-  /// 核心加载流程：
-  /// 1. 查询作者全部插画
-  /// 2. 分片批量查询图片记录（每批最多50个illustId）
-  /// 3. 执行可扩展筛选条件链
-  /// 4. 解析本地路径并组装展示数据
-  Future<void> _loadItems() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-      _selectedItemIds.clear();
-      _itemMap.clear();
-    });
+  /// 核心加载与刷新流程：
+  /// 1. [forceReload] 为 true 时，从数据库重新查询作者全部插画及图片记录。
+  /// 2. 分片批量查询图片记录（每批最多50个illustId）。
+  /// 3. [refilter] 为 true 时，执行可扩展筛选条件链并解析本地路径。
+  /// 4. 在内存中执行排序与分组逻辑，实现快速响应。
+  ///
+  /// [forceReload] 是否强制从数据库重新读取原始插画和图片数据。
+  /// [refilter] 是否重新执行过滤逻辑和路径解析。
+  Future<void> _loadData({
+    bool forceReload = false,
+    bool refilter = true,
+  }) async {
+    if (forceReload) {
+      setState(() {
+        _loading = true;
+        _error = null;
+        _selectedItemIds.clear();
+        _itemMap.clear();
+      });
+    }
 
     try {
-      final illusts = await downloadStore.getDownloadedByUser(
-        widget.author.userId,
-        limit: null,
-        offset: 0,
-        orderBy: '${DownloadedIllustColumns.downloadTime} DESC',
-      );
+      // 1. 加载原始数据
+      if (forceReload || _rawIllusts == null || _rawImagesByIllustId == null) {
+        final illusts = await downloadStore.getDownloadedByUser(
+          widget.author.userId,
+          limit: null,
+          offset: 0,
+          orderBy: '${DownloadedIllustColumns.downloadTime} DESC',
+        );
 
-      final illustIds = illusts.map((e) => e.illustId).toList();
-      final imagesByIllustId = await _loadImagesByIllustIdsBatched(illustIds);
+        final illustIds = illusts.map((e) => e.illustId).toList();
+        final imagesByIllustId = await _loadImagesByIllustIdsBatched(illustIds);
 
-      final context = AuthorImageFilterContext(
-        author: widget.author,
-        illusts: illusts,
-        imagesByIllustId: imagesByIllustId,
-      );
-      final filterEngine = _buildFilterEngine();
-      final candidates = await filterEngine.run(context);
-
-      final resolved = await Future.wait(
-        candidates.map(_resolveDisplayItemFromCandidate),
-      );
-      var displayItems = resolved.whereType<_AuthorImageDisplayItem>().toList();
-
-      displayItems.sort(_compareBySortOption);
-
-      for (final item in displayItems) {
-        _itemMap[item.id] = item;
+        _rawIllusts = illusts;
+        _rawImagesByIllustId = imagesByIllustId;
       }
 
-      final grouped = _groupItems(displayItems);
+      // 2. 过滤与解析路径
+      if (refilter) {
+        final context = AuthorImageFilterContext(
+          author: widget.author,
+          illusts: _rawIllusts!,
+          imagesByIllustId: _rawImagesByIllustId!,
+        );
+        final filterEngine = _buildFilterEngine();
+        final candidates = await filterEngine.run(context);
+
+        final resolved = await Future.wait(
+          candidates.map(_resolveDisplayItemFromCandidate),
+        );
+        _allFilteredItems =
+            resolved.whereType<_AuthorImageDisplayItem>().toList();
+
+        // 维护 ID 到 Item 的映射
+        _itemMap.clear();
+        for (final item in _allFilteredItems) {
+          _itemMap[item.id] = item;
+        }
+      }
+
+      // 3. 排序
+      final sortedItems = List<_AuthorImageDisplayItem>.from(_allFilteredItems);
+      sortedItems.sort(_compareBySortOption);
+
+      // 4. 分组
+      final grouped = _groupItems(sortedItems);
 
       if (!mounted) return;
       setState(() {
-        _items = displayItems;
+        _items = sortedItems;
         _groupedItems = grouped;
         _loading = false;
       });
@@ -371,6 +401,7 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
       candidate.image,
       relativePath: candidate.illust.relativePath,
       isUgoira: candidate.illust.isUgoira,
+      update: false,
     );
     if (path == null) return null;
 
@@ -494,7 +525,7 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
       illusts: _buildUniqueIllustList(),
       userId: widget.author.userId,
     ).then((_) {
-      _loadItems();
+      _loadData(forceReload: true);
     });
   }
 
@@ -553,9 +584,7 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
     }
     if (shouldReload) {
       await _persistFilterPrefs();
-    }
-    if (shouldReload) {
-      _loadItems();
+      _loadData(refilter: true);
     }
   }
 
@@ -563,21 +592,21 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
     if (value == null || value == _sortType) return;
     setState(() => _sortType = value);
     await _persistFilterPrefs();
-    _loadItems();
+    _loadData(refilter: false);
   }
 
   Future<void> _onSortOrderChanged(_SortOrder? value) async {
     if (value == null || value == _sortOrder) return;
     setState(() => _sortOrder = value);
     await _persistFilterPrefs();
-    _loadItems();
+    _loadData(refilter: false);
   }
 
   Future<void> _onGroupTypeChanged(_GroupType? value) async {
     if (value == null || value == _groupType) return;
     setState(() => _groupType = value);
     await _persistFilterPrefs();
-    _loadItems();
+    _loadData(refilter: false);
   }
 
   /// 设置“每个作品取几张”。
@@ -937,7 +966,7 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: '列表刷新',
-            onPressed: _loading ? null : _loadItems,
+            onPressed: _loading ? null : () => _loadData(forceReload: true),
           ),
           if (_isMultiSelectMode)
             IconButton(
