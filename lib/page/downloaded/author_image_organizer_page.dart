@@ -19,7 +19,7 @@ import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 
 enum _PerIllustPickMode { last, first, all }
 
-enum _SortType { downloadTime, fileSize, width, height, area }
+enum _SortType { idAndPart, downloadTime, fileSize, width, height, area }
 enum _SortOrder { asc, desc }
 enum _GroupType { none, date, illust, type }
 
@@ -74,8 +74,8 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
   int? _widthValue;
   ResolutionFilterOp _heightOp = ResolutionFilterOp.none;
   int? _heightValue;
-  _SortType _sortType = _SortType.downloadTime;
-  _SortOrder _sortOrder = _SortOrder.desc;
+  _SortType _sortType = _SortType.idAndPart;
+  _SortOrder _sortOrder = _SortOrder.asc;
   _GroupType _groupType = _GroupType.none;
 
   @override
@@ -312,6 +312,7 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
   ) {
     final asc = _sortOrder == _SortOrder.asc;
     final sortBy = switch (_sortType) {
+      _SortType.idAndPart => _compareFallback(a, b, asc: asc),
       _SortType.downloadTime =>
         asc
             ? a.illust.downloadTime.compareTo(b.illust.downloadTime)
@@ -337,7 +338,8 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
       ),
     };
     if (sortBy != 0) return sortBy;
-    return _compareFallback(a, b);
+    if (_sortType == _SortType.idAndPart) return 0;
+    return _compareFallback(a, b, asc: true);
   }
 
   int _compareResolutionValue(int? a, int? b, {required bool asc}) {
@@ -350,10 +352,15 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
     return asc ? cmp : -cmp;
   }
 
-  int _compareFallback(_AuthorImageDisplayItem a, _AuthorImageDisplayItem b) {
+  int _compareFallback(
+    _AuthorImageDisplayItem a,
+    _AuthorImageDisplayItem b, {
+    bool asc = true,
+  }) {
     final i = a.illust.illustId.compareTo(b.illust.illustId);
-    if (i != 0) return i;
-    return a.image.part.compareTo(b.image.part);
+    if (i != 0) return asc ? i : -i;
+    final p = a.image.part.compareTo(b.image.part);
+    return asc ? p : -p;
   }
 
   /// 将筛选后的候选项解析为可展示项（补齐本地文件路径）。
@@ -767,6 +774,7 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
 
   String _sortTypeLabel(_SortType type) {
     return switch (type) {
+      _SortType.idAndPart => '默认排序',
       _SortType.downloadTime => '下载时间',
       _SortType.fileSize => '文件大小',
       _SortType.width => '分辨率(宽)',
@@ -775,12 +783,6 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
     };
   }
 
-  String _sortOrderLabel(_SortOrder order) {
-    return switch (order) {
-      _SortOrder.asc => '顺序',
-      _SortOrder.desc => '倒序',
-    };
-  }
 
   String _groupTypeLabel(_GroupType type) {
     return switch (type) {
@@ -803,66 +805,78 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
         actions: [
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: Center(
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<_GroupType>(
-                  value: _groupType,
-                  icon: const Icon(Icons.layers_outlined, size: 20),
-                  onChanged: _loading ? null : _onGroupTypeChanged,
-                  items:
-                      _GroupType.values
-                          .map(
-                            (type) => DropdownMenuItem<_GroupType>(
-                              value: type,
-                              child: Text(_groupTypeLabel(type)),
-                            ),
-                          )
-                          .toList(),
+            child: PopupMenuButton<_GroupType>(
+              initialValue: _groupType,
+              tooltip: '分组方式',
+              position: PopupMenuPosition.under,
+              onSelected: _loading ? null : _onGroupTypeChanged,
+              itemBuilder:
+                  (context) => _GroupType.values
+                      .map(
+                        (type) => PopupMenuItem<_GroupType>(
+                          value: type,
+                          child: Text(_groupTypeLabel(type)),
+                        ),
+                      )
+                      .toList(),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.layers_outlined, size: 20),
+                    const SizedBox(width: 4),
+                    Text(_groupTypeLabel(_groupType)),
+                  ],
                 ),
               ),
             ),
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: Center(
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<_SortType>(
-                  value: _sortType,
-                  icon: const SizedBox.shrink(),
-                  onChanged: _loading ? null : _onSortTypeChanged,
-                  items:
-                      _SortType.values
-                          .map(
-                            (type) => DropdownMenuItem<_SortType>(
-                              value: type,
-                              child: Text(_sortTypeLabel(type)),
-                            ),
-                          )
-                          .toList(),
+            child: PopupMenuButton<_SortType>(
+              initialValue: _sortType,
+              tooltip: '排序方式',
+              position: PopupMenuPosition.under,
+              onSelected: _loading ? null : _onSortTypeChanged,
+              itemBuilder:
+                  (context) => _SortType.values
+                      .map(
+                        (type) => PopupMenuItem<_SortType>(
+                          value: type,
+                          child: Text(_sortTypeLabel(type)),
+                        ),
+                      )
+                      .toList(),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(_sortTypeLabel(_sortType)),
+                    const Icon(Icons.arrow_drop_down),
+                  ],
                 ),
               ),
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: Center(
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<_SortOrder>(
-                  value: _sortOrder,
-                  icon: const Icon(Icons.sort),
-                  onChanged: _loading ? null : _onSortOrderChanged,
-                  items:
-                      _SortOrder.values
-                          .map(
-                            (order) => DropdownMenuItem<_SortOrder>(
-                              value: order,
-                              child: Text(_sortOrderLabel(order)),
-                            ),
-                          )
-                          .toList(),
-                ),
-              ),
+          IconButton(
+            icon: Icon(
+              _sortOrder == _SortOrder.asc
+                  ? Icons.arrow_upward // 升序图标
+                  : Icons.arrow_downward, // 降序图标
             ),
+            tooltip: _sortOrder == _SortOrder.asc ? '正序' : '倒序',
+            onPressed:
+                _loading
+                    ? null
+                    : () {
+                      _onSortOrderChanged(
+                        _sortOrder == _SortOrder.asc
+                            ? _SortOrder.desc
+                            : _SortOrder.asc,
+                      );
+                    },
           ),
           PopupMenuButton<String>(
             icon: const Icon(Icons.filter_alt_outlined),
