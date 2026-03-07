@@ -16,20 +16,10 @@ import 'package:pixez/page/picture/picture_list_page.dart';
 import 'package:pixez/utils/file_utils.dart';
 import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 
-enum _PerIllustPickMode { last, first }
+enum _PerIllustPickMode { last, first, all }
 
-enum _AuthorOrganizerSortOption {
-  downloadTimeAsc,
-  downloadTimeDesc,
-  fileSizeAsc,
-  fileSizeDesc,
-  resolutionWidthAsc,
-  resolutionWidthDesc,
-  resolutionHeightAsc,
-  resolutionHeightDesc,
-  resolutionAreaAsc,
-  resolutionAreaDesc,
-}
+enum _SortType { downloadTime, fileSize, width, height, area }
+enum _SortOrder { asc, desc }
 
 // 筛选项持久化 key（仅在当前页面使用，不放入 UserSetting）。
 const String _kAuthorOrganizerExcludeWebpKey = 'author_organizer_exclude_webp';
@@ -37,7 +27,8 @@ const String _kAuthorOrganizerExcludeUgoiraKey =
     'author_organizer_exclude_ugoira';
 const String _kAuthorOrganizerPickModeKey = 'author_organizer_pick_mode';
 const String _kAuthorOrganizerPickCountKey = 'author_organizer_pick_count';
-const String _kAuthorOrganizerSortOptionKey = 'author_organizer_sort_option';
+const String _kAuthorOrganizerSortTypeKey = 'author_organizer_sort_type';
+const String _kAuthorOrganizerSortOrderKey = 'author_organizer_sort_order';
 const String _kAuthorOrganizerWidthOpKey = 'author_organizer_width_op';
 const String _kAuthorOrganizerWidthValueKey = 'author_organizer_width_value';
 const String _kAuthorOrganizerHeightOpKey = 'author_organizer_height_op';
@@ -79,8 +70,8 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
   int? _widthValue;
   ResolutionFilterOp _heightOp = ResolutionFilterOp.none;
   int? _heightValue;
-  _AuthorOrganizerSortOption _sortOption =
-      _AuthorOrganizerSortOption.downloadTimeDesc;
+  _SortType _sortType = _SortType.downloadTime;
+  _SortOrder _sortOrder = _SortOrder.desc;
 
   @override
   void initState() {
@@ -132,12 +123,19 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
       _heightValue = heightValue;
     }
 
-    final sortOptionIndex =
-        userSetting.prefs.getInt(_kAuthorOrganizerSortOptionKey);
-    if (sortOptionIndex != null &&
-        sortOptionIndex >= 0 &&
-        sortOptionIndex < _AuthorOrganizerSortOption.values.length) {
-      _sortOption = _AuthorOrganizerSortOption.values[sortOptionIndex];
+    final sortTypeIndex =
+        userSetting.prefs.getInt(_kAuthorOrganizerSortTypeKey);
+    if (sortTypeIndex != null &&
+        sortTypeIndex >= 0 &&
+        sortTypeIndex < _SortType.values.length) {
+      _sortType = _SortType.values[sortTypeIndex];
+    }
+    final sortOrderIndex =
+        userSetting.prefs.getInt(_kAuthorOrganizerSortOrderKey);
+    if (sortOrderIndex != null &&
+        sortOrderIndex >= 0 &&
+        sortOrderIndex < _SortOrder.values.length) {
+      _sortOrder = _SortOrder.values[sortOrderIndex];
     }
   }
 
@@ -175,8 +173,12 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
       await userSetting.prefs.remove(_kAuthorOrganizerHeightValueKey);
     }
     await userSetting.prefs.setInt(
-      _kAuthorOrganizerSortOptionKey,
-      _sortOption.index,
+      _kAuthorOrganizerSortTypeKey,
+      _sortType.index,
+    );
+    await userSetting.prefs.setInt(
+      _kAuthorOrganizerSortOrderKey,
+      _sortOrder.index,
     );
   }
 
@@ -266,9 +268,10 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
     // 这样可以保证 N 的计算包含 webp，随后再排除 webp。
     if (_pickMode == _PerIllustPickMode.last) {
       conditions.add(LastNPerIllustCondition(n: _pickCount));
-    } else {
+    } else if (_pickMode == _PerIllustPickMode.first) {
       conditions.add(FirstNPerIllustCondition(n: _pickCount));
     }
+    // _pickMode == _PerIllustPickMode.all 时不添加数量限制条件。
     if (_excludeWebp) {
       conditions.add(const NonWebpCondition());
     }
@@ -287,30 +290,31 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
     _AuthorImageDisplayItem a,
     _AuthorImageDisplayItem b,
   ) {
-    final sortBy = switch (_sortOption) {
-      _AuthorOrganizerSortOption.downloadTimeAsc =>
-        a.illust.downloadTime.compareTo(b.illust.downloadTime),
-      _AuthorOrganizerSortOption.downloadTimeDesc =>
-        b.illust.downloadTime.compareTo(a.illust.downloadTime),
-      _AuthorOrganizerSortOption.fileSizeAsc => a.fileSize.compareTo(b.fileSize),
-      _AuthorOrganizerSortOption.fileSizeDesc =>
-        b.fileSize.compareTo(a.fileSize),
-      _AuthorOrganizerSortOption.resolutionWidthAsc =>
-        _compareResolutionValue(a.resolutionWidth, b.resolutionWidth, asc: true),
-      _AuthorOrganizerSortOption.resolutionWidthDesc =>
-        _compareResolutionValue(a.resolutionWidth, b.resolutionWidth, asc: false),
-      _AuthorOrganizerSortOption.resolutionHeightAsc =>
-        _compareResolutionValue(a.resolutionHeight, b.resolutionHeight, asc: true),
-      _AuthorOrganizerSortOption.resolutionHeightDesc =>
-        _compareResolutionValue(
-          a.resolutionHeight,
-          b.resolutionHeight,
-          asc: false,
-        ),
-      _AuthorOrganizerSortOption.resolutionAreaAsc =>
-        _compareResolutionValue(a.resolutionArea, b.resolutionArea, asc: true),
-      _AuthorOrganizerSortOption.resolutionAreaDesc =>
-        _compareResolutionValue(a.resolutionArea, b.resolutionArea, asc: false),
+    final asc = _sortOrder == _SortOrder.asc;
+    final sortBy = switch (_sortType) {
+      _SortType.downloadTime =>
+        asc
+            ? a.illust.downloadTime.compareTo(b.illust.downloadTime)
+            : b.illust.downloadTime.compareTo(a.illust.downloadTime),
+      _SortType.fileSize =>
+        asc
+            ? a.fileSize.compareTo(b.fileSize)
+            : b.fileSize.compareTo(a.fileSize),
+      _SortType.width => _compareResolutionValue(
+        a.resolutionWidth,
+        b.resolutionWidth,
+        asc: asc,
+      ),
+      _SortType.height => _compareResolutionValue(
+        a.resolutionHeight,
+        b.resolutionHeight,
+        asc: asc,
+      ),
+      _SortType.area => _compareResolutionValue(
+        a.resolutionArea,
+        b.resolutionArea,
+        asc: asc,
+      ),
     };
     if (sortBy != 0) return sortBy;
     return _compareFallback(a, b);
@@ -459,6 +463,10 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
         setState(() => _pickMode = _PerIllustPickMode.first);
         shouldReload = true;
         break;
+      case 'mode_all':
+        setState(() => _pickMode = _PerIllustPickMode.all);
+        shouldReload = true;
+        break;
       case 'set_count':
         final count = await _showPickCountDialog();
         if (count != null && count != _pickCount) {
@@ -496,9 +504,16 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
     }
   }
 
-  Future<void> _onSortOptionChanged(_AuthorOrganizerSortOption? value) async {
-    if (value == null || value == _sortOption) return;
-    setState(() => _sortOption = value);
+  Future<void> _onSortTypeChanged(_SortType? value) async {
+    if (value == null || value == _sortType) return;
+    setState(() => _sortType = value);
+    await _persistFilterPrefs();
+    _loadItems();
+  }
+
+  Future<void> _onSortOrderChanged(_SortOrder? value) async {
+    if (value == null || value == _sortOrder) return;
+    setState(() => _sortOrder = value);
     await _persistFilterPrefs();
     _loadItems();
   }
@@ -695,18 +710,20 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
     };
   }
 
-  String _sortOptionLabel(_AuthorOrganizerSortOption option) {
-    return switch (option) {
-      _AuthorOrganizerSortOption.downloadTimeAsc => '下载时间-顺序',
-      _AuthorOrganizerSortOption.downloadTimeDesc => '下载时间-倒序',
-      _AuthorOrganizerSortOption.fileSizeAsc => '文件大小-顺序',
-      _AuthorOrganizerSortOption.fileSizeDesc => '文件大小-倒序',
-      _AuthorOrganizerSortOption.resolutionWidthAsc => '分辨率(宽)-顺序',
-      _AuthorOrganizerSortOption.resolutionWidthDesc => '分辨率(宽)-倒序',
-      _AuthorOrganizerSortOption.resolutionHeightAsc => '分辨率(高)-顺序',
-      _AuthorOrganizerSortOption.resolutionHeightDesc => '分辨率(高)-倒序',
-      _AuthorOrganizerSortOption.resolutionAreaAsc => '分辨率(宽x高)-顺序',
-      _AuthorOrganizerSortOption.resolutionAreaDesc => '分辨率(宽x高)-倒序',
+  String _sortTypeLabel(_SortType type) {
+    return switch (type) {
+      _SortType.downloadTime => '下载时间',
+      _SortType.fileSize => '文件大小',
+      _SortType.width => '分辨率(宽)',
+      _SortType.height => '分辨率(高)',
+      _SortType.area => '分辨率(面积)',
+    };
+  }
+
+  String _sortOrderLabel(_SortOrder order) {
+    return switch (order) {
+      _SortOrder.asc => '顺序',
+      _SortOrder.desc => '倒序',
     };
   }
 
@@ -724,18 +741,38 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
             padding: const EdgeInsets.symmetric(horizontal: 4),
             child: Center(
               child: DropdownButtonHideUnderline(
-                child: DropdownButton<_AuthorOrganizerSortOption>(
-                  value: _sortOption,
-                  icon: const Icon(Icons.sort),
-                  onChanged: _loading ? null : _onSortOptionChanged,
+                child: DropdownButton<_SortType>(
+                  value: _sortType,
+                  icon: const SizedBox.shrink(),
+                  onChanged: _loading ? null : _onSortTypeChanged,
                   items:
-                      _AuthorOrganizerSortOption.values
+                      _SortType.values
                           .map(
-                            (option) =>
-                                DropdownMenuItem<_AuthorOrganizerSortOption>(
-                                  value: option,
-                                  child: Text(_sortOptionLabel(option)),
-                                ),
+                            (type) => DropdownMenuItem<_SortType>(
+                              value: type,
+                              child: Text(_sortTypeLabel(type)),
+                            ),
+                          )
+                          .toList(),
+                ),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Center(
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<_SortOrder>(
+                  value: _sortOrder,
+                  icon: const Icon(Icons.sort),
+                  onChanged: _loading ? null : _onSortOrderChanged,
+                  items:
+                      _SortOrder.values
+                          .map(
+                            (order) => DropdownMenuItem<_SortOrder>(
+                              value: order,
+                              child: Text(_sortOrderLabel(order)),
+                            ),
                           )
                           .toList(),
                 ),
@@ -771,6 +808,11 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
                   value: 'mode_first',
                   checked: _pickMode == _PerIllustPickMode.first,
                   child: const Text('最前几张'),
+                ),
+                CheckedPopupMenuItem(
+                  value: 'mode_all',
+                  checked: _pickMode == _PerIllustPickMode.all,
+                  child: const Text('所有'),
                 ),
                 PopupMenuItem(
                   value: 'set_count',
