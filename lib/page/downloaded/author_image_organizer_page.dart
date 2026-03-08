@@ -1429,6 +1429,27 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
                       ),
                       if (_isMultiSelectMode)
                         Positioned(
+                          left: 4,
+                          bottom: 4,
+                          child: Material(
+                            color: Colors.black54,
+                            borderRadius: BorderRadius.circular(16),
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(16),
+                              onTap: () => _openLocalImageViewer(item),
+                              child: const Padding(
+                                padding: EdgeInsets.all(6),
+                                child: Icon(
+                                  Icons.zoom_in,
+                                  size: 16,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      if (_isMultiSelectMode)
+                        Positioned(
                           top: 4,
                           right: 38,
                           child: _buildSelectionBadge(isSelected),
