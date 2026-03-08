@@ -731,14 +731,16 @@ class _DownloadedPageState extends State<DownloadedPage> {
       return;
     }
 
-    await UpdateIllustInfoDialog.show(
+    final result = await UpdateIllustInfoDialog.show(
       context,
       illusts: illustsToUpdate,
       userId: _store.filterUserId,
     );
 
-    _store.loadData();
-    _store.loadStats();
+    if (result == true) {
+      _store.loadData();
+      _store.loadStats();
+    }
   }
 
   void _showSinglePriorityDialog(
@@ -854,12 +856,14 @@ class _DownloadedPageState extends State<DownloadedPage> {
           icon: Icons.update,
           label: isSelectedInMulti ? '更新选中信息 ($selectedCount)' : '更新插画信息',
           onTap: () async {
-            await UpdateIllustInfoDialog.show(
+            final result = await UpdateIllustInfoDialog.show(
               context,
               illusts: targetIllusts,
               userId: _store.filterUserId,
             );
-            _store.loadData();
+            if (result == true) {
+              _store.loadData();
+            }
           },
         ),
 

@@ -231,14 +231,15 @@ class UpdateIllustInfoDialog extends StatefulWidget {
   const UpdateIllustInfoDialog({Key? key, required this.illusts, this.userId})
     : super(key: key);
 
-  static Future<T?> show<T>(
+  static Future<bool?> show(
     BuildContext context, {
     required List<DownloadedIllust> illusts,
     int? userId,
   }) {
-    return showDialog<T>(
+    return showDialog<bool>(
       context: context,
-      barrierDismissible: false,
+      barrierDismissible: true,
+      useRootNavigator: false,
       builder:
           (context) => UpdateIllustInfoDialog(illusts: illusts, userId: userId),
     );
@@ -261,6 +262,7 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
   UpdateResultType? _filterType;
   List<int> _displayingChildIndexList = []; // 当前处于视口的项索引列表
   String? _errorMessage = null;
+  bool _hasUpdated = false; // 记录是否发生过实际更新
   late int _concurrentCount; // 每个作品内并发扫描的图片数量（从 userSetting 读取）
   late ListObserverController _observerController;
   late ScrollController _scrollController;
@@ -781,7 +783,7 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
       _pauseScan();
     }
     // 关闭对话框（扫描循环会因为 mounted 检查而自然退出）
-    Navigator.pop(context);
+    Navigator.pop(context, _hasUpdated);
   }
 
   // 删除损坏或丢失的图片文件和数据库记录
@@ -945,6 +947,7 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
           // 如果有变化、删除了损坏文件、或统计不一致，都需要重新计算统计信息
           if (hasAnyUpdateSuccess ||
               updateInfo.hasStatsInconsistency) {
+            _hasUpdated = true;
             // 1. 先更新插画自身的数据库统计
             await downloadStore.dbProvider.batchRecalculateIllustStats([
               updateInfo.illust.illustId,
@@ -1107,8 +1110,18 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      child: Container(
+    final bool canInteract = !(_isUpdating || (_isScanning && !_isPaused));
+
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (canInteract) {
+          _handleClose();
+        }
+      },
+      child: Dialog(
+        child: Container(
         width: MediaQuery.of(context).size.width * 0.9,
         height: MediaQuery.of(context).size.height * 0.8,
         child: Column(
@@ -1258,6 +1271,7 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
           ],
         ),
       ),
+    ),
     );
   }
 

@@ -587,8 +587,10 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
       context,
       illusts: _buildUniqueIllustList(),
       userId: widget.author.userId,
-    ).then((_) {
-      _loadData(forceReload: true);
+    ).then((result) {
+      if (result == true) {
+        _loadData(forceReload: true);
+      }
     });
   }
 
