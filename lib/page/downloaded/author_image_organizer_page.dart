@@ -11,6 +11,7 @@ import 'package:pixez/exts.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/models/download_record.dart';
 import 'package:pixez/page/downloaded/author_image_filter_conditions.dart';
+import 'package:pixez/page/downloaded/local_image_viewer_page.dart';
 import 'package:pixez/page/downloaded/update_illust_info_dialog.dart';
 import 'package:pixez/page/picture/illust_store.dart';
 import 'package:pixez/page/picture/picture_list_page.dart';
@@ -548,6 +549,21 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
         heroString: 'downloaded_illust_${item.illust.illustId}',
       ),
     );
+  }
+
+  /// 打开本地大图预览页。
+  Future<void> _openLocalImageViewer(_AuthorImageDisplayItem item) async {
+    await LocalImageViewerPage.open(
+      context,
+      imagePath: item.path,
+      title: '${item.illust.illustId} · ${item.illust.title}',
+      subtitle: '${item.resolutionText} · ${item.partText}',
+      heroTag: _heroTagForItem(item),
+    );
+  }
+
+  String _heroTagForItem(_AuthorImageDisplayItem item) {
+    return 'author_image_local_${item.id}_${item.path}';
   }
 
   /// 由图片列表提取去重后的插画列表，保持当前展示顺序。
@@ -1322,7 +1338,7 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
           if (_isMultiSelectMode) {
             _setSelected(item.id, !isSelected);
           } else {
-            _openIllustDetail(item);
+            _openLocalImageViewer(item);
           }
         },
         onLongPress: () {
@@ -1343,10 +1359,13 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
-                      PixivImage(
-                        Uri.file(item.path).toString(),
-                        fit: BoxFit.cover,
-                        memCacheWidth: 250,
+                      Hero(
+                        tag: _heroTagForItem(item),
+                        child: PixivImage(
+                          Uri.file(item.path).toString(),
+                          fit: BoxFit.cover,
+                          memCacheWidth: 250,
+                        ),
                       ),
                       Positioned(
                         top: 4,
@@ -1388,10 +1407,30 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
                           ),
                         ),
                       ),
+                      Positioned(
+                        top: 4,
+                        right: 4,
+                        child: Material(
+                          color: Colors.black54,
+                          borderRadius: BorderRadius.circular(16),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(16),
+                            onTap: () => _openIllustDetail(item),
+                            child: const Padding(
+                              padding: EdgeInsets.all(6),
+                              child: Icon(
+                                Icons.info_outline,
+                                size: 16,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
                       if (_isMultiSelectMode)
                         Positioned(
                           top: 4,
-                          right: 4,
+                          right: 38,
                           child: _buildSelectionBadge(isSelected),
                         ),
                     ],
