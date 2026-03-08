@@ -19,7 +19,7 @@ class ImageUtils {
       );
       return Size(size.size.width.toDouble(), size.size.height.toDouble());
     } catch (e) {
-      if (e.toString().contains('Invalid jpeg file')) {
+      if (e is UnsupportedError || e.toString().contains('Invalid jpeg file')) {
         // Log.w('图片文件可能损坏或下载不完整 (Invalid jpeg file): $filePath');
         // 尝试使用 image 库作为 fallback
         try {
