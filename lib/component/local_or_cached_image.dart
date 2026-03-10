@@ -529,19 +529,13 @@ class _IllustDownloadButtonState extends State<IllustDownloadButton> {
                     '在管理器中查看该作品的所有下载图片',
                     style: TextStyle(fontSize: 12, color: Colors.grey),
                   ),
-                  onTap: () async {
+                  onTap: () {
                     Navigator.pop(ctx);
-                    final author = await downloadStore.getAuthorByUserId(widget.illusts.user.id);
-                    if (!context.mounted) return;
-                    if (author != null) {
-                      AuthorImageOrganizerPage.open(
-                        context,
-                        author: author,
-                        illustId: widget.illusts.id,
-                      );
-                    } else {
-                      BotToast.showText(text: '无法获取本地作者信息');
-                    }
+                    AuthorImageOrganizerPage.pushByUserId(
+                      context,
+                      userId: widget.illusts.user.id,
+                      illustId: widget.illusts.id,
+                    );
                   },
                 ),
                 ListTile(

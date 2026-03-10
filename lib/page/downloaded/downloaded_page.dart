@@ -23,8 +23,8 @@ import 'package:pixez/utils/file_utils.dart';
 import 'package:pixez/exts.dart';
 import 'package:pixez/i18n.dart';
 import 'package:pixez/models/download_record.dart';
-import 'package:pixez/page/downloaded/downloaded_page_store.dart';
 import 'package:pixez/page/downloaded/author_image_organizer_page.dart';
+import 'package:pixez/page/downloaded/downloaded_page_store.dart';
 import 'package:pixez/page/downloaded/optimize_json_dialog.dart';
 import 'package:pixez/page/downloaded/sync_bookmarks_dialog.dart';
 
@@ -924,6 +924,15 @@ class _DownloadedPageState extends State<DownloadedPage> {
         icon: Icons.copy,
         label: '复制路径',
         onTap: () => _copyIllustPath(context, illust),
+      ),
+      _buildContextMenuItem(
+        icon: Icons.collections,
+        label: '整理该作者',
+        onTap: () => AuthorImageOrganizerPage.pushByUserId(
+          context,
+          userId: illust.userId,
+          illustId: illust.illustId,
+        ),
       ),
       if (isDownloading)
         _buildContextMenuItem(

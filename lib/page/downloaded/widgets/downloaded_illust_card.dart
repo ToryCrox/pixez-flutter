@@ -27,6 +27,7 @@ import 'package:pixez/store/download_store.dart';
 import 'package:pixez/component/pixiv_image.dart';
 import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 import 'package:pixez/component/hover_scale_container.dart';
+import 'package:pixez/page/downloaded/author_image_organizer_page.dart';
 
 /// 已下载插画卡片组件
 class DownloadedIllustCard extends StatelessWidget {
@@ -83,6 +84,29 @@ class DownloadedIllustCard extends StatelessWidget {
     );
 
     return Hero(tag: heroTag, child: imageWidget);
+  }
+
+  Widget _buildOrganizerButton(BuildContext context) {
+    return Positioned(
+      top: 38,
+      left: 4,
+      child: Material(
+        color: Colors.black54,
+        borderRadius: BorderRadius.circular(20),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: () => AuthorImageOrganizerPage.pushByUserId(
+            context,
+            userId: illust.userId,
+            illustId: illust.illustId,
+          ),
+          child: Container(
+            padding: EdgeInsets.all(6),
+            child: Icon(Icons.collections, color: Colors.white, size: 18),
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildFolderButton(BuildContext context) {
@@ -240,6 +264,7 @@ class DownloadedIllustCard extends StatelessWidget {
       children: [
         _buildThumbnail(context),
         _buildFolderButton(context),
+        _buildOrganizerButton(context),
         if (illust.isUgoira) _buildUgoiraBadge(context),
         if (isMarked) _buildUnprocessedBadge(context),
         if (store.isExample(illust.illustId)) _buildExampleBadge(context),

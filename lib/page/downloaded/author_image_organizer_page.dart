@@ -65,6 +65,27 @@ class AuthorImageOrganizerPage extends StatefulWidget {
     );
   }
 
+  /// 封装通过 userId 查询作者并跳转的公共逻辑
+  static Future<void> pushByUserId(
+    BuildContext context, {
+    required int userId,
+    int? illustId,
+  }) async {
+    try {
+      final author = await downloadStore.getAuthorByUserId(userId);
+      if (!context.mounted) return;
+      
+      if (author != null) {
+        open(context, author: author, illustId: illustId);
+      } else {
+        BotToast.showText(text: '未找到该作者的信息');
+      }
+    } catch (e) {
+      if (!context.mounted) return;
+      BotToast.showText(text: '获取作者信息失败: $e');
+    }
+  }
+
   @override
   State<AuthorImageOrganizerPage> createState() =>
       _AuthorImageOrganizerPageState();
@@ -87,7 +108,7 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
   final Map<String, _AuthorImageDisplayItem> _itemMap = {};
   bool _excludeWebp = true;
   bool _excludeUgoira = true;
-  _PerIllustPickMode _pickMode = _PerIllustPickMode.last;
+  _PerIllustPickMode _pickMode = _PerIllustPickMode.all;
   int _pickCount = 4;
   ResolutionFilterOp _widthOp = ResolutionFilterOp.none;
   int? _widthValue;
@@ -97,6 +118,7 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
   _SortOrder _sortOrder = _SortOrder.asc;
   _GroupType _groupType = _GroupType.none;
   int? _illustIdFilter;
+  late final _isTempFilter = widget.illustId != null;
 
   late ScrollController _scrollController;
   late SliverObserverController _sliverObserverController;
@@ -114,6 +136,16 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
       controller: _scrollController,
     );
     _loadFilterPrefs();
+
+    if (_isTempFilter) {
+      // 如果是通过指定作品 ID 进入，临时禁用所有筛选条件
+      _excludeWebp = false;
+      _excludeUgoira = false;
+      _pickMode = _PerIllustPickMode.all;
+      _widthOp = ResolutionFilterOp.none;
+      _heightOp = ResolutionFilterOp.none;
+    }
+
     _loadData(forceReload: true);
   }
 
@@ -197,6 +229,7 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
 
   /// 将筛选配置写入 UserSetting.prefs。
   Future<void> _persistFilterPrefs() async {
+    if (_isTempFilter) return;
     await userSetting.prefs.setBool(
       _kAuthorOrganizerExcludeWebpKey,
       _excludeWebp,
