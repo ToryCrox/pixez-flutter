@@ -510,11 +510,19 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
   }
 
   void _toggleSelectMode() {
+    if (_isMultiSelectMode) {
+      _exitMultiSelectMode();
+      return;
+    }
     setState(() {
-      _isMultiSelectMode = !_isMultiSelectMode;
-      if (!_isMultiSelectMode) {
-        _selectedItemIds.clear();
-      }
+      _isMultiSelectMode = true;
+    });
+  }
+
+  void _exitMultiSelectMode() {
+    setState(() {
+      _isMultiSelectMode = false;
+      _selectedItemIds.clear();
     });
   }
 
@@ -528,11 +536,18 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
     });
   }
 
-  void _selectAll() {
+  void _toggleSelectAllOrClear() {
+    if (_items.isEmpty) return;
+    final isAllSelected =
+        _items.isNotEmpty && _selectedItemIds.length == _items.length;
     setState(() {
-      _selectedItemIds
-        ..clear()
-        ..addAll(_items.map((e) => e.id));
+      if (isAllSelected) {
+        _selectedItemIds.clear();
+      } else {
+        _selectedItemIds
+          ..clear()
+          ..addAll(_items.map((e) => e.id));
+      }
     });
   }
 
@@ -935,14 +950,31 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return PopScope(
+      canPop: !_isMultiSelectMode,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (_isMultiSelectMode) {
+          _exitMultiSelectMode();
+        }
+      },
+      child: Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: Icon(_isMultiSelectMode ? Icons.close : Icons.arrow_back),
+          tooltip: _isMultiSelectMode ? '退出多选' : '返回',
+          onPressed: () async {
+            if (_isMultiSelectMode) {
+              _exitMultiSelectMode();
+              return;
+            }
+            await Navigator.maybePop(context);
+          },
+        ),
         title: Text(
           _isMultiSelectMode
-              ? '${widget.author.userName} · 已选 ${_selectedItemIds.length}'
-              : _illustIdFilter != null
-              ? '${widget.author.userName} · 作品 $_illustIdFilter'
-              : '${widget.author.userName} 图片整理',
+              ? '已选 ${_selectedItemIds.length} / 共 ${_items.length}'
+              : '${widget.author.userName} 图片整理 · 共 ${_items.length} 张',
         ),
         actions: [
           Padding(
@@ -1084,25 +1116,6 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
             tooltip: '列表刷新',
             onPressed: _loading ? null : () => _loadData(forceReload: true),
           ),
-          if (_isMultiSelectMode)
-            IconButton(
-              icon: const Icon(Icons.select_all),
-              tooltip: '全选',
-              onPressed: _items.isEmpty ? null : _selectAll,
-            ),
-          if (_isMultiSelectMode)
-            IconButton(
-              icon: const Icon(Icons.deselect),
-              tooltip: '清空选择',
-              onPressed:
-                  _selectedItemIds.isEmpty
-                      ? null
-                      : () {
-                        setState(() {
-                          _selectedItemIds.clear();
-                        });
-                      },
-            ),
           if (_illustIdFilter != null && !_isMultiSelectMode)
             IconButton(
               icon: const Icon(Icons.filter_alt_off),
@@ -1126,6 +1139,22 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
         ],
       ),
       body: _buildBody(),
+      floatingActionButton: _buildSelectionFab(),
+    ),
+    );
+  }
+
+  Widget? _buildSelectionFab() {
+    if (!_isMultiSelectMode) {
+      return null;
+    }
+    final isAllSelected =
+        _items.isNotEmpty && _selectedItemIds.length == _items.length;
+    return FloatingActionButton.extended(
+      onPressed: _items.isEmpty ? null : _toggleSelectAllOrClear,
+      icon: Icon(isAllSelected ? Icons.deselect : Icons.select_all),
+      label: Text(isAllSelected ? '全不选' : '全选'),
+      tooltip: isAllSelected ? '全不选' : '全选',
     );
   }
 
