@@ -151,7 +151,7 @@ class DownloadDatabaseProvider {
 
       db = await openDatabase(
         dbPath,
-        version: 16,
+        version: 17,
         onCreate: (Database db, int version) async {
           await db.execute('''
           CREATE TABLE ${DownloadedIllustColumns.tableName} (
@@ -260,6 +260,11 @@ class DownloadDatabaseProvider {
         await db.execute('''
           CREATE INDEX idx_image_illust ON ${DownloadedImageColumns.tableName}(${DownloadedImageColumns.illustId})
         ''');
+        // 非 webp 图片查询专用 partial index
+        await db.execute('''
+          CREATE INDEX idx_dim_illust_non_webp ON ${DownloadedImageColumns.tableName}(${DownloadedImageColumns.illustId})
+          WHERE ${DownloadedImageColumns.extension} != '.webp'
+        ''');
         // 排序字段索引
         await db.execute('''
           CREATE INDEX idx_illust_download_time ON ${DownloadedIllustColumns.tableName}(${DownloadedIllustColumns.downloadTime})
@@ -326,6 +331,15 @@ class DownloadDatabaseProvider {
         if (oldVersion < 16) {
           Log.i(() => '添加 bookmark 字段到 pending_downloads 表');
           await db.execute('ALTER TABLE ${PendingDownloadColumns.tableName} ADD COLUMN ${PendingDownloadColumns.bookmark} INTEGER DEFAULT 0');
+        }
+        // v16 -> v17: 添加非 webp 查询 partial index
+        if (oldVersion < 17) {
+          Log.i(() => '添加 downloaded_images 非 webp partial index');
+          await db.execute('''
+            CREATE INDEX IF NOT EXISTS idx_dim_illust_non_webp
+            ON ${DownloadedImageColumns.tableName}(${DownloadedImageColumns.illustId})
+            WHERE ${DownloadedImageColumns.extension} != '.webp'
+          ''');
         }
       }
     );
@@ -701,17 +715,17 @@ class DownloadDatabaseProvider {
     final whereClause = conditions.join(' AND ');
 
     // 查询包含非 .webp 后缀图片的普通插画 (ugoira 除外)
-    // 使用 EXISTS 子查询避免重复记录
+    // 先筛出 non-webp 的 illust_id，再回表查询插画信息
     var query = '''
       SELECT di.*
       FROM ${DownloadedIllustColumns.tableName} di
+      INNER JOIN (
+        SELECT DISTINCT ${DownloadedImageColumns.illustId} AS image_illust_id
+        FROM ${DownloadedImageColumns.tableName} INDEXED BY idx_dim_illust_non_webp
+        WHERE ${DownloadedImageColumns.extension} != '.webp'
+      ) dim
+        ON dim.image_illust_id = di.${DownloadedIllustColumns.illustId}
       WHERE $whereClause
-      AND EXISTS (
-        SELECT 1 
-        FROM ${DownloadedImageColumns.tableName} dim 
-        WHERE dim.${DownloadedImageColumns.illustId} = di.${DownloadedIllustColumns.illustId}
-        AND dim.${DownloadedImageColumns.extension} != '.webp'
-      )
       ORDER BY $orderByClause
     ''';
 
@@ -1994,18 +2008,21 @@ class DownloadDatabaseProvider {
     }
     
     // 查询条件：
-    // 1. 图片后缀不是 .webp
+    // 1. 图片后缀不是 .webp（通过 partial index 预筛选）
     // 2. 作品类型不是 ugoira (动图通常是 zip，单独处理)
     // 3. part >= 0 (排除可能的特殊占位符)
     final result = await db.rawQuery('''
       SELECT DISTINCT T1.${DownloadedIllustColumns.userId}
       FROM ${DownloadedIllustColumns.tableName} AS T1
-      INNER JOIN ${DownloadedImageColumns.tableName} AS T2 
-        ON T1.${DownloadedIllustColumns.illustId} = T2.${DownloadedImageColumns.illustId}
+      INNER JOIN (
+        SELECT DISTINCT ${DownloadedImageColumns.illustId} AS image_illust_id
+        FROM ${DownloadedImageColumns.tableName} INDEXED BY idx_dim_illust_non_webp
+        WHERE ${DownloadedImageColumns.extension} != '.webp'
+          AND ${DownloadedImageColumns.part} >= 0
+      ) AS T2
+        ON T1.${DownloadedIllustColumns.illustId} = T2.image_illust_id
       $whereClause
-        AND T2.${DownloadedImageColumns.extension} != '.webp'
         AND T1.${DownloadedIllustColumns.type} != 'ugoira'
-        AND T2.${DownloadedImageColumns.part} >= 0
     ''', whereArgs);
 
     return result.map((e) => e[DownloadedIllustColumns.userId] as int).toSet();
@@ -2019,18 +2036,21 @@ class DownloadDatabaseProvider {
     
     // 查询条件：
     // 1. 指定的插画列表
-    // 2. 图片后缀不是 .webp
+    // 2. 图片后缀不是 .webp（通过 partial index 预筛选）
     // 3. 作品类型不是 ugoira (动图通常是 zip，单独处理)
     // 4. part >= 0
     final result = await db.rawQuery('''
       SELECT DISTINCT T1.${DownloadedIllustColumns.illustId}
       FROM ${DownloadedIllustColumns.tableName} AS T1
-      INNER JOIN ${DownloadedImageColumns.tableName} AS T2 
-        ON T1.${DownloadedIllustColumns.illustId} = T2.${DownloadedImageColumns.illustId}
+      INNER JOIN (
+        SELECT DISTINCT ${DownloadedImageColumns.illustId} AS image_illust_id
+        FROM ${DownloadedImageColumns.tableName} INDEXED BY idx_dim_illust_non_webp
+        WHERE ${DownloadedImageColumns.extension} != '.webp'
+          AND ${DownloadedImageColumns.part} >= 0
+      ) AS T2
+        ON T1.${DownloadedIllustColumns.illustId} = T2.image_illust_id
       WHERE T1.${DownloadedIllustColumns.illustId} IN ($placeholders)
-        AND T2.${DownloadedImageColumns.extension} != '.webp'
         AND T1.${DownloadedIllustColumns.type} != 'ugoira'
-        AND T2.${DownloadedImageColumns.part} >= 0
     ''', illustIds);
 
     return result.map((e) => e[DownloadedIllustColumns.illustId] as int).toSet();
