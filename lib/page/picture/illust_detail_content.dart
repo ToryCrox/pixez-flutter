@@ -705,7 +705,18 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
           break;
         case 5:
           // 删除自定义标签
-          await tagManagerStore.removeCustomTagFromIllust(_illusts.id, f.name);
+          var localTag = tagManagerStore.getTagDisplayData(f.name);
+          if (localTag == null) {
+            // 可能是标签列表尚未加载，强制加载后再按 id 删除
+            await tagManagerStore.loadTags(force: true);
+            localTag = tagManagerStore.getTagDisplayData(f.name);
+          }
+          if (localTag != null) {
+            await tagManagerStore.removeCustomTagFromIllustById(
+              _illusts.id,
+              localTag.tag.id,
+            );
+          }
           await _checkDownloadStatus(); // 刷新状态
           break;
         case 6:
@@ -928,7 +939,10 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
     final selectedTag = await _showTagPickerDialog(context, availableTags);
     
     if (selectedTag != null) {
-      await tagManagerStore.addCustomTagToIllust(_illusts.id, selectedTag.tag.name);
+      await tagManagerStore.addCustomTagToIllustById(
+        _illusts.id,
+        selectedTag.tag.id,
+      );
       await _checkDownloadStatus(); // 刷新状态
     }
   }

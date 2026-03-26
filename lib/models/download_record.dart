@@ -534,6 +534,30 @@ class DownloadDatabaseProvider {
     return {for (var row in rows) TypeUtil.parseInt(row[DownloadedTagsColumns.id]): DownloadedTag.fromJson(row)};
   }
 
+  /// 查询插画的 square_medium 预览图链接（用于 tag 预览事件）
+  Future<String?> _queryIllustSquareMediumUrl(Transaction txn, int illustId) async {
+    final rows = await txn.query(
+      DownloadedIllustColumns.tableName,
+      columns: [DownloadedIllustColumns.imageUrlsJson],
+      where: '${DownloadedIllustColumns.illustId} = ?',
+      whereArgs: [illustId],
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+
+    final imageUrlsJson =
+        TypeUtil.parseString(rows.first[DownloadedIllustColumns.imageUrlsJson]);
+    if (imageUrlsJson.isEmpty) return null;
+
+    try {
+      final map = TypeUtil.parseMap(PixivUrlUtil.decompressPxUrl(imageUrlsJson));
+      final squareMedium = TypeUtil.parseString(map['square_medium']);
+      return squareMedium.isEmpty ? null : squareMedium;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// 添加tag关联
   Future<void> _addTagRelation(Transaction txn, int illustId, int tagId) async {
     await txn.insert(
@@ -2590,51 +2614,92 @@ class DownloadDatabaseProvider {
     }
   }
 
-  Future<void> addCustomTagToIllust(int illustId, String tagName) async {
-    // 1. Ensure tag exists in downloaded_tags
-    await db.rawInsert('''
-      INSERT OR IGNORE INTO ${DownloadedTagsColumns.tableName} 
-      (${DownloadedTagsColumns.name})
-      VALUES (?)
-    ''', [tagName]);
-    
-    // 2. Get ID
-    final List<Map<String, dynamic>> res = await db.query(
-      DownloadedTagsColumns.tableName,
-      columns: [DownloadedTagsColumns.id],
-      where: '${DownloadedTagsColumns.name} = ?',
-      whereArgs: [tagName],
-    );
-    if (res.isEmpty) return; // Should not happen
-    final tagId = res.first[DownloadedTagsColumns.id] as int;
+  Future<void> addCustomTagToIllustById(int illustId, int tagId) async {
+    final events = <TagChangeEvent>[];
 
-    // 3. Add link with source=1
-    await db.insert(
-      DownloadedIllustTagsColumns.tableName,
-      {
-        DownloadedIllustTagsColumns.illustId: illustId,
-        DownloadedIllustTagsColumns.tagId: tagId,
-        DownloadedIllustTagsColumns.source: 1, // Custom tag
-      },
-      conflictAlgorithm: ConflictAlgorithm.ignore,
-    );
+    await db.transaction((txn) async {
+      final tagRows = await txn.query(
+        DownloadedTagsColumns.tableName,
+        where: '${DownloadedTagsColumns.id} = ?',
+        whereArgs: [tagId],
+        limit: 1,
+      );
+      if (tagRows.isEmpty) return;
+      final tag = DownloadedTag.fromJson(tagRows.first);
+      final resolvedTagId = tag.id;
+
+      final existingRelation = await txn.query(
+        DownloadedIllustTagsColumns.tableName,
+        columns: [DownloadedIllustTagsColumns.source],
+        where:
+            '${DownloadedIllustTagsColumns.illustId} = ? AND ${DownloadedIllustTagsColumns.tagId} = ?',
+        whereArgs: [illustId, resolvedTagId],
+        limit: 1,
+      );
+      if (existingRelation.isNotEmpty) return;
+
+      await txn.insert(
+        DownloadedIllustTagsColumns.tableName,
+        {
+          DownloadedIllustTagsColumns.illustId: illustId,
+          DownloadedIllustTagsColumns.tagId: resolvedTagId,
+          DownloadedIllustTagsColumns.source: 1, // Custom tag
+        },
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+
+      final squareMediumUrl = await _queryIllustSquareMediumUrl(txn, illustId);
+      final event = await _updateTagStats(
+        txn: txn,
+        tagId: resolvedTagId,
+        tag: tag,
+        illustId: illustId,
+        changeType: TagChangeType.illustAdded,
+        squareMediumUrl: squareMediumUrl,
+      );
+      events.add(event);
+    });
+
+    if (events.isNotEmpty) {
+      _tagChangesController.add(events);
+    }
   }
 
-  Future<void> removeCustomTagFromIllust(int illustId, String tagName) async {
-     final List<Map<String, dynamic>> res = await db.query(
-      DownloadedTagsColumns.tableName,
-      columns: [DownloadedTagsColumns.id],
-      where: '${DownloadedTagsColumns.name} = ?',
-      whereArgs: [tagName],
-    );
-    if (res.isEmpty) return;
-    final tagId = res.first[DownloadedTagsColumns.id] as int;
+  Future<void> removeCustomTagFromIllustById(int illustId, int tagId) async {
+    final events = <TagChangeEvent>[];
 
-     await db.delete(
-       DownloadedIllustTagsColumns.tableName,
-       where: '${DownloadedIllustTagsColumns.illustId} = ? AND ${DownloadedIllustTagsColumns.tagId} = ? AND ${DownloadedIllustTagsColumns.source} = ?',
-       whereArgs: [illustId, tagId, 1],
-     );
+    await db.transaction((txn) async {
+      final tagRows = await txn.query(
+        DownloadedTagsColumns.tableName,
+        where: '${DownloadedTagsColumns.id} = ?',
+        whereArgs: [tagId],
+        limit: 1,
+      );
+      if (tagRows.isEmpty) return;
+      final tag = DownloadedTag.fromJson(tagRows.first);
+      final resolvedTagId = tag.id;
+
+      final deletedCount = await txn.delete(
+        DownloadedIllustTagsColumns.tableName,
+        where:
+            '${DownloadedIllustTagsColumns.illustId} = ? AND ${DownloadedIllustTagsColumns.tagId} = ? AND ${DownloadedIllustTagsColumns.source} = ?',
+        whereArgs: [illustId, resolvedTagId, 1],
+      );
+      if (deletedCount <= 0) return;
+
+      final event = await _updateTagStats(
+        txn: txn,
+        tagId: resolvedTagId,
+        tag: tag,
+        illustId: illustId,
+        changeType: TagChangeType.illustRemoved,
+      );
+      events.add(event);
+    });
+
+    if (events.isNotEmpty) {
+      _tagChangesController.add(events);
+    }
   }
 
   Future<List<String>> getTagsForIllust(int illustId) async {

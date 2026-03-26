@@ -65,7 +65,7 @@ dependencies:
     git:
       url: https://github.com/hasali19/material-foundation-flutter-packages.git
       path: packages/dynamic_color
-      ref: main
+      ref: 83d7f1d72e9647f275262ca3bbd573668ea6b47f
   flutter_riverpod: ^2.5.1
   riverpod_annotation: ^2.3.5
   freezed_annotation: ^2.4.4

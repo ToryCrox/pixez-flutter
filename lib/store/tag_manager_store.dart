@@ -169,14 +169,12 @@ abstract class _TagManagerStore with Store {
     }
   }
 
-  @action
-  Future<void> addCustomTagToIllust(int illustId, String tagName) async {
-    await _dbProvider.addCustomTagToIllust(illustId, tagName);
+  Future<void> addCustomTagToIllustById(int illustId, int tagId) async {
+    await _dbProvider.addCustomTagToIllustById(illustId, tagId);
   }
 
-  @action
-  Future<void> removeCustomTagFromIllust(int illustId, String tagName) async {
-    await _dbProvider.removeCustomTagFromIllust(illustId, tagName);
+  Future<void> removeCustomTagFromIllustById(int illustId, int tagId) async {
+    await _dbProvider.removeCustomTagFromIllustById(illustId, tagId);
   }
 
   Future<List<String>> getTagsForIllust(int illustId) async {
