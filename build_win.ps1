@@ -25,9 +25,10 @@ Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
 if ($buildExitCode -ne 0) {
-    Write-Host "WARNING: Flutter build returned exit code $buildExitCode" -ForegroundColor Yellow
-    Write-Host "Continuing anyway to attempt file copy..." -ForegroundColor Yellow
+    Write-Host "ERROR: Flutter build returned exit code $buildExitCode" -ForegroundColor Red
+    Write-Host "Build failed. Stopping script before file copy." -ForegroundColor Red
     Write-Host ""
+    exit $buildExitCode
 }
 
 Write-Host "Build step completed! Proceeding to file copy..." -ForegroundColor Green

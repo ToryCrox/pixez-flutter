@@ -40,8 +40,7 @@ abstract class _TagManagerPageStore with Store {
   @observable
   int? filterByParentId; // null表示不过滤，否则只显示该父标签的子标签
 
-  @computed
-  List<TagDisplayData> get displayTags {
+  Iterable<TagDisplayData> _getFilteredTags({required bool applyCategoryFilter}) {
     Iterable<TagDisplayData> result = tagManagerStore.tags;
 
     // 0. 优先处理父标签过滤
@@ -49,26 +48,27 @@ abstract class _TagManagerPageStore with Store {
       // 只显示该父标签的所有子标签
       result = tagManagerStore.getDirectChildren(filterByParentId!).map((e) => e);
     }
-    
+
     // 过滤非主标签
     if (hideNonPrimaryTags) {
-       result = result.where((data) => data.tag.referencedTagId == 0);
+      result = result.where((data) => data.tag.referencedTagId == 0);
     }
 
     // 1. Filter by Search Text
     if (searchText.isNotEmpty) {
       final lowerSearch = searchText.toLowerCase();
-      final matchedSet = <int>{}; 
-      
+      final matchedSet = <int>{};
+
       // 搜索逻辑需要查找匹配项及其子标签，因此需要先进行一次遍历
       final sourceList = result.toList();
-      
+
       for (final data in sourceList) {
         // 检查当前tag是否匹配
-        final isMatch = data.tag.name.toLowerCase().contains(lowerSearch) ||
-               data.tag.translatedName.toLowerCase().contains(lowerSearch) ||
-               (data.tag.customTranslatedName?.toLowerCase().contains(lowerSearch) ?? false);
-        
+        final isMatch =
+            data.tag.name.toLowerCase().contains(lowerSearch) ||
+            data.tag.translatedName.toLowerCase().contains(lowerSearch) ||
+            (data.tag.customTranslatedName?.toLowerCase().contains(lowerSearch) ?? false);
+
         if (isMatch) {
           matchedSet.add(data.tag.id);
           // 如果匹配的是父tag，也将其所有直接子tag加入结果
@@ -78,19 +78,41 @@ abstract class _TagManagerPageStore with Store {
           }
         }
       }
-      
+
       // 根据去重后的id集合过滤结果
       result = sourceList.where((data) => matchedSet.contains(data.tag.id));
     }
 
     // 2. Filter by Category / Bookmark
-    if (filterCategory != -1) {
+    if (applyCategoryFilter && filterCategory != -1) {
       if (filterCategory == 99) {
         result = result.where((data) => data.tag.isBookmarked);
       } else {
         result = result.where((data) => data.tag.category == filterCategory);
       }
     }
+
+    return result;
+  }
+
+  Map<int, int> get filterCounts {
+    final sourceList = _getFilteredTags(applyCategoryFilter: false).toList();
+    final counts = <int, int>{
+      -1: sourceList.length,
+      99: sourceList.where((data) => data.tag.isBookmarked).length,
+    };
+
+    for (final category in TagCategory.values) {
+      counts[category.value] =
+          sourceList.where((data) => data.tag.category == category.value).length;
+    }
+
+    return counts;
+  }
+
+  @computed
+  List<TagDisplayData> get displayTags {
+    final result = _getFilteredTags(applyCategoryFilter: true);
 
     // 3. Sort
     final finalResult = result.toList();

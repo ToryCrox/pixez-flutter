@@ -21,6 +21,25 @@ class TagManagerPage extends StatefulWidget {
 }
 
 class _TagManagerPageState extends State<TagManagerPage> {
+  static final List<_TagFilterOption> _filterOptions = [
+    const _TagFilterOption(category: -1, label: '全部'),
+    const _TagFilterOption(category: 1, label: '作品'),
+    const _TagFilterOption(category: 2, label: '角色'),
+    const _TagFilterOption(category: 6, label: '特点'),
+    const _TagFilterOption(category: 4, label: '通用'),
+    const _TagFilterOption(category: 99, label: '收藏'),
+  ];
+
+  static final List<_TagFilterOption> _summaryOptions = [
+    const _TagFilterOption(category: 0, label: '未分类'),
+    const _TagFilterOption(category: 1, label: '作品'),
+    const _TagFilterOption(category: 2, label: '角色'),
+    const _TagFilterOption(category: 6, label: '特点'),
+    const _TagFilterOption(category: 4, label: '通用'),
+    const _TagFilterOption(category: 5, label: '元数据'),
+    const _TagFilterOption(category: 99, label: '收藏'),
+  ];
+
   final TagManagerPageStore _pageStore = TagManagerPageStore();
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
@@ -78,42 +97,50 @@ class _TagManagerPageState extends State<TagManagerPage> {
                 slivers: [
                   SliverPersistentHeader(
                     pinned: true,
-    delegate: SliverChipDelegate(
-      Stack(
-        children: [
-          Container(
-            alignment: Alignment.center,
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(
-                horizontal: 8,
-                vertical: 4,
-              ),
-              child: SortGroup(
-                key: ValueKey(_pageStore.filterCategory),
-                children: const ['全部', '作品', '角色', '特点', '收藏'],
-                initIndex: _getFilterIndex(
-                  _pageStore.filterCategory,
-                ),
-                onChange: (index) {
-                  final category = _getCategoryFromIndex(index);
-                  _pageStore.setFilterCategory(category);
-                },
-              ),
-            ),
-          ),
-          Positioned(
-            right: 8,
-            top: 0,
-            bottom: 0,
-            child: Center(
-              child: _buildDisplayModeButton(),
-            ),
-          ),
-        ],
-      ),
-      height: 52,
-    ),                  ),
+                    delegate: SliverChipDelegate(
+                      Stack(
+                        children: [
+                          Container(
+                            alignment: Alignment.center,
+                            child: SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              child: Observer(
+                                builder: (_) {
+                                  return SortGroup(
+                                    key: ValueKey(_pageStore.filterCategory),
+                                    children:
+                                        _filterOptions
+                                            .map((option) => option.label)
+                                            .toList(),
+                                    initIndex: _getFilterIndex(
+                                      _pageStore.filterCategory,
+                                    ),
+                                    onChange: (index) {
+                                      final category = _getCategoryFromIndex(
+                                        index,
+                                      );
+                                      _pageStore.setFilterCategory(category);
+                                    },
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                          Positioned(
+                            right: 8,
+                            top: 0,
+                            bottom: 0,
+                            child: Center(child: _buildDisplayModeButton()),
+                          ),
+                        ],
+                      ),
+                      height: 52,
+                    ),
+                  ),
 
                   if (tags.isEmpty)
                     SliverFillRemaining(
@@ -163,16 +190,18 @@ class _TagManagerPageState extends State<TagManagerPage> {
                                         _pageStore.toggleSelectionMode(value),
                                 onClassify: _showClassifyDialog,
                                 onAssociate: _showAssociateDialog,
-                                onSetParent: _pageStore.isSelectionMode
-                                    ? _showSetParentDialogForSelection
-                                    : _showSetParentDialog,
+                                onSetParent:
+                                    _pageStore.isSelectionMode
+                                        ? _showSetParentDialogForSelection
+                                        : _showSetParentDialog,
                                 onShowChildren: () {
                                   // 跳转新页面显示子标签
                                   Navigator.of(context).push(
                                     MaterialPageRoute(
-                                      builder: (_) => TagManagerPage(
-                                        initialParentId: data.tag.id,
-                                      ),
+                                      builder:
+                                          (_) => TagManagerPage(
+                                            initialParentId: data.tag.id,
+                                          ),
                                     ),
                                   );
                                 },
@@ -350,7 +379,8 @@ class _TagManagerPageState extends State<TagManagerPage> {
   }
 
   void _showSetParentDialogForSelection([DownloadedTag? activeTag]) async {
-    if (activeTag != null && !_pageStore.selectedTagIds.contains(activeTag.id)) {
+    if (activeTag != null &&
+        !_pageStore.selectedTagIds.contains(activeTag.id)) {
       _pageStore.selectedTagIds.add(activeTag.id);
     }
 
@@ -385,22 +415,63 @@ class _TagManagerPageState extends State<TagManagerPage> {
     return Observer(
       builder: (context) {
         // 获取当前过滤的父标签
-        final parentTag = _pageStore.filterByParentId != null
-            ? tagManagerStore.getTagDisplayDataByID(_pageStore.filterByParentId!)?.tag
-            : null;
-        
+        final parentTag =
+            _pageStore.filterByParentId != null
+                ? tagManagerStore
+                    .getTagDisplayDataByID(_pageStore.filterByParentId!)
+                    ?.tag
+                : null;
+        final filterCounts = _pageStore.filterCounts;
+        final showCategorySummary = _pageStore.filterCategory == -1;
+        final categorySummary = _summaryOptions
+            .map(
+              (option) =>
+                  '${option.label} ${filterCounts[option.category] ?? 0}',
+            )
+            .join(' / ');
+
         return Row(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisSize: MainAxisSize.max,
           children: [
-            Text(parentTag != null ? parentTag.displayName : '标签管理'),
-            const SizedBox(width: 8),
-            Text(
-              '${_pageStore.displayTags.length} ${parentTag != null ? "子标签" : "标签"}',
-              style: TextStyle(
-                fontSize: 12,
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+            Flexible(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
+                    child: Text(
+                      parentTag != null ? parentTag.displayName : '标签管理',
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '${_pageStore.displayTags.length} ${parentTag != null ? "子标签" : "标签"}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withOpacity(0.7),
+                    ),
+                  ),
+                ],
               ),
             ),
+            if (showCategorySummary) const SizedBox(width: 12),
+            if (showCategorySummary)
+              Flexible(
+                child: Text(
+                  categorySummary,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.end,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withOpacity(0.65),
+                  ),
+                ),
+              ),
           ],
         );
       },
@@ -420,37 +491,17 @@ class _TagManagerPageState extends State<TagManagerPage> {
   }
 
   int _getFilterIndex(int category) {
-    switch (category) {
-      case -1:
-        return 0; // All
-      case 1:
-        return 1; // Work
-      case 2:
-        return 2; // Character
-      case 6:
-        return 3; // Feature
-      case 99:
-        return 4; // Bookmark
-      default:
-        return 0;
-    }
+    final index = _filterOptions.indexWhere(
+      (option) => option.category == category,
+    );
+    return index == -1 ? 0 : index;
   }
 
   int _getCategoryFromIndex(int index) {
-    switch (index) {
-      case 0:
-        return -1;
-      case 1:
-        return TagCategory.work.value;
-      case 2:
-        return TagCategory.character.value;
-      case 3:
-        return TagCategory.feature.value;
-      case 4:
-        return 99;
-      default:
-        return -1;
+    if (index < 0 || index >= _filterOptions.length) {
+      return -1;
     }
+    return _filterOptions[index].category;
   }
 
   void _showClassifyDialog() async {
@@ -628,8 +679,6 @@ class _TagManagerPageState extends State<TagManagerPage> {
     );
   }
 
-
-
   void _showAutoAssociateDialog() async {
     await AutoAssociateDialog.show(context);
   }
@@ -659,6 +708,13 @@ class _TagManagerPageState extends State<TagManagerPage> {
       },
     );
   }
+}
+
+class _TagFilterOption {
+  final int category;
+  final String label;
+
+  const _TagFilterOption({required this.category, required this.label});
 }
 
 extension TextEditingControllerExt on TextEditingController {
@@ -699,5 +755,3 @@ class SliverChipDelegate extends SliverPersistentHeaderDelegate {
     return height != oldDelegate.height;
   }
 }
-
-
