@@ -551,6 +551,20 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
     });
   }
 
+  void _onSelectionFabPressed() {
+    if (_items.isEmpty) return;
+    if (!_isMultiSelectMode) {
+      setState(() {
+        _isMultiSelectMode = true;
+        _selectedItemIds
+          ..clear()
+          ..addAll(_items.map((e) => e.id));
+      });
+      return;
+    }
+    _toggleSelectAllOrClear();
+  }
+
   void _toggleGroupSelection(_GroupedItems group) {
     setState(() {
       final allSelected = group.items.every(
@@ -1145,13 +1159,13 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
   }
 
   Widget? _buildSelectionFab() {
-    if (!_isMultiSelectMode) {
+    if (_loading || _error != null || _items.isEmpty) {
       return null;
     }
     final isAllSelected =
-        _items.isNotEmpty && _selectedItemIds.length == _items.length;
+        _isMultiSelectMode && _selectedItemIds.length == _items.length;
     return FloatingActionButton.extended(
-      onPressed: _items.isEmpty ? null : _toggleSelectAllOrClear,
+      onPressed: _onSelectionFabPressed,
       icon: Icon(isAllSelected ? Icons.deselect : Icons.select_all),
       label: Text(isAllSelected ? '全不选' : '全选'),
       tooltip: isAllSelected ? '全不选' : '全选',
