@@ -42,14 +42,21 @@ const String _kAuthorOrganizerHeightValueKey = 'author_organizer_height_value';
 const String _kAuthorOrganizerGroupTypeKey = 'author_organizer_group_type';
 
 class AuthorImageOrganizerPage extends StatefulWidget {
-  final DownloadedAuthor author;
+  final DownloadedAuthor? author;
   final int? illustId;
+  final List<int>? illustIds;
+  final String? title;
 
   const AuthorImageOrganizerPage({
     super.key,
-    required this.author,
+    this.author,
     this.illustId,
-  });
+    this.illustIds,
+    this.title,
+  }) : assert(
+         author != null || (illustIds != null && illustIds.length > 0),
+         'author 或 illustIds 至少需要提供一个',
+       );
 
   static Future<T?> open<T>(
     BuildContext context, {
@@ -60,6 +67,23 @@ class AuthorImageOrganizerPage extends StatefulWidget {
       MaterialPageRoute(
         builder: (context) {
           return AuthorImageOrganizerPage(author: author, illustId: illustId);
+        },
+      ),
+    );
+  }
+
+  static Future<T?> openForIllusts<T>(
+    BuildContext context, {
+    required List<int> illustIds,
+    String? title,
+  }) {
+    return Navigator.of(context).push<T>(
+      MaterialPageRoute(
+        builder: (context) {
+          return AuthorImageOrganizerPage(
+            illustIds: illustIds,
+            title: title,
+          );
         },
       ),
     );
@@ -119,6 +143,36 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
   _GroupType _groupType = _GroupType.none;
   int? _illustIdFilter;
   late final _isTempFilter = widget.illustId != null;
+
+  bool get _hasAuthorContext => widget.author != null;
+
+  String get _titlePrefix {
+    final title = widget.title?.trim();
+    if (title != null && title.isNotEmpty) {
+      return title;
+    }
+    if (_hasAuthorContext) {
+      return '${widget.author!.userName} 图片整理';
+    }
+    return '图片整理';
+  }
+
+  DownloadedAuthor get _filterContextAuthor {
+    final author = widget.author;
+    final title = widget.title?.trim();
+    if (author != null) {
+      return author;
+    }
+    return DownloadedAuthor(
+      userId: 0,
+      userName: title != null && title.isNotEmpty ? title : '图片整理',
+      illustCount: _rawIllusts?.length ?? 0,
+      totalImageCount: 0,
+      totalFileSize: 0,
+      lastDownloadTime: 0,
+      lastUpdateTime: 0,
+    );
+  }
 
   late ScrollController _scrollController;
   late SliverObserverController _sliverObserverController;
@@ -320,10 +374,24 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
             illusts = [];
             imagesByIllustId = {};
           }
+        } else if (widget.illustIds != null && widget.illustIds!.isNotEmpty) {
+          final fetchedIllusts = await downloadStore.getDownloadedIllustsByIds(
+            widget.illustIds!,
+          );
+          final illustMap = <int, DownloadedIllust>{
+            for (final illust in fetchedIllusts) illust.illustId: illust,
+          };
+          illusts =
+              widget.illustIds!
+                  .map((id) => illustMap[id])
+                  .whereType<DownloadedIllust>()
+                  .toList();
+          final illustIds = illusts.map((e) => e.illustId).toList();
+          imagesByIllustId = await _loadImagesByIllustIdsBatched(illustIds);
         } else {
           // 全量扫表路径
           illusts = await downloadStore.getDownloadedByUser(
-            widget.author.userId,
+            widget.author!.userId,
             limit: null,
             offset: 0,
             orderBy: '${DownloadedIllustColumns.downloadTime} DESC',
@@ -340,7 +408,7 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
       // 2. 过滤与解析路径
       if (refilter) {
         final context = AuthorImageFilterContext(
-          author: widget.author,
+          author: _filterContextAuthor,
           illusts: _rawIllusts!,
           imagesByIllustId: _rawImagesByIllustId!,
         );
@@ -661,10 +729,12 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
 
   /// 弹出更新插画信息对话框 (针对当前作者)
   void _showUpdateIllustInfoDialog() {
+    final author = widget.author;
+    if (author == null) return;
     UpdateIllustInfoDialog.show(
       context,
       illusts: _buildUniqueIllustList(),
-      userId: widget.author.userId,
+      userId: author.userId,
     ).then((result) {
       if (result == true) {
         _loadData(forceReload: true);
@@ -988,7 +1058,7 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
         title: Text(
           _isMultiSelectMode
               ? '已选 ${_selectedItemIds.length} / 共 ${_items.length}'
-              : '${widget.author.userName} 图片整理 · 共 ${_items.length} 张',
+              : '$_titlePrefix · 共 ${_items.length} 张',
         ),
         actions: [
           Padding(
@@ -1120,11 +1190,12 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
               ];
             },
           ),
-          IconButton(
-            icon: const Icon(Icons.update),
-            tooltip: '扫描并更新作者作品信息',
-            onPressed: _loading ? null : _showUpdateIllustInfoDialog,
-          ),
+          if (_hasAuthorContext)
+            IconButton(
+              icon: const Icon(Icons.update),
+              tooltip: '扫描并更新作者作品信息',
+              onPressed: _loading ? null : _showUpdateIllustInfoDialog,
+            ),
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: '列表刷新',

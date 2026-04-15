@@ -394,6 +394,12 @@ abstract class _DownloadStoreBase with Store {
     return await _dbProvider.getIllustByIllustId(illustId);
   }
 
+  Future<List<DownloadedIllust>> getDownloadedIllustsByIds(
+    List<int> illustIds,
+  ) async {
+    return await _dbProvider.getIllustsByIllustIds(illustIds);
+  }
+
   Future<String?> getLocalImagePath(
     int illustId,
     int part, {

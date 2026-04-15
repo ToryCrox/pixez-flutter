@@ -389,6 +389,18 @@ class DownloadDatabaseProvider {
     return null;
   }
 
+  Future<List<DownloadedIllust>> getIllustsByIllustIds(List<int> illustIds) async {
+    if (illustIds.isEmpty) return [];
+
+    final placeholders = List.filled(illustIds.length, '?').join(',');
+    final maps = await db.query(
+      DownloadedIllustColumns.tableName,
+      where: '${DownloadedIllustColumns.illustId} IN ($placeholders)',
+      whereArgs: illustIds,
+    );
+    return maps.map((e) => DownloadedIllust.fromJson(e)).toList();
+  }
+
   /// 更新插画信息（保留原有的 downloadTime 和 relativePath）
   Future<int> updateIllust(DownloadedIllust illust) async {
     final result = await db.update(

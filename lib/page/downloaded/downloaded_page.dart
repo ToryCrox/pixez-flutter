@@ -137,6 +137,32 @@ class _DownloadedPageState extends State<DownloadedPage> {
     }
   }
 
+  Future<void> _openImageOrganizer() async {
+    if (_store.filterUserId != null) {
+      final author = await downloadStore.getAuthorByUserId(_store.filterUserId!);
+      if (author != null && context.mounted) {
+        AuthorImageOrganizerPage.open(context, author: author);
+      }
+      return;
+    }
+
+    final illusts = await downloadStore.getDownloadedWithNonWebPImages();
+    if (!mounted) return;
+
+    if (illusts.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('没有发现包含非 WebP 图片的插画')));
+      return;
+    }
+
+    await AuthorImageOrganizerPage.openForIllusts(
+      context,
+      illustIds: illusts.map((e) => e.illustId).toList(),
+      title: '非 WebP 图片整理',
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Observer(
@@ -161,17 +187,11 @@ class _DownloadedPageState extends State<DownloadedPage> {
           onPressed: _toggleSearch,
         ),
         if (!_store.isSearching) ...[
-          if (_store.filterUserId != null)
-            IconButton(
-              icon: const Icon(Icons.photo_library_outlined),
-              tooltip: '图片整理',
-              onPressed: () async {
-                final author = await downloadStore.getAuthorByUserId(_store.filterUserId!);
-                if (author != null && context.mounted) {
-                  AuthorImageOrganizerPage.open(context, author: author);
-                }
-              },
-            ),
+          IconButton(
+            icon: const Icon(Icons.photo_library_outlined),
+            tooltip: '图片整理',
+            onPressed: _openImageOrganizer,
+          ),
           IconButton(
             icon: const Icon(Icons.update),
             tooltip: '更新插画信息',
