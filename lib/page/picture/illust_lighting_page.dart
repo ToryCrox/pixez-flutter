@@ -739,8 +739,25 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
       _illustStore.updateTotalPages(illusts.pageCount);
     }
 
-    final firstVisibleIndex = observeModel.firstChild?.index ?? 0;
-    final clampedIndex = firstVisibleIndex.clamp(0, illusts.pageCount - 1);
+    final firstVisibleIndex = observeModel.firstChild?.index;
+    
+    int clampedIndex;
+    if (firstVisibleIndex == null) {
+      if (_photoScrollController.hasClients) {
+        final position = _photoScrollController.position;
+        final currentScroll = position.pixels;
+        final maxScroll = position.maxScrollExtent;
+        if (maxScroll > 0 && currentScroll / maxScroll > 0.9) {
+          clampedIndex = illusts.pageCount - 1;
+        } else {
+          return;
+        }
+      } else {
+        return;
+      }
+    } else {
+      clampedIndex = firstVisibleIndex.clamp(0, illusts.pageCount - 1);
+    }
 
     if (clampedIndex != _illustStore.currentPage) {
       _illustStore.updateCurrentPage(clampedIndex);
