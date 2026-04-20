@@ -28,6 +28,7 @@ import 'package:mobx/mobx.dart' hide Listener;
 import 'package:scrollview_observer/scrollview_observer.dart';
 import 'package:pixez/component/ban_page.dart';
 import 'package:pixez/component/common_back_area.dart';
+import 'package:pixez/component/illust_recommend_grid.dart';
 import 'package:pixez/component/local_or_cached_image.dart';
 import 'package:pixez/component/null_hero.dart';
 import 'package:pixez/component/painter_avatar.dart';
@@ -960,61 +961,12 @@ class _IllustRowPageState extends State<IllustRowPage>
     );
   }
 
-  SliverGrid _buildRecom() {
-    return SliverGrid(
-      delegate: SliverChildBuilderDelegate((BuildContext context, int index) {
-        var list =
-            _aboutStore.illusts
-                .map((element) => IllustStore(element.id, element))
-                .toList();
-        final illust = _aboutStore.illusts[index];
-        return InkWell(
-          onTap: () {
-            Leader.push(
-              context,
-              PictureListPage(
-                iStores: list,
-                lightingStore: null,
-                store: list[index],
-              ),
-            );
-          },
-          onLongPress: () {
-            downloadStore.downloadIllust(_aboutStore.illusts[index]);
-            if (userSetting.starAfterSave && (_illustStore.state == 0)) {
-              _illustStore.star(
-                restrict: userSetting.defaultPrivateLike ? "private" : "public",
-              );
-            }
-          },
-          child: Stack(
-            children: [
-              PixivImage(
-                illust.imageUrls.squareMedium,
-                enableMemoryCache: false,
-                fit: BoxFit.cover,
-                // 通过 header 传递 illustId，让 PixivCacheManager 识别封面请求
-                httpHeaders: {
-                  'cover': '${illust.id}',
-                },
-                memCacheWidth: 480,
-              ),
-              Positioned(
-                top: 4,
-                right: 4,
-                child: DownloadStatusIndicator(
-                  illustId: illust.id,
-                  pageCount: illust.pageCount,
-                  size: 14,
-                ),
-              ),
-            ],
-          ),
-        );
-      }, childCount: _aboutStore.illusts.length),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-      ),
+  Widget _buildRecom() {
+    return IllustRecommendGrid(
+      illusts: _aboutStore.illusts,
+      currentIllustStore: _illustStore,
+      showLongPressConfirm: false,
+      memCacheWidth: 480,
     );
   }
 

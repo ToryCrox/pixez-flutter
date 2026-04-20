@@ -27,6 +27,7 @@ import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:scrollview_observer/scrollview_observer.dart';
 import 'package:pixez/component/ban_page.dart';
 import 'package:pixez/component/common_back_area.dart';
+import 'package:pixez/component/illust_recommend_grid.dart';
 import 'package:pixez/component/null_hero.dart';
 import 'package:pixez/component/painter_avatar.dart';
 import 'package:pixez/component/pixez_default_header.dart';
@@ -522,97 +523,10 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
                       },
                     ),
                   ),
-                  SliverGrid(
-                    delegate: SliverChildBuilderDelegate((
-                      BuildContext context,
-                      int index,
-                    ) {
-                      var list =
-                          _aboutStore.illusts
-                              .map(
-                                (element) => IllustStore(element.id, element),
-                              )
-                              .toList();
-                      final illust = _aboutStore.illusts[index];
-                      return InkWell(
-                        onTap: () {
-                          Leader.push(
-                            context,
-                            PictureListPage(
-                              iStores: list,
-                              lightingStore: null,
-                              store: list[index],
-                            ),
-                          );
-                        },
-                        onLongPress: () async {
-                          if (userSetting.longPressSaveConfirm) {
-                            final result = await showDialog(
-                              context: context,
-                              builder: (context) {
-                                return AlertDialog(
-                                  title: Text(I18n.of(context).save),
-                                  content: Text(
-                                    list[index].illusts?.title ?? "",
-                                  ),
-                                  actions: <Widget>[
-                                    TextButton(
-                                      child: Text(I18n.of(context).cancel),
-                                      onPressed: () {
-                                        Navigator.of(context).pop(false);
-                                      },
-                                    ),
-                                    TextButton(
-                                      child: Text(I18n.of(context).ok),
-                                      onPressed: () {
-                                        Navigator.of(context).pop(true);
-                                      },
-                                    ),
-                                  ],
-                                );
-                              },
-                            );
-                            if (!result) {
-                              return;
-                            }
-                          }
-                          if (userSetting.starAfterSave &&
-                              (_illustStore.state == 0)) {
-                            _illustStore.star(
-                              restrict:
-                                  userSetting.defaultPrivateLike
-                                      ? "private"
-                                      : "public",
-                            );
-                          }
-                          downloadStore.downloadIllust(
-                            _aboutStore.illusts[index],
-                          );
-                        },
-                        child: Stack(
-                          children: [
-                            PixivImage(
-                              illust.imageUrls.squareMedium,
-                              enableMemoryCache: false,
-                              // 通过 header 传递 illustId，让 PixivCacheManager 识别封面请求
-                              httpHeaders: {'cover': '${illust.id}'},
-                            ),
-                            Positioned(
-                              top: 4,
-                              right: 4,
-                              child: DownloadStatusIndicator(
-                                illustId: illust.id,
-                                pageCount: illust.pageCount,
-                                size: 14,
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    }, childCount: _aboutStore.illusts.length),
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 3,
-                    ),
+                  IllustRecommendGrid(
+                    illusts: _aboutStore.illusts,
+                    currentIllustStore: _illustStore,
+                    showLongPressConfirm: userSetting.longPressSaveConfirm,
                   ),
                 ],
               ),
