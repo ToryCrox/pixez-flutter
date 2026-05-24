@@ -181,7 +181,9 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
   late ScrollController _scrollController;
   final Map<String, double> _groupScrollOffsets = {};
   List<_GroupScrollOffset> _orderedGroupScrollOffsets = const [];
-  String? _currentGroupId;
+  final ValueNotifier<String?> _currentGroupIdNotifier = ValueNotifier<String?>(
+    null,
+  );
 
   @override
   void initState() {
@@ -207,6 +209,7 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
   void dispose() {
     _scrollController.removeListener(_syncCurrentGroupFromScroll);
     _scrollController.dispose();
+    _currentGroupIdNotifier.dispose();
     super.dispose();
   }
 
@@ -1272,41 +1275,24 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
                       .where((k) => k != PointerDeviceKind.mouse)
                       .toSet(),
             ),
-            child: _buildVirtualizedGroupedGrid(),
+            child: _buildGroupedGrid(),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildVirtualizedGroupedGrid() {
+  Widget _buildGroupedGrid() {
     return LayoutBuilder(
       builder: (context, constraints) {
         final layout = _buildGridLayout(constraints.maxWidth);
-        final sectionLayout = _buildSectionLayout(layout);
-
-        _cacheGroupScrollOffsets(sectionLayout.offsets);
+        _cacheGroupScrollOffsets(_calculateGroupScrollOffsets(layout));
 
         return CustomScrollView(
           controller: _scrollController,
           slivers: [
-            SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) {
-                  final row = sectionLayout.rows[index];
-                  if (row.isHeader) {
-                    return SizedBox(
-                      height: _kGroupHeaderExtent,
-                      child: _buildGroupHeader(row.group, row.groupIndex),
-                    );
-                  }
-                  return _buildImageRow(row, layout);
-                },
-                childCount: sectionLayout.rows.length,
-                addAutomaticKeepAlives: false,
-                addRepaintBoundaries: true,
-              ),
-            ),
+            for (final entry in _groupedItems.asMap().entries)
+              _buildGroupSliver(entry.value, entry.key),
             if (_groupedItems.length > 1)
               SliverToBoxAdapter(
                 child: SizedBox(
@@ -1319,6 +1305,44 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
           ],
         );
       },
+    );
+  }
+
+  Widget _buildGroupSliver(_GroupedItems group, int groupIndex) {
+    return SliverMainAxisGroup(
+      slivers: [
+        SliverPersistentHeader(
+          pinned: true,
+          delegate: _StickyHeaderDelegate(
+            child: _buildGroupHeader(group, groupIndex),
+            minHeight: _kGroupHeaderExtent,
+            maxHeight: _kGroupHeaderExtent,
+          ),
+        ),
+        SliverPadding(
+          padding: const EdgeInsets.all(_kGridPadding),
+          sliver: SliverGrid(
+            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+              maxCrossAxisExtent: _kGridMaxCrossAxisExtent,
+              childAspectRatio: _kGridChildAspectRatio,
+              crossAxisSpacing: _kGridCrossAxisSpacing,
+              mainAxisSpacing: _kGridMainAxisSpacing,
+            ),
+            delegate: SliverChildBuilderDelegate(
+              (context, index) {
+                final item = group.items[index];
+                return _buildDraggableCard(
+                  item,
+                  _selectedItemIds.contains(item.id),
+                );
+              },
+              childCount: group.items.length,
+              addAutomaticKeepAlives: false,
+              addRepaintBoundaries: true,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -1341,76 +1365,24 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
     );
   }
 
-  _SectionLayout _buildSectionLayout(_GridLayout layout) {
-    final rows = <_GroupGridRow>[];
+  List<_GroupScrollOffset> _calculateGroupScrollOffsets(_GridLayout layout) {
     final offsets = <_GroupScrollOffset>[];
     var scrollOffset = 0.0;
 
     for (final entry in _groupedItems.asMap().entries) {
-      final groupIndex = entry.key;
       final group = entry.value;
       offsets.add(_GroupScrollOffset(group.id, scrollOffset));
-      rows.add(_GroupGridRow.header(group: group, groupIndex: groupIndex));
       scrollOffset += _kGroupHeaderExtent;
-
       final rowCount = (group.items.length / layout.columnCount).ceil();
-      for (var rowIndex = 0; rowIndex < rowCount; rowIndex++) {
-        final start = rowIndex * layout.columnCount;
-        final end = math.min(start + layout.columnCount, group.items.length);
-        final isFirstRow = rowIndex == 0;
-        final isLastRow = rowIndex == rowCount - 1;
-        rows.add(
-          _GroupGridRow.items(
-            group: group,
-            groupIndex: groupIndex,
-            rowIndex: rowIndex,
-            rowCount: rowCount,
-            items: group.items.sublist(start, end),
-          ),
-        );
+      if (rowCount > 0) {
         scrollOffset +=
-            (isFirstRow ? _kGridPadding : 0.0) +
-            layout.tileHeight +
-            (isLastRow ? _kGridPadding : _kGridMainAxisSpacing);
+            _kGridPadding * 2 +
+            rowCount * layout.tileHeight +
+            math.max(0, rowCount - 1) * _kGridMainAxisSpacing;
       }
     }
 
-    return _SectionLayout(rows: rows, offsets: offsets);
-  }
-
-  Widget _buildImageRow(_GroupGridRow row, _GridLayout layout) {
-    final isFirstRow = row.rowIndex == 0;
-    final isLastRow = row.rowIndex == row.rowCount - 1;
-    final topPadding = isFirstRow ? _kGridPadding : 0.0;
-    final bottomPadding = isLastRow ? _kGridPadding : _kGridMainAxisSpacing;
-    return SizedBox(
-      height: topPadding + layout.tileHeight + bottomPadding,
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(
-          _kGridPadding,
-          topPadding,
-          _kGridPadding,
-          bottomPadding,
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            for (var i = 0; i < row.items.length; i++) ...[
-              SizedBox(
-                width: layout.tileWidth,
-                height: layout.tileHeight,
-                child: _buildDraggableCard(
-                  row.items[i],
-                  _selectedItemIds.contains(row.items[i].id),
-                ),
-              ),
-              if (i != row.items.length - 1)
-                const SizedBox(width: _kGridCrossAxisSpacing),
-            ],
-          ],
-        ),
-      ),
-    );
+    return offsets;
   }
 
   Widget _buildGroupNavigator() {
@@ -1432,10 +1404,16 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
         separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
           final group = _groupedItems[index];
-          return ChoiceChip(
-            label: Text(group.title),
-            selected: _currentGroupId == group.id,
-            onSelected: (_) => _scrollToGroup(group),
+          return ValueListenableBuilder<String?>(
+            valueListenable: _currentGroupIdNotifier,
+            child: Text(group.title),
+            builder: (context, currentGroupId, label) {
+              return ChoiceChip(
+                label: label!,
+                selected: currentGroupId == group.id,
+                onSelected: (_) => _scrollToGroup(group),
+              );
+            },
           );
         },
       ),
@@ -1449,8 +1427,9 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
         _orderedGroupScrollOffsets
             .where((e) => ids.contains(e.groupId))
             .toList();
-    if (_currentGroupId == null || !ids.contains(_currentGroupId)) {
-      _currentGroupId = groups.isNotEmpty ? groups.first.id : null;
+    final currentGroupId = _currentGroupIdNotifier.value;
+    if (currentGroupId == null || !ids.contains(currentGroupId)) {
+      _setCurrentGroupId(groups.isNotEmpty ? groups.first.id : null);
     }
   }
 
@@ -1468,9 +1447,7 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
   }
 
   Future<void> _scrollToGroup(_GroupedItems group) async {
-    setState(() {
-      _currentGroupId = group.id;
-    });
+    _setCurrentGroupId(group.id);
 
     var targetOffset = _groupScrollOffsets[group.id];
     if (targetOffset == null) {
@@ -1514,11 +1491,12 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
       }
     }
 
-    if (visibleGroupId == _currentGroupId) return;
-    if (!mounted) return;
-    setState(() {
-      _currentGroupId = visibleGroupId;
-    });
+    _setCurrentGroupId(visibleGroupId);
+  }
+
+  void _setCurrentGroupId(String? groupId) {
+    if (_currentGroupIdNotifier.value == groupId) return;
+    _currentGroupIdNotifier.value = groupId;
   }
 
   Widget _buildGroupHeader(_GroupedItems group, int index) {
@@ -1913,36 +1891,6 @@ class _GridLayout {
   });
 }
 
-class _SectionLayout {
-  final List<_GroupGridRow> rows;
-  final List<_GroupScrollOffset> offsets;
-
-  const _SectionLayout({required this.rows, required this.offsets});
-}
-
-class _GroupGridRow {
-  final _GroupedItems group;
-  final int groupIndex;
-  final int rowIndex;
-  final int rowCount;
-  final List<_AuthorImageDisplayItem> items;
-
-  const _GroupGridRow.header({required this.group, required this.groupIndex})
-    : rowIndex = -1,
-      rowCount = 0,
-      items = const [];
-
-  const _GroupGridRow.items({
-    required this.group,
-    required this.groupIndex,
-    required this.rowIndex,
-    required this.rowCount,
-    required this.items,
-  });
-
-  bool get isHeader => rowIndex < 0;
-}
-
 class _GroupScrollOffset {
   final String groupId;
   final double offset;
@@ -2033,4 +1981,38 @@ class _ResolutionFilterDialogResult {
     required this.heightOp,
     required this.heightValue,
   });
+}
+
+class _StickyHeaderDelegate extends SliverPersistentHeaderDelegate {
+  final Widget child;
+  final double minHeight;
+  final double maxHeight;
+
+  _StickyHeaderDelegate({
+    required this.child,
+    required this.minHeight,
+    required this.maxHeight,
+  });
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    return SizedBox.expand(child: child);
+  }
+
+  @override
+  double get maxExtent => maxHeight;
+
+  @override
+  double get minExtent => minHeight;
+
+  @override
+  bool shouldRebuild(covariant _StickyHeaderDelegate oldDelegate) {
+    return oldDelegate.child != child ||
+        oldDelegate.minHeight != minHeight ||
+        oldDelegate.maxHeight != maxHeight;
+  }
 }
