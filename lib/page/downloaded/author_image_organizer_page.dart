@@ -4,6 +4,7 @@ import 'dart:ui';
 
 import 'package:bot_toast/bot_toast.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:pixez/component/pixiv_image.dart';
 import 'package:pixez/er/leader.dart';
 import 'package:open_file/open_file.dart';
@@ -179,7 +180,9 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
   }
 
   late ScrollController _scrollController;
+  late ScrollController _groupNavigatorController;
   final Map<String, double> _groupScrollOffsets = {};
+  final Map<String, double> _groupNavigatorItemWidths = {};
   List<_GroupScrollOffset> _orderedGroupScrollOffsets = const [];
   final ValueNotifier<String?> _currentGroupIdNotifier = ValueNotifier<String?>(
     null,
@@ -190,7 +193,9 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
     super.initState();
     _illustIdFilter = widget.illustId;
     _scrollController = ScrollController();
+    _groupNavigatorController = ScrollController();
     _scrollController.addListener(_syncCurrentGroupFromScroll);
+    _currentGroupIdNotifier.addListener(_scrollCurrentGroupChipIntoView);
     _loadFilterPrefs();
 
     if (_isTempFilter) {
@@ -208,7 +213,9 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
   @override
   void dispose() {
     _scrollController.removeListener(_syncCurrentGroupFromScroll);
+    _currentGroupIdNotifier.removeListener(_scrollCurrentGroupChipIntoView);
     _scrollController.dispose();
+    _groupNavigatorController.dispose();
     _currentGroupIdNotifier.dispose();
     super.dispose();
   }
@@ -1396,21 +1403,26 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
         ),
       ),
       child: ListView.separated(
+        controller: _groupNavigatorController,
         scrollDirection: Axis.horizontal,
         itemCount: _groupedItems.length,
         separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
           final group = _groupedItems[index];
-          return ValueListenableBuilder<String?>(
-            valueListenable: _currentGroupIdNotifier,
-            child: Text(group.title),
-            builder: (context, currentGroupId, label) {
-              return ChoiceChip(
-                label: label!,
-                selected: currentGroupId == group.id,
-                onSelected: (_) => _scrollToGroup(group),
-              );
-            },
+          return _GroupNavigatorItemMeasure(
+            onSizeChanged:
+                (width) => _recordGroupNavigatorItemWidth(group.id, width),
+            child: ValueListenableBuilder<String?>(
+              valueListenable: _currentGroupIdNotifier,
+              child: Text(group.title),
+              builder: (context, currentGroupId, label) {
+                return ChoiceChip(
+                  label: label!,
+                  selected: currentGroupId == group.id,
+                  onSelected: (_) => _scrollToGroup(group),
+                );
+              },
+            ),
           );
         },
       ),
@@ -1420,6 +1432,7 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
   void _syncGroupState(List<_GroupedItems> groups) {
     final ids = groups.map((e) => e.id).toSet();
     _groupScrollOffsets.removeWhere((id, _) => !ids.contains(id));
+    _groupNavigatorItemWidths.removeWhere((id, _) => !ids.contains(id));
     _orderedGroupScrollOffsets =
         _orderedGroupScrollOffsets
             .where((e) => ids.contains(e.groupId))
@@ -1494,6 +1507,64 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
   void _setCurrentGroupId(String? groupId) {
     if (_currentGroupIdNotifier.value == groupId) return;
     _currentGroupIdNotifier.value = groupId;
+  }
+
+  void _recordGroupNavigatorItemWidth(String groupId, double width) {
+    if (width <= 0) return;
+    final oldWidth = _groupNavigatorItemWidths[groupId];
+    if (oldWidth != null && (oldWidth - width).abs() < 0.5) return;
+    _groupNavigatorItemWidths[groupId] = width;
+    if (_currentGroupIdNotifier.value == groupId) {
+      _scrollCurrentGroupChipIntoView();
+    }
+  }
+
+  void _scrollCurrentGroupChipIntoView() {
+    final groupId = _currentGroupIdNotifier.value;
+    if (groupId == null || !_groupNavigatorController.hasClients) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_groupNavigatorController.hasClients) return;
+      final range = _groupNavigatorItemRange(groupId);
+      if (range == null) return;
+
+      const margin = 8.0;
+      final position = _groupNavigatorController.position;
+      final visibleStart = position.pixels;
+      final visibleEnd = visibleStart + position.viewportDimension;
+      double? targetOffset;
+
+      if (range.start < visibleStart + margin) {
+        targetOffset = range.start - margin;
+      } else if (range.end > visibleEnd - margin) {
+        targetOffset = range.end - position.viewportDimension + margin;
+      }
+
+      if (targetOffset == null) return;
+      final clampedOffset = targetOffset.clamp(
+        position.minScrollExtent,
+        position.maxScrollExtent,
+      );
+      if ((clampedOffset - position.pixels).abs() < 0.5) return;
+      _groupNavigatorController.animateTo(
+        clampedOffset,
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+      );
+    });
+  }
+
+  _HorizontalRange? _groupNavigatorItemRange(String groupId) {
+    var offset = 0.0;
+    for (final group in _groupedItems) {
+      final width = _groupNavigatorItemWidths[group.id];
+      if (width == null) return null;
+      if (group.id == groupId) {
+        return _HorizontalRange(start: offset, end: offset + width);
+      }
+      offset += width + 8;
+    }
+    return null;
   }
 
   Widget _buildGroupHeader(_GroupedItems group, int index) {
@@ -1898,6 +1969,53 @@ class _SelectionBadge extends StatelessWidget {
       ),
     );
   }
+}
+
+class _GroupNavigatorItemMeasure extends SingleChildRenderObjectWidget {
+  final ValueChanged<double> onSizeChanged;
+
+  const _GroupNavigatorItemMeasure({
+    required this.onSizeChanged,
+    required super.child,
+  });
+
+  @override
+  RenderObject createRenderObject(BuildContext context) {
+    return _GroupNavigatorItemMeasureRenderObject(onSizeChanged);
+  }
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    covariant _GroupNavigatorItemMeasureRenderObject renderObject,
+  ) {
+    renderObject.onSizeChanged = onSizeChanged;
+  }
+}
+
+class _GroupNavigatorItemMeasureRenderObject extends RenderProxyBox {
+  ValueChanged<double> onSizeChanged;
+  double? _lastWidth;
+
+  _GroupNavigatorItemMeasureRenderObject(this.onSizeChanged);
+
+  @override
+  void performLayout() {
+    super.performLayout();
+    final width = size.width;
+    if (_lastWidth != null && (_lastWidth! - width).abs() < 0.5) return;
+    _lastWidth = width;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      onSizeChanged(width);
+    });
+  }
+}
+
+class _HorizontalRange {
+  final double start;
+  final double end;
+
+  const _HorizontalRange({required this.start, required this.end});
 }
 
 class _GridLayout {
