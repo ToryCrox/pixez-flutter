@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:bot_toast/bot_toast.dart';
@@ -16,7 +17,6 @@ import 'package:pixez/page/downloaded/update_illust_info_dialog.dart';
 import 'package:pixez/page/picture/illust_store.dart';
 import 'package:pixez/page/picture/picture_list_page.dart';
 import 'package:pixez/utils/file_utils.dart';
-import 'package:scrollview_observer/scrollview_observer.dart';
 import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 
 enum _PerIllustPickMode { last, first, all }
@@ -26,6 +26,13 @@ enum _SortType { idAndPart, downloadTime, fileSize, width, height, area }
 enum _SortOrder { asc, desc }
 
 enum _GroupType { none, date, illust, type, resolution }
+
+const double _kGroupHeaderExtent = 40;
+const double _kGridPadding = 8;
+const double _kGridCrossAxisSpacing = 8;
+const double _kGridMainAxisSpacing = 8;
+const double _kGridMaxCrossAxisExtent = 210;
+const double _kGridChildAspectRatio = 0.73;
 
 // 筛选项持久化 key（仅在当前页面使用，不放入 UserSetting）。
 const String _kAuthorOrganizerExcludeWebpKey = 'author_organizer_exclude_webp';
@@ -80,10 +87,7 @@ class AuthorImageOrganizerPage extends StatefulWidget {
     return Navigator.of(context).push<T>(
       MaterialPageRoute(
         builder: (context) {
-          return AuthorImageOrganizerPage(
-            illustIds: illustIds,
-            title: title,
-          );
+          return AuthorImageOrganizerPage(illustIds: illustIds, title: title);
         },
       ),
     );
@@ -98,7 +102,7 @@ class AuthorImageOrganizerPage extends StatefulWidget {
     try {
       final author = await downloadStore.getAuthorByUserId(userId);
       if (!context.mounted) return;
-      
+
       if (author != null) {
         open(context, author: author, illustId: illustId);
       } else {
@@ -175,10 +179,8 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
   }
 
   late ScrollController _scrollController;
-  late SliverObserverController _sliverObserverController;
-  final Map<String, GlobalKey> _groupHeaderKeys = {};
-  final Map<String, GlobalKey> _groupObserveKeys = {};
-  final Map<String, GlobalKey> _groupGridKeys = {};
+  final Map<String, double> _groupScrollOffsets = {};
+  List<_GroupScrollOffset> _orderedGroupScrollOffsets = const [];
   String? _currentGroupId;
 
   @override
@@ -186,9 +188,7 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
     super.initState();
     _illustIdFilter = widget.illustId;
     _scrollController = ScrollController();
-    _sliverObserverController = SliverObserverController(
-      controller: _scrollController,
-    );
+    _scrollController.addListener(_syncCurrentGroupFromScroll);
     _loadFilterPrefs();
 
     if (_isTempFilter) {
@@ -205,6 +205,7 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
 
   @override
   void dispose() {
+    _scrollController.removeListener(_syncCurrentGroupFromScroll);
     _scrollController.dispose();
     super.dispose();
   }
@@ -439,7 +440,7 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
       setState(() {
         _items = sortedItems;
         _groupedItems = grouped;
-        _syncGroupKeys(grouped);
+        _syncGroupState(grouped);
         _loading = false;
       });
     } catch (e) {
@@ -1043,189 +1044,195 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
         }
       },
       child: Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: Icon(_isMultiSelectMode ? Icons.close : Icons.arrow_back),
-          tooltip: _isMultiSelectMode ? '退出多选' : '返回',
-          onPressed: () async {
-            if (_isMultiSelectMode) {
-              _exitMultiSelectMode();
-              return;
-            }
-            await Navigator.maybePop(context);
-          },
-        ),
-        title: Text(
-          _isMultiSelectMode
-              ? '已选 ${_selectedItemIds.length} / 共 ${_items.length}'
-              : '$_titlePrefix · 共 ${_items.length} 张',
-        ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: PopupMenuButton<_GroupType>(
-              initialValue: _groupType,
-              tooltip: '分组方式',
-              position: PopupMenuPosition.under,
-              onSelected: _loading ? null : _onGroupTypeChanged,
-              itemBuilder:
-                  (context) =>
-                      _GroupType.values
-                          .map(
-                            (type) => PopupMenuItem<_GroupType>(
-                              value: type,
-                              child: Text(_groupTypeLabel(type)),
-                            ),
-                          )
-                          .toList(),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.layers_outlined, size: 20),
-                    const SizedBox(width: 4),
-                    Text(_groupTypeLabel(_groupType)),
-                  ],
+        appBar: AppBar(
+          leading: IconButton(
+            icon: Icon(_isMultiSelectMode ? Icons.close : Icons.arrow_back),
+            tooltip: _isMultiSelectMode ? '退出多选' : '返回',
+            onPressed: () async {
+              if (_isMultiSelectMode) {
+                _exitMultiSelectMode();
+                return;
+              }
+              await Navigator.maybePop(context);
+            },
+          ),
+          title: Text(
+            _isMultiSelectMode
+                ? '已选 ${_selectedItemIds.length} / 共 ${_items.length}'
+                : '$_titlePrefix · 共 ${_items.length} 张',
+          ),
+          actions: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: PopupMenuButton<_GroupType>(
+                initialValue: _groupType,
+                tooltip: '分组方式',
+                position: PopupMenuPosition.under,
+                onSelected: _loading ? null : _onGroupTypeChanged,
+                itemBuilder:
+                    (context) =>
+                        _GroupType.values
+                            .map(
+                              (type) => PopupMenuItem<_GroupType>(
+                                value: type,
+                                child: Text(_groupTypeLabel(type)),
+                              ),
+                            )
+                            .toList(),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.layers_outlined, size: 20),
+                      const SizedBox(width: 4),
+                      Text(_groupTypeLabel(_groupType)),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: PopupMenuButton<_SortType>(
-              initialValue: _sortType,
-              tooltip: '排序方式',
-              position: PopupMenuPosition.under,
-              onSelected: _loading ? null : _onSortTypeChanged,
-              itemBuilder:
-                  (context) =>
-                      _SortType.values
-                          .map(
-                            (type) => PopupMenuItem<_SortType>(
-                              value: type,
-                              child: Text(_sortTypeLabel(type)),
-                            ),
-                          )
-                          .toList(),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(_sortTypeLabel(_sortType)),
-                    const Icon(Icons.arrow_drop_down),
-                  ],
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: PopupMenuButton<_SortType>(
+                initialValue: _sortType,
+                tooltip: '排序方式',
+                position: PopupMenuPosition.under,
+                onSelected: _loading ? null : _onSortTypeChanged,
+                itemBuilder:
+                    (context) =>
+                        _SortType.values
+                            .map(
+                              (type) => PopupMenuItem<_SortType>(
+                                value: type,
+                                child: Text(_sortTypeLabel(type)),
+                              ),
+                            )
+                            .toList(),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(_sortTypeLabel(_sortType)),
+                      const Icon(Icons.arrow_drop_down),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-          IconButton(
-            icon: Icon(
-              _sortOrder == _SortOrder.asc
-                  ? Icons
-                      .arrow_upward // 升序图标
-                  : Icons.arrow_downward, // 降序图标
-            ),
-            tooltip: _sortOrder == _SortOrder.asc ? '正序' : '倒序',
-            onPressed:
-                _loading
-                    ? null
-                    : () {
-                      _onSortOrderChanged(
-                        _sortOrder == _SortOrder.asc
-                            ? _SortOrder.desc
-                            : _SortOrder.asc,
-                      );
-                    },
-          ),
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.filter_alt_outlined),
-            tooltip: '筛选条件',
-            position: PopupMenuPosition.under,
-            onSelected: (value) {
-              _onFilterMenuSelected(value);
-            },
-            itemBuilder: (context) {
-              return [
-                CheckedPopupMenuItem(
-                  value: 'toggle_webp',
-                  checked: _excludeWebp,
-                  child: const Text('排除 WebP'),
-                ),
-                CheckedPopupMenuItem(
-                  value: 'toggle_ugoira',
-                  checked: _excludeUgoira,
-                  child: const Text('排除动图'),
-                ),
-                const PopupMenuDivider(),
-                CheckedPopupMenuItem(
-                  value: 'mode_last',
-                  checked: _pickMode == _PerIllustPickMode.last,
-                  child: const Text('最后几张'),
-                ),
-                CheckedPopupMenuItem(
-                  value: 'mode_first',
-                  checked: _pickMode == _PerIllustPickMode.first,
-                  child: const Text('最前几张'),
-                ),
-                CheckedPopupMenuItem(
-                  value: 'mode_all',
-                  checked: _pickMode == _PerIllustPickMode.all,
-                  child: const Text('所有'),
-                ),
-                PopupMenuItem(
-                  value: 'set_count',
-                  child: Text('每作品数量: $_pickCount'),
-                ),
-                const PopupMenuDivider(),
-                const PopupMenuItem(
-                  value: 'set_resolution_filter',
-                  child: Text('分辨率过滤设置'),
-                ),
-                const PopupMenuItem(
-                  value: 'clear_resolution_filter',
-                  child: Text('清空分辨率过滤'),
-                ),
-              ];
-            },
-          ),
-          if (_hasAuthorContext)
             IconButton(
-              icon: const Icon(Icons.update),
-              tooltip: '扫描并更新作者作品信息',
-              onPressed: _loading ? null : _showUpdateIllustInfoDialog,
+              icon: Icon(
+                _sortOrder == _SortOrder.asc
+                    ? Icons
+                        .arrow_upward // 升序图标
+                    : Icons.arrow_downward, // 降序图标
+              ),
+              tooltip: _sortOrder == _SortOrder.asc ? '正序' : '倒序',
+              onPressed:
+                  _loading
+                      ? null
+                      : () {
+                        _onSortOrderChanged(
+                          _sortOrder == _SortOrder.asc
+                              ? _SortOrder.desc
+                              : _SortOrder.asc,
+                        );
+                      },
             ),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: '列表刷新',
-            onPressed: _loading ? null : () => _loadData(forceReload: true),
-          ),
-          if (_illustIdFilter != null && !_isMultiSelectMode)
-            IconButton(
-              icon: const Icon(Icons.filter_alt_off),
-              tooltip: '清除作品 ID 过滤',
-              onPressed: () {
-                setState(() {
-                  _illustIdFilter = null;
-                });
-                _loadData(forceReload: true);
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.filter_alt_outlined),
+              tooltip: '筛选条件',
+              position: PopupMenuPosition.under,
+              onSelected: (value) {
+                _onFilterMenuSelected(value);
+              },
+              itemBuilder: (context) {
+                return [
+                  CheckedPopupMenuItem(
+                    value: 'toggle_webp',
+                    checked: _excludeWebp,
+                    child: const Text('排除 WebP'),
+                  ),
+                  CheckedPopupMenuItem(
+                    value: 'toggle_ugoira',
+                    checked: _excludeUgoira,
+                    child: const Text('排除动图'),
+                  ),
+                  const PopupMenuDivider(),
+                  CheckedPopupMenuItem(
+                    value: 'mode_last',
+                    checked: _pickMode == _PerIllustPickMode.last,
+                    child: const Text('最后几张'),
+                  ),
+                  CheckedPopupMenuItem(
+                    value: 'mode_first',
+                    checked: _pickMode == _PerIllustPickMode.first,
+                    child: const Text('最前几张'),
+                  ),
+                  CheckedPopupMenuItem(
+                    value: 'mode_all',
+                    checked: _pickMode == _PerIllustPickMode.all,
+                    child: const Text('所有'),
+                  ),
+                  PopupMenuItem(
+                    value: 'set_count',
+                    child: Text('每作品数量: $_pickCount'),
+                  ),
+                  const PopupMenuDivider(),
+                  const PopupMenuItem(
+                    value: 'set_resolution_filter',
+                    child: Text('分辨率过滤设置'),
+                  ),
+                  const PopupMenuItem(
+                    value: 'clear_resolution_filter',
+                    child: Text('清空分辨率过滤'),
+                  ),
+                ];
               },
             ),
-          IconButton(
-            icon: Icon(
-              _isMultiSelectMode
-                  ? Icons.check_box
-                  : Icons.check_box_outline_blank,
+            if (_hasAuthorContext)
+              IconButton(
+                icon: const Icon(Icons.update),
+                tooltip: '扫描并更新作者作品信息',
+                onPressed: _loading ? null : _showUpdateIllustInfoDialog,
+              ),
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              tooltip: '列表刷新',
+              onPressed: _loading ? null : () => _loadData(forceReload: true),
             ),
-            tooltip: _isMultiSelectMode ? '退出多选' : '进入多选',
-            onPressed: _toggleSelectMode,
-          ),
-        ],
+            if (_illustIdFilter != null && !_isMultiSelectMode)
+              IconButton(
+                icon: const Icon(Icons.filter_alt_off),
+                tooltip: '清除作品 ID 过滤',
+                onPressed: () {
+                  setState(() {
+                    _illustIdFilter = null;
+                  });
+                  _loadData(forceReload: true);
+                },
+              ),
+            IconButton(
+              icon: Icon(
+                _isMultiSelectMode
+                    ? Icons.check_box
+                    : Icons.check_box_outline_blank,
+              ),
+              tooltip: _isMultiSelectMode ? '退出多选' : '进入多选',
+              onPressed: _toggleSelectMode,
+            ),
+          ],
+        ),
+        body: _buildBody(),
+        floatingActionButton: _buildSelectionFab(),
       ),
-      body: _buildBody(),
-      floatingActionButton: _buildSelectionFab(),
-    ),
     );
   }
 
@@ -1265,66 +1272,144 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
                       .where((k) => k != PointerDeviceKind.mouse)
                       .toSet(),
             ),
-            child: SliverViewObserver(
-              controller: _sliverObserverController,
-              onObserveViewport: _onObserveViewport,
-              sliverContexts:
-                  () =>
-                      _groupedItems
-                          .map(
-                            (group) =>
-                                _groupObserveKeys[group.id]?.currentContext,
-                          )
-                          .whereType<BuildContext>()
-                          .toList(),
-              child: CustomScrollView(
-                controller: _scrollController,
-                slivers:
-                    _groupedItems.asMap().entries.map((entry) {
-                      final index = entry.key;
-                      final group = entry.value;
-                      return SliverMainAxisGroup(
-                        key: _groupObserveKeys[group.id],
-                        slivers: [
-                          SliverPersistentHeader(
-                            pinned: true,
-                            delegate: _StickyHeaderDelegate(
-                              child: _buildGroupHeader(group, index),
-                              minHeight: 40,
-                              maxHeight: 40,
-                            ),
-                          ),
-                          SliverPadding(
-                            padding: const EdgeInsets.all(8),
-                            sliver: SliverGrid(
-                              key: _groupGridKeys[group.id],
-                              gridDelegate:
-                                  const SliverGridDelegateWithMaxCrossAxisExtent(
-                                    maxCrossAxisExtent: 210,
-                                    childAspectRatio: 0.73,
-                                    crossAxisSpacing: 8,
-                                    mainAxisSpacing: 8,
-                                  ),
-                              delegate: SliverChildBuilderDelegate((
-                                context,
-                                index,
-                              ) {
-                                final item = group.items[index];
-                                final selected = _selectedItemIds.contains(
-                                  item.id,
-                                );
-                                return _buildDraggableCard(item, selected);
-                              }, childCount: group.items.length),
-                            ),
-                          ),
-                        ],
-                      );
-                    }).toList(),
-              ),
-            ),
+            child: _buildVirtualizedGroupedGrid(),
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildVirtualizedGroupedGrid() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final layout = _buildGridLayout(constraints.maxWidth);
+        final sectionLayout = _buildSectionLayout(layout);
+
+        _cacheGroupScrollOffsets(sectionLayout.offsets);
+
+        return CustomScrollView(
+          controller: _scrollController,
+          slivers: [
+            SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  final row = sectionLayout.rows[index];
+                  if (row.isHeader) {
+                    return SizedBox(
+                      height: _kGroupHeaderExtent,
+                      child: _buildGroupHeader(row.group, row.groupIndex),
+                    );
+                  }
+                  return _buildImageRow(row, layout);
+                },
+                childCount: sectionLayout.rows.length,
+                addAutomaticKeepAlives: false,
+                addRepaintBoundaries: true,
+              ),
+            ),
+            if (_groupedItems.length > 1)
+              SliverToBoxAdapter(
+                child: SizedBox(
+                  height: math.max(
+                    0.0,
+                    constraints.maxHeight - _kGroupHeaderExtent,
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+  _GridLayout _buildGridLayout(double maxWidth) {
+    final crossAxisExtent = math.max(0.0, maxWidth - _kGridPadding * 2);
+    final columnCount = math.max(
+      1,
+      (crossAxisExtent / (_kGridMaxCrossAxisExtent + _kGridCrossAxisSpacing))
+          .ceil(),
+    );
+    final usableCrossAxisExtent = math.max(
+      0.0,
+      crossAxisExtent - _kGridCrossAxisSpacing * (columnCount - 1),
+    );
+    final tileWidth = usableCrossAxisExtent / columnCount;
+    return _GridLayout(
+      columnCount: columnCount,
+      tileWidth: tileWidth,
+      tileHeight: tileWidth / _kGridChildAspectRatio,
+    );
+  }
+
+  _SectionLayout _buildSectionLayout(_GridLayout layout) {
+    final rows = <_GroupGridRow>[];
+    final offsets = <_GroupScrollOffset>[];
+    var scrollOffset = 0.0;
+
+    for (final entry in _groupedItems.asMap().entries) {
+      final groupIndex = entry.key;
+      final group = entry.value;
+      offsets.add(_GroupScrollOffset(group.id, scrollOffset));
+      rows.add(_GroupGridRow.header(group: group, groupIndex: groupIndex));
+      scrollOffset += _kGroupHeaderExtent;
+
+      final rowCount = (group.items.length / layout.columnCount).ceil();
+      for (var rowIndex = 0; rowIndex < rowCount; rowIndex++) {
+        final start = rowIndex * layout.columnCount;
+        final end = math.min(start + layout.columnCount, group.items.length);
+        final isFirstRow = rowIndex == 0;
+        final isLastRow = rowIndex == rowCount - 1;
+        rows.add(
+          _GroupGridRow.items(
+            group: group,
+            groupIndex: groupIndex,
+            rowIndex: rowIndex,
+            rowCount: rowCount,
+            items: group.items.sublist(start, end),
+          ),
+        );
+        scrollOffset +=
+            (isFirstRow ? _kGridPadding : 0.0) +
+            layout.tileHeight +
+            (isLastRow ? _kGridPadding : _kGridMainAxisSpacing);
+      }
+    }
+
+    return _SectionLayout(rows: rows, offsets: offsets);
+  }
+
+  Widget _buildImageRow(_GroupGridRow row, _GridLayout layout) {
+    final isFirstRow = row.rowIndex == 0;
+    final isLastRow = row.rowIndex == row.rowCount - 1;
+    final topPadding = isFirstRow ? _kGridPadding : 0.0;
+    final bottomPadding = isLastRow ? _kGridPadding : _kGridMainAxisSpacing;
+    return SizedBox(
+      height: topPadding + layout.tileHeight + bottomPadding,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          _kGridPadding,
+          topPadding,
+          _kGridPadding,
+          bottomPadding,
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (var i = 0; i < row.items.length; i++) ...[
+              SizedBox(
+                width: layout.tileWidth,
+                height: layout.tileHeight,
+                child: _buildDraggableCard(
+                  row.items[i],
+                  _selectedItemIds.contains(row.items[i].id),
+                ),
+              ),
+              if (i != row.items.length - 1)
+                const SizedBox(width: _kGridCrossAxisSpacing),
+            ],
+          ],
+        ),
+      ),
     );
   }
 
@@ -1357,19 +1442,29 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
     );
   }
 
-  void _syncGroupKeys(List<_GroupedItems> groups) {
+  void _syncGroupState(List<_GroupedItems> groups) {
     final ids = groups.map((e) => e.id).toSet();
-    _groupHeaderKeys.removeWhere((id, _) => !ids.contains(id));
-    _groupObserveKeys.removeWhere((id, _) => !ids.contains(id));
-    _groupGridKeys.removeWhere((id, _) => !ids.contains(id));
-    for (final group in groups) {
-      _groupHeaderKeys.putIfAbsent(group.id, () => GlobalKey());
-      _groupObserveKeys.putIfAbsent(group.id, () => GlobalKey());
-      _groupGridKeys.putIfAbsent(group.id, () => GlobalKey());
-    }
+    _groupScrollOffsets.removeWhere((id, _) => !ids.contains(id));
+    _orderedGroupScrollOffsets =
+        _orderedGroupScrollOffsets
+            .where((e) => ids.contains(e.groupId))
+            .toList();
     if (_currentGroupId == null || !ids.contains(_currentGroupId)) {
       _currentGroupId = groups.isNotEmpty ? groups.first.id : null;
     }
+  }
+
+  void _cacheGroupScrollOffsets(List<_GroupScrollOffset> offsets) {
+    _orderedGroupScrollOffsets = offsets;
+    _groupScrollOffsets
+      ..clear()
+      ..addEntries(offsets.map((e) => MapEntry(e.groupId, e.offset)));
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _syncCurrentGroupFromScroll();
+      }
+    });
   }
 
   Future<void> _scrollToGroup(_GroupedItems group) async {
@@ -1377,43 +1472,49 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
       _currentGroupId = group.id;
     });
 
-    final targetGridContext = _groupGridKeys[group.id]?.currentContext;
-    if (targetGridContext != null) {
-      try {
-        await _sliverObserverController.animateTo(
-          index: 0,
-          sliverContext: targetGridContext,
-          duration: const Duration(milliseconds: 260),
-          curve: Curves.easeInOut,
-          alignment: 0,
-        );
-        return;
-      } catch (_) {}
+    var targetOffset = _groupScrollOffsets[group.id];
+    if (targetOffset == null) {
+      await WidgetsBinding.instance.endOfFrame;
+      targetOffset = _groupScrollOffsets[group.id];
+    }
+    if (targetOffset == null || !_scrollController.hasClients) {
+      return;
     }
 
-    final targetHeaderContext = _groupHeaderKeys[group.id]?.currentContext;
-    if (targetHeaderContext != null) {
-      await Scrollable.ensureVisible(
-        targetHeaderContext,
-        duration: const Duration(milliseconds: 260),
-        curve: Curves.easeInOut,
-        alignment: 0,
-      );
-    }
+    final position = _scrollController.position;
+    final clampedOffset = targetOffset.clamp(
+      position.minScrollExtent,
+      position.maxScrollExtent,
+    );
+    await _scrollController.animateTo(
+      clampedOffset,
+      duration: const Duration(milliseconds: 260),
+      curve: Curves.easeInOut,
+    );
   }
 
-  void _onObserveViewport(SliverViewportObserveModel result) {
-    if (_groupedItems.isEmpty) return;
-    final firstContext = result.firstChild.sliverContext;
-    String? visibleGroupId;
-    for (final group in _groupedItems) {
-      final ctx = _groupObserveKeys[group.id]?.currentContext;
-      if (identical(ctx, firstContext)) {
-        visibleGroupId = group.id;
-        break;
+  void _syncCurrentGroupFromScroll() {
+    if (!_scrollController.hasClients || _orderedGroupScrollOffsets.isEmpty) {
+      return;
+    }
+
+    final offset = _scrollController.offset + 1;
+    var low = 0;
+    var high = _orderedGroupScrollOffsets.length - 1;
+    var visibleGroupId = _orderedGroupScrollOffsets.first.groupId;
+
+    while (low <= high) {
+      final middle = (low + high) >> 1;
+      final entry = _orderedGroupScrollOffsets[middle];
+      if (entry.offset <= offset) {
+        visibleGroupId = entry.groupId;
+        low = middle + 1;
+      } else {
+        high = middle - 1;
       }
     }
-    if (visibleGroupId == null || visibleGroupId == _currentGroupId) return;
+
+    if (visibleGroupId == _currentGroupId) return;
     if (!mounted) return;
     setState(() {
       _currentGroupId = visibleGroupId;
@@ -1429,7 +1530,6 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
     );
 
     return Container(
-      key: _groupHeaderKeys[group.id],
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       color: Theme.of(context).colorScheme.surfaceContainerHighest,
       child: Row(
@@ -1801,6 +1901,55 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
   }
 }
 
+class _GridLayout {
+  final int columnCount;
+  final double tileWidth;
+  final double tileHeight;
+
+  const _GridLayout({
+    required this.columnCount,
+    required this.tileWidth,
+    required this.tileHeight,
+  });
+}
+
+class _SectionLayout {
+  final List<_GroupGridRow> rows;
+  final List<_GroupScrollOffset> offsets;
+
+  const _SectionLayout({required this.rows, required this.offsets});
+}
+
+class _GroupGridRow {
+  final _GroupedItems group;
+  final int groupIndex;
+  final int rowIndex;
+  final int rowCount;
+  final List<_AuthorImageDisplayItem> items;
+
+  const _GroupGridRow.header({required this.group, required this.groupIndex})
+    : rowIndex = -1,
+      rowCount = 0,
+      items = const [];
+
+  const _GroupGridRow.items({
+    required this.group,
+    required this.groupIndex,
+    required this.rowIndex,
+    required this.rowCount,
+    required this.items,
+  });
+
+  bool get isHeader => rowIndex < 0;
+}
+
+class _GroupScrollOffset {
+  final String groupId;
+  final double offset;
+
+  const _GroupScrollOffset(this.groupId, this.offset);
+}
+
 class _GroupedItems {
   final String title;
   final List<_AuthorImageDisplayItem> items;
@@ -1884,38 +2033,4 @@ class _ResolutionFilterDialogResult {
     required this.heightOp,
     required this.heightValue,
   });
-}
-
-class _StickyHeaderDelegate extends SliverPersistentHeaderDelegate {
-  final Widget child;
-  final double minHeight;
-  final double maxHeight;
-
-  _StickyHeaderDelegate({
-    required this.child,
-    required this.minHeight,
-    required this.maxHeight,
-  });
-
-  @override
-  Widget build(
-    BuildContext context,
-    double shrinkOffset,
-    bool overlapsContent,
-  ) {
-    return SizedBox.expand(child: child);
-  }
-
-  @override
-  double get maxExtent => maxHeight;
-
-  @override
-  double get minExtent => minHeight;
-
-  @override
-  bool shouldRebuild(covariant _StickyHeaderDelegate oldDelegate) {
-    return oldDelegate.child != child ||
-        oldDelegate.minHeight != minHeight ||
-        oldDelegate.maxHeight != maxHeight;
-  }
 }
