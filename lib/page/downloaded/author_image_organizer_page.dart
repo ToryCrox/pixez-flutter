@@ -731,14 +731,12 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
     }
   }
 
-  /// 弹出更新插画信息对话框 (针对当前作者)
+  /// 弹出更新插画信息对话框。
   void _showUpdateIllustInfoDialog() {
-    final author = widget.author;
-    if (author == null) return;
     UpdateIllustInfoDialog.show(
       context,
       illusts: _buildUniqueIllustList(),
-      userId: author.userId,
+      userId: widget.author?.userId,
     ).then((result) {
       if (result == true) {
         _loadData(forceReload: true);
@@ -1200,12 +1198,11 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
                 ];
               },
             ),
-            if (_hasAuthorContext)
-              IconButton(
-                icon: const Icon(Icons.update),
-                tooltip: '扫描并更新作者作品信息',
-                onPressed: _loading ? null : _showUpdateIllustInfoDialog,
-              ),
+            IconButton(
+              icon: const Icon(Icons.update),
+              tooltip: _hasAuthorContext ? '扫描并更新作者作品信息' : '扫描并更新当前页面作品信息',
+              onPressed: _loading ? null : _showUpdateIllustInfoDialog,
+            ),
             IconButton(
               icon: const Icon(Icons.refresh),
               tooltip: '列表刷新',
@@ -1556,181 +1553,31 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
   }
 
   Widget _buildCard(_AuthorImageDisplayItem item, bool isSelected) {
-    return HoverScaleCard(
+    return _AuthorImageCard(
+      item: item,
       isSelected: isSelected,
-      child: InkWell(
-        onTap: () {
-          if (_isMultiSelectMode) {
-            _setSelected(item.id, !isSelected);
-          } else {
-            _openLocalImageViewer(item);
-          }
-        },
-        onLongPress: () {
-          // 长按进入选择模式，并选中当前卡片。
-          if (!_isMultiSelectMode) {
-            setState(() {
-              _isMultiSelectMode = true;
-              _selectedItemIds.add(item.id);
-            });
-          }
-        },
-        child: Stack(
-          children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      Hero(
-                        tag: _heroTagForItem(item),
-                        child: PixivImage(
-                          Uri.file(item.path).toString(),
-                          fit: BoxFit.cover,
-                          memCacheWidth: 250,
-                        ),
-                      ),
-                      Positioned(
-                        top: 4,
-                        left: 4,
-                        child: Material(
-                          color: Colors.black54,
-                          borderRadius: BorderRadius.circular(16),
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(16),
-                            onTap: () => _openFile(item.path),
-                            child: const Padding(
-                              padding: EdgeInsets.all(6),
-                              child: Icon(
-                                Icons.open_in_new,
-                                size: 16,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      Positioned(
-                        top: 4,
-                        left: 38,
-                        child: Material(
-                          color: Colors.black54,
-                          borderRadius: BorderRadius.circular(16),
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(16),
-                            onTap: () => _openParentDirectory(item.path),
-                            child: const Padding(
-                              padding: EdgeInsets.all(6),
-                              child: Icon(
-                                Icons.folder_open,
-                                size: 16,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      Positioned(
-                        top: 4,
-                        right: 4,
-                        child: Material(
-                          color: Colors.black54,
-                          borderRadius: BorderRadius.circular(16),
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(16),
-                            onTap: () => _openIllustDetail(item),
-                            child: const Padding(
-                              padding: EdgeInsets.all(6),
-                              child: Icon(
-                                Icons.info_outline,
-                                size: 16,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      if (_isMultiSelectMode)
-                        Positioned(
-                          left: 4,
-                          bottom: 4,
-                          child: Material(
-                            color: Colors.black54,
-                            borderRadius: BorderRadius.circular(16),
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(16),
-                              onTap: () => _openLocalImageViewer(item),
-                              child: const Padding(
-                                padding: EdgeInsets.all(6),
-                                child: Icon(
-                                  Icons.zoom_in,
-                                  size: 16,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      if (_isMultiSelectMode)
-                        Positioned(
-                          top: 4,
-                          right: 38,
-                          child: _buildSelectionBadge(isSelected),
-                        ),
-                    ],
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(8),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '${item.illust.illustId} · ${item.illust.title}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(
-                          context,
-                        ).textTheme.bodySmall?.copyWith(fontSize: 11),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        '${item.resolutionText} · ${item.fileSize.formatFileSize()} · ${item.imageType} · ${item.partText}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          fontSize: 10,
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSelectionBadge(bool isSelected) {
-    return Container(
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color:
-            isSelected ? Theme.of(context).colorScheme.primary : Colors.black45,
-        border: Border.all(color: Colors.white, width: 2),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(4),
-        child:
-            isSelected
-                ? const Icon(Icons.check, size: 16, color: Colors.white)
-                : const SizedBox(width: 16, height: 16),
-      ),
+      isMultiSelectMode: _isMultiSelectMode,
+      heroTag: _heroTagForItem(item),
+      onTap: () {
+        if (_isMultiSelectMode) {
+          _setSelected(item.id, !isSelected);
+        } else {
+          _openLocalImageViewer(item);
+        }
+      },
+      onLongPress: () {
+        // 长按进入选择模式，并选中当前卡片。
+        if (!_isMultiSelectMode) {
+          setState(() {
+            _isMultiSelectMode = true;
+            _selectedItemIds.add(item.id);
+          });
+        }
+      },
+      onOpenFile: () => _openFile(item.path),
+      onOpenParentDirectory: () => _openParentDirectory(item.path),
+      onOpenIllustDetail: () => _openIllustDetail(item),
+      onOpenLocalImageViewer: () => _openLocalImageViewer(item),
     );
   }
 
@@ -1876,6 +1723,180 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
         id: id,
       );
     }).toList();
+  }
+}
+
+class _AuthorImageCard extends StatelessWidget {
+  final _AuthorImageDisplayItem item;
+  final bool isSelected;
+  final bool isMultiSelectMode;
+  final String heroTag;
+  final VoidCallback onTap;
+  final VoidCallback onLongPress;
+  final VoidCallback onOpenFile;
+  final VoidCallback onOpenParentDirectory;
+  final VoidCallback onOpenIllustDetail;
+  final VoidCallback onOpenLocalImageViewer;
+
+  const _AuthorImageCard({
+    required this.item,
+    required this.isSelected,
+    required this.isMultiSelectMode,
+    required this.heroTag,
+    required this.onTap,
+    required this.onLongPress,
+    required this.onOpenFile,
+    required this.onOpenParentDirectory,
+    required this.onOpenIllustDetail,
+    required this.onOpenLocalImageViewer,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return HoverScaleCard(
+      isSelected: isSelected,
+      child: InkWell(
+        onTap: onTap,
+        onLongPress: onLongPress,
+        child: Stack(
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      Hero(
+                        tag: heroTag,
+                        child: PixivImage(
+                          Uri.file(item.path).toString(),
+                          fit: BoxFit.cover,
+                          memCacheWidth: 250,
+                        ),
+                      ),
+                      Positioned(
+                        top: 4,
+                        left: 4,
+                        child: _CardOverlayButton(
+                          icon: Icons.open_in_new,
+                          onTap: onOpenFile,
+                        ),
+                      ),
+                      Positioned(
+                        top: 4,
+                        left: 38,
+                        child: _CardOverlayButton(
+                          icon: Icons.folder_open,
+                          onTap: onOpenParentDirectory,
+                        ),
+                      ),
+                      Positioned(
+                        top: 4,
+                        right: 4,
+                        child: _CardOverlayButton(
+                          icon: Icons.info_outline,
+                          onTap: onOpenIllustDetail,
+                        ),
+                      ),
+                      if (isMultiSelectMode)
+                        Positioned(
+                          left: 4,
+                          bottom: 4,
+                          child: _CardOverlayButton(
+                            icon: Icons.zoom_in,
+                            onTap: onOpenLocalImageViewer,
+                          ),
+                        ),
+                      if (isMultiSelectMode)
+                        Positioned(
+                          top: 4,
+                          right: 38,
+                          child: _SelectionBadge(isSelected: isSelected),
+                        ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${item.illust.illustId} · ${item.illust.title}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(
+                          context,
+                        ).textTheme.bodySmall?.copyWith(fontSize: 11),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${item.resolutionText} · ${item.fileSize.formatFileSize()} · ${item.imageType} · ${item.partText}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          fontSize: 10,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CardOverlayButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _CardOverlayButton({required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.black54,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(6),
+          child: Icon(icon, size: 16, color: Colors.white),
+        ),
+      ),
+    );
+  }
+}
+
+class _SelectionBadge extends StatelessWidget {
+  final bool isSelected;
+
+  const _SelectionBadge({required this.isSelected});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color:
+            isSelected ? Theme.of(context).colorScheme.primary : Colors.black45,
+        border: Border.all(color: Colors.white, width: 2),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(4),
+        child:
+            isSelected
+                ? const Icon(Icons.check, size: 16, color: Colors.white)
+                : const SizedBox(width: 16, height: 16),
+      ),
+    );
   }
 }
 
