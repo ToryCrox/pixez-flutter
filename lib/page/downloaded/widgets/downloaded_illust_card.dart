@@ -27,7 +27,7 @@ import 'package:pixez/store/download_store.dart';
 import 'package:pixez/component/pixiv_image.dart';
 import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 import 'package:pixez/component/hover_scale_container.dart';
-import 'package:pixez/page/downloaded/author_image_organizer_page.dart';
+import 'package:pixez/page/downloaded/downloaded_image_organizer_page.dart';
 
 /// 已下载插画卡片组件
 class DownloadedIllustCard extends StatelessWidget {
@@ -95,7 +95,7 @@ class DownloadedIllustCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         child: InkWell(
           borderRadius: BorderRadius.circular(20),
-          onTap: () => AuthorImageOrganizerPage.pushByUserId(
+          onTap: () => DownloadedImageOrganizerPage.pushByUserId(
             context,
             userId: illust.userId,
             illustId: illust.illustId,

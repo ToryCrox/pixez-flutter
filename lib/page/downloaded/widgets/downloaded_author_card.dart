@@ -25,7 +25,7 @@ import 'package:pixez/component/author_bookmark_dialog.dart';
 import 'package:pixez/exts.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/models/download_record.dart';
-import 'package:pixez/page/downloaded/author_image_organizer_page.dart';
+import 'package:pixez/page/downloaded/downloaded_image_organizer_page.dart';
 import 'package:pixez/page/downloaded/downloaded_page.dart';
 import 'package:pixez/page/user/user_store.dart';
 import 'package:pixez/page/user/users_page.dart';
@@ -246,7 +246,7 @@ class DownloadedAuthorCard extends StatelessWidget {
               color: Theme.of(context).iconTheme.color,
               tooltip: '图片整理',
               onPressed: () {
-                AuthorImageOrganizerPage.open(context, author: author);
+                DownloadedImageOrganizerPage.open(context, author: author);
               },
             ),
             IconButton(

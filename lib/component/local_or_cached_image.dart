@@ -22,7 +22,7 @@ import 'package:pixez/exts.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/models/download_record.dart';
 import 'package:pixez/models/illust.dart';
-import 'package:pixez/page/downloaded/author_image_organizer_page.dart';
+import 'package:pixez/page/downloaded/downloaded_image_organizer_page.dart';
 import 'package:pixez/page/downloaded/bookmark_priority_dialog.dart';
 import 'package:pixez/page/downloaded/update_illust_info_dialog.dart';
 import 'package:pixez/store/download_store.dart';
@@ -531,7 +531,7 @@ class _IllustDownloadButtonState extends State<IllustDownloadButton> {
                   ),
                   onTap: () {
                     Navigator.pop(ctx);
-                    AuthorImageOrganizerPage.pushByUserId(
+                    DownloadedImageOrganizerPage.pushByUserId(
                       context,
                       userId: widget.illusts.user.id,
                       illustId: widget.illusts.id,

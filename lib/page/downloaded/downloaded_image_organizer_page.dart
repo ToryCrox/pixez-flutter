@@ -12,7 +12,7 @@ import 'package:pixez/component/hover_scale_container.dart';
 import 'package:pixez/exts.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/models/download_record.dart';
-import 'package:pixez/page/downloaded/author_image_filter_conditions.dart';
+import 'package:pixez/page/downloaded/downloaded_image_filter_conditions.dart';
 import 'package:pixez/page/downloaded/local_image_viewer_page.dart';
 import 'package:pixez/page/downloaded/update_illust_info_dialog.dart';
 import 'package:pixez/page/picture/illust_store.dart';
@@ -49,13 +49,13 @@ const String _kAuthorOrganizerHeightOpKey = 'author_organizer_height_op';
 const String _kAuthorOrganizerHeightValueKey = 'author_organizer_height_value';
 const String _kAuthorOrganizerGroupTypeKey = 'author_organizer_group_type';
 
-class AuthorImageOrganizerPage extends StatefulWidget {
+class DownloadedImageOrganizerPage extends StatefulWidget {
   final DownloadedAuthor? author;
   final int? illustId;
   final List<int>? illustIds;
   final String? title;
 
-  const AuthorImageOrganizerPage({
+  const DownloadedImageOrganizerPage({
     super.key,
     this.author,
     this.illustId,
@@ -74,7 +74,7 @@ class AuthorImageOrganizerPage extends StatefulWidget {
     return Navigator.of(context).push<T>(
       MaterialPageRoute(
         builder: (context) {
-          return AuthorImageOrganizerPage(author: author, illustId: illustId);
+          return DownloadedImageOrganizerPage(author: author, illustId: illustId);
         },
       ),
     );
@@ -88,7 +88,7 @@ class AuthorImageOrganizerPage extends StatefulWidget {
     return Navigator.of(context).push<T>(
       MaterialPageRoute(
         builder: (context) {
-          return AuthorImageOrganizerPage(illustIds: illustIds, title: title);
+          return DownloadedImageOrganizerPage(illustIds: illustIds, title: title);
         },
       ),
     );
@@ -116,25 +116,25 @@ class AuthorImageOrganizerPage extends StatefulWidget {
   }
 
   @override
-  State<AuthorImageOrganizerPage> createState() =>
-      _AuthorImageOrganizerPageState();
+  State<DownloadedImageOrganizerPage> createState() =>
+      _DownloadedImageOrganizerPageState();
 }
 
-class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
+class _DownloadedImageOrganizerPageState extends State<DownloadedImageOrganizerPage> {
   bool _loading = true;
   String? _error;
-  List<_AuthorImageDisplayItem> _items = const [];
+  List<_DownloadedImageDisplayItem> _items = const [];
   List<_GroupedItems> _groupedItems = const [];
 
   // 原始数据缓存
   List<DownloadedIllust>? _rawIllusts;
   Map<int, List<DownloadedImage>>? _rawImagesByIllustId;
   // 已过滤并解析路径的所有项（中间状态，用于快速排序/分组）
-  List<_AuthorImageDisplayItem> _allFilteredItems = const [];
+  List<_DownloadedImageDisplayItem> _allFilteredItems = const [];
 
   bool _isMultiSelectMode = false;
   final Set<String> _selectedItemIds = {};
-  final Map<String, _AuthorImageDisplayItem> _itemMap = {};
+  final Map<String, _DownloadedImageDisplayItem> _itemMap = {};
   bool _excludeWebp = true;
   bool _excludeUgoira = true;
   _PerIllustPickMode _pickMode = _PerIllustPickMode.all;
@@ -418,7 +418,7 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
 
       // 2. 过滤与解析路径
       if (refilter) {
-        final context = AuthorImageFilterContext(
+        final context = DownloadedImageFilterContext(
           author: _filterContextAuthor,
           illusts: _rawIllusts!,
           imagesByIllustId: _rawImagesByIllustId!,
@@ -430,7 +430,7 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
           candidates.map(_resolveDisplayItemFromCandidate),
         );
         _allFilteredItems =
-            resolved.whereType<_AuthorImageDisplayItem>().toList();
+            resolved.whereType<_DownloadedImageDisplayItem>().toList();
 
         // 维护 ID 到 Item 的映射
         _itemMap.clear();
@@ -440,7 +440,7 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
       }
 
       // 3. 排序
-      final sortedItems = List<_AuthorImageDisplayItem>.from(_allFilteredItems);
+      final sortedItems = List<_DownloadedImageDisplayItem>.from(_allFilteredItems);
       sortedItems.sort(_compareBySortOption);
 
       // 4. 分组
@@ -482,8 +482,8 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
   }
 
   /// 根据菜单状态组装筛选条件，便于后续继续扩展。
-  AuthorImageFilterEngine _buildFilterEngine() {
-    final conditions = <AuthorImageFilterCondition>[];
+  DownloadedImageFilterEngine _buildFilterEngine() {
+    final conditions = <DownloadedImageFilterCondition>[];
     if (_excludeUgoira) {
       conditions.add(const ExcludeUgoiraCondition());
     }
@@ -509,12 +509,12 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
     if (_illustIdFilter != null && _illustIdFilter! > 0) {
       conditions.add(IllustIdCondition(illustId: _illustIdFilter));
     }
-    return AuthorImageFilterEngine(conditions: conditions);
+    return DownloadedImageFilterEngine(conditions: conditions);
   }
 
   int _compareBySortOption(
-    _AuthorImageDisplayItem a,
-    _AuthorImageDisplayItem b,
+    _DownloadedImageDisplayItem a,
+    _DownloadedImageDisplayItem b,
   ) {
     final asc = _sortOrder == _SortOrder.asc;
     final sortBy = switch (_sortType) {
@@ -559,8 +559,8 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
   }
 
   int _compareFallback(
-    _AuthorImageDisplayItem a,
-    _AuthorImageDisplayItem b, {
+    _DownloadedImageDisplayItem a,
+    _DownloadedImageDisplayItem b, {
     bool asc = true,
   }) {
     final i = a.illust.illustId.compareTo(b.illust.illustId);
@@ -570,8 +570,8 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
   }
 
   /// 将筛选后的候选项解析为可展示项（补齐本地文件路径）。
-  Future<_AuthorImageDisplayItem?> _resolveDisplayItemFromCandidate(
-    AuthorImageCandidate candidate,
+  Future<_DownloadedImageDisplayItem?> _resolveDisplayItemFromCandidate(
+    DownloadedImageCandidate candidate,
   ) async {
     final path = await downloadStore.getLocalImagePathFromImage(
       candidate.image,
@@ -581,7 +581,7 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
     );
     if (path == null) return null;
 
-    return _AuthorImageDisplayItem(
+    return _DownloadedImageDisplayItem(
       illust: candidate.illust,
       image: candidate.image,
       path: path,
@@ -662,7 +662,7 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
   }
 
   /// 进入插画详情页（与下载页一致，传入当前筛选结果中的插画列表）。
-  Future<void> _openIllustDetail(_AuthorImageDisplayItem item) async {
+  Future<void> _openIllustDetail(_DownloadedImageDisplayItem item) async {
     final uniqueIllusts = _buildUniqueIllustList();
     final currentIndex = uniqueIllusts.indexWhere(
       (e) => e.illustId == item.illust.illustId,
@@ -693,7 +693,7 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
   }
 
   /// 打开本地大图预览页。
-  Future<void> _openLocalImageViewer(_AuthorImageDisplayItem item) async {
+  Future<void> _openLocalImageViewer(_DownloadedImageDisplayItem item) async {
     await LocalImageViewerPage.open(
       context,
       imagePath: item.path,
@@ -703,7 +703,7 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
     );
   }
 
-  String _heroTagForItem(_AuthorImageDisplayItem item) {
+  String _heroTagForItem(_DownloadedImageDisplayItem item) {
     return 'author_image_local_${item.id}_${item.path}';
   }
 
@@ -1608,7 +1608,7 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
     );
   }
 
-  Widget _buildDraggableCard(_AuthorImageDisplayItem item, bool isSelected) {
+  Widget _buildDraggableCard(_DownloadedImageDisplayItem item, bool isSelected) {
     final card = _buildCard(item, isSelected);
     return DragItemWidget(
       dragItemProvider: _createDragItemProvider,
@@ -1623,7 +1623,7 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
     );
   }
 
-  Widget _buildCard(_AuthorImageDisplayItem item, bool isSelected) {
+  Widget _buildCard(_DownloadedImageDisplayItem item, bool isSelected) {
     return _AuthorImageCard(
       item: item,
       isSelected: isSelected,
@@ -1654,7 +1654,7 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
 
   DragConfiguration? _createDragConfiguration(
     DragConfiguration config,
-    _AuthorImageDisplayItem item,
+    _DownloadedImageDisplayItem item,
   ) {
     final snapshot = config.items.isNotEmpty ? config.items.first.image : null;
     if (snapshot == null) return null;
@@ -1683,7 +1683,7 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
     );
   }
 
-  Widget _buildDragPreview(Widget child, _AuthorImageDisplayItem item) {
+  Widget _buildDragPreview(Widget child, _DownloadedImageDisplayItem item) {
     final count =
         _isMultiSelectMode && _selectedItemIds.contains(item.id)
             ? _selectedItemIds.length
@@ -1731,7 +1731,7 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
     return item;
   }
 
-  List<_GroupedItems> _groupItems(List<_AuthorImageDisplayItem> items) {
+  List<_GroupedItems> _groupItems(List<_DownloadedImageDisplayItem> items) {
     if (_groupType == _GroupType.none) {
       return [
         _GroupedItems(
@@ -1743,7 +1743,7 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
       ];
     }
 
-    final groups = <String, List<_AuthorImageDisplayItem>>{};
+    final groups = <String, List<_DownloadedImageDisplayItem>>{};
     final groupTitles = <String, String>{};
     final groupOrder = <String>[];
 
@@ -1798,7 +1798,7 @@ class _AuthorImageOrganizerPageState extends State<AuthorImageOrganizerPage> {
 }
 
 class _AuthorImageCard extends StatelessWidget {
-  final _AuthorImageDisplayItem item;
+  final _DownloadedImageDisplayItem item;
   final bool isSelected;
   final bool isMultiSelectMode;
   final String heroTag;
@@ -2039,7 +2039,7 @@ class _GroupScrollOffset {
 
 class _GroupedItems {
   final String title;
-  final List<_AuthorImageDisplayItem> items;
+  final List<_DownloadedImageDisplayItem> items;
   final _GroupType type;
   final String id;
 
@@ -2051,12 +2051,12 @@ class _GroupedItems {
   });
 }
 
-class _AuthorImageDisplayItem {
+class _DownloadedImageDisplayItem {
   final DownloadedIllust illust;
   final DownloadedImage image;
   final String path;
 
-  const _AuthorImageDisplayItem({
+  const _DownloadedImageDisplayItem({
     required this.illust,
     required this.image,
     required this.path,

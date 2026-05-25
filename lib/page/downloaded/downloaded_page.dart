@@ -23,7 +23,7 @@ import 'package:pixez/utils/file_utils.dart';
 import 'package:pixez/exts.dart';
 import 'package:pixez/i18n.dart';
 import 'package:pixez/models/download_record.dart';
-import 'package:pixez/page/downloaded/author_image_organizer_page.dart';
+import 'package:pixez/page/downloaded/downloaded_image_organizer_page.dart';
 import 'package:pixez/page/downloaded/downloaded_page_store.dart';
 import 'package:pixez/page/downloaded/optimize_json_dialog.dart';
 import 'package:pixez/page/downloaded/sync_bookmarks_dialog.dart';
@@ -141,7 +141,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
     if (_store.filterUserId != null) {
       final author = await downloadStore.getAuthorByUserId(_store.filterUserId!);
       if (author != null && context.mounted) {
-        AuthorImageOrganizerPage.open(context, author: author);
+        DownloadedImageOrganizerPage.open(context, author: author);
       }
       return;
     }
@@ -156,7 +156,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
       return;
     }
 
-    await AuthorImageOrganizerPage.openForIllusts(
+    await DownloadedImageOrganizerPage.openForIllusts(
       context,
       illustIds: illusts.map((e) => e.illustId).toList(),
       title: '非 WebP 图片整理',
@@ -948,7 +948,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
       _buildContextMenuItem(
         icon: Icons.collections,
         label: '整理该作者',
-        onTap: () => AuthorImageOrganizerPage.pushByUserId(
+        onTap: () => DownloadedImageOrganizerPage.pushByUserId(
           context,
           userId: illust.userId,
           illustId: illust.illustId,
