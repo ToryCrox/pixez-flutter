@@ -24,6 +24,7 @@ import 'package:pixez/component/painter_avatar.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:pixez/page/downloaded/downloaded_page.dart';
 import 'package:pixez/page/downloaded/tag_manager/tag_edit_dialog.dart';
+import 'package:bot_toast/bot_toast.dart';
 import 'package:pixez/models/download_record.dart';
 
 class IllustDetailContent extends StatefulWidget {
@@ -386,25 +387,94 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
           ),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-            child: Container(
-              width: double.infinity,
-              child: MouseDragBlocker(
-                child: SelectionArea(
-                  focusNode: _focusNode,
-                  onSelectionChanged: (value) {
-                    _selectedText = value?.plainText ?? "";
-                  },
-                  contextMenuBuilder: (context, selectableRegionState) {
-                    return _buildSelectionMenu(selectableRegionState, context);
-                  },
-                  child: SelectableHtml(data: caption.isEmpty ? "~" : caption),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // 一键复制按钮
+                _buildCopyButton(caption),
+                // 介绍内容
+                Container(
+                  width: double.infinity,
+                  child: MouseDragBlocker(
+                    child: SelectionArea(
+                      focusNode: _focusNode,
+                      onSelectionChanged: (value) {
+                        _selectedText = value?.plainText ?? "";
+                      },
+                      contextMenuBuilder: (context, selectableRegionState) {
+                        return _buildSelectionMenu(selectableRegionState, context);
+                      },
+                      child: SelectableHtml(data: caption.isEmpty ? "~" : caption),
+                    ),
+                  ),
                 ),
-              ),
+              ],
             ),
           ),
         ),
       ),
     );
+  }
+
+  /// 一键复制按钮
+  Widget _buildCopyButton(String caption) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: () => _copyCaption(caption),
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 8.0),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.copy_rounded,
+                size: 14,
+                color: Theme.of(context).colorScheme.outline,
+              ),
+              SizedBox(width: 4),
+              Text(
+                I18n.of(context).copy,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(context).colorScheme.outline,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 去除 HTML 标签，保留纯文本
+  /// 将 <br> 等标签转为换行，效果与全选+手动复制一致
+  String _stripHtmlTags(String html) {
+    // <br> 和 <br/> 转换为换行
+    var text = html.replaceAll(RegExp(r'<br\s*/?>'), '\n');
+    // </p> 和 </div> 等块级元素闭合标签转换为换行
+    text = text.replaceAll(RegExp(r'</(?:p|div|li|tr|h[1-6])>'), '\n');
+    // 移除所有剩余 HTML 标签
+    text = text.replaceAll(RegExp(r'<[^>]*>'), '');
+    // 解码 HTML 实体
+    text = text
+        .replaceAll('&amp;', '&')
+        .replaceAll('&lt;', '<')
+        .replaceAll('&gt;', '>')
+        .replaceAll('&quot;', '"')
+        .replaceAll('&#39;', "'")
+        .replaceAll('&nbsp;', ' ');
+    // 合并多余连续换行
+    text = text.replaceAll(RegExp(r'\n{3,}'), '\n\n');
+    return text.trim();
+  }
+
+  /// 一键复制介绍文案（去除 HTML 标签）
+  void _copyCaption(String htmlCaption) {
+    final plainText = _stripHtmlTags(htmlCaption);
+    Clipboard.setData(ClipboardData(text: plainText));
+    BotToast.showText(text: I18n.of(context).copied_to_clipboard);
   }
 
   bool supportTranslate = false;
