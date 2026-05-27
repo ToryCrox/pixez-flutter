@@ -5,10 +5,12 @@ import 'dart:ui';
 import 'package:bot_toast/bot_toast.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:pixez/component/pixiv_image.dart';
-import 'package:pixez/er/leader.dart';
+import 'package:flutter_mobx/flutter_mobx.dart';
+import 'package:mobx/mobx.dart';
 import 'package:open_file/open_file.dart';
 import 'package:pixez/component/hover_scale_container.dart';
+import 'package:pixez/component/pixiv_image.dart';
+import 'package:pixez/er/leader.dart';
 import 'package:pixez/exts.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/models/download_record.dart';
@@ -17,16 +19,9 @@ import 'package:pixez/page/downloaded/local_image_viewer_page.dart';
 import 'package:pixez/page/downloaded/update_illust_info_dialog.dart';
 import 'package:pixez/page/picture/illust_store.dart';
 import 'package:pixez/page/picture/picture_list_page.dart';
+import 'package:pixez/store/downloaded_image_organizer_store.dart';
 import 'package:pixez/utils/file_utils.dart';
 import 'package:super_drag_and_drop/super_drag_and_drop.dart';
-
-enum _PerIllustPickMode { last, first, all }
-
-enum _SortType { idAndPart, downloadTime, fileSize, width, height, area }
-
-enum _SortOrder { asc, desc }
-
-enum _GroupType { none, date, illust, type, resolution }
 
 const double _kGroupHeaderExtent = 40;
 const double _kGridPadding = 8;
@@ -34,20 +29,6 @@ const double _kGridCrossAxisSpacing = 8;
 const double _kGridMainAxisSpacing = 8;
 const double _kGridMaxCrossAxisExtent = 210;
 const double _kGridChildAspectRatio = 0.73;
-
-// 筛选项持久化 key（仅在当前页面使用，不放入 UserSetting）。
-const String _kAuthorOrganizerExcludeWebpKey = 'author_organizer_exclude_webp';
-const String _kAuthorOrganizerExcludeUgoiraKey =
-    'author_organizer_exclude_ugoira';
-const String _kAuthorOrganizerPickModeKey = 'author_organizer_pick_mode';
-const String _kAuthorOrganizerPickCountKey = 'author_organizer_pick_count';
-const String _kAuthorOrganizerSortTypeKey = 'author_organizer_sort_type';
-const String _kAuthorOrganizerSortOrderKey = 'author_organizer_sort_order';
-const String _kAuthorOrganizerWidthOpKey = 'author_organizer_width_op';
-const String _kAuthorOrganizerWidthValueKey = 'author_organizer_width_value';
-const String _kAuthorOrganizerHeightOpKey = 'author_organizer_height_op';
-const String _kAuthorOrganizerHeightValueKey = 'author_organizer_height_value';
-const String _kAuthorOrganizerGroupTypeKey = 'author_organizer_group_type';
 
 class DownloadedImageOrganizerPage extends StatefulWidget {
   final DownloadedAuthor? author;
@@ -74,7 +55,10 @@ class DownloadedImageOrganizerPage extends StatefulWidget {
     return Navigator.of(context).push<T>(
       MaterialPageRoute(
         builder: (context) {
-          return DownloadedImageOrganizerPage(author: author, illustId: illustId);
+          return DownloadedImageOrganizerPage(
+            author: author,
+            illustId: illustId,
+          );
         },
       ),
     );
@@ -88,13 +72,15 @@ class DownloadedImageOrganizerPage extends StatefulWidget {
     return Navigator.of(context).push<T>(
       MaterialPageRoute(
         builder: (context) {
-          return DownloadedImageOrganizerPage(illustIds: illustIds, title: title);
+          return DownloadedImageOrganizerPage(
+            illustIds: illustIds,
+            title: title,
+          );
         },
       ),
     );
   }
 
-  /// 封装通过 userId 查询作者并跳转的公共逻辑
   static Future<void> pushByUserId(
     BuildContext context, {
     required int userId,
@@ -120,94 +106,39 @@ class DownloadedImageOrganizerPage extends StatefulWidget {
       _DownloadedImageOrganizerPageState();
 }
 
-class _DownloadedImageOrganizerPageState extends State<DownloadedImageOrganizerPage> {
-  bool _loading = true;
-  String? _error;
-  List<_DownloadedImageDisplayItem> _items = const [];
-  List<_GroupedItems> _groupedItems = const [];
-
-  // 原始数据缓存
-  List<DownloadedIllust>? _rawIllusts;
-  Map<int, List<DownloadedImage>>? _rawImagesByIllustId;
-  // 已过滤并解析路径的所有项（中间状态，用于快速排序/分组）
-  List<_DownloadedImageDisplayItem> _allFilteredItems = const [];
-
-  bool _isMultiSelectMode = false;
-  final Set<String> _selectedItemIds = {};
-  final Map<String, _DownloadedImageDisplayItem> _itemMap = {};
-  bool _excludeWebp = true;
-  bool _excludeUgoira = true;
-  _PerIllustPickMode _pickMode = _PerIllustPickMode.all;
-  int _pickCount = 4;
-  ResolutionFilterOp _widthOp = ResolutionFilterOp.none;
-  int? _widthValue;
-  ResolutionFilterOp _heightOp = ResolutionFilterOp.none;
-  int? _heightValue;
-  _SortType _sortType = _SortType.idAndPart;
-  _SortOrder _sortOrder = _SortOrder.asc;
-  _GroupType _groupType = _GroupType.none;
-  int? _illustIdFilter;
-  late final _isTempFilter = widget.illustId != null;
-
-  bool get _hasAuthorContext => widget.author != null;
-
-  String get _titlePrefix {
-    final title = widget.title?.trim();
-    if (title != null && title.isNotEmpty) {
-      return title;
-    }
-    if (_hasAuthorContext) {
-      return '${widget.author!.userName} 图片整理';
-    }
-    return '图片整理';
-  }
-
-  DownloadedAuthor get _filterContextAuthor {
-    final author = widget.author;
-    final title = widget.title?.trim();
-    if (author != null) {
-      return author;
-    }
-    return DownloadedAuthor(
-      userId: 0,
-      userName: title != null && title.isNotEmpty ? title : '图片整理',
-      illustCount: _rawIllusts?.length ?? 0,
-      totalImageCount: 0,
-      totalFileSize: 0,
-      lastDownloadTime: 0,
-      lastUpdateTime: 0,
-    );
-  }
+class _DownloadedImageOrganizerPageState
+    extends State<DownloadedImageOrganizerPage> {
+  late final DownloadedImageOrganizerStore store;
+  late ReactionDisposer _groupReaction;
 
   late ScrollController _scrollController;
   late ScrollController _groupNavigatorController;
   final Map<String, double> _groupScrollOffsets = {};
   final Map<String, double> _groupNavigatorItemWidths = {};
   List<_GroupScrollOffset> _orderedGroupScrollOffsets = const [];
-  final ValueNotifier<String?> _currentGroupIdNotifier = ValueNotifier<String?>(
-    null,
-  );
+  final ValueNotifier<String?> _currentGroupIdNotifier =
+      ValueNotifier<String?>(null);
 
   @override
   void initState() {
     super.initState();
-    _illustIdFilter = widget.illustId;
+    store = DownloadedImageOrganizerStore(
+      author: widget.author,
+      initialIllustId: widget.illustId,
+      illustIds: widget.illustIds,
+      title: widget.title,
+    );
     _scrollController = ScrollController();
     _groupNavigatorController = ScrollController();
     _scrollController.addListener(_syncCurrentGroupFromScroll);
     _currentGroupIdNotifier.addListener(_scrollCurrentGroupChipIntoView);
-    _loadFilterPrefs();
 
-    if (_isTempFilter) {
-      // 如果是通过指定作品 ID 进入，临时禁用所有筛选条件
-      _excludeWebp = false;
-      _excludeUgoira = false;
-      _pickMode = _PerIllustPickMode.all;
-      _widthOp = ResolutionFilterOp.none;
-      _heightOp = ResolutionFilterOp.none;
-    }
+    _groupReaction = autorun((_) {
+      final groups = store.groupedItems.toList();
+      _syncGroupState(groups);
+    });
 
-    _loadData(forceReload: true);
+    store.init();
   }
 
   @override
@@ -217,453 +148,57 @@ class _DownloadedImageOrganizerPageState extends State<DownloadedImageOrganizerP
     _scrollController.dispose();
     _groupNavigatorController.dispose();
     _currentGroupIdNotifier.dispose();
+    _groupReaction();
     super.dispose();
   }
 
-  /// 从 UserSetting.prefs 读取筛选配置。
-  void _loadFilterPrefs() {
-    _excludeWebp =
-        userSetting.prefs.getBool(_kAuthorOrganizerExcludeWebpKey) ?? true;
-    _excludeUgoira =
-        userSetting.prefs.getBool(_kAuthorOrganizerExcludeUgoiraKey) ?? true;
-
-    final modeIndex = userSetting.prefs.getInt(_kAuthorOrganizerPickModeKey);
-    if (modeIndex != null &&
-        modeIndex >= 0 &&
-        modeIndex < _PerIllustPickMode.values.length) {
-      _pickMode = _PerIllustPickMode.values[modeIndex];
-    }
-
-    final pickCount = userSetting.prefs.getInt(_kAuthorOrganizerPickCountKey);
-    if (pickCount != null) {
-      _pickCount = pickCount.clamp(1, 20);
-    }
-
-    final widthOpIndex = userSetting.prefs.getInt(_kAuthorOrganizerWidthOpKey);
-    if (widthOpIndex != null &&
-        widthOpIndex >= 0 &&
-        widthOpIndex < ResolutionFilterOp.values.length) {
-      _widthOp = ResolutionFilterOp.values[widthOpIndex];
-    }
-    final widthValue = userSetting.prefs.getInt(_kAuthorOrganizerWidthValueKey);
-    if (widthValue != null && widthValue > 0) {
-      _widthValue = widthValue;
-    }
-
-    final heightOpIndex = userSetting.prefs.getInt(
-      _kAuthorOrganizerHeightOpKey,
-    );
-    if (heightOpIndex != null &&
-        heightOpIndex >= 0 &&
-        heightOpIndex < ResolutionFilterOp.values.length) {
-      _heightOp = ResolutionFilterOp.values[heightOpIndex];
-    }
-    final heightValue = userSetting.prefs.getInt(
-      _kAuthorOrganizerHeightValueKey,
-    );
-    if (heightValue != null && heightValue > 0) {
-      _heightValue = heightValue;
-    }
-
-    final sortTypeIndex = userSetting.prefs.getInt(
-      _kAuthorOrganizerSortTypeKey,
-    );
-    if (sortTypeIndex != null &&
-        sortTypeIndex >= 0 &&
-        sortTypeIndex < _SortType.values.length) {
-      _sortType = _SortType.values[sortTypeIndex];
-    }
-    final sortOrderIndex = userSetting.prefs.getInt(
-      _kAuthorOrganizerSortOrderKey,
-    );
-    if (sortOrderIndex != null &&
-        sortOrderIndex >= 0 &&
-        sortOrderIndex < _SortOrder.values.length) {
-      _sortOrder = _SortOrder.values[sortOrderIndex];
-    }
-
-    final groupTypeIndex = userSetting.prefs.getInt(
-      _kAuthorOrganizerGroupTypeKey,
-    );
-    if (groupTypeIndex != null &&
-        groupTypeIndex >= 0 &&
-        groupTypeIndex < _GroupType.values.length) {
-      _groupType = _GroupType.values[groupTypeIndex];
-    }
-  }
-
-  /// 将筛选配置写入 UserSetting.prefs。
-  Future<void> _persistFilterPrefs() async {
-    if (_isTempFilter) return;
-    await userSetting.prefs.setBool(
-      _kAuthorOrganizerExcludeWebpKey,
-      _excludeWebp,
-    );
-    await userSetting.prefs.setBool(
-      _kAuthorOrganizerExcludeUgoiraKey,
-      _excludeUgoira,
-    );
-    await userSetting.prefs.setInt(
-      _kAuthorOrganizerPickModeKey,
-      _pickMode.index,
-    );
-    await userSetting.prefs.setInt(_kAuthorOrganizerPickCountKey, _pickCount);
-    await userSetting.prefs.setInt(_kAuthorOrganizerWidthOpKey, _widthOp.index);
-    if (_widthValue != null && _widthValue! > 0) {
-      await userSetting.prefs.setInt(
-        _kAuthorOrganizerWidthValueKey,
-        _widthValue!,
-      );
-    } else {
-      await userSetting.prefs.remove(_kAuthorOrganizerWidthValueKey);
-    }
-    await userSetting.prefs.setInt(
-      _kAuthorOrganizerHeightOpKey,
-      _heightOp.index,
-    );
-    if (_heightValue != null && _heightValue! > 0) {
-      await userSetting.prefs.setInt(
-        _kAuthorOrganizerHeightValueKey,
-        _heightValue!,
-      );
-    } else {
-      await userSetting.prefs.remove(_kAuthorOrganizerHeightValueKey);
-    }
-    await userSetting.prefs.setInt(
-      _kAuthorOrganizerSortTypeKey,
-      _sortType.index,
-    );
-    await userSetting.prefs.setInt(
-      _kAuthorOrganizerSortOrderKey,
-      _sortOrder.index,
-    );
-    await userSetting.prefs.setInt(
-      _kAuthorOrganizerGroupTypeKey,
-      _groupType.index,
-    );
-  }
-
-  /// 核心加载与刷新流程：
-  /// 1. [forceReload] 为 true 时，从数据库重新查询作者全部插画及图片记录。
-  /// 2. 分片批量查询图片记录（每批最多50个illustId）。
-  /// 3. [refilter] 为 true 时，执行可扩展筛选条件链并解析本地路径。
-  /// 4. 在内存中执行排序与分组逻辑，实现快速响应。
-  ///
-  /// [forceReload] 是否强制从数据库重新读取原始插画和图片数据。
-  /// [refilter] 是否重新执行过滤逻辑和路径解析。
-  Future<void> _loadData({
-    bool forceReload = false,
-    bool refilter = true,
-  }) async {
-    if (forceReload) {
-      setState(() {
-        _loading = true;
-        _error = null;
-        _selectedItemIds.clear();
-        _itemMap.clear();
-      });
-    }
-
-    try {
-      // 1. 加载原始数据
-      if (forceReload || _rawIllusts == null || _rawImagesByIllustId == null) {
-        List<DownloadedIllust> illusts;
-        Map<int, List<DownloadedImage>> imagesByIllustId;
-
-        if (_illustIdFilter != null && _illustIdFilter! > 0) {
-          // 性能优化：当指定插画 ID 时，直接精确查询单作品数据，无需扫表加载作者全量作品
-          final illust = await downloadStore.getDownloadedIllust(
-            _illustIdFilter!,
-          );
-          if (illust != null) {
-            illusts = [illust];
-            final images = await downloadStore.dbProvider.getImagesByIllustId(
-              _illustIdFilter!,
-            );
-            imagesByIllustId = {illust.illustId: images};
-          } else {
-            illusts = [];
-            imagesByIllustId = {};
-          }
-        } else if (widget.illustIds != null && widget.illustIds!.isNotEmpty) {
-          final fetchedIllusts = await downloadStore.getDownloadedIllustsByIds(
-            widget.illustIds!,
-          );
-          final illustMap = <int, DownloadedIllust>{
-            for (final illust in fetchedIllusts) illust.illustId: illust,
-          };
-          illusts =
-              widget.illustIds!
-                  .map((id) => illustMap[id])
-                  .whereType<DownloadedIllust>()
-                  .toList();
-          final illustIds = illusts.map((e) => e.illustId).toList();
-          imagesByIllustId = await _loadImagesByIllustIdsBatched(illustIds);
-        } else {
-          // 全量扫表路径
-          illusts = await downloadStore.getDownloadedByUser(
-            widget.author!.userId,
-            limit: null,
-            offset: 0,
-            orderBy: '${DownloadedIllustColumns.downloadTime} DESC',
-          );
-
-          final illustIds = illusts.map((e) => e.illustId).toList();
-          imagesByIllustId = await _loadImagesByIllustIdsBatched(illustIds);
-        }
-
-        _rawIllusts = illusts;
-        _rawImagesByIllustId = imagesByIllustId;
-      }
-
-      // 2. 过滤与解析路径
-      if (refilter) {
-        final context = DownloadedImageFilterContext(
-          author: _filterContextAuthor,
-          illusts: _rawIllusts!,
-          imagesByIllustId: _rawImagesByIllustId!,
-        );
-        final filterEngine = _buildFilterEngine();
-        final candidates = await filterEngine.run(context);
-
-        final resolved = await Future.wait(
-          candidates.map(_resolveDisplayItemFromCandidate),
-        );
-        _allFilteredItems =
-            resolved.whereType<_DownloadedImageDisplayItem>().toList();
-
-        // 维护 ID 到 Item 的映射
-        _itemMap.clear();
-        for (final item in _allFilteredItems) {
-          _itemMap[item.id] = item;
-        }
-      }
-
-      // 3. 排序
-      final sortedItems = List<_DownloadedImageDisplayItem>.from(_allFilteredItems);
-      sortedItems.sort(_compareBySortOption);
-
-      // 4. 分组
-      final grouped = _groupItems(sortedItems);
-
-      if (!mounted) return;
-      setState(() {
-        _items = sortedItems;
-        _groupedItems = grouped;
-        _syncGroupState(grouped);
-        _loading = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _error = e.toString();
-        _loading = false;
-      });
-    }
-  }
-
-  /// 按批次调用 getImagesByIllustIds，避免单次传参过大。
-  /// 约束：每批最多 50 个 illustId。
-  Future<Map<int, List<DownloadedImage>>> _loadImagesByIllustIdsBatched(
-    List<int> illustIds,
-  ) async {
-    const batchSize = 50;
-    final result = <int, List<DownloadedImage>>{};
-    for (var i = 0; i < illustIds.length; i += batchSize) {
-      final end =
-          (i + batchSize < illustIds.length) ? i + batchSize : illustIds.length;
-      final chunk = illustIds.sublist(i, end);
-      final chunkMap = await downloadStore.dbProvider.getImagesByIllustIds(
-        chunk,
-      );
-      result.addAll(chunkMap);
-    }
-    return result;
-  }
-
-  /// 根据菜单状态组装筛选条件，便于后续继续扩展。
-  DownloadedImageFilterEngine _buildFilterEngine() {
-    final conditions = <DownloadedImageFilterCondition>[];
-    if (_excludeUgoira) {
-      conditions.add(const ExcludeUgoiraCondition());
-    }
-    // 先做“前/后N张”截取，再做 webp 过滤。
-    // 这样可以保证 N 的计算包含 webp，随后再排除 webp。
-    if (_pickMode == _PerIllustPickMode.last) {
-      conditions.add(LastNPerIllustCondition(n: _pickCount));
-    } else if (_pickMode == _PerIllustPickMode.first) {
-      conditions.add(FirstNPerIllustCondition(n: _pickCount));
-    }
-    // _pickMode == _PerIllustPickMode.all 时不添加数量限制条件。
-    if (_excludeWebp) {
-      conditions.add(const NonWebpCondition());
-    }
-    conditions.add(
-      ResolutionCondition(
-        widthOp: _widthOp,
-        widthValue: _widthValue,
-        heightOp: _heightOp,
-        heightValue: _heightValue,
-      ),
-    );
-    if (_illustIdFilter != null && _illustIdFilter! > 0) {
-      conditions.add(IllustIdCondition(illustId: _illustIdFilter));
-    }
-    return DownloadedImageFilterEngine(conditions: conditions);
-  }
-
-  int _compareBySortOption(
-    _DownloadedImageDisplayItem a,
-    _DownloadedImageDisplayItem b,
-  ) {
-    final asc = _sortOrder == _SortOrder.asc;
-    final sortBy = switch (_sortType) {
-      _SortType.idAndPart => _compareFallback(a, b, asc: asc),
-      _SortType.downloadTime =>
-        asc
-            ? a.illust.downloadTime.compareTo(b.illust.downloadTime)
-            : b.illust.downloadTime.compareTo(a.illust.downloadTime),
-      _SortType.fileSize =>
-        asc
-            ? a.fileSize.compareTo(b.fileSize)
-            : b.fileSize.compareTo(a.fileSize),
-      _SortType.width => _compareResolutionValue(
-        a.resolutionWidth,
-        b.resolutionWidth,
-        asc: asc,
-      ),
-      _SortType.height => _compareResolutionValue(
-        a.resolutionHeight,
-        b.resolutionHeight,
-        asc: asc,
-      ),
-      _SortType.area => _compareResolutionValue(
-        a.resolutionArea,
-        b.resolutionArea,
-        asc: asc,
-      ),
-    };
-    if (sortBy != 0) return sortBy;
-    if (_sortType == _SortType.idAndPart) return 0;
-    return _compareFallback(a, b, asc: true);
-  }
-
-  int _compareResolutionValue(int? a, int? b, {required bool asc}) {
-    final aKnown = a != null && a > 0;
-    final bKnown = b != null && b > 0;
-    if (!aKnown && !bKnown) return 0;
-    if (!aKnown) return 1;
-    if (!bKnown) return -1;
-    final cmp = a.compareTo(b);
-    return asc ? cmp : -cmp;
-  }
-
-  int _compareFallback(
-    _DownloadedImageDisplayItem a,
-    _DownloadedImageDisplayItem b, {
-    bool asc = true,
-  }) {
-    final i = a.illust.illustId.compareTo(b.illust.illustId);
-    if (i != 0) return asc ? i : -i;
-    final p = a.image.part.compareTo(b.image.part);
-    return asc ? p : -p;
-  }
-
-  /// 将筛选后的候选项解析为可展示项（补齐本地文件路径）。
-  Future<_DownloadedImageDisplayItem?> _resolveDisplayItemFromCandidate(
-    DownloadedImageCandidate candidate,
-  ) async {
-    final path = await downloadStore.getLocalImagePathFromImage(
-      candidate.image,
-      relativePath: candidate.illust.relativePath,
-      isUgoira: candidate.illust.isUgoira,
-      update: false,
-    );
-    if (path == null) return null;
-
-    return _DownloadedImageDisplayItem(
-      illust: candidate.illust,
-      image: candidate.image,
-      path: path,
-    );
-  }
-
-  void _toggleSelectMode() {
-    if (_isMultiSelectMode) {
-      _exitMultiSelectMode();
-      return;
-    }
-    setState(() {
-      _isMultiSelectMode = true;
-    });
-  }
-
-  void _exitMultiSelectMode() {
-    setState(() {
-      _isMultiSelectMode = false;
-      _selectedItemIds.clear();
-    });
-  }
-
-  void _setSelected(String id, bool selected) {
-    setState(() {
-      if (selected) {
-        _selectedItemIds.add(id);
-      } else {
-        _selectedItemIds.remove(id);
-      }
-    });
-  }
-
-  void _toggleSelectAllOrClear() {
-    if (_items.isEmpty) return;
-    final isAllSelected =
-        _items.isNotEmpty && _selectedItemIds.length == _items.length;
-    setState(() {
-      if (isAllSelected) {
-        _selectedItemIds.clear();
-      } else {
-        _selectedItemIds
-          ..clear()
-          ..addAll(_items.map((e) => e.id));
-      }
-    });
-  }
+  // ============ Action helpers (page orchestrates store) ============
 
   void _onSelectionFabPressed() {
-    if (_items.isEmpty) return;
-    if (!_isMultiSelectMode) {
-      setState(() {
-        _isMultiSelectMode = true;
-        _selectedItemIds
-          ..clear()
-          ..addAll(_items.map((e) => e.id));
-      });
+    if (store.items.isEmpty) return;
+    if (!store.isMultiSelectMode) {
+      store.selectAllAndEnterMultiMode();
       return;
     }
-    _toggleSelectAllOrClear();
+    store.toggleSelectAllOrClear();
   }
 
-  void _toggleGroupSelection(_GroupedItems group) {
-    setState(() {
-      final allSelected = group.items.every(
-        (item) => _selectedItemIds.contains(item.id),
-      );
-      if (allSelected) {
-        for (final item in group.items) {
-          _selectedItemIds.remove(item.id);
+  Future<void> _onFilterMenuSelected(String value) async {
+    switch (value) {
+      case 'toggle_webp':
+        await store.toggleExcludeWebp();
+      case 'toggle_ugoira':
+        await store.toggleExcludeUgoira();
+      case 'mode_last':
+        await store.setPickMode(PerIllustPickMode.last);
+      case 'mode_first':
+        await store.setPickMode(PerIllustPickMode.first);
+      case 'mode_all':
+        await store.setPickMode(PerIllustPickMode.all);
+      case 'set_count':
+        final count = await _showPickCountDialog();
+        if (count != null && count != store.pickCount) {
+          await store.setPickCount(count);
         }
-      } else {
-        for (final item in group.items) {
-          _selectedItemIds.add(item.id);
+      case 'set_resolution_filter':
+        final result = await _showResolutionFilterDialog();
+        if (result != null) {
+          await store.setResolutionFilter(
+            widthOp: result.widthOp,
+            widthValue: result.widthValue,
+            heightOp: result.heightOp,
+            heightValue: result.heightValue,
+          );
         }
-      }
-    });
+      case 'clear_resolution_filter':
+        await store.clearResolutionFilter();
+    }
   }
 
-  /// 进入插画详情页（与下载页一致，传入当前筛选结果中的插画列表）。
-  Future<void> _openIllustDetail(_DownloadedImageDisplayItem item) async {
-    final uniqueIllusts = _buildUniqueIllustList();
+  // ============ Navigation ============
+
+  Future<void> _openIllustDetail(DownloadedImageDisplayItem item) async {
+    final uniqueIllusts = store.buildUniqueIllustList();
     final currentIndex = uniqueIllusts.indexWhere(
       (e) => e.illustId == item.illust.illustId,
     );
@@ -675,7 +210,6 @@ class _DownloadedImageOrganizerPageState extends State<DownloadedImageOrganizerP
             .toList();
     final currentStore = stores[currentIndex];
 
-    // 预加载首图，减少详情页首屏抖动。
     await currentStore.preloadFirstImage(
       relativePath: item.illust.relativePath,
     );
@@ -692,8 +226,7 @@ class _DownloadedImageOrganizerPageState extends State<DownloadedImageOrganizerP
     );
   }
 
-  /// 打开本地大图预览页。
-  Future<void> _openLocalImageViewer(_DownloadedImageDisplayItem item) async {
+  Future<void> _openLocalImageViewer(DownloadedImageDisplayItem item) async {
     await LocalImageViewerPage.open(
       context,
       imagePath: item.path,
@@ -703,23 +236,10 @@ class _DownloadedImageOrganizerPageState extends State<DownloadedImageOrganizerP
     );
   }
 
-  String _heroTagForItem(_DownloadedImageDisplayItem item) {
+  String _heroTagForItem(DownloadedImageDisplayItem item) {
     return 'author_image_local_${item.id}_${item.path}';
   }
 
-  /// 由图片列表提取去重后的插画列表，保持当前展示顺序。
-  List<DownloadedIllust> _buildUniqueIllustList() {
-    final result = <DownloadedIllust>[];
-    final seen = <int>{};
-    for (final item in _items) {
-      if (seen.add(item.illust.illustId)) {
-        result.add(item.illust);
-      }
-    }
-    return result;
-  }
-
-  /// 打开本地文件（外部程序）。
   Future<void> _openFile(String path) async {
     try {
       await OpenFile.open(path);
@@ -728,7 +248,6 @@ class _DownloadedImageOrganizerPageState extends State<DownloadedImageOrganizerP
     }
   }
 
-  /// 打开图片所在文件夹。
   Future<void> _openParentDirectory(String path) async {
     try {
       final directoryPath = File(path).parent.path;
@@ -738,102 +257,22 @@ class _DownloadedImageOrganizerPageState extends State<DownloadedImageOrganizerP
     }
   }
 
-  /// 弹出更新插画信息对话框。
   void _showUpdateIllustInfoDialog() {
     UpdateIllustInfoDialog.show(
       context,
-      illusts: _buildUniqueIllustList(),
-      userId: widget.author?.userId,
+      illusts: store.buildUniqueIllustList(),
+      userId: store.author?.userId,
     ).then((result) {
       if (result == true) {
-        _loadData(forceReload: true);
+        store.loadData(forceReload: true);
       }
     });
   }
 
-  /// 处理筛选菜单动作，并按需重新加载数据。
-  Future<void> _onFilterMenuSelected(String value) async {
-    var shouldReload = false;
-    switch (value) {
-      case 'toggle_webp':
-        setState(() => _excludeWebp = !_excludeWebp);
-        shouldReload = true;
-        break;
-      case 'toggle_ugoira':
-        setState(() => _excludeUgoira = !_excludeUgoira);
-        shouldReload = true;
-        break;
-      case 'mode_last':
-        setState(() => _pickMode = _PerIllustPickMode.last);
-        shouldReload = true;
-        break;
-      case 'mode_first':
-        setState(() => _pickMode = _PerIllustPickMode.first);
-        shouldReload = true;
-        break;
-      case 'mode_all':
-        setState(() => _pickMode = _PerIllustPickMode.all);
-        shouldReload = true;
-        break;
-      case 'set_count':
-        final count = await _showPickCountDialog();
-        if (count != null && count != _pickCount) {
-          setState(() => _pickCount = count);
-          shouldReload = true;
-        }
-        break;
-      case 'set_resolution_filter':
-        final result = await _showResolutionFilterDialog();
-        if (result != null) {
-          setState(() {
-            _widthOp = result.widthOp;
-            _widthValue = result.widthValue;
-            _heightOp = result.heightOp;
-            _heightValue = result.heightValue;
-          });
-          shouldReload = true;
-        }
-        break;
-      case 'clear_resolution_filter':
-        setState(() {
-          _widthOp = ResolutionFilterOp.none;
-          _widthValue = null;
-          _heightOp = ResolutionFilterOp.none;
-          _heightValue = null;
-        });
-        shouldReload = true;
-        break;
-    }
-    if (shouldReload) {
-      await _persistFilterPrefs();
-      _loadData(refilter: true);
-    }
-  }
+  // ============ Dialogs ============
 
-  Future<void> _onSortTypeChanged(_SortType? value) async {
-    if (value == null || value == _sortType) return;
-    setState(() => _sortType = value);
-    await _persistFilterPrefs();
-    _loadData(refilter: false);
-  }
-
-  Future<void> _onSortOrderChanged(_SortOrder? value) async {
-    if (value == null || value == _sortOrder) return;
-    setState(() => _sortOrder = value);
-    await _persistFilterPrefs();
-    _loadData(refilter: false);
-  }
-
-  Future<void> _onGroupTypeChanged(_GroupType? value) async {
-    if (value == null || value == _groupType) return;
-    setState(() => _groupType = value);
-    await _persistFilterPrefs();
-    _loadData(refilter: false);
-  }
-
-  /// 设置“每个作品取几张”。
   Future<int?> _showPickCountDialog() async {
-    var tempCount = _pickCount;
+    var tempCount = store.pickCount;
     return showDialog<int>(
       context: context,
       builder: (dialogContext) {
@@ -875,10 +314,10 @@ class _DownloadedImageOrganizerPageState extends State<DownloadedImageOrganizerP
   }
 
   Future<_ResolutionFilterDialogResult?> _showResolutionFilterDialog() async {
-    var tempWidthOp = _widthOp;
-    var tempWidthValue = _widthValue;
-    var tempHeightOp = _heightOp;
-    var tempHeightValue = _heightValue;
+    var tempWidthOp = store.widthOp;
+    var tempWidthValue = store.widthValue;
+    var tempHeightOp = store.heightOp;
+    var tempHeightValue = store.heightValue;
     final widthController = TextEditingController(
       text: tempWidthValue?.toString() ?? '',
     );
@@ -1020,235 +459,211 @@ class _DownloadedImageOrganizerPageState extends State<DownloadedImageOrganizerP
     };
   }
 
-  String _sortTypeLabel(_SortType type) {
-    return switch (type) {
-      _SortType.idAndPart => '默认排序',
-      _SortType.downloadTime => '下载时间',
-      _SortType.fileSize => '文件大小',
-      _SortType.width => '分辨率(宽)',
-      _SortType.height => '分辨率(高)',
-      _SortType.area => '分辨率(面积)',
-    };
-  }
-
-  String _groupTypeLabel(_GroupType type) {
-    return switch (type) {
-      _GroupType.none => '不分组',
-      _GroupType.date => '按日期',
-      _GroupType.illust => '按作品',
-      _GroupType.type => '按类型',
-      _GroupType.resolution => '按分辨率',
-    };
-  }
+  // ============ Build ============
 
   @override
   Widget build(BuildContext context) {
-    return PopScope(
-      canPop: !_isMultiSelectMode,
-      onPopInvokedWithResult: (didPop, result) {
-        if (didPop) return;
-        if (_isMultiSelectMode) {
-          _exitMultiSelectMode();
-        }
-      },
-      child: Scaffold(
-        appBar: AppBar(
-          leading: IconButton(
-            icon: Icon(_isMultiSelectMode ? Icons.close : Icons.arrow_back),
-            tooltip: _isMultiSelectMode ? '退出多选' : '返回',
-            onPressed: () async {
-              if (_isMultiSelectMode) {
-                _exitMultiSelectMode();
-                return;
-              }
-              await Navigator.maybePop(context);
-            },
-          ),
-          title: Text(
-            _isMultiSelectMode
-                ? '已选 ${_selectedItemIds.length} / 共 ${_items.length}'
-                : '$_titlePrefix · 共 ${_items.length} 张',
-          ),
-          actions: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: PopupMenuButton<_GroupType>(
-                initialValue: _groupType,
-                tooltip: '分组方式',
-                position: PopupMenuPosition.under,
-                onSelected: _loading ? null : _onGroupTypeChanged,
-                itemBuilder:
-                    (context) =>
-                        _GroupType.values
-                            .map(
-                              (type) => PopupMenuItem<_GroupType>(
-                                value: type,
-                                child: Text(_groupTypeLabel(type)),
-                              ),
-                            )
-                            .toList(),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.layers_outlined, size: 20),
-                      const SizedBox(width: 4),
-                      Text(_groupTypeLabel(_groupType)),
-                    ],
-                  ),
+    return Observer(
+      builder: (_) {
+        return PopScope(
+          canPop: !store.isMultiSelectMode,
+          onPopInvokedWithResult: (didPop, result) {
+            if (didPop) return;
+            if (store.isMultiSelectMode) {
+              store.exitMultiSelectMode();
+            }
+          },
+          child: Scaffold(
+            appBar: AppBar(
+              leading: IconButton(
+                icon: Icon(
+                  store.isMultiSelectMode ? Icons.close : Icons.arrow_back,
                 ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: PopupMenuButton<_SortType>(
-                initialValue: _sortType,
-                tooltip: '排序方式',
-                position: PopupMenuPosition.under,
-                onSelected: _loading ? null : _onSortTypeChanged,
-                itemBuilder:
-                    (context) =>
-                        _SortType.values
-                            .map(
-                              (type) => PopupMenuItem<_SortType>(
-                                value: type,
-                                child: Text(_sortTypeLabel(type)),
-                              ),
-                            )
-                            .toList(),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(_sortTypeLabel(_sortType)),
-                      const Icon(Icons.arrow_drop_down),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            IconButton(
-              icon: Icon(
-                _sortOrder == _SortOrder.asc
-                    ? Icons
-                        .arrow_upward // 升序图标
-                    : Icons.arrow_downward, // 降序图标
-              ),
-              tooltip: _sortOrder == _SortOrder.asc ? '正序' : '倒序',
-              onPressed:
-                  _loading
-                      ? null
-                      : () {
-                        _onSortOrderChanged(
-                          _sortOrder == _SortOrder.asc
-                              ? _SortOrder.desc
-                              : _SortOrder.asc,
-                        );
-                      },
-            ),
-            PopupMenuButton<String>(
-              icon: const Icon(Icons.filter_alt_outlined),
-              tooltip: '筛选条件',
-              position: PopupMenuPosition.under,
-              onSelected: (value) {
-                _onFilterMenuSelected(value);
-              },
-              itemBuilder: (context) {
-                return [
-                  CheckedPopupMenuItem(
-                    value: 'toggle_webp',
-                    checked: _excludeWebp,
-                    child: const Text('排除 WebP'),
-                  ),
-                  CheckedPopupMenuItem(
-                    value: 'toggle_ugoira',
-                    checked: _excludeUgoira,
-                    child: const Text('排除动图'),
-                  ),
-                  const PopupMenuDivider(),
-                  CheckedPopupMenuItem(
-                    value: 'mode_last',
-                    checked: _pickMode == _PerIllustPickMode.last,
-                    child: const Text('最后几张'),
-                  ),
-                  CheckedPopupMenuItem(
-                    value: 'mode_first',
-                    checked: _pickMode == _PerIllustPickMode.first,
-                    child: const Text('最前几张'),
-                  ),
-                  CheckedPopupMenuItem(
-                    value: 'mode_all',
-                    checked: _pickMode == _PerIllustPickMode.all,
-                    child: const Text('所有'),
-                  ),
-                  PopupMenuItem(
-                    value: 'set_count',
-                    child: Text('每作品数量: $_pickCount'),
-                  ),
-                  const PopupMenuDivider(),
-                  const PopupMenuItem(
-                    value: 'set_resolution_filter',
-                    child: Text('分辨率过滤设置'),
-                  ),
-                  const PopupMenuItem(
-                    value: 'clear_resolution_filter',
-                    child: Text('清空分辨率过滤'),
-                  ),
-                ];
-              },
-            ),
-            IconButton(
-              icon: const Icon(Icons.update),
-              tooltip: _hasAuthorContext ? '扫描并更新作者作品信息' : '扫描并更新当前页面作品信息',
-              onPressed: _loading ? null : _showUpdateIllustInfoDialog,
-            ),
-            IconButton(
-              icon: const Icon(Icons.refresh),
-              tooltip: '列表刷新',
-              onPressed: _loading ? null : () => _loadData(forceReload: true),
-            ),
-            if (_illustIdFilter != null && !_isMultiSelectMode)
-              IconButton(
-                icon: const Icon(Icons.filter_alt_off),
-                tooltip: '清除作品 ID 过滤',
-                onPressed: () {
-                  setState(() {
-                    _illustIdFilter = null;
-                  });
-                  _loadData(forceReload: true);
+                tooltip: store.isMultiSelectMode ? '退出多选' : '返回',
+                onPressed: () async {
+                  if (store.isMultiSelectMode) {
+                    store.exitMultiSelectMode();
+                    return;
+                  }
+                  await Navigator.maybePop(context);
                 },
               ),
-            IconButton(
-              icon: Icon(
-                _isMultiSelectMode
-                    ? Icons.check_box
-                    : Icons.check_box_outline_blank,
+              title: Text(
+                store.isMultiSelectMode
+                    ? '已选 ${store.selectedItemIds.length} / 共 ${store.items.length}'
+                    : '${store.titlePrefix} · 共 ${store.items.length} 张',
               ),
-              tooltip: _isMultiSelectMode ? '退出多选' : '进入多选',
-              onPressed: _toggleSelectMode,
+              actions: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: PopupMenuButton<GroupType>(
+                    initialValue: store.groupType,
+                    tooltip: '分组方式',
+                    position: PopupMenuPosition.under,
+                    onSelected:
+                        store.loading ? null : (value) => store.setGroupType(value),
+                    itemBuilder:
+                        (context) =>
+                            GroupType.values
+                                .map(
+                                  (type) => PopupMenuItem<GroupType>(
+                                    value: type,
+                                    child: Text(store.groupTypeLabel(type)),
+                                  ),
+                                )
+                                .toList(),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.layers_outlined, size: 20),
+                          const SizedBox(width: 4),
+                          Text(store.groupTypeLabel(store.groupType)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: PopupMenuButton<SortType>(
+                    initialValue: store.sortType,
+                    tooltip: '排序方式',
+                    position: PopupMenuPosition.under,
+                    onSelected:
+                        store.loading ? null : (value) => store.setSortType(value),
+                    itemBuilder:
+                        (context) =>
+                            SortType.values
+                                .map(
+                                  (type) => PopupMenuItem<SortType>(
+                                    value: type,
+                                    child: Text(store.sortTypeLabel(type)),
+                                  ),
+                                )
+                                .toList(),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(store.sortTypeLabel(store.sortType)),
+                          const Icon(Icons.arrow_drop_down),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: Icon(
+                    store.sortOrder == SortOrder.asc
+                        ? Icons.arrow_upward
+                        : Icons.arrow_downward,
+                  ),
+                  tooltip: store.sortOrder == SortOrder.asc ? '正序' : '倒序',
+                  onPressed:
+                      store.loading ? null : () => store.toggleSortOrder(),
+                ),
+                PopupMenuButton<String>(
+                  icon: const Icon(Icons.filter_alt_outlined),
+                  tooltip: '筛选条件',
+                  position: PopupMenuPosition.under,
+                  onSelected: _onFilterMenuSelected,
+                  itemBuilder: (context) {
+                    return [
+                      CheckedPopupMenuItem(
+                        value: 'toggle_webp',
+                        checked: store.excludeWebp,
+                        child: const Text('排除 WebP'),
+                      ),
+                      CheckedPopupMenuItem(
+                        value: 'toggle_ugoira',
+                        checked: store.excludeUgoira,
+                        child: const Text('排除动图'),
+                      ),
+                      const PopupMenuDivider(),
+                      CheckedPopupMenuItem(
+                        value: 'mode_last',
+                        checked: store.pickMode == PerIllustPickMode.last,
+                        child: const Text('最后几张'),
+                      ),
+                      CheckedPopupMenuItem(
+                        value: 'mode_first',
+                        checked: store.pickMode == PerIllustPickMode.first,
+                        child: const Text('最前几张'),
+                      ),
+                      CheckedPopupMenuItem(
+                        value: 'mode_all',
+                        checked: store.pickMode == PerIllustPickMode.all,
+                        child: const Text('所有'),
+                      ),
+                      PopupMenuItem(
+                        value: 'set_count',
+                        child: Text('每作品数量: ${store.pickCount}'),
+                      ),
+                      const PopupMenuDivider(),
+                      const PopupMenuItem(
+                        value: 'set_resolution_filter',
+                        child: Text('分辨率过滤设置'),
+                      ),
+                      const PopupMenuItem(
+                        value: 'clear_resolution_filter',
+                        child: Text('清空分辨率过滤'),
+                      ),
+                    ];
+                  },
+                ),
+                IconButton(
+                  icon: const Icon(Icons.update),
+                  tooltip:
+                      store.hasAuthorContext ? '扫描并更新作者作品信息' : '扫描并更新当前页面作品信息',
+                  onPressed: store.loading ? null : _showUpdateIllustInfoDialog,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.refresh),
+                  tooltip: '列表刷新',
+                  onPressed:
+                      store.loading ? null : () => store.loadData(forceReload: true),
+                ),
+                if (store.illustIdFilter != null && !store.isMultiSelectMode)
+                  IconButton(
+                    icon: const Icon(Icons.filter_alt_off),
+                    tooltip: '清除作品 ID 过滤',
+                    onPressed: () => store.clearIllustIdFilter(),
+                  ),
+                IconButton(
+                  icon: Icon(
+                    store.isMultiSelectMode
+                        ? Icons.check_box
+                        : Icons.check_box_outline_blank,
+                  ),
+                  tooltip: store.isMultiSelectMode ? '退出多选' : '进入多选',
+                  onPressed: () => store.toggleMultiSelectMode(),
+                ),
+              ],
             ),
-          ],
-        ),
-        body: _buildBody(),
-        floatingActionButton: _buildSelectionFab(),
-      ),
+            body: _buildBody(),
+            floatingActionButton: _buildSelectionFab(),
+          ),
+        );
+      },
     );
   }
 
   Widget? _buildSelectionFab() {
-    if (_loading || _error != null || _items.isEmpty) {
+    if (store.loading || store.error != null || store.items.isEmpty) {
       return null;
     }
     final isAllSelected =
-        _isMultiSelectMode && _selectedItemIds.length == _items.length;
+        store.isMultiSelectMode &&
+        store.selectedItemIds.length == store.items.length;
     return FloatingActionButton.extended(
       onPressed: _onSelectionFabPressed,
       icon: Icon(isAllSelected ? Icons.deselect : Icons.select_all),
@@ -1258,13 +673,13 @@ class _DownloadedImageOrganizerPageState extends State<DownloadedImageOrganizerP
   }
 
   Widget _buildBody() {
-    if (_loading) {
+    if (store.loading) {
       return const Center(child: CircularProgressIndicator());
     }
-    if (_error != null) {
-      return Center(child: Text('加载失败: $_error'));
+    if (store.error != null) {
+      return Center(child: Text('加载失败: ${store.error}'));
     }
-    if (_items.isEmpty) {
+    if (store.items.isEmpty) {
       return const Center(child: Text('没有符合条件的图片'));
     }
 
@@ -1286,6 +701,8 @@ class _DownloadedImageOrganizerPageState extends State<DownloadedImageOrganizerP
     );
   }
 
+  // ============ Group navigator & scroll ============
+
   Widget _buildGroupedGrid() {
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -1295,9 +712,9 @@ class _DownloadedImageOrganizerPageState extends State<DownloadedImageOrganizerP
         return CustomScrollView(
           controller: _scrollController,
           slivers: [
-            for (final entry in _groupedItems.asMap().entries)
+            for (final entry in store.groupedItems.asMap().entries)
               _buildGroupSliver(entry.value, entry.key),
-            if (_groupedItems.length > 1)
+            if (store.groupedItems.length > 1)
               SliverToBoxAdapter(
                 child: SizedBox(
                   height: math.max(
@@ -1312,7 +729,7 @@ class _DownloadedImageOrganizerPageState extends State<DownloadedImageOrganizerP
     );
   }
 
-  Widget _buildGroupSliver(_GroupedItems group, int groupIndex) {
+  Widget _buildGroupSliver(GroupedItems group, int groupIndex) {
     return SliverMainAxisGroup(
       slivers: [
         SliverPersistentHeader(
@@ -1337,7 +754,7 @@ class _DownloadedImageOrganizerPageState extends State<DownloadedImageOrganizerP
                 final item = group.items[index];
                 return _buildDraggableCard(
                   item,
-                  _selectedItemIds.contains(item.id),
+                  store.selectedItemIds.contains(item.id),
                 );
               },
               childCount: group.items.length,
@@ -1373,7 +790,7 @@ class _DownloadedImageOrganizerPageState extends State<DownloadedImageOrganizerP
     final offsets = <_GroupScrollOffset>[];
     var scrollOffset = 0.0;
 
-    for (final entry in _groupedItems.asMap().entries) {
+    for (final entry in store.groupedItems.asMap().entries) {
       final group = entry.value;
       offsets.add(_GroupScrollOffset(group.id, scrollOffset));
       scrollOffset += _kGroupHeaderExtent;
@@ -1390,7 +807,7 @@ class _DownloadedImageOrganizerPageState extends State<DownloadedImageOrganizerP
   }
 
   Widget _buildGroupNavigator() {
-    if (_groupedItems.isEmpty) {
+    if (store.groupedItems.isEmpty) {
       return const SizedBox.shrink();
     }
     return Container(
@@ -1405,10 +822,10 @@ class _DownloadedImageOrganizerPageState extends State<DownloadedImageOrganizerP
       child: ListView.separated(
         controller: _groupNavigatorController,
         scrollDirection: Axis.horizontal,
-        itemCount: _groupedItems.length,
+        itemCount: store.groupedItems.length,
         separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
-          final group = _groupedItems[index];
+          final group = store.groupedItems[index];
           return _GroupNavigatorItemMeasure(
             onSizeChanged:
                 (width) => _recordGroupNavigatorItemWidth(group.id, width),
@@ -1429,7 +846,7 @@ class _DownloadedImageOrganizerPageState extends State<DownloadedImageOrganizerP
     );
   }
 
-  void _syncGroupState(List<_GroupedItems> groups) {
+  void _syncGroupState(List<GroupedItems> groups) {
     final ids = groups.map((e) => e.id).toSet();
     _groupScrollOffsets.removeWhere((id, _) => !ids.contains(id));
     _groupNavigatorItemWidths.removeWhere((id, _) => !ids.contains(id));
@@ -1456,7 +873,7 @@ class _DownloadedImageOrganizerPageState extends State<DownloadedImageOrganizerP
     });
   }
 
-  Future<void> _scrollToGroup(_GroupedItems group) async {
+  Future<void> _scrollToGroup(GroupedItems group) async {
     _setCurrentGroupId(group.id);
 
     var targetOffset = _groupScrollOffsets[group.id];
@@ -1556,7 +973,7 @@ class _DownloadedImageOrganizerPageState extends State<DownloadedImageOrganizerP
 
   _HorizontalRange? _groupNavigatorItemRange(String groupId) {
     var offset = 0.0;
-    for (final group in _groupedItems) {
+    for (final group in store.groupedItems) {
       final width = _groupNavigatorItemWidths[group.id];
       if (width == null) return null;
       if (group.id == groupId) {
@@ -1567,12 +984,12 @@ class _DownloadedImageOrganizerPageState extends State<DownloadedImageOrganizerP
     return null;
   }
 
-  Widget _buildGroupHeader(_GroupedItems group, int index) {
+  Widget _buildGroupHeader(GroupedItems group, int index) {
     final allSelected = group.items.every(
-      (item) => _selectedItemIds.contains(item.id),
+      (item) => store.selectedItemIds.contains(item.id),
     );
     final anySelected = group.items.any(
-      (item) => _selectedItemIds.contains(item.id),
+      (item) => store.selectedItemIds.contains(item.id),
     );
 
     return Container(
@@ -1583,12 +1000,13 @@ class _DownloadedImageOrganizerPageState extends State<DownloadedImageOrganizerP
           Expanded(
             child: Text(
               group.title,
-              style: Theme.of(
-                context,
-              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+              style: Theme.of(context)
+                  .textTheme
+                  .titleSmall
+                  ?.copyWith(fontWeight: FontWeight.bold),
             ),
           ),
-          if (_isMultiSelectMode)
+          if (store.isMultiSelectMode)
             IconButton(
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
@@ -1600,7 +1018,7 @@ class _DownloadedImageOrganizerPageState extends State<DownloadedImageOrganizerP
                         : Icons.check_box_outline_blank),
                 size: 20,
               ),
-              onPressed: () => _toggleGroupSelection(group),
+              onPressed: () => store.toggleGroupSelection(group),
               tooltip: allSelected ? '全组取消选中' : '全组选中',
             ),
         ],
@@ -1608,7 +1026,12 @@ class _DownloadedImageOrganizerPageState extends State<DownloadedImageOrganizerP
     );
   }
 
-  Widget _buildDraggableCard(_DownloadedImageDisplayItem item, bool isSelected) {
+  // ============ Card & drag ============
+
+  Widget _buildDraggableCard(
+    DownloadedImageDisplayItem item,
+    bool isSelected,
+  ) {
     final card = _buildCard(item, isSelected);
     return DragItemWidget(
       dragItemProvider: _createDragItemProvider,
@@ -1623,26 +1046,22 @@ class _DownloadedImageOrganizerPageState extends State<DownloadedImageOrganizerP
     );
   }
 
-  Widget _buildCard(_DownloadedImageDisplayItem item, bool isSelected) {
+  Widget _buildCard(DownloadedImageDisplayItem item, bool isSelected) {
     return _AuthorImageCard(
       item: item,
       isSelected: isSelected,
-      isMultiSelectMode: _isMultiSelectMode,
+      isMultiSelectMode: store.isMultiSelectMode,
       heroTag: _heroTagForItem(item),
       onTap: () {
-        if (_isMultiSelectMode) {
-          _setSelected(item.id, !isSelected);
+        if (store.isMultiSelectMode) {
+          store.setSelected(item.id, !isSelected);
         } else {
           _openLocalImageViewer(item);
         }
       },
       onLongPress: () {
-        // 长按进入选择模式，并选中当前卡片。
-        if (!_isMultiSelectMode) {
-          setState(() {
-            _isMultiSelectMode = true;
-            _selectedItemIds.add(item.id);
-          });
+        if (!store.isMultiSelectMode) {
+          store.selectItemAndEnterMultiMode(item.id);
         }
       },
       onOpenFile: () => _openFile(item.path),
@@ -1654,21 +1073,21 @@ class _DownloadedImageOrganizerPageState extends State<DownloadedImageOrganizerP
 
   DragConfiguration? _createDragConfiguration(
     DragConfiguration config,
-    _DownloadedImageDisplayItem item,
+    DownloadedImageDisplayItem item,
   ) {
     final snapshot = config.items.isNotEmpty ? config.items.first.image : null;
     if (snapshot == null) return null;
 
     final ids = <String>[];
-    if (_isMultiSelectMode && _selectedItemIds.contains(item.id)) {
-      ids.addAll(_selectedItemIds);
+    if (store.isMultiSelectMode && store.selectedItemIds.contains(item.id)) {
+      ids.addAll(store.selectedItemIds);
     } else {
       ids.add(item.id);
     }
 
     final dragItems = <DragConfigurationItem>[];
     for (final id in ids) {
-      final target = _itemMap[id];
+      final target = store.itemMap[id];
       if (target == null) continue;
       final dragItem = DragItem();
       dragItem.add(Formats.fileUri(Uri.file(target.path)));
@@ -1683,10 +1102,10 @@ class _DownloadedImageOrganizerPageState extends State<DownloadedImageOrganizerP
     );
   }
 
-  Widget _buildDragPreview(Widget child, _DownloadedImageDisplayItem item) {
+  Widget _buildDragPreview(Widget child, DownloadedImageDisplayItem item) {
     final count =
-        _isMultiSelectMode && _selectedItemIds.contains(item.id)
-            ? _selectedItemIds.length
+        store.isMultiSelectMode && store.selectedItemIds.contains(item.id)
+            ? store.selectedItemIds.length
             : 1;
 
     return Material(
@@ -1730,75 +1149,12 @@ class _DownloadedImageOrganizerPageState extends State<DownloadedImageOrganizerP
     item.add(Formats.plainText('PixEz Author Image Organizer'));
     return item;
   }
-
-  List<_GroupedItems> _groupItems(List<_DownloadedImageDisplayItem> items) {
-    if (_groupType == _GroupType.none) {
-      return [
-        _GroupedItems(
-          title: '所有图片 (${items.length})',
-          items: items,
-          type: _GroupType.none,
-          id: 'none',
-        ),
-      ];
-    }
-
-    final groups = <String, List<_DownloadedImageDisplayItem>>{};
-    final groupTitles = <String, String>{};
-    final groupOrder = <String>[];
-
-    for (final item in items) {
-      String groupId;
-      String groupTitle;
-
-      switch (_groupType) {
-        case _GroupType.illust:
-          groupId = 'illust_${item.illust.illustId}';
-          groupTitle = '${item.illust.illustId} · ${item.illust.title}';
-          break;
-        case _GroupType.date:
-          final date = DateTime.fromMillisecondsSinceEpoch(
-            item.illust.downloadTime,
-          );
-          groupId = 'date_${date.year}_${date.month}_${date.day}';
-          groupTitle =
-              '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-          break;
-        case _GroupType.type:
-          groupId = 'type_${item.imageType}';
-          groupTitle = item.imageType.toUpperCase();
-          break;
-        case _GroupType.resolution:
-          groupId = 'res_${item.resolutionText}';
-          groupTitle = item.resolutionText;
-          break;
-        case _GroupType.none:
-          groupId = 'none';
-          groupTitle = '所有图片';
-          break;
-      }
-
-      if (!groups.containsKey(groupId)) {
-        groups[groupId] = [];
-        groupTitles[groupId] = groupTitle;
-        groupOrder.add(groupId);
-      }
-      groups[groupId]!.add(item);
-    }
-
-    return groupOrder.map((id) {
-      return _GroupedItems(
-        title: '${groupTitles[id]} (${groups[id]!.length})',
-        items: groups[id]!,
-        type: _groupType,
-        id: id,
-      );
-    }).toList();
-  }
 }
 
+// ============ Private widget classes ============
+
 class _AuthorImageCard extends StatelessWidget {
-  final _DownloadedImageDisplayItem item;
+  final DownloadedImageDisplayItem item;
   final bool isSelected;
   final bool isMultiSelectMode;
   final String heroTag;
@@ -1897,9 +1253,10 @@ class _AuthorImageCard extends StatelessWidget {
                         '${item.illust.illustId} · ${item.illust.title}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: Theme.of(
-                          context,
-                        ).textTheme.bodySmall?.copyWith(fontSize: 11),
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodySmall
+                            ?.copyWith(fontSize: 11),
                       ),
                       const SizedBox(height: 2),
                       Text(
@@ -2035,77 +1392,6 @@ class _GroupScrollOffset {
   final double offset;
 
   const _GroupScrollOffset(this.groupId, this.offset);
-}
-
-class _GroupedItems {
-  final String title;
-  final List<_DownloadedImageDisplayItem> items;
-  final _GroupType type;
-  final String id;
-
-  const _GroupedItems({
-    required this.title,
-    required this.items,
-    required this.type,
-    required this.id,
-  });
-}
-
-class _DownloadedImageDisplayItem {
-  final DownloadedIllust illust;
-  final DownloadedImage image;
-  final String path;
-
-  const _DownloadedImageDisplayItem({
-    required this.illust,
-    required this.image,
-    required this.path,
-  });
-
-  String get id => '${illust.illustId}_${image.part}';
-
-  int get fileSize => image.fileSize;
-
-  int? get resolutionWidth {
-    final w = image.width;
-    if (w == null || w <= 0) return null;
-    return w;
-  }
-
-  int? get resolutionHeight {
-    final h = image.height;
-    if (h == null || h <= 0) return null;
-    return h;
-  }
-
-  int? get resolutionArea {
-    final w = resolutionWidth;
-    final h = resolutionHeight;
-    if (w == null || h == null) return null;
-    return w * h;
-  }
-
-  /// 文件名（包含后缀）。
-  String get fileNameWithExt => image.getFullFileName();
-
-  /// 图片类型（png/webp/jpg...）。
-  String get imageType {
-    final ext = image.extension.trim().toLowerCase();
-    if (ext.isEmpty) return 'unknown';
-    return ext.startsWith('.') ? ext.substring(1) : ext;
-  }
-
-  String get partText => 'P${image.part}';
-
-  /// 分辨率展示文案。
-  String get resolutionText {
-    final w = image.width;
-    final h = image.height;
-    if (w == null || h == null || w <= 0 || h <= 0) {
-      return '未知分辨率';
-    }
-    return '${w}x$h';
-  }
 }
 
 class _ResolutionFilterDialogResult {

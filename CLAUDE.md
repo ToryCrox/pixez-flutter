@@ -12,26 +12,26 @@ flutter的构建版本为3.38.5
 
 ```bash
 # 获取依赖
-flutter pub get
+fvm flutter pub get
 
 # 运行代码生成（MobX、JSON 序列化、Riverpod、Freezed）
-dart run build_runner build --delete-conflicting-outputs
+fvm flutter run build_runner build --delete-conflicting-outputs
 
 # 在已连接的设备上运行
-flutter run
+fvm flutter run
 
 # 构建 Android APK
-flutter build apk
+fvm flutter build apk
 
 # 为 Google Play 构建（使用环境变量）
-flutter build apk --dart-define=IS_GOOGLEPLAY=true
+fvm flutter build apk --dart-define=IS_GOOGLEPLAY=true
 
 # 构建 Windows MSIX
-flutter build windows
-dart run msix:create
+fvm flutter build windows
+fvm flutter run msix:create
 
 # 构建 iOS
-flutter build ios
+fvm flutter build ios
 ```
 
 ## 架构
