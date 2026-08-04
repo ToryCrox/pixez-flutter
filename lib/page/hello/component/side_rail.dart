@@ -19,6 +19,9 @@ class SideRail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final iconSize = width < 52 ? 20.0 : 24.0;
+
     return SizedBox(
       width: width,
       child: Stack(
@@ -29,8 +32,14 @@ class SideRail extends StatelessWidget {
             labelType: width < 52
                 ? NavigationRailLabelType.none
                 : NavigationRailLabelType.all,
-            unselectedIconTheme: IconThemeData(size: width < 52 ? 20 : 24),
-            selectedIconTheme: IconThemeData(size: width < 52 ? 20 : 24),
+            unselectedIconTheme: IconThemeData(
+              size: iconSize,
+              color: colorScheme.onSurfaceVariant,
+            ),
+            selectedIconTheme: IconThemeData(
+              size: iconSize,
+              color: colorScheme.onSecondaryContainer,
+            ),
             onDestinationSelected: onDestinationSelected,
             destinations: destinations,
           ),
@@ -40,7 +49,10 @@ class SideRail extends StatelessWidget {
               right: 0,
               bottom: 0,
               child: IconTheme(
-                  data: IconThemeData(size: width < 64 ? 20 : 24),
+                  data: IconThemeData(
+                    size: width < 64 ? 20 : 24,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
                   child: trailing!),
             ),
         ],

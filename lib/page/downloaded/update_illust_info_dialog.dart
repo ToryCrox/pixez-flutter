@@ -16,7 +16,6 @@
 import 'dart:io';
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'package:pixez/utils/image_utils.dart';
@@ -1351,6 +1350,7 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
       String? updateError,
     })
     status,
+    ColorScheme colorScheme,
   ) {
     if (status.updateError != null) {
       return (
@@ -1394,10 +1394,10 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
       );
     } else if (status.isNotScanned) {
       return (
-        backgroundColor: Colors.grey[100]!,
-        borderColor: Colors.grey[400]!,
+        backgroundColor: colorScheme.surfaceContainerHigh,
+        borderColor: colorScheme.outlineVariant,
         leadingIcon: Icons.pending,
-        iconColor: Colors.grey[600]!,
+        iconColor: colorScheme.onSurfaceVariant,
         statusText: '未扫描',
       );
     } else if (status.hasBroken) {
@@ -1498,7 +1498,7 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
         child: Container(
           padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
-            color: iconColor.withOpacity(0.1),
+            color: iconColor.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Text(
@@ -1636,7 +1636,8 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
   Widget _buildIllustItem(UpdateIllustInfo info) {
     // 获取作品状态和样式配置
     final status = _determineIllustStatus(info);
-    final style = _getStyleConfig(status);
+    final colorScheme = Theme.of(context).colorScheme;
+    final style = _getStyleConfig(status, colorScheme);
 
     final isScanning = status.isScanning;
     final isPaused = status.isPaused;
@@ -1681,7 +1682,7 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
-                      color: Colors.black,
+                      color: colorScheme.onSurface,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -1691,7 +1692,10 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
                     children: [
                       Text(
                         '${info.illust.userName} | ${_getPageCountText(info.illust)}',
-                        style: TextStyle(fontSize: 13, color: Colors.black45),
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
                       ),
                       if (isScanning && info.totalImageCount > 0) ...[
                         SizedBox(width: 8),
@@ -1757,7 +1761,10 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
                       children: [
                         Text(
                           '总大小: ',
-                          style: TextStyle(fontSize: 12, color: Colors.black45),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
                         ),
                         if (info.totalSizeInDb != info.totalSizeScanned)
                           Text(
@@ -1773,7 +1780,7 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
                             '${info.totalSizeInDb.formatFileSize()}',
                             style: TextStyle(
                               fontSize: 12,
-                              color: Colors.grey[600],
+                              color: colorScheme.onSurfaceVariant,
                             ),
                           ),
                       ],
@@ -1858,7 +1865,7 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
                                       '总大小: ',
                                       style: TextStyle(
                                         fontSize: 12,
-                                        color: Colors.black45,
+                                        color: colorScheme.onSurfaceVariant,
                                       ),
                                     ),
                                     if (info.totalSizeInDb !=
@@ -1876,7 +1883,7 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
                                         '${info.totalSizeInDb.formatFileSize()}',
                                         style: TextStyle(
                                           fontSize: 12,
-                                          color: Colors.grey[600],
+                                          color: colorScheme.onSurfaceVariant,
                                         ),
                                       ),
                                   ],
@@ -1910,6 +1917,7 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
   Widget _buildImageUpdateItem(ImageUpdateInfo imageUpdate) {
     final image = imageUpdate.originalImage;
     final changes = <String>[];
+    final colorScheme = Theme.of(context).colorScheme;
 
     // 始终显示文件大小对比
     if (imageUpdate.newFileSize != null) {
@@ -1946,7 +1954,7 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
             'P${image.part}:',
             style: TextStyle(
               fontWeight: FontWeight.bold,
-              color: Colors.black45,
+              color: colorScheme.onSurfaceVariant,
             ),
           ),
           SizedBox(width: 8),
@@ -1969,10 +1977,13 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
                       ),
                     )
                     : changes.isEmpty
-                    ? Text('无变化', style: TextStyle(color: Colors.grey))
+                    ? Text(
+                      '无变化',
+                      style: TextStyle(color: colorScheme.onSurfaceVariant),
+                    )
                     : Text(
                       changes.join(', '),
-                      style: TextStyle(color: Colors.black45),
+                      style: TextStyle(color: colorScheme.onSurfaceVariant),
                     ),
           ),
         ],
