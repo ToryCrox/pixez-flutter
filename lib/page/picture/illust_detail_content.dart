@@ -194,24 +194,43 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
                   isLoading: _isTranslatingTitle,
                   onTranslate: _translateTitle,
                   onClear: _clearTitleTranslation,
-                  child: SelectionArea(
-                    child: Text(
-                      data.title,
-                      style: Theme.of(
-                        context,
-                      ).textTheme.bodyMedium!.copyWith(fontSize: 18),
-                    ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: SelectionArea(
+                          child: Text(
+                            data.title,
+                            style: Theme.of(
+                              context,
+                            ).textTheme.bodyMedium!.copyWith(fontSize: 18),
+                          ),
+                        ),
+                      ),
+                      Tooltip(
+                        message:
+                            _translatedTitle.isNotEmpty
+                                ? '重新 AI 翻译标题'
+                                : 'AI 翻译标题',
+                        child: IconButton(
+                          icon:
+                              _isTranslatingTitle
+                                  ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                  : const Icon(Icons.auto_awesome_outlined),
+                          iconSize: 18,
+                          visualDensity: VisualDensity.compact,
+                          onPressed:
+                              _isTranslatingTitle ? null : _translateTitle,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                if (_isTranslatingTitle)
-                  const Padding(
-                    padding: EdgeInsets.only(top: 4),
-                    child: SizedBox(
-                      height: 14,
-                      width: 14,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                  ),
                 if (_translatedTitle.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.only(top: 4),
@@ -464,8 +483,7 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
               crossAxisAlignment: CrossAxisAlignment.end,
               mainAxisSize: MainAxisSize.min,
               children: [
-                // 一键复制按钮
-                _buildCopyButton(caption),
+                _buildCaptionActions(caption),
                 // 介绍内容
                 _buildAiTranslatable(
                   context: context,
@@ -494,15 +512,6 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
                     ),
                   ),
                 ),
-                if (_isTranslatingCaption)
-                  const Padding(
-                    padding: EdgeInsets.only(top: 10),
-                    child: SizedBox(
-                      height: 16,
-                      width: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                  ),
                 if (_translatedCaption.isNotEmpty) ...[
                   const Padding(
                     padding: EdgeInsets.only(top: 12),
@@ -516,7 +525,9 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
                         style: TextStyle(
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
-                        child: SelectableHtml(data: _translatedCaption),
+                        child: SelectionArea(
+                          child: SelectableHtml(data: _translatedCaption),
+                        ),
                       ),
                     ),
                   ),
@@ -529,32 +540,60 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
     );
   }
 
+  Widget _buildCaptionActions(String caption) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextButton.icon(
+            onPressed:
+                _isTranslatingCaption ? null : () => _translateCaption(caption),
+            icon:
+                _isTranslatingCaption
+                    ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                    : const Icon(Icons.auto_awesome, size: 14),
+            label: Text(_translatedCaption.isNotEmpty ? '重新 AI 翻译' : 'AI 翻译内容'),
+            style: TextButton.styleFrom(
+              visualDensity: VisualDensity.compact,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              textStyle: const TextStyle(fontSize: 12),
+            ),
+          ),
+          const SizedBox(width: 4),
+          _buildCopyButton(caption),
+        ],
+      ),
+    );
+  }
+
   /// 一键复制按钮
   Widget _buildCopyButton(String caption) {
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
         onTap: () => _copyCaption(caption),
-        child: Padding(
-          padding: const EdgeInsets.only(bottom: 8.0),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.copy_rounded,
-                size: 14,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.copy_rounded,
+              size: 14,
+              color: Theme.of(context).colorScheme.outline,
+            ),
+            SizedBox(width: 4),
+            Text(
+              I18n.of(context).copy,
+              style: TextStyle(
+                fontSize: 12,
                 color: Theme.of(context).colorScheme.outline,
               ),
-              SizedBox(width: 4),
-              Text(
-                I18n.of(context).copy,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Theme.of(context).colorScheme.outline,
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
