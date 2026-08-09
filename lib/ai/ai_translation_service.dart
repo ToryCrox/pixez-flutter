@@ -1,6 +1,8 @@
 import 'package:pixez/ai/ai_client.dart';
 import 'package:pixez/ai/ai_models.dart';
+import 'package:pixez/ai/ai_result_cache.dart';
 import 'package:pixez/ai/ai_settings_store.dart';
+import 'package:pixez/custom/log.dart';
 import 'package:pixez/ai/html_tag_protector.dart';
 
 class IllustTranslation {
@@ -19,9 +21,14 @@ class IllustTranslation {
 class AiTranslationService {
   final AiSettingsStore settings;
   final AiClient client;
+  final AiResultCache cache;
   final Map<int, IllustTranslation> _illustTranslations = {};
 
-  AiTranslationService({required this.settings, required this.client});
+  AiTranslationService({
+    required this.settings,
+    required this.client,
+    AiResultCache? cache,
+  }) : cache = cache ?? AiResultCache();
 
   IllustTranslation? cachedIllustTranslation(int illustId) =>
       _illustTranslations[illustId];
@@ -80,6 +87,88 @@ class AiTranslationService {
         officialTranslation.isEmpty ? '（无）' : officialTranslation,
   });
 
+  Future<String> translateComment({
+    required String resourceKey,
+    required String text,
+    bool forceRefresh = false,
+  }) => translateCached(
+    sceneId: AiPromptScenes.commentTranslation,
+    resourceKey: resourceKey,
+    sourceText: text,
+    variables: {'text': text},
+    forceRefresh: forceRefresh,
+  );
+
+  Future<String?> cachedComment({
+    required String resourceKey,
+    required String text,
+  }) => _readCachedResult(
+    sceneId: AiPromptScenes.commentTranslation,
+    resourceKey: resourceKey,
+    sourceText: text,
+  );
+
+  Future<String> translateCached({
+    required String sceneId,
+    required String resourceKey,
+    required String sourceText,
+    required Map<String, String> variables,
+    String systemSuffix = '',
+    bool forceRefresh = false,
+  }) async {
+    if (!forceRefresh) {
+      final cached = await _readCachedResult(
+        sceneId: sceneId,
+        resourceKey: resourceKey,
+        sourceText: sourceText,
+      );
+      if (cached != null) return cached;
+    }
+
+    if (!settings.initialized) await settings.init();
+    final resolved = settings.requireActivePrompt(sceneId);
+    final result = await _complete(
+      provider: resolved.provider,
+      prompt: resolved.prompt,
+      variables: variables,
+      systemSuffix: systemSuffix,
+    );
+    try {
+      await cache.put(
+        sceneId: sceneId,
+        resourceKey: resourceKey,
+        sourceText: sourceText,
+        resultText: result,
+        metadata: {
+          'prompt_id': resolved.prompt.id,
+          'provider_id': resolved.provider.id,
+          'model': resolved.provider.model,
+        },
+      );
+    } catch (error, stackTrace) {
+      Log.w('保存 AI 结果缓存失败', error: error, stackTrace: stackTrace);
+    }
+    return result;
+  }
+
+  Future<String?> _readCachedResult({
+    required String sceneId,
+    required String resourceKey,
+    required String sourceText,
+  }) async {
+    try {
+      final cached = await cache.get(
+        sceneId: sceneId,
+        resourceKey: resourceKey,
+        sourceText: sourceText,
+      );
+      return cached?.resultText;
+    } catch (error, stackTrace) {
+      Log.w('读取 AI 结果缓存失败', error: error, stackTrace: stackTrace);
+      return null;
+    }
+  }
+
   Future<String> translate(
     String sceneId,
     Map<String, String> variables, {
@@ -87,19 +176,28 @@ class AiTranslationService {
   }) async {
     if (!settings.initialized) await settings.init();
     final resolved = settings.requireActivePrompt(sceneId);
-    return client.complete(
-      resolved.provider,
-      AiCompletionInput(
-        systemPrompt:
-            AiTemplateRenderer.render(resolved.prompt.systemPrompt, variables) +
-            systemSuffix,
-        userPrompt: AiTemplateRenderer.render(
-          resolved.prompt.userTemplate,
-          variables,
-        ),
-      ),
+    return _complete(
+      provider: resolved.provider,
+      prompt: resolved.prompt,
+      variables: variables,
+      systemSuffix: systemSuffix,
     );
   }
+
+  Future<String> _complete({
+    required AiProviderConfig provider,
+    required AiPromptPreset prompt,
+    required Map<String, String> variables,
+    required String systemSuffix,
+  }) => client.complete(
+    provider,
+    AiCompletionInput(
+      systemPrompt:
+          AiTemplateRenderer.render(prompt.systemPrompt, variables) +
+          systemSuffix,
+      userPrompt: AiTemplateRenderer.render(prompt.userTemplate, variables),
+    ),
+  );
 
   String _stripCodeFence(String value) {
     final trimmed = value.trim();

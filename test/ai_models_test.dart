@@ -6,7 +6,7 @@ import 'package:pixez/ai/html_tag_protector.dart';
 void main() {
   test('default prompts contain all required variables', () {
     final prompts = AiDefaultPrompts.create();
-    expect(prompts, hasLength(3));
+    expect(prompts, hasLength(4));
     for (final prompt in prompts) {
       expect(AiTemplateRenderer.validate(prompt), isNull);
     }

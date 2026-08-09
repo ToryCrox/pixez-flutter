@@ -151,9 +151,20 @@ class AiSettingsStore extends ChangeNotifier {
 
   void _restoreMissingDefaults({required bool notify}) {
     final ids = _prompts.map((item) => item.id).toSet();
-    final additions = AiDefaultPrompts.create().where(
-      (item) => !ids.contains(item.id),
-    );
+    final titleProviderId =
+        activePrompt(AiPromptScenes.illustTitle)?.providerId;
+    final defaultProviderId =
+        titleProviderId?.isNotEmpty == true
+            ? titleProviderId
+            : (_providers.length == 1 ? _providers.first.id : null);
+    final additions = AiDefaultPrompts.create()
+        .where((item) => !ids.contains(item.id))
+        .map(
+          (item) =>
+              defaultProviderId == null
+                  ? item
+                  : item.copyWith(providerId: defaultProviderId),
+        );
     _prompts = [..._prompts, ...additions];
     if (notify) notifyListeners();
   }

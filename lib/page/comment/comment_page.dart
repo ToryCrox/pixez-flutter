@@ -32,6 +32,7 @@ import 'package:pixez/main.dart';
 import 'package:pixez/models/comment_response.dart';
 import 'package:pixez/network/api_client.dart';
 import 'package:pixez/page/comment/comment_store.dart';
+import 'package:pixez/page/hello/setting/ai_settings_page.dart';
 import 'package:pixez/page/report/report_items_page.dart';
 import 'package:pixez/supportor_plugin.dart';
 import 'package:share_plus/share_plus.dart';
@@ -71,6 +72,9 @@ class _CommentPageState extends State<CommentPage> {
   late EasyRefreshController easyRefreshController;
   late CommentStore _store;
   String _commentText = "";
+  final Map<int, String> _commentTranslations = {};
+  final Map<int, String> _commentTranslationSources = {};
+  final Set<int> _translatingCommentIds = {};
   
   // Overlay state for embedded mode
   Widget? _overlayPage;
@@ -96,9 +100,9 @@ class _CommentPageState extends State<CommentPage> {
     easyRefreshController = EasyRefreshController(
         controlFinishLoad: true, controlFinishRefresh: true);
     _store = CommentStore(easyRefreshController, widget.id, widget.pId,
-        widget.isReplay, widget.type)
-      ..fetch();
+        widget.isReplay, widget.type);
     super.initState();
+    _fetchComments();
     supportTranslateCheck();
   }
 
@@ -277,10 +281,11 @@ class _CommentPageState extends State<CommentPage> {
         header: PixezDefault.header(context),
         controller: easyRefreshController,
         onRefresh: () async {
-          await _store.fetch();
+          await _fetchComments();
         },
         onLoad: () async {
           await _store.next();
+          await _hydrateCachedTranslations(_store.comments);
         },
         childBuilder: (context, physics, scrollController) {
           return Observer(
@@ -412,6 +417,8 @@ class _CommentPageState extends State<CommentPage> {
                     padding: const EdgeInsets.only(right: 4.0),
                     child: _buildCommentContent(context, comment),
                   ),
+                if (_commentTranslation(comment) != null)
+                  _buildAiTranslationContent(context, comment),
                 if (comment.stamp != null)
                   Padding(
                     padding: const EdgeInsets.only(right: 4.0),
@@ -421,12 +428,21 @@ class _CommentPageState extends State<CommentPage> {
                       width: 100,
                     ),
                   ),
-                if (comment.hasReplies == true)
+                if (comment.hasReplies == true ||
+                    _canTranslateComment(comment))
                   Padding(
                     padding: const EdgeInsets.only(right: 4.0),
-                    child: ActionChip(
-                      label: Text(I18n.of(context).view_replies),
-                      onPressed: () => _onViewReplies(comment),
+                    child: Wrap(
+                      spacing: 8,
+                      children: [
+                        if (comment.hasReplies == true)
+                          ActionChip(
+                            label: Text(I18n.of(context).view_replies),
+                            onPressed: () => _onViewReplies(comment),
+                          ),
+                        if (_canTranslateComment(comment))
+                          _buildAiTranslationButton(context, comment),
+                      ],
                     ),
                   ),
                 Padding(
@@ -519,7 +535,7 @@ class _CommentPageState extends State<CommentPage> {
                                                   parentCommentId);
                                       }
                                       _editController.clear();
-                                      _store.fetch();
+                                      _fetchComments();
                                     } catch (e) {
                                       Log.e('Failed to post comment', error: e);
                                     }
@@ -553,6 +569,164 @@ class _CommentPageState extends State<CommentPage> {
         text: comment.comment ?? "",
       ),
     );
+  }
+
+  String? _commentTranslation(Comment comment) {
+    final commentId = comment.id;
+    if (commentId == null) return null;
+    final sourceText = comment.comment?.trim() ?? '';
+    return _commentTranslationSources[commentId] == sourceText
+        ? _commentTranslations[commentId]
+        : null;
+  }
+
+  bool _canTranslateComment(Comment comment) =>
+      comment.stamp == null &&
+      comment.id != null &&
+      (comment.comment?.trim().isNotEmpty ?? false);
+
+  Widget _buildAiTranslationButton(BuildContext context, Comment comment) {
+    final commentId = comment.id!;
+    final isTranslating = _translatingCommentIds.contains(commentId);
+    return TextButton.icon(
+      style: TextButton.styleFrom(
+        visualDensity: VisualDensity.compact,
+        padding: const EdgeInsets.symmetric(horizontal: 6),
+      ),
+      onPressed: isTranslating
+          ? null
+          : () => _translateComment(
+                comment,
+                forceRefresh: _commentTranslation(comment) != null,
+              ),
+      icon: isTranslating
+          ? const SizedBox.square(
+              dimension: 14,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : const Icon(Icons.auto_awesome_outlined, size: 16),
+      label: Text('AI ${I18n.of(context).translate}'),
+    );
+  }
+
+  Widget _buildAiTranslationContent(BuildContext context, Comment comment) {
+    final translation = _commentTranslation(comment)!;
+    return Padding(
+      padding: const EdgeInsets.only(top: 6, right: 4),
+      child: SelectionArea(
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: Theme.of(context)
+                .colorScheme
+                .primaryContainer
+                .withValues(alpha: 0.35),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: CommentEmojiText(
+            text: translation,
+            leading: Icon(
+              Icons.auto_awesome,
+              size: 15,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _translateComment(
+    Comment comment, {
+    bool forceRefresh = false,
+  }) async {
+    final commentId = comment.id;
+    final text = comment.comment?.trim() ?? '';
+    if (commentId == null ||
+        text.isEmpty ||
+        _translatingCommentIds.contains(commentId)) {
+      return;
+    }
+    setState(() => _translatingCommentIds.add(commentId));
+    try {
+      final translation = await aiTranslationService.translateComment(
+        resourceKey: 'comment:$commentId',
+        text: text,
+        forceRefresh: forceRefresh,
+      );
+      if (mounted) {
+        setState(() {
+          _commentTranslations[commentId] = translation;
+          _commentTranslationSources[commentId] = text;
+        });
+      }
+    } catch (error) {
+      _showAiError(error);
+    } finally {
+      if (mounted) {
+        setState(() => _translatingCommentIds.remove(commentId));
+      }
+    }
+  }
+
+  void _showAiError(Object error) {
+    if (!mounted) return;
+    final message = error.toString();
+    if (message.contains('请前往 AI 设置')) {
+      showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('尚未配置 AI 服务'),
+          content: Text(message),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () {
+                Navigator.pop(dialogContext);
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const AiSettingsPage()),
+                );
+              },
+              child: const Text('前往设置'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+    BotToast.showText(text: message);
+  }
+
+  Future<void> _fetchComments() async {
+    await _store.fetch();
+    await _hydrateCachedTranslations(_store.comments);
+  }
+
+  Future<void> _hydrateCachedTranslations(Iterable<Comment> comments) async {
+    final translations = <int, String>{};
+    final sources = <int, String>{};
+    for (final comment in comments) {
+      final commentId = comment.id;
+      final text = comment.comment?.trim() ?? '';
+      if (commentId == null || text.isEmpty) continue;
+      final cached = await aiTranslationService.cachedComment(
+        resourceKey: 'comment:$commentId',
+        text: text,
+      );
+      if (cached != null) {
+        translations[commentId] = cached;
+        sources[commentId] = text;
+      }
+    }
+    if (!mounted || translations.isEmpty) return;
+    setState(() {
+      _commentTranslations.addAll(translations);
+      _commentTranslationSources.addAll(sources);
+    });
   }
 
   Widget _buildTrailingRow(Comment comment, BuildContext context) {
@@ -637,7 +811,12 @@ class _CommentPageState extends State<CommentPage> {
               final pos = box != null
                   ? box.localToGlobal(Offset.zero) & box.size
                   : null;
-              Share.share(selectionText, sharePositionOrigin: pos);
+              SharePlus.instance.share(
+                ShareParams(
+                  text: selectionText,
+                  sharePositionOrigin: pos,
+                ),
+              );
               return;
             }
             await SupportorPlugin.start(selectionText);

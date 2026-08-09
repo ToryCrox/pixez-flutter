@@ -3,7 +3,10 @@ import 'package:pixez/page/comment/comment_store.dart';
 
 class CommentEmojiText extends StatefulWidget {
   final String text;
-  const CommentEmojiText({Key? key, required this.text}) : super(key: key);
+  final Widget? leading;
+
+  const CommentEmojiText({Key? key, required this.text, this.leading})
+    : super(key: key);
 
   @override
   _CommentEmojiTextState createState() => _CommentEmojiTextState();
@@ -43,12 +46,15 @@ class _CommentEmojiTextState extends State<CommentEmojiText> {
         if (emojiText.isNotEmpty) {
           final key = "($emojiText)";
           if (emojisMap.containsKey(key)) {
-            spans.add(WidgetSpan(
+            spans.add(
+              WidgetSpan(
                 child: Image.asset(
-              'assets/emojis/${emojisMap[key]}',
-              width: 20,
-              height: 20,
-            )));
+                  'assets/emojis/${emojisMap[key]}',
+                  width: 20,
+                  height: 20,
+                ),
+              ),
+            );
           } else {
             spans.add(TextSpan(text: "($emojiText)"));
             template = "";
@@ -76,7 +82,17 @@ class _CommentEmojiTextState extends State<CommentEmojiText> {
     return Text.rich(
       TextSpan(
         style: Theme.of(context).textTheme.bodyMedium,
-        children: [for (var i in _spans) i],
+        children: [
+          if (widget.leading != null)
+            WidgetSpan(
+              alignment: PlaceholderAlignment.middle,
+              child: Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: widget.leading!,
+              ),
+            ),
+          for (var i in _spans) i,
+        ],
       ),
     );
   }

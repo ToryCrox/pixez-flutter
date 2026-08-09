@@ -140,17 +140,20 @@ class AiPromptScenes {
   static const illustTitle = 'illust_title';
   static const illustCaption = 'illust_caption';
   static const tagTranslation = 'tag_translation';
+  static const commentTranslation = 'comment_translation';
 
   static const labels = <String, String>{
     illustTitle: '插画标题',
     illustCaption: '插画介绍',
     tagTranslation: '标签翻译',
+    commentTranslation: '用户评论翻译',
   };
 
   static const requiredVariables = <String, Set<String>>{
     illustTitle: {'text'},
     illustCaption: {'text'},
     tagTranslation: {'tag_name', 'official_translation'},
+    commentTranslation: {'text'},
   };
 }
 
@@ -223,6 +226,16 @@ class AiDefaultPrompts {
           '你是 Pixiv 标签本地化助手。请结合标签原名和官方翻译，输出最常用、简洁、准确的简体中文标签。优先使用作品、角色和术语已有的官方中文名；不要解释、不要加引号，只输出一个标签译名。',
       userTemplate:
           '标签原名：{{tag_name}}\n官方翻译：{{official_translation}}\n\n请给出简体中文标签译名。',
+    ),
+    AiPromptPreset(
+      id: 'builtin_comment_translation_zh_cn',
+      name: '用户评论翻译（简体中文）',
+      sceneId: AiPromptScenes.commentTranslation,
+      providerId: '',
+      isActive: true,
+      systemPrompt:
+          '你是 Pixiv 用户评论翻译助手。请判断原文语言并将评论准确、自然地翻译为简体中文；保留用户名、作品名、角色名、网络用语、颜文字、Emoji、换行和原有语气；对于俚语、省略和口语表达，优先传达其真实含义。不要补充、删减、审查或解释内容。若原文已经是简体中文，请原样输出。不要加引号，只输出译文。',
+      userTemplate: '请翻译以下用户评论：\n\n{{text}}',
     ),
   ];
 }
