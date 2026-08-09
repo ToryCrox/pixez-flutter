@@ -194,41 +194,21 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
                   isLoading: _isTranslatingTitle,
                   onTranslate: _translateTitle,
                   onClear: _clearTitleTranslation,
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: SelectionArea(
-                          child: Text(
-                            data.title,
-                            style: Theme.of(
-                              context,
-                            ).textTheme.bodyMedium!.copyWith(fontSize: 18),
+                  child: SelectionArea(
+                    child: Text.rich(
+                      TextSpan(
+                        text: data.title,
+                        style: Theme.of(
+                          context,
+                        ).textTheme.bodyMedium!.copyWith(fontSize: 18),
+                        children: [
+                          WidgetSpan(
+                            alignment: PlaceholderAlignment.middle,
+                            child: _buildTitleTranslationButton(),
                           ),
-                        ),
+                        ],
                       ),
-                      Tooltip(
-                        message:
-                            _translatedTitle.isNotEmpty
-                                ? '重新 AI 翻译标题'
-                                : 'AI 翻译标题',
-                        child: IconButton(
-                          icon:
-                              _isTranslatingTitle
-                                  ? const SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                  : const Icon(Icons.auto_awesome_outlined),
-                          iconSize: 18,
-                          visualDensity: VisualDensity.compact,
-                          onPressed:
-                              _isTranslatingTitle ? null : _translateTitle,
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
                 if (_translatedTitle.isNotEmpty)
@@ -536,6 +516,25 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildTitleTranslationButton() {
+    return Tooltip(
+      message: _translatedTitle.isNotEmpty ? '重新 AI 翻译标题' : 'AI 翻译标题',
+      child: IconButton(
+        icon:
+            _isTranslatingTitle
+                ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+                : const Icon(Icons.auto_awesome_outlined),
+        iconSize: 18,
+        visualDensity: VisualDensity.compact,
+        onPressed: _isTranslatingTitle ? null : _translateTitle,
       ),
     );
   }

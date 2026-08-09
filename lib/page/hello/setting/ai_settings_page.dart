@@ -496,9 +496,12 @@ class _PromptEditorDialogState extends State<_PromptEditorDialog> {
               ),
               Align(
                 alignment: Alignment.centerLeft,
-                child: Text(
-                  '可用变量：$variables',
-                  style: Theme.of(context).textTheme.bodySmall,
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Text(
+                    '可用变量：$variables',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
                 ),
               ),
               _field(_system, 'System 提示词', maxLines: 5),

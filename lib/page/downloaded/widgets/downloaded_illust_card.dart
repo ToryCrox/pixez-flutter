@@ -643,11 +643,19 @@ class DownloadedIllustCard extends StatelessWidget {
   }
 
   Widget _buildTitleRow(BuildContext context) {
-    return Text(
+    final tooltipMessage = [
       illust.title,
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-      style: Theme.of(context).textTheme.bodyMedium,
+      if (illust.translatedTitle.isNotEmpty) '翻译：${illust.translatedTitle}',
+    ].join('\n');
+
+    return Tooltip(
+      message: tooltipMessage,
+      child: Text(
+        illust.title,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: Theme.of(context).textTheme.bodyMedium,
+      ),
     );
   }
 
