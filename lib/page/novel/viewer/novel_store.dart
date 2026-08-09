@@ -21,6 +21,7 @@ import 'package:html/parser.dart';
 import 'package:dio/dio.dart';
 import 'package:mobx/mobx.dart';
 import 'package:pixez/custom/log.dart';
+import 'package:pixez/custom/disk_cache.dart';
 import 'package:pixez/ai/ai_models.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/models/novel_recom_response.dart';
@@ -93,6 +94,7 @@ abstract class _NovelStoreBase with Store {
   ObservableMap<String, NovelTranslationEntry> translations = ObservableMap();
 
   Future<void>? _translationFuture;
+  Future<void>? _translationHydrationFuture;
   bool _translationsCancelled = false;
 
   NovelViewerPersistProvider _novelViewerPersistProvider =
@@ -119,6 +121,7 @@ abstract class _NovelStoreBase with Store {
   @action
   Future<void> fetch() async {
     errorMessage = null;
+    await _loadCachedNovelText();
     try {
       bookedOffset = 0.0;
       final response = await apiClient.webviewNovel(id);
@@ -134,9 +137,39 @@ abstract class _NovelStoreBase with Store {
       }
       novelHistoryStore.insert(novel!);
       fetchOffset();
+      DiskCache.writeModel(_cacheKey, {
+        'text_response': novelTextResponse!.toJson(),
+        'novel': novel!.toJson(),
+      });
     } catch (e) {
       Log.e('Failed to fetch novel', error: e);
-      errorMessage = e.toString();
+      if (novelTextResponse == null) errorMessage = e.toString();
+    }
+  }
+
+  String get _cacheKey => 'novel_viewer_text_$id';
+
+  Future<void> _loadCachedNovelText() async {
+    try {
+      final cached = await DiskCache.readModel(_cacheKey, (map) => map);
+      if (cached == null) return;
+      // 兼容本次改动之前仅缓存正文的旧缓存格式。
+      final textMap =
+          cached['text_response'] is Map
+              ? Map<String, dynamic>.from(cached['text_response'] as Map)
+              : cached;
+      final cachedText = NovelWebResponse.fromJson(textMap);
+      novelTextResponse = cachedText;
+      if (novel == null && cached['novel'] is Map) {
+        novel = Novel.fromJson(
+          Map<String, dynamic>.from(cached['novel'] as Map),
+        );
+      }
+      spans = await compute(buildSpans, cachedText);
+      contentBlocks = NovelSpansGenerator().buildContentBlocks(cachedText);
+      Log.d(() => '从磁盘缓存加载小说正文: $id');
+    } catch (error, stackTrace) {
+      Log.w('读取小说正文缓存失败', error: error, stackTrace: stackTrace);
     }
   }
 
@@ -174,6 +207,26 @@ abstract class _NovelStoreBase with Store {
     (entry) => entry.status == NovelTranslationStatus.success,
   );
 
+  bool needsTranslationContinuation(String targetLanguage) {
+    if (translationLocale != targetLanguage) return false;
+    final currentNovel = novel;
+    if (currentNovel?.title.trim().isNotEmpty == true &&
+        translations['title']?.status != NovelTranslationStatus.success) {
+      return true;
+    }
+    if (currentNovel?.caption.trim().isNotEmpty == true &&
+        translations['caption']?.status != NovelTranslationStatus.success) {
+      return true;
+    }
+    return contentBlocks
+        .where((block) => block.isTranslatable)
+        .any(
+          (block) =>
+              translations['body:${block.id}']?.status !=
+              NovelTranslationStatus.success,
+        );
+  }
+
   NovelTranslationEntry? translationFor(String key) => translations[key];
 
   @action
@@ -197,9 +250,9 @@ abstract class _NovelStoreBase with Store {
   Future<void> _translateAll(String targetLanguage) async {
     if (translationLocale != targetLanguage) {
       translationLocale = targetLanguage;
-      translationVisible = true;
       translations = ObservableMap();
     }
+    translationVisible = true;
     await aiTranslationService.ensureSceneReady(
       AiPromptScenes.novelTranslation,
     );
@@ -231,6 +284,99 @@ abstract class _NovelStoreBase with Store {
       tasks.add(() => _translateBodyBatch(batch, targetLanguage));
     }
     await _runWithConcurrency(tasks, maxConcurrent: 3);
+  }
+
+  /// 将持久化的 AI 翻译结果回填到阅读页，不触发新的翻译请求。
+  Future<void> hydrateCachedTranslations(String targetLanguage) {
+    final current = _translationHydrationFuture;
+    if (current != null) return current;
+    final request = _hydrateCachedTranslations(targetLanguage);
+    _translationHydrationFuture = request;
+    return request.whenComplete(() {
+      if (identical(_translationHydrationFuture, request)) {
+        _translationHydrationFuture = null;
+      }
+    });
+  }
+
+  Future<void> _hydrateCachedTranslations(String targetLanguage) async {
+    if (translationLocale != null && translationLocale != targetLanguage) {
+      return;
+    }
+    translationLocale = targetLanguage;
+    translationVisible = true;
+
+    final currentNovel = novel;
+    final tasks = <Future<void> Function()>[];
+    if (currentNovel?.title.trim().isNotEmpty == true) {
+      tasks.add(
+        () => _hydratePart(
+          key: 'title',
+          sourceText: currentNovel!.title,
+          targetLanguage: targetLanguage,
+        ),
+      );
+    }
+    if (currentNovel?.caption.trim().isNotEmpty == true) {
+      tasks.add(
+        () => _hydratePart(
+          key: 'caption',
+          sourceText: currentNovel!.caption,
+          targetLanguage: targetLanguage,
+          preserveHtml: true,
+        ),
+      );
+    }
+    for (final batch in _buildBodyBatches(contentBlocks)) {
+      tasks.add(() => _hydrateBodyBatch(batch, targetLanguage));
+    }
+    await _runWithConcurrency(tasks, maxConcurrent: 3);
+  }
+
+  Future<void> _hydratePart({
+    required String key,
+    required String sourceText,
+    required String targetLanguage,
+    bool preserveHtml = false,
+  }) async {
+    final translated = await aiTranslationService.cachedNovelPart(
+      novelId: id,
+      partKey: key,
+      targetLanguage: targetLanguage,
+      sourceText: sourceText,
+      preserveHtml: preserveHtml,
+    );
+    if (translated == null || translationLocale != targetLanguage) return;
+    final existing = translations[key];
+    if (existing?.status == NovelTranslationStatus.loading) return;
+    translations[key] = NovelTranslationEntry(
+      status: NovelTranslationStatus.success,
+      sourceText: sourceText,
+      translatedText: translated,
+    );
+  }
+
+  Future<void> _hydrateBodyBatch(
+    List<NovelContentBlock> blocks,
+    String targetLanguage,
+  ) async {
+    final translated = await aiTranslationService.cachedNovelBodyBatch(
+      novelId: id,
+      batchKey: '${blocks.first.id}-${blocks.last.id}',
+      targetLanguage: targetLanguage,
+      sourceTexts: blocks.map((block) => block.translationSource).toList(),
+    );
+    if (translated == null || translationLocale != targetLanguage) return;
+    for (var index = 0; index < blocks.length; index++) {
+      final block = blocks[index];
+      final key = 'body:${block.id}';
+      if (translations[key]?.status == NovelTranslationStatus.loading) continue;
+      translations[key] = NovelTranslationEntry(
+        status: NovelTranslationStatus.success,
+        sourceText: block.translationSource,
+        translatedText: translated[index],
+      );
+    }
   }
 
   @action

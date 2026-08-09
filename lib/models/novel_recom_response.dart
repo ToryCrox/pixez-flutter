@@ -99,6 +99,8 @@ class Novel {
   });
 
   factory Novel.fromJson(Map<String, dynamic> json) => _$NovelFromJson(json);
+
+  Map<String, dynamic> toJson() => _$NovelToJson(this);
 }
 
 @JsonSerializable()
@@ -116,6 +118,8 @@ class ImageUrls {
 
   factory ImageUrls.fromJson(Map<String, dynamic> json) =>
       _$ImageUrlsFromJson(json);
+
+  Map<String, dynamic> toJson() => _$ImageUrlsToJson(this);
 }
 
 @JsonSerializable()
@@ -126,6 +130,8 @@ class Series {
   Series({this.id, this.title});
 
   factory Series.fromJson(Map<String, dynamic> json) => _$SeriesFromJson(json);
+
+  Map<String, dynamic> toJson() => _$SeriesToJson(this);
 }
 
 @JsonSerializable()
@@ -143,6 +149,8 @@ class Tag {
   });
 
   factory Tag.fromJson(Map<String, dynamic> json) => _$TagFromJson(json);
+
+  Map<String, dynamic> toJson() => _$TagToJson(this);
 }
 
 @JsonSerializable()
@@ -164,6 +172,8 @@ class User {
   });
 
   factory User.fromJson(Map<String, dynamic> json) => _$UserFromJson(json);
+
+  Map<String, dynamic> toJson() => _$UserToJson(this);
 }
 
 @JsonSerializable()
@@ -174,6 +184,8 @@ class ProfileImageUrls {
 
   factory ProfileImageUrls.fromJson(Map<String, dynamic> json) =>
       _$ProfileImageUrlsFromJson(json);
+
+  Map<String, dynamic> toJson() => _$ProfileImageUrlsToJson(this);
 }
 
 // class PrivacyPolicy {

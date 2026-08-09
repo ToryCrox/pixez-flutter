@@ -66,6 +66,7 @@ class _NovelViewerPageState extends State<NovelViewerPage> {
   double _localOffset = 0.0;
   bool supportTranslate = false;
   String _selectedText = "";
+  String? _hydratedTranslationLocale;
   NovelSpansGenerator novelSpansGenerator = NovelSpansGenerator();
 
   Future<void> initMethod() async {
@@ -152,6 +153,15 @@ class _NovelViewerPageState extends State<NovelViewerPage> {
         }
         if (_novelStore.novelTextResponse != null &&
             _novelStore.novel != null) {
+          final targetLanguage = _targetLanguage(context);
+          if (_hydratedTranslationLocale != targetLanguage) {
+            _hydratedTranslationLocale = targetLanguage;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                _novelStore.hydrateCachedTranslations(targetLanguage);
+              }
+            });
+          }
           _textStyle =
               _textStyle ?? Theme.of(context).textTheme.bodyLarge!.copyWith();
           if (_controller == null) {
@@ -210,7 +220,6 @@ class _NovelViewerPageState extends State<NovelViewerPage> {
                   ),
                 ],
               ),
-              extendBodyBehindAppBar: true,
               body: ListView.builder(
                 padding: EdgeInsets.all(0),
                 controller: _controller,
@@ -276,11 +285,6 @@ class _NovelViewerPageState extends State<NovelViewerPage> {
                       span,
                     ),
                   ),
-                  if (translation?.status == NovelTranslationStatus.success)
-                    TextSpan(
-                      text: '  ${translation!.translatedText}',
-                      style: _translationTextStyle(context),
-                    ),
                 ],
               ),
               style: _textStyle,
@@ -289,8 +293,7 @@ class _NovelViewerPageState extends State<NovelViewerPage> {
               ),
             ),
           ),
-          if (block.isTranslatable &&
-              translation?.status != NovelTranslationStatus.success)
+          if (block.isTranslatable)
             _buildTranslationContent(
               context,
               translation,
@@ -341,18 +344,28 @@ class _NovelViewerPageState extends State<NovelViewerPage> {
       );
     }
     if (hasCurrentTranslation) {
+      final hasUnfinishedTranslation = _novelStore.needsTranslationContinuation(
+        currentLocale,
+      );
       return IconButton(
         tooltip:
-            _novelStore.translationVisible
+            hasUnfinishedTranslation
+                ? I18n.of(context).translate
+                : _novelStore.translationVisible
                 ? I18n.of(context).hide_novel_translation
                 : I18n.of(context).show_novel_translation,
         icon: Icon(
-          _novelStore.translationVisible
+          hasUnfinishedTranslation
+              ? Icons.translate
+              : _novelStore.translationVisible
               ? Icons.translate_outlined
               : Icons.translate,
           color: Theme.of(context).textTheme.bodyLarge!.color,
         ),
-        onPressed: _novelStore.toggleTranslationVisibility,
+        onPressed:
+            hasUnfinishedTranslation
+                ? () => _startTranslation(context)
+                : _novelStore.toggleTranslationVisibility,
       );
     }
     return IconButton(
@@ -467,85 +480,76 @@ class _NovelViewerPageState extends State<NovelViewerPage> {
 
   Widget _buildHeader(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top),
+      // AppBar 已由 Scaffold 自动处理安全区和工具栏高度，正文仅保留视觉间距。
+      padding: const EdgeInsets.only(top: 8),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Container(height: 100),
-          Center(
-            child: Container(
-              height: 160,
-              child: PixivImage(_novelStore.novel!.imageUrls.medium),
-            ),
-          ),
           Padding(
-            padding: const EdgeInsets.only(
-              left: 16.0,
-              right: 16.0,
-              top: 12.0,
-              bottom: 8.0,
-            ),
-            child: Text.rich(
-              TextSpan(
-                text: _novelStore.novel!.title,
-                style: Theme.of(context).textTheme.titleMedium,
-                children: [
-                  if (_translationForCurrentLocale(context, 'title')?.status ==
-                      NovelTranslationStatus.success)
-                    TextSpan(
-                      text:
-                          '  ${_translationForCurrentLocale(context, 'title')!.translatedText}',
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-          if (_translationForCurrentLocale(context, 'title')?.status !=
-              NovelTranslationStatus.success)
-            _buildTranslationContent(
-              context,
-              _translationForCurrentLocale(context, 'title'),
-              onRetry: () => _novelStore.retryTitle(_targetLanguage(context)),
-            ),
-          if (_novelStore.novel?.series.id != null)
-            Padding(
-              padding: const EdgeInsets.only(
-                left: 16.0,
-                right: 16.0,
-                top: 0.0,
-                bottom: 0.0,
-              ),
-              child: InkWell(
-                onTap: () {
-                  Leader.push(
-                    context,
-                    NovelSeriesPage(_novelStore.novel!.series.id!),
-                  );
-                },
-                child: Text(
-                  "Series:${_novelStore.novel!.series.title}",
-                  style: Theme.of(context).textTheme.titleSmall,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: SizedBox(
+                    width: 104,
+                    height: 140,
+                    child: PixivImage(_novelStore.novel!.imageUrls.medium),
+                  ),
                 ),
-              ),
-            ),
-          //MARK DETAIL NUM,
-          _buildNumItem(_novelStore.novel!),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: Text(
-              "${_novelStore.novel!.createDate}",
-              style: Theme.of(context).textTheme.labelSmall,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _novelStore.novel!.title,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      _buildTranslationContent(
+                        context,
+                        _translationForCurrentLocale(context, 'title'),
+                        onRetry:
+                            () => _novelStore.retryTitle(
+                              _targetLanguage(context),
+                            ),
+                      ),
+                      if (_novelStore.novel?.series.id != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 6),
+                          child: InkWell(
+                            onTap: () {
+                              Leader.push(
+                                context,
+                                NovelSeriesPage(_novelStore.novel!.series.id!),
+                              );
+                            },
+                            child: Text(
+                              'Series: ${_novelStore.novel!.series.title}',
+                              style: Theme.of(context).textTheme.titleSmall,
+                            ),
+                          ),
+                        ),
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: _buildNumContent(_novelStore.novel!),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(
+                          '${_novelStore.novel!.createDate}',
+                          style: Theme.of(context).textTheme.labelSmall,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
           Padding(
-            padding: const EdgeInsets.symmetric(
-              vertical: 8.0,
-              horizontal: 16.0,
-            ),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
             child: Wrap(
               crossAxisAlignment: WrapCrossAlignment.center,
               spacing: 2,
@@ -553,7 +557,7 @@ class _NovelViewerPageState extends State<NovelViewerPage> {
               children: [
                 if (_novelStore.novel!.NovelAIType == 2)
                   Text(
-                    "${I18n.of(context).ai_generated}",
+                    '${I18n.of(context).ai_generated}',
                     style: Theme.of(context).textTheme.bodySmall!.copyWith(
                       color: Theme.of(context).colorScheme.secondary,
                     ),
@@ -563,10 +567,10 @@ class _NovelViewerPageState extends State<NovelViewerPage> {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.all(8.0),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
             child: Card(
               child: Padding(
-                padding: const EdgeInsets.all(8.0),
+                padding: const EdgeInsets.all(12),
                 child: SelectionArea(
                   onSelectionChanged: (value) {
                     _selectedText = value?.plainText ?? "";
@@ -575,9 +579,14 @@ class _NovelViewerPageState extends State<NovelViewerPage> {
                     return _buildSelectionMenu(editableTextState, context);
                   },
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      SelectableHtml(data: _novelStore.novel?.caption ?? ""),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: SelectableHtml(
+                          data: _novelStore.novel?.caption ?? "",
+                        ),
+                      ),
                       _buildTranslationContent(
                         context,
                         _translationForCurrentLocale(context, 'caption'),
@@ -590,9 +599,6 @@ class _NovelViewerPageState extends State<NovelViewerPage> {
                     ],
                   ),
                 ),
-              ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8.0),
               ),
             ),
           ),
@@ -775,29 +781,26 @@ class _NovelViewerPageState extends State<NovelViewerPage> {
     );
   }
 
-  Widget _buildNumItem(Novel novel) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4),
-      child: Wrap(
-        crossAxisAlignment: WrapCrossAlignment.center,
-        spacing: 2,
-        runSpacing: 0,
-        children: [
-          Text(I18n.of(context).total_bookmark),
-          Text(
-            "${novel.totalBookmarks}",
-            style: TextStyle(color: Theme.of(context).colorScheme.primary),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(left: 8.0),
-            child: Text(I18n.of(context).total_view),
-          ),
-          Text(
-            "${novel.totalView}",
-            style: TextStyle(color: Theme.of(context).colorScheme.primary),
-          ),
-        ],
-      ),
+  Widget _buildNumContent(Novel novel) {
+    return Wrap(
+      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: 2,
+      runSpacing: 0,
+      children: [
+        Text(I18n.of(context).total_bookmark),
+        Text(
+          "${novel.totalBookmarks}",
+          style: TextStyle(color: Theme.of(context).colorScheme.primary),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(left: 8.0),
+          child: Text(I18n.of(context).total_view),
+        ),
+        Text(
+          "${novel.totalView}",
+          style: TextStyle(color: Theme.of(context).colorScheme.primary),
+        ),
+      ],
     );
   }
 

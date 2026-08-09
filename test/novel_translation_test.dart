@@ -172,6 +172,15 @@ void main() {
       expect(await first, '你好');
       expect(await second, '你好');
       expect(adapter.requestCount, 1);
+      expect(
+        await service.cachedNovelPart(
+          novelId: 1,
+          partKey: 'body:block-0',
+          targetLanguage: 'zh-CN',
+          sourceText: 'こんにちは',
+        ),
+        '你好',
+      );
     },
   );
 
@@ -197,6 +206,15 @@ void main() {
 
     expect(await request, ['Line one', 'Line two']);
     expect(adapter.requestCount, 1);
+    expect(
+      await service.cachedNovelBodyBatch(
+        novelId: 1,
+        batchKey: 'block-0-block-1',
+        targetLanguage: 'zh-CN',
+        sourceTexts: const ['第一行', '第二行'],
+      ),
+      ['Line one', 'Line two'],
+    );
   });
 }
 

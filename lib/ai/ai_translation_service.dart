@@ -172,6 +172,53 @@ class AiTranslationService {
     return _restoreNovelBatch(_stripCodeFence(translated), markers);
   }
 
+  /// 读取已完成的小说片段翻译，不会发起新的 AI 请求。
+  Future<String?> cachedNovelPart({
+    required int novelId,
+    required String partKey,
+    required String targetLanguage,
+    required String sourceText,
+    bool preserveHtml = false,
+  }) async {
+    final cacheSource =
+        preserveHtml
+            ? HtmlTagProtection.protect(sourceText).protectedText
+            : sourceText;
+    final cached = await _readCachedResult(
+      sceneId: AiPromptScenes.novelTranslation,
+      resourceKey: 'novel:$novelId:$targetLanguage:$partKey',
+      sourceText: cacheSource,
+    );
+    if (cached == null || !preserveHtml) return cached;
+    return HtmlTagProtection.protect(
+      sourceText,
+    ).restore(_stripCodeFence(cached));
+  }
+
+  /// 读取已完成的一批正文翻译，不会发起新的 AI 请求。
+  Future<List<String>?> cachedNovelBodyBatch({
+    required int novelId,
+    required String batchKey,
+    required String targetLanguage,
+    required List<String> sourceTexts,
+  }) async {
+    final markers = List.generate(
+      sourceTexts.length,
+      (index) => '⟪PXEZ_NOVEL_SEGMENT_${index.toString().padLeft(4, '0')}⟫',
+    );
+    final sourceText = List.generate(
+      sourceTexts.length,
+      (index) => '${markers[index]}${sourceTexts[index]}',
+    ).join('\n');
+    final cached = await _readCachedResult(
+      sceneId: AiPromptScenes.novelTranslation,
+      resourceKey: 'novel:$novelId:$targetLanguage:body-batch:$batchKey',
+      sourceText: sourceText,
+    );
+    if (cached == null) return null;
+    return _restoreNovelBatch(_stripCodeFence(cached), markers);
+  }
+
   Future<String?> cachedComment({
     required String resourceKey,
     required String text,
