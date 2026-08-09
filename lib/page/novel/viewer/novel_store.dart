@@ -93,6 +93,7 @@ abstract class _NovelStoreBase with Store {
   ObservableMap<String, NovelTranslationEntry> translations = ObservableMap();
 
   Future<void>? _translationFuture;
+  bool _translationsCancelled = false;
 
   NovelViewerPersistProvider _novelViewerPersistProvider =
       NovelViewerPersistProvider();
@@ -184,6 +185,7 @@ abstract class _NovelStoreBase with Store {
   Future<void> translateAll(String targetLanguage) async {
     final current = _translationFuture;
     if (current != null) return current;
+    _translationsCancelled = false;
     _translationFuture = _translateAll(targetLanguage);
     try {
       await _translationFuture;
@@ -201,6 +203,7 @@ abstract class _NovelStoreBase with Store {
     await aiTranslationService.ensureSceneReady(
       AiPromptScenes.novelTranslation,
     );
+    if (_translationsCancelled) return;
     final tasks = <Future<void> Function()>[];
     final currentNovel = novel;
     if (currentNovel != null && currentNovel.title.trim().isNotEmpty) {
@@ -256,6 +259,11 @@ abstract class _NovelStoreBase with Store {
         targetLanguage: targetLanguage,
       );
 
+  @action
+  void cancelTranslations() {
+    _translationsCancelled = true;
+  }
+
   Future<void> _translatePart({
     required String key,
     required String sourceText,
@@ -263,7 +271,9 @@ abstract class _NovelStoreBase with Store {
     required String targetLanguage,
     bool preserveHtml = false,
   }) async {
-    if (sourceText.trim().isEmpty || translationLocale != targetLanguage)
+    if (_translationsCancelled ||
+        sourceText.trim().isEmpty ||
+        translationLocale != targetLanguage)
       return;
     final existing = translations[key];
     if (existing?.status == NovelTranslationStatus.loading ||
@@ -362,7 +372,11 @@ abstract class _NovelStoreBase with Store {
     List<NovelContentBlock> blocks,
     String targetLanguage,
   ) async {
-    if (translationLocale != targetLanguage || blocks.isEmpty) return;
+    if (_translationsCancelled ||
+        translationLocale != targetLanguage ||
+        blocks.isEmpty) {
+      return;
+    }
     final pendingBlocks =
         blocks.where((block) {
           final existing = translations['body:${block.id}'];
@@ -419,7 +433,7 @@ abstract class _NovelStoreBase with Store {
   }) async {
     var index = 0;
     Future<void> worker() async {
-      while (index < tasks.length) {
+      while (!_translationsCancelled && index < tasks.length) {
         final task = tasks[index++];
         await task();
       }

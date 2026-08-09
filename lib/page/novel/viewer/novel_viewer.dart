@@ -93,6 +93,7 @@ class _NovelViewerPageState extends State<NovelViewerPage> {
   @override
   void dispose() {
     _offsetDisposer?.call();
+    _novelStore.cancelTranslations();
     if (_novelStore.positionBooked) {
       _novelStore.bookPosition(_localOffset);
     }
