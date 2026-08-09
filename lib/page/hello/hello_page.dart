@@ -38,6 +38,8 @@ import 'package:pixez/page/hello/ranking/rank_page.dart';
 import 'package:pixez/page/hello/recom/recom_spotlight_page.dart';
 import 'package:pixez/page/hello/setting/setting_page.dart';
 import 'package:pixez/page/history/history_page.dart';
+import 'package:pixez/page/novel/history/novel_history_page.dart';
+import 'package:pixez/page/novel/novel_desktop_page.dart';
 import 'package:pixez/page/theme/theme_page.dart';
 import 'package:pixez/page/preview/preview_page.dart';
 import 'package:pixez/page/search/search_page.dart';
@@ -74,6 +76,8 @@ class HelloPage extends StatefulWidget {
 }
 
 class _HelloPageState extends State<HelloPage> {
+  static const _desktopNovelIndex = 4;
+
   StreamSubscription<Uri?>? _sub;
   late int index;
   late PageController _pageController;
@@ -120,7 +124,8 @@ class _HelloPageState extends State<HelloPage> {
       SettingPage(),
     ];
     _wideLists = <Widget>[
-      ..._lists,
+      ..._lists.take(4),
+      const KeepAliveWrapper(child: NovelDesktopPage()),
       KeepAliveWrapper(child: DownloadedPage()),
       KeepAliveWrapper(child: DownloadedAuthorsPage()),
       KeepAliveWrapper(child: TagManagerPage()),
@@ -167,6 +172,9 @@ class _HelloPageState extends State<HelloPage> {
         final wide = _isWideScreen!;
         final list = wide ? _wideLists : _lists;
         index = index.clamp(0, list.length - 1);
+        if (wide) {
+          Constants.type = index == _desktopNovelIndex ? 1 : 0;
+        }
 
         // 更新 windowFrameController 的宽屏状态
         if (Platform.isWindows || Platform.isLinux) {
@@ -216,6 +224,10 @@ class _HelloPageState extends State<HelloPage> {
                                                   (route) => route.isFirst,
                                                 );
                                           }
+                                          Constants.type =
+                                              index == _desktopNovelIndex
+                                                  ? 1
+                                                  : 0;
                                           _pageController.jumpToPage(index);
 
                                           setState(() {
@@ -246,8 +258,8 @@ class _HelloPageState extends State<HelloPage> {
                                             ),
                                           ),
                                           NavigationRailDestination(
-                                            icon: Icon(Icons.more_horiz),
-                                            label: Text(I18n.of(context).more),
+                                            icon: Icon(Icons.menu_book),
+                                            label: Text(I18n.of(context).novel),
                                           ),
                                           NavigationRailDestination(
                                             icon: Icon(Icons.download),
@@ -319,16 +331,18 @@ class _HelloPageState extends State<HelloPage> {
             icon: Icon(Icons.history),
             tooltip: I18n.of(context).history,
             onPressed: () {
+              final historyPage =
+                  Constants.type == 1 ? NovelHistory() : HistoryPage();
               // 在宽屏模式下使用右侧导航器
               final wideScreenNav = WideScreenNavigator.of(context);
               if (wideScreenNav != null &&
                   wideScreenNav.isWideScreen &&
                   wideScreenNav.contentNavigatorKey != null) {
                 wideScreenNav.contentNavigatorKey!.currentState?.push(
-                  MaterialPageRoute(builder: (context) => HistoryPage()),
+                  MaterialPageRoute(builder: (context) => historyPage),
                 );
               } else {
-                Leader.push(context, HistoryPage());
+                Leader.push(context, historyPage);
               }
             },
           ),
@@ -357,7 +371,7 @@ class _HelloPageState extends State<HelloPage> {
               );
             },
           ),
-          SizedBox(height: 8),
+          const SizedBox(height: 8),
           // 用户头像
           Container(
             decoration: BoxDecoration(
@@ -378,6 +392,30 @@ class _HelloPageState extends State<HelloPage> {
                       )
                       : Container(),
             ),
+          ),
+          const SizedBox(height: 4),
+          IconButton(
+            icon: const Icon(Icons.settings),
+            tooltip: I18n.of(context).setting,
+            onPressed: () {
+              final wideScreenNav = WideScreenNavigator.of(context);
+              if (wideScreenNav != null &&
+                  wideScreenNav.isWideScreen &&
+                  wideScreenNav.contentNavigatorKey != null) {
+                wideScreenNav.contentNavigatorKey!.currentState?.push(
+                  MaterialPageRoute(
+                    builder:
+                        (context) =>
+                            const SettingPage(showContentSwitcher: false),
+                  ),
+                );
+              } else {
+                Leader.push(
+                  context,
+                  const SettingPage(showContentSwitcher: false),
+                );
+              }
+            },
           ),
         ],
       ),

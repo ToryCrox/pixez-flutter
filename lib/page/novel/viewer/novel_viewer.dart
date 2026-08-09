@@ -902,7 +902,7 @@ class _NovelViewerPageState extends State<NovelViewerPage> {
     return ListTile(
       title: Text(series.title, maxLines: 2, overflow: TextOverflow.ellipsis),
       onTap: () {
-        Navigator.of(context, rootNavigator: true).pushReplacement(
+        Navigator.of(context).pushReplacement(
           MaterialPageRoute(
             builder:
                 (BuildContext context) => NovelViewerPage(

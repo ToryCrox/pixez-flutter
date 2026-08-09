@@ -352,7 +352,7 @@ class _NovelSearchPageState extends State<NovelSearchPage> {
         );
       },
       onTap: () {
-        Navigator.of(context, rootNavigator: true).push(
+        Navigator.of(context).push(
           MaterialPageRoute(
             builder:
                 (context) => NovelResultPage(

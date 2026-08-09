@@ -335,7 +335,7 @@ class NovelSeriesPage extends HookConsumerWidget {
       child: Card(
         child: InkWell(
           onTap: () async {
-            await Navigator.of(context, rootNavigator: true).push(
+            await Navigator.of(context).push(
               MaterialPageRoute(
                 builder:
                     (BuildContext context) =>

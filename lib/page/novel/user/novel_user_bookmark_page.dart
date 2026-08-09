@@ -136,7 +136,7 @@ class _NovelUserBookmarkPageState extends State<NovelUserBookmarkPage> {
           padding: const EdgeInsets.symmetric(horizontal: 4.0),
           child: InkWell(
             onTap: () {
-              Navigator.of(context, rootNavigator: true).push(
+              Navigator.of(context).push(
                 MaterialPageRoute(
                   builder:
                       (BuildContext context) => NovelViewerPage(

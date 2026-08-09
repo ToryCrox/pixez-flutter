@@ -48,7 +48,11 @@ import 'package:pixez/page/task/job_page.dart';
 import 'package:pixez/page/theme/theme_page.dart';
 
 class SettingPage extends StatefulWidget {
-  const SettingPage({Key? key}) : super(key: key);
+  const SettingPage({Key? key, this.showContentSwitcher = true})
+    : super(key: key);
+
+  /// 移动端保留插画/小说整页切换；桌面端由左侧导航栏负责。
+  final bool showContentSwitcher;
 
   @override
   _SettingPageState createState() => _SettingPageState();
@@ -313,42 +317,43 @@ class _SettingPageState extends State<SettingPage> {
                       title: Text(I18n.of(context).manga),
                       onTap: () => Leader.push(context, RecomMangaPage()),
                     ),
-                    ListTile(
-                      leading: Icon(
-                        Constants.type == 0 ? Icons.book : Icons.image,
+                    if (widget.showContentSwitcher)
+                      ListTile(
+                        leading: Icon(
+                          Constants.type == 0 ? Icons.book : Icons.image,
+                        ),
+                        title: Text(
+                          Constants.type == 0
+                              ? I18n.of(context).novel
+                              : I18n.of(context).illust,
+                        ),
+                        onTap: () {
+                          if (Constants.type == 0) {
+                            Navigator.of(
+                              context,
+                              rootNavigator: true,
+                            ).pushReplacement(
+                              MaterialPageRoute(
+                                builder: (context) => NovelRail(),
+                              ),
+                            );
+                          } else {
+                            Constants.type = 0;
+                            Navigator.of(
+                              context,
+                              rootNavigator: true,
+                            ).pushReplacement(
+                              MaterialPageRoute(
+                                builder:
+                                    (context) =>
+                                        Platform.isAndroid
+                                            ? const AndroidHelloPage()
+                                            : HelloPage(),
+                              ),
+                            );
+                          }
+                        },
                       ),
-                      title: Text(
-                        Constants.type == 0
-                            ? I18n.of(context).novel
-                            : I18n.of(context).illust,
-                      ),
-                      onTap: () {
-                        if (Constants.type == 0) {
-                          Navigator.of(
-                            context,
-                            rootNavigator: true,
-                          ).pushReplacement(
-                            MaterialPageRoute(
-                              builder: (context) => NovelRail(),
-                            ),
-                          );
-                        } else {
-                          Constants.type = 0;
-                          Navigator.of(
-                            context,
-                            rootNavigator: true,
-                          ).pushReplacement(
-                            MaterialPageRoute(
-                              builder:
-                                  (context) =>
-                                      Platform.isAndroid
-                                          ? const AndroidHelloPage()
-                                          : HelloPage(),
-                            ),
-                          );
-                        }
-                      },
-                    ),
                     ListTile(
                       leading: Icon(Icons.message),
                       title: Text(I18n.of(context).about),

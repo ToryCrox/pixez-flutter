@@ -126,7 +126,7 @@ class _NovelRecomPageState extends State<NovelRecomPage>
       padding: const EdgeInsets.symmetric(horizontal: 4.0),
       child: InkWell(
         onTap: () {
-          Navigator.of(context, rootNavigator: true).push(
+          Navigator.of(context).push(
             MaterialPageRoute(
               builder:
                   (BuildContext context) => NovelViewerPage(
