@@ -19,6 +19,7 @@ import 'dart:io';
 import 'package:bot_toast/bot_toast.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:dio/dio.dart';
+import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
@@ -36,7 +37,9 @@ import 'package:pixez/component/author_bookmark_dialog.dart';
 
 import 'package:pixez/network/api_client.dart';
 import 'package:pixez/page/follow/follow_list.dart';
-import 'package:pixez/page/novel/user/novel_users_page.dart';
+import 'package:pixez/page/novel/component/novel_lighting_store.dart';
+import 'package:pixez/page/novel/user/novel_user_bookmark_page.dart';
+import 'package:pixez/page/novel/user/novel_user_work_page.dart';
 import 'package:pixez/page/picture/user_follow_button.dart';
 import 'package:pixez/page/report/report_items_page.dart';
 import 'package:pixez/page/shield/shield_page.dart';
@@ -53,13 +56,21 @@ flutter目前3.x以上是支持处理多tab的nestedscrollview的，不需要ext
 如果正在求证是否内置的NestedScrollView就能够满足User profile布局，答案是可以的
 可以参见flutter create --sample=widgets.NestedScrollView.1 mysample，你需要把多个tab的列表状态提升到这个User Page上，然后用PageStoreKey记住位置
 */
+enum UserPageInitialTab { illust, novel }
+
 class UsersPage extends StatefulWidget {
   final int id;
   final UserStore? userStore;
   final String? heroTag;
+  final UserPageInitialTab initialTab;
 
-  const UsersPage({Key? key, required this.id, this.userStore, this.heroTag})
-    : super(key: key);
+  const UsersPage({
+    Key? key,
+    required this.id,
+    this.userStore,
+    this.heroTag,
+    this.initialTab = UserPageInitialTab.illust,
+  }) : super(key: key);
 
   @override
   _UsersPageState createState() => _UsersPageState();
@@ -73,6 +84,8 @@ class _UsersPageState extends State<UsersPage> with TickerProviderStateMixin {
 
   late LightingStore _workStore;
   late LightingStore _bookmarkStore;
+  late NovelLightingStore _novelWorkStore;
+  late NovelLightingStore _novelBookmarkStore;
 
   String _userWorkType = 'illust';
 
@@ -96,8 +109,30 @@ class _UsersPageState extends State<UsersPage> with TickerProviderStateMixin {
             (e) => apiClient.getBookmarksIllust(widget.id, restrict, null),
       ),
     );
+    _novelWorkStore = NovelLightingStore(
+      () => apiClient.getUserNovels(widget.id),
+      EasyRefreshController(
+        controlFinishLoad: true,
+        controlFinishRefresh: true,
+      ),
+      cacheKey: 'user_novels_${widget.id}',
+    );
+    _novelBookmarkStore = NovelLightingStore(
+      () => apiClient.getUserBookmarkNovel(widget.id, 'public'),
+      EasyRefreshController(
+        controlFinishLoad: true,
+        controlFinishRefresh: true,
+      ),
+    );
     userStore = widget.userStore ?? UserStore(widget.id, null, null);
-    _tabController = TabController(length: 3, vsync: this);
+    final initialIndex = widget.initialTab == UserPageInitialTab.novel ? 2 : 0;
+    _tabIndex = initialIndex;
+    _tabController = TabController(
+      length: 5,
+      initialIndex: initialIndex,
+      vsync: this,
+    );
+    _tabController.addListener(_handleTabChanged);
     _scrollController = ScrollController();
     _scrollController.addListener(() {
       if (_scrollController.hasClients) {
@@ -133,11 +168,30 @@ class _UsersPageState extends State<UsersPage> with TickerProviderStateMixin {
     _tabController.dispose();
     _workStore.dispose();
     _bookmarkStore.dispose();
+    _novelWorkStore.controller.dispose();
+    _novelBookmarkStore.controller.dispose();
     _searchController.dispose();
     super.dispose();
   }
 
   int _tabIndex = 0;
+
+  void _handleTabChanged() {
+    if (_tabController.indexIsChanging || _tabController.index == _tabIndex) {
+      return;
+    }
+    _selectTab(_tabController.index);
+  }
+
+  void _selectTab(int index) {
+    setState(() {
+      _tabIndex = index;
+      if (index >= 2) {
+        _isSearching = false;
+        _searchController.clear();
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -259,8 +313,10 @@ class _UsersPageState extends State<UsersPage> with TickerProviderStateMixin {
                 store: _bookmarkStore,
                 portal: "Book",
               ),
+              NovelUserWorkPage(id: widget.id, store: _novelWorkStore),
+              NovelUserBookmarkPage(id: widget.id, store: _novelBookmarkStore),
               UserDetailPage(
-                key: PageStorageKey('Tab2'),
+                key: PageStorageKey('UserTab4'),
                 userDetail: userStore.userDetail,
                 isNewNested: true,
               ),
@@ -327,7 +383,7 @@ class _UsersPageState extends State<UsersPage> with TickerProviderStateMixin {
                   )
                   : CommonBackArea(),
           actions: <Widget>[
-            if (!_isSearching)
+            if (!_isSearching && _tabIndex < 2)
               IconButton(
                 icon: Icon(Icons.search),
                 onPressed: () {
@@ -393,26 +449,43 @@ class _UsersPageState extends State<UsersPage> with TickerProviderStateMixin {
             TabBar(
               controller: _tabController,
               onTap: (index) {
-                setState(() {
-                  _tabIndex = index;
-                });
+                _selectTab(index);
               },
+              isScrollable: true,
               tabs: [
                 GestureDetector(
                   onDoubleTap: () {
                     if (_tabIndex == 0) _scrollController.position.jumpTo(0);
                   },
-                  child: Tab(text: I18n.of(context).works),
+                  child: Tab(text: I18n.of(context).illust),
                 ),
                 GestureDetector(
                   onDoubleTap: () {
                     if (_tabIndex == 1) _scrollController.position.jumpTo(0);
                   },
-                  child: Tab(text: I18n.of(context).bookmark),
+                  child: Tab(
+                    text:
+                        '${I18n.of(context).illust} ${I18n.of(context).bookmark}',
+                  ),
                 ),
                 GestureDetector(
                   onDoubleTap: () {
                     if (_tabIndex == 2) _scrollController.position.jumpTo(0);
+                  },
+                  child: Tab(text: I18n.of(context).novel),
+                ),
+                GestureDetector(
+                  onDoubleTap: () {
+                    if (_tabIndex == 3) _scrollController.position.jumpTo(0);
+                  },
+                  child: Tab(
+                    text:
+                        '${I18n.of(context).novel} ${I18n.of(context).bookmark}',
+                  ),
+                ),
+                GestureDetector(
+                  onDoubleTap: () {
+                    if (_tabIndex == 4) _scrollController.position.jumpTo(0);
                   },
                   child: Tab(text: I18n.of(context).user_page_info_title),
                 ),
@@ -643,14 +716,6 @@ class _UsersPageState extends State<UsersPage> with TickerProviderStateMixin {
               );
               break;
             }
-          case 4:
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (BuildContext context) {
-                  return NovelUsersPage(id: widget.id);
-                },
-              ),
-            );
           default:
         }
       },
@@ -670,10 +735,6 @@ class _UsersPageState extends State<UsersPage> with TickerProviderStateMixin {
             child: Text(I18n.of(context).copymessage),
           ),
           PopupMenuItem<int>(value: 3, child: Text(I18n.of(context).report)),
-          PopupMenuItem<int>(
-            value: 4,
-            child: Text(I18n.of(context).novel_page),
-          ),
         ];
       },
     );

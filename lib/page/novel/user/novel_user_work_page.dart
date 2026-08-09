@@ -80,7 +80,7 @@ class _NovelUserWorkPageState extends State<NovelUserWorkPage> {
                       accountStore.now!.userId == widget.id.toString();
                   return CustomScrollView(
                     physics: phy,
-                    key: PageStorageKey("novel_bookmark"),
+                    key: PageStorageKey("novel_work"),
                     slivers: [
                       userIsMe
                           ? SliverPinnedOverlapInjector(
