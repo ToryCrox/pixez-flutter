@@ -470,12 +470,19 @@ class _NovelViewerPageState extends State<NovelViewerPage> {
                 )
                 : SelectionArea(
                   child: Text(
-                    entry.translatedText!,
+                    _translationTextAlignedWithSource(entry),
                     style: _translationTextStyle(context),
                   ),
                 ),
       ),
     );
+  }
+
+  /// 翻译缓存会忽略段首缩进；以原文的前导空白为准，保持逐行对齐。
+  String _translationTextAlignedWithSource(NovelTranslationEntry entry) {
+    final sourceIndent =
+        RegExp(r'^[\s\u3000]*').firstMatch(entry.sourceText)?.group(0) ?? '';
+    return '$sourceIndent${entry.translatedText!.trimLeft()}';
   }
 
   Widget _buildHeader(BuildContext context) {
