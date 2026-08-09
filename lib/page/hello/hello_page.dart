@@ -74,7 +74,7 @@ class HelloPage extends StatefulWidget {
 }
 
 class _HelloPageState extends State<HelloPage> {
-  late StreamSubscription _sub;
+  StreamSubscription<Uri?>? _sub;
   late int index;
   late PageController _pageController;
   bool? _isWideScreen;
@@ -86,7 +86,7 @@ class _HelloPageState extends State<HelloPage> {
 
   @override
   void dispose() {
-    _sub.cancel();
+    _sub?.cancel();
     _pageController.dispose();
     super.dispose();
   }

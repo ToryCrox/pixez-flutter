@@ -429,7 +429,7 @@ class _AndroidHelloPageState extends State<AndroidHelloPage> {
     );
   }
 
-  late StreamSubscription _sub;
+  StreamSubscription<Uri?>? _sub;
 
   initPlatform() async {
     try {
@@ -484,7 +484,7 @@ class _AndroidHelloPageState extends State<AndroidHelloPage> {
   void dispose() {
     _intentDataStreamSubscription.cancel();
     _pageController.dispose();
-    _sub.cancel();
+    _sub?.cancel();
     super.dispose();
   }
 
