@@ -23,9 +23,7 @@ class BookMarkDetailResponse {
   @JsonKey(name: 'bookmark_detail')
   BookmarkDetail bookmarkDetail;
 
-  BookMarkDetailResponse({
-    required this.bookmarkDetail,
-  });
+  BookMarkDetailResponse({required this.bookmarkDetail});
 
   factory BookMarkDetailResponse.fromJson(Map<String, dynamic> json) =>
       _$BookMarkDetailResponseFromJson(json);
@@ -70,13 +68,9 @@ class TagsR {
   @JsonKey(name: 'is_registered')
   bool isRegistered;
 
-  TagsR({
-    required this.name,
-    required this.isRegistered,
-  });
+  TagsR({required this.name, required this.isRegistered});
 
-  factory TagsR.fromJson(Map<String, dynamic> json) =>
-      _$TagsRFromJson(json);
+  factory TagsR.fromJson(Map<String, dynamic> json) => _$TagsRFromJson(json);
 
   Map<String, dynamic> toJson() => _$TagsRToJson(this);
 

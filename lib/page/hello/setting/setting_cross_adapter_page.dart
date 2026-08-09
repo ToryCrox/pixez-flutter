@@ -48,60 +48,61 @@ class _SettingCrossAdpaterPageState extends State<SettingCrossAdpaterPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Cross Adapter'),
-      ),
-      body: Builder(builder: (_) {
-        final screenWidth = MediaQuery.of(context).size.width;
-        return Container(
-          child: CustomScrollView(
-            slivers: [
-              SliverToBoxAdapter(
-                child: Slider(
-                  value: _sliderValue,
-                  min: 50,
-                  max: 2160,
-                  onChanged: (value) {
-                    setState(() {
-                      _sliderValue = value;
-                    });
-                  },
-                  onChangeEnd: (value) async {},
+      appBar: AppBar(title: const Text('Cross Adapter')),
+      body: Builder(
+        builder: (_) {
+          final screenWidth = MediaQuery.of(context).size.width;
+          return Container(
+            child: CustomScrollView(
+              slivers: [
+                SliverToBoxAdapter(
+                  child: Slider(
+                    value: _sliderValue,
+                    min: 50,
+                    max: 2160,
+                    onChanged: (value) {
+                      setState(() {
+                        _sliderValue = value;
+                      });
+                    },
+                    onChangeEnd: (value) async {},
+                  ),
                 ),
-              ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Text(
-                      "current:${_sliderValue} screen width:$screenWidth count:${screenWidth ~/ _sliderValue}"),
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Text(
+                      "current:${_sliderValue} screen width:$screenWidth count:${screenWidth ~/ _sliderValue}",
+                    ),
+                  ),
                 ),
-              ),
-              SliverWaterfallFlow(
-                gridDelegate: _buildGridDelegate(_sliderValue),
-                delegate: SliverChildBuilderDelegate((context, index) {
-                  return AspectRatio(
-                    aspectRatio: 1.0,
-                    child: Container(
+                SliverWaterfallFlow(
+                  gridDelegate: _buildGridDelegate(_sliderValue),
+                  delegate: SliverChildBuilderDelegate((context, index) {
+                    return AspectRatio(
+                      aspectRatio: 1.0,
+                      child: Container(
                         color: Colors.grey,
                         margin: EdgeInsets.all(16),
-                        child: Center(
-                          child: Text(index.toString()),
-                        )),
-                  );
-                }, childCount: 100),
-              )
-            ],
-          ),
-        );
-      }),
+                        child: Center(child: Text(index.toString())),
+                      ),
+                    );
+                  }, childCount: 100),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 
   double _buildSliderValue() {
-    final currentValue = (!widget.h
-            ? userSetting.crossAdapterWidth
-            : userSetting.hCrossAdapterWidth)
-        .toDouble();
+    final currentValue =
+        (!widget.h
+                ? userSetting.crossAdapterWidth
+                : userSetting.hCrossAdapterWidth)
+            .toDouble();
     var nowAdaptWidth = max(currentValue, 50.0);
     nowAdaptWidth = min(nowAdaptWidth, 4096);
     return nowAdaptWidth;

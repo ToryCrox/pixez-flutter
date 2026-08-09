@@ -47,22 +47,21 @@ class NovelViewerPersistProvider {
   Future open() async {
     String databasesPath = (await getDatabasesPath());
     String path = join(databasesPath, 'NovelViewerPersist.db');
-    db = await openDatabase(path, version: 1,
-        onCreate: (Database db, int version) async {
-      await db.execute('''
+    db = await openDatabase(
+      path,
+      version: 1,
+      onCreate: (Database db, int version) async {
+        await db.execute('''
 create table $tableNovelViewerPersist ( 
   $cid integer primary key autoincrement, 
   $cNovel_id integer not null,
   $cOffset REAL NOT NULL
   )
 ''');
-    });
-    // 注册到数据库管理中心
-    DatabaseRegistry.instance.register(
-      '小说阅读历史',
-      path,
-      () => db,
+      },
     );
+    // 注册到数据库管理中心
+    DatabaseRegistry.instance.register('小说阅读历史', path, () => db);
   }
 
   Future<NovelViewerPersist> insert(NovelViewerPersist todo) async {
@@ -70,20 +69,21 @@ create table $tableNovelViewerPersist (
     if (result != null) {
       todo.id = result.id;
     }
-    todo.id = await db.insert(tableNovelViewerPersist, todo.toJson(),
-        conflictAlgorithm: ConflictAlgorithm.replace);
+    todo.id = await db.insert(
+      tableNovelViewerPersist,
+      todo.toJson(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
     return todo;
   }
 
   Future<NovelViewerPersist?> getNovelPersistById(int Novel_id) async {
-    List<Map<String, dynamic>> maps = await db.query(tableNovelViewerPersist,
-        columns: [
-          cid,
-          cNovel_id,
-          cOffset,
-        ],
-        where: '$cNovel_id = ?',
-        whereArgs: [Novel_id]);
+    List<Map<String, dynamic>> maps = await db.query(
+      tableNovelViewerPersist,
+      columns: [cid, cNovel_id, cOffset],
+      where: '$cNovel_id = ?',
+      whereArgs: [Novel_id],
+    );
     if (maps.length > 0) {
       return NovelViewerPersist.fromJson(maps.first);
     }
@@ -106,13 +106,20 @@ create table $tableNovelViewerPersist (
   }
 
   Future<int> delete(int id) async {
-    return await db.delete(tableNovelViewerPersist,
-        where: '$cNovel_id = ?', whereArgs: [id]);
+    return await db.delete(
+      tableNovelViewerPersist,
+      where: '$cNovel_id = ?',
+      whereArgs: [id],
+    );
   }
 
   Future<int> update(NovelViewerPersist todo) async {
-    return await db.update(tableNovelViewerPersist, todo.toJson(),
-        where: '$cid = ?', whereArgs: [todo.id]);
+    return await db.update(
+      tableNovelViewerPersist,
+      todo.toJson(),
+      where: '$cid = ?',
+      whereArgs: [todo.id],
+    );
   }
 
   Future close() async => db.close();

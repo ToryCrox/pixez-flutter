@@ -37,7 +37,9 @@ class _RecomUserPageState extends State<RecomUserPage> {
   @override
   void initState() {
     _refreshController = EasyRefreshController(
-        controlFinishLoad: true, controlFinishRefresh: true);
+      controlFinishLoad: true,
+      controlFinishRefresh: true,
+    );
     _recomUserStore =
         widget.recomUserStore ?? RecomUserStore(_refreshController);
     if (widget.recomUserStore != null) {
@@ -55,20 +57,20 @@ class _RecomUserPageState extends State<RecomUserPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Observer(builder: (context) {
-      return Scaffold(
-        appBar: AppBar(
-          title: Text(I18n.of(context).recommend_for_you),
-        ),
-        body: EasyRefresh(
-          controller: _refreshController,
-          onRefresh: () => _recomUserStore.fetch(),
-          onLoad: () => _recomUserStore.next(),
-          refreshOnStart: widget.recomUserStore == null,
-          child: _buildList(),
-        ),
-      );
-    });
+    return Observer(
+      builder: (context) {
+        return Scaffold(
+          appBar: AppBar(title: Text(I18n.of(context).recommend_for_you)),
+          body: EasyRefresh(
+            controller: _refreshController,
+            onRefresh: () => _recomUserStore.fetch(),
+            onLoad: () => _recomUserStore.next(),
+            refreshOnStart: widget.recomUserStore == null,
+            child: _buildList(),
+          ),
+        );
+      },
+    );
   }
 
   Widget _buildList() {
@@ -81,9 +83,7 @@ class _RecomUserPageState extends State<RecomUserPage> {
       itemCount: _recomUserStore.users.length,
       itemBuilder: (context, index) {
         final data = _recomUserStore.users[index];
-        return PainterCard(
-          user: data,
-        );
+        return PainterCard(user: data);
       },
     );
   }

@@ -39,20 +39,26 @@ class _IllustSeriesPageState extends ConsumerState<IllustSeriesPage> {
 
   @override
   Widget build(BuildContext context) {
-    final model =
-        ref.watch(illustSeriesStoreProvider(widget.id).select((e) => e.model));
-    final isLoading = ref
-        .watch(illustSeriesStoreProvider(widget.id).select((e) => e.isLoading));
+    final model = ref.watch(
+      illustSeriesStoreProvider(widget.id).select((e) => e.model),
+    );
+    final isLoading = ref.watch(
+      illustSeriesStoreProvider(widget.id).select((e) => e.isLoading),
+    );
     final coverImageUrl = model?.illustSeriesDetail?.coverImageUrls?.medium;
-    final caption = kDebugMode
-        ? "wfaefafawefawfewaefaweewafawefaweffwafewfwafwafwafwfe"
-        : (model?.illustSeriesDetail?.caption);
-    final illusts = ref
-        .watch(illustSeriesStoreProvider(widget.id).select((e) => e.illusts));
+    final caption =
+        kDebugMode
+            ? "wfaefafawefawfewaefaweewafawefaweffwafewfwafwafwafwfe"
+            : (model?.illustSeriesDetail?.caption);
+    final illusts = ref.watch(
+      illustSeriesStoreProvider(widget.id).select((e) => e.illusts),
+    );
     final watchListAdded = ref.watch(
-        illustSeriesStoreProvider(widget.id).select((e) => e.watchlistAdded));
+      illustSeriesStoreProvider(widget.id).select((e) => e.watchlistAdded),
+    );
     final errorMessage = ref.watch(
-        illustSeriesStoreProvider(widget.id).select((e) => e.errorMessage));
+      illustSeriesStoreProvider(widget.id).select((e) => e.errorMessage),
+    );
     final profileUrl =
         model?.illustSeriesDetail?.user?.profileImageUrls?.medium;
     final controller =
@@ -75,210 +81,220 @@ class _IllustSeriesPageState extends ConsumerState<IllustSeriesPage> {
               icon: Icon(Icons.download),
               tooltip: '一键下载',
             ),
-          Builder(builder: (context) {
-            return IconButton(
-              onPressed: () {
-                final userId = model?.illustSeriesDetail?.user?.id;
-                final seriesId = model?.illustSeriesDetail?.id;
-                if (userId != null && seriesId != null) {
-                  final box = context.findRenderObject() as RenderBox?;
-                  final pos = box != null
-                      ? box.localToGlobal(Offset.zero) & box.size
-                      : null;
-                  final link =
-                      "https://www.pixiv.net/user/$userId/series/$seriesId";
-                  Share.share(link, sharePositionOrigin: pos);
-                }
-              },
-              icon: Icon(Icons.share),
-            );
-          })
+          Builder(
+            builder: (context) {
+              return IconButton(
+                onPressed: () {
+                  final userId = model?.illustSeriesDetail?.user?.id;
+                  final seriesId = model?.illustSeriesDetail?.id;
+                  if (userId != null && seriesId != null) {
+                    final box = context.findRenderObject() as RenderBox?;
+                    final pos =
+                        box != null
+                            ? box.localToGlobal(Offset.zero) & box.size
+                            : null;
+                    final link =
+                        "https://www.pixiv.net/user/$userId/series/$seriesId";
+                    Share.share(link, sharePositionOrigin: pos);
+                  }
+                },
+                icon: Icon(Icons.share),
+              );
+            },
+          ),
         ],
       ),
       body: Container(
-        child: isLoading
-            ? Center(
-                child: CircularProgressIndicator(),
-              )
-            : errorMessage != null
+        child:
+            isLoading
+                ? Center(child: CircularProgressIndicator())
+                : errorMessage != null
                 ? _buildErrorContent(context, errorMessage)
                 : EasyRefresh.builder(
-                    controller: controller,
-                    header: PixezDefault.header(context),
-                    footer: PixezDefault.footer(context),
-                    onRefresh: () async {
-                      await ref
-                          .read(illustSeriesStoreProvider(widget.id).notifier)
-                          .fetch();
-                    },
-                    onLoad: () async {
-                      await ref
-                          .read(illustSeriesStoreProvider(widget.id).notifier)
-                          .loadMore();
-                    },
-                    childBuilder: (context, physics) {
-                      return CustomScrollView(
-                        physics: physics,
-                        slivers: [
-                          SliverToBoxAdapter(
-                            child: Column(
-                              children: [
-                                Container(
-                                  height: 140,
-                                  child: coverImageUrl == null
-                                      ? Container()
-                                      : PixivImage(
+                  controller: controller,
+                  header: PixezDefault.header(context),
+                  footer: PixezDefault.footer(context),
+                  onRefresh: () async {
+                    await ref
+                        .read(illustSeriesStoreProvider(widget.id).notifier)
+                        .fetch();
+                  },
+                  onLoad: () async {
+                    await ref
+                        .read(illustSeriesStoreProvider(widget.id).notifier)
+                        .loadMore();
+                  },
+                  childBuilder: (context, physics) {
+                    return CustomScrollView(
+                      physics: physics,
+                      slivers: [
+                        SliverToBoxAdapter(
+                          child: Column(
+                            children: [
+                              Container(
+                                height: 140,
+                                child:
+                                    coverImageUrl == null
+                                        ? Container()
+                                        : PixivImage(
                                           coverImageUrl,
                                           fit: BoxFit.cover,
                                           width: double.infinity,
                                         ),
+                              ),
+                              Container(
+                                alignment: Alignment.center,
+                                margin: EdgeInsets.only(left: 16, right: 16),
+                                child: Text(
+                                  model?.illustSeriesDetail?.title ?? "",
+                                  style: Theme.of(context).textTheme.titleLarge
+                                      ?.copyWith(fontWeight: FontWeight.bold),
                                 ),
+                              ),
+                              SizedBox(height: 4),
+                              GestureDetector(
+                                onTap: () {
+                                  Leader.push(
+                                    context,
+                                    UsersPage(
+                                      id:
+                                          model?.illustSeriesDetail?.user?.id ??
+                                          0,
+                                    ),
+                                  );
+                                },
+                                behavior: HitTestBehavior.opaque,
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    if (profileUrl != null) ...[
+                                      ClipOval(
+                                        child: PixivImage(
+                                          profileUrl,
+                                          width: 24,
+                                          height: 24,
+                                        ),
+                                      ),
+                                      SizedBox(width: 4),
+                                    ],
+                                    Text(
+                                      model?.illustSeriesDetail?.user?.name ??
+                                          "",
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodyMedium!
+                                          .copyWith(fontSize: 16),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              SizedBox(height: 12),
+                              GestureDetector(
+                                onTap: () {
+                                  if (watchListAdded) {
+                                    ref
+                                        .read(
+                                          illustSeriesStoreProvider(
+                                            widget.id,
+                                          ).notifier,
+                                        )
+                                        .removeWatchlist();
+                                  } else {
+                                    ref
+                                        .read(
+                                          illustSeriesStoreProvider(
+                                            widget.id,
+                                          ).notifier,
+                                        )
+                                        .addWatchlist();
+                                  }
+                                },
+                                behavior: HitTestBehavior.opaque,
+                                child: Container(
+                                  decoration:
+                                      watchListAdded
+                                          ? BoxDecoration(
+                                            border: Border.all(
+                                              color: Colors.black,
+                                              width: 1,
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              21,
+                                            ),
+                                          )
+                                          : BoxDecoration(
+                                            color: Colors.blue,
+                                            borderRadius: BorderRadius.circular(
+                                              21,
+                                            ),
+                                          ),
+                                  padding: EdgeInsets.symmetric(
+                                    vertical: 8,
+                                    horizontal: 12,
+                                  ),
+                                  child: Text(
+                                    watchListAdded
+                                        ? I18n.of(context).watchlist_added
+                                        : I18n.of(context).add_to_watchlist,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.labelLarge?.copyWith(
+                                      color:
+                                          watchListAdded
+                                              ? Colors.black
+                                              : Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              SizedBox(height: 12),
+                              if (caption != null)
                                 Container(
                                   alignment: Alignment.center,
                                   margin: EdgeInsets.only(left: 16, right: 16),
                                   child: Text(
-                                      model?.illustSeriesDetail?.title ?? "",
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .titleLarge
-                                          ?.copyWith(
-                                            fontWeight: FontWeight.bold,
-                                          )),
-                                ),
-                                SizedBox(
-                                  height: 4,
-                                ),
-                                GestureDetector(
-                                  onTap: () {
-                                    Leader.push(
-                                        context,
-                                        UsersPage(
-                                            id: model?.illustSeriesDetail?.user
-                                                    ?.id ??
-                                                0));
-                                  },
-                                  behavior: HitTestBehavior.opaque,
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      if (profileUrl != null) ...[
-                                        ClipOval(
-                                          child: PixivImage(
-                                            profileUrl,
-                                            width: 24,
-                                            height: 24,
-                                          ),
-                                        ),
-                                        SizedBox(
-                                          width: 4,
-                                        ),
-                                      ],
-                                      Text(
-                                        model?.illustSeriesDetail?.user?.name ??
-                                            "",
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodyMedium!
-                                            .copyWith(fontSize: 16),
-                                      ),
-                                    ],
+                                    caption,
+                                    style:
+                                        Theme.of(context).textTheme.bodyLarge,
                                   ),
                                 ),
-                                SizedBox(
-                                  height: 12,
-                                ),
-                                GestureDetector(
-                                  onTap: () {
-                                    if (watchListAdded) {
-                                      ref
-                                          .read(illustSeriesStoreProvider(
-                                                  widget.id)
-                                              .notifier)
-                                          .removeWatchlist();
-                                    } else {
-                                      ref
-                                          .read(illustSeriesStoreProvider(
-                                                  widget.id)
-                                              .notifier)
-                                          .addWatchlist();
-                                    }
-                                  },
-                                  behavior: HitTestBehavior.opaque,
-                                  child: Container(
-                                    decoration: watchListAdded
-                                        ? BoxDecoration(
-                                            border: Border.all(
-                                                color: Colors.black, width: 1),
-                                            borderRadius:
-                                                BorderRadius.circular(21),
-                                          )
-                                        : BoxDecoration(
-                                            color: Colors.blue,
-                                            borderRadius:
-                                                BorderRadius.circular(21)),
-                                    padding: EdgeInsets.symmetric(
-                                        vertical: 8, horizontal: 12),
-                                    child: Text(
-                                        watchListAdded
-                                            ? I18n.of(context).watchlist_added
-                                            : I18n.of(context).add_to_watchlist,
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .labelLarge
-                                            ?.copyWith(
-                                                color: watchListAdded
-                                                    ? Colors.black
-                                                    : Colors.white)),
-                                  ),
-                                ),
-                                SizedBox(
-                                  height: 12,
-                                ),
-                                if (caption != null)
-                                  Container(
-                                    alignment: Alignment.center,
-                                    margin:
-                                        EdgeInsets.only(left: 16, right: 16),
-                                    child: Text(caption,
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodyLarge),
-                                  ),
-                                SizedBox(
-                                  height: 12,
-                                ),
-                              ],
-                            ),
+                              SizedBox(height: 12),
+                            ],
                           ),
-                          if (illusts.isNotEmpty)
-                            SliverPadding(
-                              padding: EdgeInsets.only(left: 16, right: 16),
-                              sliver: userSetting.useWaterfallFlow
-                                  ? SliverWaterfallFlow(
+                        ),
+                        if (illusts.isNotEmpty)
+                          SliverPadding(
+                            padding: EdgeInsets.only(left: 16, right: 16),
+                            sliver:
+                                userSetting.useWaterfallFlow
+                                    ? SliverWaterfallFlow(
                                       gridDelegate: _buildGridDelegate(context),
-                                      delegate: SliverChildBuilderDelegate(
-                                        (BuildContext context, int index) {
-                                          return _buildItem(
-                                              illusts[index], true);
-                                        },
-                                        childCount: illusts.length,
-                                      ),
+                                      delegate: SliverChildBuilderDelegate((
+                                        BuildContext context,
+                                        int index,
+                                      ) {
+                                        return _buildItem(illusts[index], true);
+                                      }, childCount: illusts.length),
                                     )
-                                  : SliverGrid(
-                                      gridDelegate:
-                                          _buildSliverGridDelegate(context),
-                                      delegate: SliverChildBuilderDelegate(
-                                        (BuildContext context, int index) {
-                                          return _buildItem(
-                                              illusts[index], false);
-                                        },
-                                        childCount: illusts.length,
+                                    : SliverGrid(
+                                      gridDelegate: _buildSliverGridDelegate(
+                                        context,
                                       ),
+                                      delegate: SliverChildBuilderDelegate((
+                                        BuildContext context,
+                                        int index,
+                                      ) {
+                                        return _buildItem(
+                                          illusts[index],
+                                          false,
+                                        );
+                                      }, childCount: illusts.length),
                                     ),
-                            ),
-                        ],
-                      );
-                    }),
+                          ),
+                      ],
+                    );
+                  },
+                ),
       ),
     );
   }
@@ -287,9 +303,10 @@ class _IllustSeriesPageState extends ConsumerState<IllustSeriesPage> {
     return IllustCard(
       store: illust,
       lightingStore: null,
-      layoutMode: isWaterfallFlow
-          ? IllustCardLayoutMode.waterfall
-          : IllustCardLayoutMode.grid,
+      layoutMode:
+          isWaterfallFlow
+              ? IllustCardLayoutMode.waterfall
+              : IllustCardLayoutMode.grid,
       showSeriesLink: false,
     );
   }
@@ -299,9 +316,10 @@ class _IllustSeriesPageState extends ConsumerState<IllustSeriesPage> {
     if (userSetting.crossAdapt) {
       count = _buildSliderValue(context);
     } else {
-      count = (MediaQuery.of(context).orientation == Orientation.portrait)
-          ? userSetting.crossCount
-          : userSetting.hCrossCount;
+      count =
+          (MediaQuery.of(context).orientation == Orientation.portrait)
+              ? userSetting.crossCount
+              : userSetting.hCrossCount;
     }
     return SliverWaterfallFlowDelegateWithFixedCrossAxisCount(
       crossAxisCount: count,
@@ -350,26 +368,27 @@ class _IllustSeriesPageState extends ConsumerState<IllustSeriesPage> {
         children: <Widget>[
           Padding(
             padding: const EdgeInsets.all(8.0),
-            child:
-                Text(':(', style: Theme.of(context).textTheme.headlineMedium),
+            child: Text(
+              ':(',
+              style: Theme.of(context).textTheme.headlineMedium,
+            ),
           ),
-          Text(
-            errorMessage,
-            maxLines: 5,
-          ),
+          Text(errorMessage, maxLines: 5),
           ElevatedButton(
             onPressed: () {
               ref.read(illustSeriesStoreProvider(widget.id).notifier).fetch();
             },
             child: Text(I18n.of(context).refresh),
-          )
+          ),
         ],
       ),
     );
   }
 
   Future<void> _downloadAllIllusts(
-      BuildContext context, List<IllustStore> illusts) async {
+    BuildContext context,
+    List<IllustStore> illusts,
+  ) async {
     if (illusts.isEmpty) {
       BotToast.showText(text: '没有可下载的插画');
       return;
@@ -406,7 +425,7 @@ class _IllustSeriesPageState extends ConsumerState<IllustSeriesPage> {
     for (final illustStore in illusts) {
       try {
         if (illustStore.illusts != null) {
-            await downloadStore.downloadIllust(illustStore.illusts!);
+          await downloadStore.downloadIllust(illustStore.illusts!);
           successCount++;
         }
       } catch (e) {
@@ -416,8 +435,9 @@ class _IllustSeriesPageState extends ConsumerState<IllustSeriesPage> {
 
     if (successCount > 0) {
       BotToast.showText(
-          text:
-              '已添加 $successCount 个下载任务${failCount > 0 ? '，失败 $failCount 个' : ''}');
+        text:
+            '已添加 $successCount 个下载任务${failCount > 0 ? '，失败 $failCount 个' : ''}',
+      );
     } else if (failCount > 0) {
       BotToast.showText(text: '下载失败');
     }

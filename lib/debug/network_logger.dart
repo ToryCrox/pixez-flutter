@@ -32,7 +32,8 @@ class NetworkLog {
     this.protocol,
   });
 
-  bool get isSuccess => statusCode != null && statusCode! >= 200 && statusCode! < 300;
+  bool get isSuccess =>
+      statusCode != null && statusCode! >= 200 && statusCode! < 300;
 
   String get formattedRequestTime =>
       "${requestTime.hour.toString().padLeft(2, '0')}:${requestTime.minute.toString().padLeft(2, '0')}:${requestTime.second.toString().padLeft(2, '0')}";
@@ -57,12 +58,14 @@ class NetworkLogStore extends ChangeNotifier {
     if (_searchQuery.isEmpty) {
       return List.unmodifiable(_logs.reversed);
     }
-    return List.unmodifiable(_logs.reversed.where((log) {
-      final query = _searchQuery.toLowerCase();
-      return log.url.toLowerCase().contains(query) ||
-          log.method.toLowerCase().contains(query) ||
-          (log.statusCode?.toString().contains(query) ?? false);
-    }));
+    return List.unmodifiable(
+      _logs.reversed.where((log) {
+        final query = _searchQuery.toLowerCase();
+        return log.url.toLowerCase().contains(query) ||
+            log.method.toLowerCase().contains(query) ||
+            (log.statusCode?.toString().contains(query) ?? false);
+      }),
+    );
   }
 
   void addLog(NetworkLog log) {
@@ -73,7 +76,8 @@ class NetworkLogStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  void updateLog(String id, {
+  void updateLog(
+    String id, {
     int? statusCode,
     Duration? duration,
     Map<String, dynamic>? responseHeaders,

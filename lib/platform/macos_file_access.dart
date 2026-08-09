@@ -16,8 +16,9 @@ class MacOSFileAccessManager {
     }
 
     try {
-      final result =
-          await _channel.invokeMethod<Map<dynamic, dynamic>>('requestDirectoryAccess');
+      final result = await _channel.invokeMethod<Map<dynamic, dynamic>>(
+        'requestDirectoryAccess',
+      );
       if (result == null) return (false, null);
 
       final success = result['success'] as bool? ?? false;
@@ -39,10 +40,9 @@ class MacOSFileAccessManager {
     }
 
     try {
-      final result = await _channel.invokeMethod<bool>(
-        'startAccessingPath',
-        {'path': path},
-      );
+      final result = await _channel.invokeMethod<bool>('startAccessingPath', {
+        'path': path,
+      });
       return result ?? false;
     } catch (e) {
       Log.e(() => '❌ startAccessingPath error', error: e);
@@ -59,10 +59,7 @@ class MacOSFileAccessManager {
     }
 
     try {
-      await _channel.invokeMethod<bool>(
-        'stopAccessingPath',
-        {'path': path},
-      );
+      await _channel.invokeMethod<bool>('stopAccessingPath', {'path': path});
     } catch (e) {
       Log.e(() => '❌ stopAccessingPath error', error: e);
     }
@@ -77,10 +74,9 @@ class MacOSFileAccessManager {
     }
 
     try {
-      final result = await _channel.invokeMethod<bool>(
-        'hasBookmark',
-        {'path': path},
-      );
+      final result = await _channel.invokeMethod<bool>('hasBookmark', {
+        'path': path,
+      });
       return result ?? false;
     } catch (e) {
       Log.e(() => '❌ hasBookmark error', error: e);
@@ -98,10 +94,9 @@ class MacOSFileAccessManager {
     }
 
     try {
-      final result = await _channel.invokeMethod<bool>(
-        'saveBookmark',
-        {'path': path},
-      );
+      final result = await _channel.invokeMethod<bool>('saveBookmark', {
+        'path': path,
+      });
       return result ?? false;
     } catch (e) {
       Log.e(() => '❌ saveBookmark error', error: e);
@@ -117,10 +112,7 @@ class MacOSFileAccessManager {
     }
 
     try {
-      await _channel.invokeMethod<bool>(
-        'clearBookmark',
-        {'path': path},
-      );
+      await _channel.invokeMethod<bool>('clearBookmark', {'path': path});
     } catch (e) {
       Log.e(() => '❌ clearBookmark error', error: e);
     }
@@ -147,7 +139,9 @@ class MacOSFileAccessManager {
     }
 
     try {
-      final result = await _channel.invokeMethod<List<dynamic>>('getAllBookmarkedPaths');
+      final result = await _channel.invokeMethod<List<dynamic>>(
+        'getAllBookmarkedPaths',
+      );
       return result?.cast<String>() ?? [];
     } catch (e) {
       Log.e(() => '❌ getAllBookmarkedPaths error', error: e);
@@ -179,7 +173,10 @@ class MacOSFileAccessManager {
   /// - [path]: 文件或目录的绝对路径
   /// - [autoRequest]: 如果没有 bookmark，是否自动显示文件选择器请求授权
   /// - 返回：是否成功获取访问权限
-  static Future<bool> ensureAccess(String path, {bool autoRequest = false}) async {
+  static Future<bool> ensureAccess(
+    String path, {
+    bool autoRequest = false,
+  }) async {
     if (!Platform.isMacOS) {
       return true;
     }
@@ -213,7 +210,9 @@ class MacOSFileAccessManager {
 
     // 验证用户选择的路径是否匹配
     if (!path.startsWith(selectedPath)) {
-      Log.w(() => '⚠️ Selected path does not match: $selectedPath vs $rootPath');
+      Log.w(
+        () => '⚠️ Selected path does not match: $selectedPath vs $rootPath',
+      );
       return false;
     }
 

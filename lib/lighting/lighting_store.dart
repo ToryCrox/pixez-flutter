@@ -54,7 +54,7 @@ class ApiForceSource extends LightSource {
   FutureRefreshGet futureGet;
 
   ApiForceSource({required this.futureGet, String? glanceKey, String? cacheKey})
-      : super() {
+    : super() {
     this.glanceKey = glanceKey;
     this.cacheKey = cacheKey;
   }
@@ -72,7 +72,7 @@ abstract class _LightingStoreBase with Store {
   String? portal;
   @observable
   ObservableList<IllustStore> iStores = ObservableList();
-  
+
   @observable
   bool refreshing = false;
 
@@ -96,15 +96,15 @@ abstract class _LightingStoreBase with Store {
         // Check custom translation from TagManagerStore
         final tagDisplayData = tagManagerStore.getTagDisplayData(tag.name);
         if (tagDisplayData != null) {
-          if (tagDisplayData.tag.customTranslatedName
-                  ?.toLowerCase()
-                  .contains(lowerFilter) ==
+          if (tagDisplayData.tag.customTranslatedName?.toLowerCase().contains(
+                lowerFilter,
+              ) ==
               true) {
             return true;
           }
-          if (tagDisplayData.tag.translatedName
-              .toLowerCase()
-              .contains(lowerFilter)) {
+          if (tagDisplayData.tag.translatedName.toLowerCase().contains(
+            lowerFilter,
+          )) {
             return true;
           }
         }

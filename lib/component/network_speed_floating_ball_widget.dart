@@ -26,18 +26,17 @@ class NetworkSpeedWrapper extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Observer(builder: (context) {
-      if (userSetting.showNetworkSpeedBall) {
-        return Stack(
-          alignment: Alignment.topLeft,
-          clipBehavior: Clip.none,
-          children: [
-            child ?? Container(),
-            const FloatingNetworkSpeedBall(),
-          ],
-        );
-      }
-      return child ?? Container();
-    });
+    return Observer(
+      builder: (context) {
+        if (userSetting.showNetworkSpeedBall) {
+          return Stack(
+            alignment: Alignment.topLeft,
+            clipBehavior: Clip.none,
+            children: [child ?? Container(), const FloatingNetworkSpeedBall()],
+          );
+        }
+        return child ?? Container();
+      },
+    );
   }
 }

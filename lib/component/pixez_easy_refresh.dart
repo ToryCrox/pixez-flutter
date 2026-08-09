@@ -16,29 +16,30 @@
 
 import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/material.dart';
-import 'package:pixez/utils.dart' show initializeScrollController, kLazyLoadSize;
+import 'package:pixez/utils.dart'
+    show initializeScrollController, kLazyLoadSize;
 
 /// 自动处理 EasyRefresh 鼠标滚轮滚动加载更多的 Mixin
-/// 
+///
 /// 使用方法：
 /// ```dart
 /// class _MyPageState extends State<MyPage> with PixezEasyRefreshMixin {
 ///   late EasyRefreshController _easyRefreshController;
 ///   late ScrollController _scrollController;
-///   
+///
 ///   @override
 ///   void initState() {
 ///     super.initState();
 ///     _scrollController = ScrollController();
 ///     _easyRefreshController = EasyRefreshController(...);
-///     
+///
 ///     // 自动初始化滚动监听（处理鼠标滚轮问题）
 ///     initializeEasyRefreshScrollListener(
 ///       _scrollController,
 ///       onLoad: () => _store.fetchNext(),
 ///     );
 ///   }
-///   
+///
 ///   @override
 ///   void dispose() {
 ///     disposeEasyRefreshScrollListener(); // 自动清理
@@ -53,13 +54,13 @@ mixin PixezEasyRefreshMixin<T extends StatefulWidget> on State<T> {
 
   /// 初始化 EasyRefresh 的滚动监听
   /// 自动处理桌面端鼠标滚轮滚动时无法触发加载更多的问题
-  /// 
+  ///
   /// [scrollController] 滚动控制器
   /// [onLoad] 加载更多的回调函数
   void initializeEasyRefreshScrollListener(
-    ScrollController scrollController,
-    {required Future<void> Function() onLoad}
-  ) {
+    ScrollController scrollController, {
+    required Future<void> Function() onLoad,
+  }) {
     _scrollListenerDisposer = initializeScrollController(
       scrollController,
       onLoad,
@@ -78,7 +79,7 @@ mixin PixezEasyRefreshMixin<T extends StatefulWidget> on State<T> {
 
 /// PixezEasyRefresh 是 EasyRefresh.builder 的包装器
 /// 自动处理桌面端鼠标滚轮滚动时无法触发加载更多的问题
-/// 
+///
 /// 使用方式：
 /// ```dart
 /// PixezEasyRefresh.builder(
@@ -100,7 +101,12 @@ class PixezEasyRefresh extends StatefulWidget {
   final Future<void> Function()? onLoad;
   final Header? header;
   final Footer? footer;
-  final Widget Function(BuildContext context, ScrollPhysics physics, ScrollController? scrollController) childBuilder;
+  final Widget Function(
+    BuildContext context,
+    ScrollPhysics physics,
+    ScrollController? scrollController,
+  )
+  childBuilder;
   final ScrollController? scrollController;
   final double? callLoadOverOffset;
   final double? callRefreshOverOffset;
@@ -123,7 +129,12 @@ class PixezEasyRefresh extends StatefulWidget {
   /// builder 方法，提供更简洁的 API
   static Widget builder({
     required EasyRefreshController controller,
-    required Widget Function(BuildContext context, ScrollPhysics physics, ScrollController? scrollController) childBuilder,
+    required Widget Function(
+      BuildContext context,
+      ScrollPhysics physics,
+      ScrollController? scrollController,
+    )
+    childBuilder,
     Future<void> Function()? onRefresh,
     Future<void> Function()? onLoad,
     Header? header,
@@ -151,7 +162,8 @@ class PixezEasyRefresh extends StatefulWidget {
   State<PixezEasyRefresh> createState() => _PixezEasyRefreshState();
 }
 
-class _PixezEasyRefreshState extends State<PixezEasyRefresh> with PixezEasyRefreshMixin {
+class _PixezEasyRefreshState extends State<PixezEasyRefresh>
+    with PixezEasyRefreshMixin {
   late ScrollController _scrollController;
   bool _isControllerOwned = false;
   bool _isNestedScrollView = false;
@@ -160,7 +172,7 @@ class _PixezEasyRefreshState extends State<PixezEasyRefresh> with PixezEasyRefre
   @override
   void initState() {
     super.initState();
-    
+
     // 如果没有传入 scrollController，则创建一个
     if (widget.scrollController == null) {
       _scrollController = ScrollController();
@@ -174,7 +186,7 @@ class _PixezEasyRefreshState extends State<PixezEasyRefresh> with PixezEasyRefre
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    
+
     // 检测是否在 NestedScrollView 中
     try {
       NestedScrollView.sliverOverlapAbsorberHandleFor(context);
@@ -182,9 +194,11 @@ class _PixezEasyRefreshState extends State<PixezEasyRefresh> with PixezEasyRefre
     } catch (e) {
       _isNestedScrollView = false;
     }
-    
+
     // 如果不在 NestedScrollView 中，初始化滚动监听
-    if (!_isNestedScrollView && widget.onLoad != null && _scrollListenerDisposer == null) {
+    if (!_isNestedScrollView &&
+        widget.onLoad != null &&
+        _scrollListenerDisposer == null) {
       // 使用 WidgetsBinding 延迟执行，确保在 build 之后
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && _scrollController.hasClients) {
@@ -200,12 +214,12 @@ class _PixezEasyRefreshState extends State<PixezEasyRefresh> with PixezEasyRefre
   @override
   void dispose() {
     disposeEasyRefreshScrollListener();
-    
+
     // 如果是我们创建的 controller，则销毁它
     if (_isControllerOwned) {
       _scrollController.dispose();
     }
-    
+
     super.dispose();
   }
 
@@ -227,7 +241,7 @@ class _PixezEasyRefreshState extends State<PixezEasyRefresh> with PixezEasyRefre
         return widget.childBuilder(context, physics, scrollController);
       },
     );
-    
+
     // 如果在 NestedScrollView 中，使用 NotificationListener 监听滚动
     if (_isNestedScrollView && widget.onLoad != null) {
       child = NotificationListener<ScrollNotification>(
@@ -237,15 +251,17 @@ class _PixezEasyRefreshState extends State<PixezEasyRefresh> with PixezEasyRefre
             // 检查是否接近底部（距离底部 300px 以内）
             if (metrics.extentAfter <= kLazyLoadSize && !_isLoading) {
               _isLoading = true;
-              widget.onLoad!().then((_) {
-                if (mounted) {
-                  _isLoading = false;
-                }
-              }).catchError((_) {
-                if (mounted) {
-                  _isLoading = false;
-                }
-              });
+              widget.onLoad!()
+                  .then((_) {
+                    if (mounted) {
+                      _isLoading = false;
+                    }
+                  })
+                  .catchError((_) {
+                    if (mounted) {
+                      _isLoading = false;
+                    }
+                  });
             }
           }
           return false; // 继续传递通知
@@ -253,8 +269,7 @@ class _PixezEasyRefreshState extends State<PixezEasyRefresh> with PixezEasyRefre
         child: child,
       );
     }
-    
+
     return child;
   }
 }
-

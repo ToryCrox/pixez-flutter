@@ -26,9 +26,13 @@ class PainterAvatar extends StatefulWidget {
   final GestureTapCallback? onTap;
   final Size? size;
 
-  const PainterAvatar(
-      {Key? key, required this.url, required this.id, this.onTap, this.size})
-      : super(key: key);
+  const PainterAvatar({
+    Key? key,
+    required this.url,
+    required this.id,
+    this.onTap,
+    this.size,
+  }) : super(key: key);
 
   @override
   _PainterAvatarState createState() => _PainterAvatarState();
@@ -36,10 +40,13 @@ class PainterAvatar extends StatefulWidget {
 
 class _PainterAvatarState extends State<PainterAvatar> {
   void pushToUserPage() {
-    Navigator.of(context, rootNavigator: true)
-        .push(MaterialPageRoute(builder: (_) {
-      return UsersPage(id: widget.id);
-    }));
+    Navigator.of(context, rootNavigator: true).push(
+      MaterialPageRoute(
+        builder: (_) {
+          return UsersPage(id: widget.id);
+        },
+      ),
+    );
   }
 
   void _handleTap() {
@@ -65,33 +72,33 @@ class _PainterAvatarState extends State<PainterAvatar> {
           ...Hoster.header(url: widget.url),
           'avatar': '${widget.id}', // 添加作者 ID 标记，用于头像本地缓存
         },
-        imageBuilder: (context, imageProvider) => Container(
-          width: size.width,
-          height: size.height,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            image: DecorationImage(
-              image: imageProvider,
-              fit: BoxFit.cover,
+        imageBuilder:
+            (context, imageProvider) => Container(
+              width: size.width,
+              height: size.height,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                image: DecorationImage(image: imageProvider, fit: BoxFit.cover),
+              ),
             ),
-          ),
-        ),
-        placeholder: (context, url) => Container(
-          width: size.width,
-          height: size.height,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: theme.cardColor,
-          ),
-        ),
-        errorWidget: (context, url, error) => Container(
-          width: size.width,
-          height: size.height,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: theme.cardColor,
-          ),
-        ),
+        placeholder:
+            (context, url) => Container(
+              width: size.width,
+              height: size.height,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: theme.cardColor,
+              ),
+            ),
+        errorWidget:
+            (context, url, error) => Container(
+              width: size.width,
+              height: size.height,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: theme.cardColor,
+              ),
+            ),
       ),
     );
   }

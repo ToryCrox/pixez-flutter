@@ -32,8 +32,10 @@ abstract class _BookMarkTagStoreBase with Store {
   fetch(String restrict) async {
     nextUrl = null;
     try {
-      var result =
-          await apiClient.getUserBookmarkTagsIllust(id, restrict: restrict);
+      var result = await apiClient.getUserBookmarkTagsIllust(
+        id,
+        restrict: restrict,
+      );
       nextUrl = result.nextUrl;
       bookmarkTags.clear();
       bookmarkTags.addAll(result.bookmarkTags);
@@ -52,7 +54,8 @@ abstract class _BookMarkTagStoreBase with Store {
         nextUrl = r.nextUrl;
         bookmarkTags.addAll(r.bookmarkTags);
         _controller.finishLoad(
-            nextUrl == null ? IndicatorResult.noMore : IndicatorResult.success);
+          nextUrl == null ? IndicatorResult.noMore : IndicatorResult.success,
+        );
       } catch (e) {
         _controller.finishLoad(IndicatorResult.fail);
       }

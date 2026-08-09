@@ -18,7 +18,7 @@ abstract class _LoginStoreBase with Store {
   @observable
   String? errorMessage;
 
-/*  @action
+  /*  @action
   Future<bool> auth(String username, password, {String? deviceToken}) async {
     try {
       final response = await client.postAuthToken(username, password,

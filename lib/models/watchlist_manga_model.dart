@@ -31,10 +31,7 @@ class WatchlistMangaModel {
   @JsonKey(name: 'next_url')
   final String? nextUrl;
 
-  WatchlistMangaModel({
-    required this.series,
-    required this.nextUrl,
-  });
+  WatchlistMangaModel({required this.series, required this.nextUrl});
 
   factory WatchlistMangaModel.fromJson(Map<String, dynamic> json) =>
       _$WatchlistMangaModelFromJson(json);

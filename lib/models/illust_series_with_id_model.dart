@@ -17,10 +17,11 @@ class IllustSeriesWithIdModel {
   @JsonKey(name: 'next_url')
   String? nextUrl;
 
-  IllustSeriesWithIdModel(
-      {required this.illustSeriesDetail,
-      required this.illustSeriesFirstIllust,
-      required this.nextUrl});
+  IllustSeriesWithIdModel({
+    required this.illustSeriesDetail,
+    required this.illustSeriesFirstIllust,
+    required this.nextUrl,
+  });
 
   factory IllustSeriesWithIdModel.fromJson(Map<String, dynamic> json) =>
       _$IllustSeriesWithIdModelFromJson(json);
@@ -46,15 +47,16 @@ class IllustSeriesDetail {
   @JsonKey(name: 'watchlist_added')
   bool watchlistAdded;
 
-  IllustSeriesDetail(
-      {required this.id,
-      required this.title,
-      required this.createDate,
-      required this.caption,
-      required this.user,
-      required this.coverImageUrls,
-      required this.seriesWorkCount,
-      required this.watchlistAdded});
+  IllustSeriesDetail({
+    required this.id,
+    required this.title,
+    required this.createDate,
+    required this.caption,
+    required this.user,
+    required this.coverImageUrls,
+    required this.seriesWorkCount,
+    required this.watchlistAdded,
+  });
 
   factory IllustSeriesDetail.fromJson(Map<String, dynamic> json) =>
       _$IllustSeriesDetailFromJson(json);

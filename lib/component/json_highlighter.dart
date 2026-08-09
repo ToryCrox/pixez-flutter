@@ -48,12 +48,16 @@ class JsonHighlighter extends StatelessWidget {
 
     void _traverse(Node node) {
       if (node.value != null) {
-        currentSpans.add(node.className == null
-            ? TextSpan(text: node.value)
-            : TextSpan(text: node.value, style: theme[node.className!]));
+        currentSpans.add(
+          node.className == null
+              ? TextSpan(text: node.value)
+              : TextSpan(text: node.value, style: theme[node.className!]),
+        );
       } else if (node.children != null) {
         List<TextSpan> tmp = [];
-        currentSpans.add(TextSpan(children: tmp, style: theme[node.className!]));
+        currentSpans.add(
+          TextSpan(children: tmp, style: theme[node.className!]),
+        );
         stack.add(currentSpans);
         currentSpans = tmp;
 
@@ -101,12 +105,7 @@ class JsonHighlighter extends StatelessWidget {
         color: themeData[_rootKey]?.backgroundColor ?? _defaultBackgroundColor,
         borderRadius: BorderRadius.circular(8),
       ),
-      child: SelectableText.rich(
-        TextSpan(
-          style: textStyle,
-          children: spans,
-        ),
-      ),
+      child: SelectableText.rich(TextSpan(style: textStyle, children: spans)),
     );
   }
 }

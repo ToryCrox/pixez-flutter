@@ -16,8 +16,6 @@
 
 import 'dart:convert';
 
-
-
 import 'package:bot_toast/bot_toast.dart';
 import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/material.dart';
@@ -113,21 +111,20 @@ class _IllustRowPageState extends State<IllustRowPage>
     _illustStore.fetch(force: true);
     _aboutStore = IllustAboutStore(widget.id, _refreshController);
 
-    _fullScreenReaction = reaction(
-      (_) => fullScreenStore.fullscreen,
-      (bool isFullscreen) {
-        if (isFullscreen) {
-          _sidebarVisibleBeforeFullscreen = _sidebarVisible;
-          setState(() {
-            _sidebarVisible = false;
-          });
-        } else {
-          setState(() {
-            _sidebarVisible = _sidebarVisibleBeforeFullscreen;
-          });
-        }
-      },
-    );
+    _fullScreenReaction = reaction((_) => fullScreenStore.fullscreen, (
+      bool isFullscreen,
+    ) {
+      if (isFullscreen) {
+        _sidebarVisibleBeforeFullscreen = _sidebarVisible;
+        setState(() {
+          _sidebarVisible = false;
+        });
+      } else {
+        setState(() {
+          _sidebarVisible = _sidebarVisibleBeforeFullscreen;
+        });
+      }
+    });
 
     super.initState();
   }
@@ -203,12 +200,13 @@ class _IllustRowPageState extends State<IllustRowPage>
             children: [
               Observer(
                 builder: (context) {
-                  return fullScreenStore.canFullScreen && fullScreenStore.fullscreen
+                  return fullScreenStore.canFullScreen &&
+                          fullScreenStore.fullscreen
                       ? IconButton(
-                          icon: Icon(Icons.fullscreen_exit),
-                          tooltip: '退出全屏',
-                          onPressed: _toggleFullScreen,
-                        )
+                        icon: Icon(Icons.fullscreen_exit),
+                        tooltip: '退出全屏',
+                        onPressed: _toggleFullScreen,
+                      )
                       : CommonBackArea();
                 },
               ),
@@ -244,80 +242,80 @@ class _IllustRowPageState extends State<IllustRowPage>
         }
       },
       child: Scaffold(
-      extendBody: true,
-      // appBar: AppBar(
-      //   elevation: 0.0,
-      //   // iconTheme: IconTheme.of(context).copyWith(color: Theme.of(context).textTheme!.bodyText1!.color),
-      //   backgroundColor: Colors.transparent,
-      //   actions: [
-      //     IconButton(
-      //         icon: Icon(Icons.more_vert),
-      //         onPressed: () {
-      //           buildShowModalBottomSheet(context, _illustStore.illusts!);
-      //         })
-      //   ],
-      // ),
-      extendBodyBehindAppBar: true,
-      floatingActionButton: Observer(
-        builder: (context) {
-          return Visibility(
-            visible: _illustStore.errorMessage == null,
-            child: _buildFloatingActionButtons(),
-          );
-        },
-      ),
-      body: Observer(
-        builder: (_) {
-          if (!tempView)
-            for (var i in muteStore.banillusts) {
-              if (i.illustId == widget.id.toString()) {
-                return BanPage(
-                  name: "${I18n.of(context).illust}\n${i.name}\n",
-                  onPressed: () {
-                    setState(() {
-                      tempView = true;
-                    });
-                  },
-                );
-              }
-            }
-          if (!tempView && _illustStore.illusts != null) {
-            for (var j in muteStore.banUserIds) {
-              if (j.userId == _illustStore.illusts!.user.id.toString()) {
-                return BanPage(
-                  name: "${I18n.of(context).painter}\n${j.name}\n",
-                  onPressed: () {
-                    setState(() {
-                      tempView = true;
-                    });
-                  },
-                );
-              }
-            }
-            for (var t in muteStore.banTags) {
-              for (var t1 in _illustStore.illusts!.tags) {
-                if (t.name == t1.name)
+        extendBody: true,
+        // appBar: AppBar(
+        //   elevation: 0.0,
+        //   // iconTheme: IconTheme.of(context).copyWith(color: Theme.of(context).textTheme!.bodyText1!.color),
+        //   backgroundColor: Colors.transparent,
+        //   actions: [
+        //     IconButton(
+        //         icon: Icon(Icons.more_vert),
+        //         onPressed: () {
+        //           buildShowModalBottomSheet(context, _illustStore.illusts!);
+        //         })
+        //   ],
+        // ),
+        extendBodyBehindAppBar: true,
+        floatingActionButton: Observer(
+          builder: (context) {
+            return Visibility(
+              visible: _illustStore.errorMessage == null,
+              child: _buildFloatingActionButtons(),
+            );
+          },
+        ),
+        body: Observer(
+          builder: (_) {
+            if (!tempView)
+              for (var i in muteStore.banillusts) {
+                if (i.illustId == widget.id.toString()) {
                   return BanPage(
-                    name: "${I18n.of(context).tag}\n${t.name}\n",
+                    name: "${I18n.of(context).illust}\n${i.name}\n",
                     onPressed: () {
                       setState(() {
                         tempView = true;
                       });
                     },
                   );
+                }
+              }
+            if (!tempView && _illustStore.illusts != null) {
+              for (var j in muteStore.banUserIds) {
+                if (j.userId == _illustStore.illusts!.user.id.toString()) {
+                  return BanPage(
+                    name: "${I18n.of(context).painter}\n${j.name}\n",
+                    onPressed: () {
+                      setState(() {
+                        tempView = true;
+                      });
+                    },
+                  );
+                }
+              }
+              for (var t in muteStore.banTags) {
+                for (var t1 in _illustStore.illusts!.tags) {
+                  if (t.name == t1.name)
+                    return BanPage(
+                      name: "${I18n.of(context).tag}\n${t.name}\n",
+                      onPressed: () {
+                        setState(() {
+                          tempView = true;
+                        });
+                      },
+                    );
+                }
               }
             }
-          }
-          return Container(
-            child: Stack(
-              children: [
-                _buildContent(context, _illustStore.illusts),
-                _buildAppbar(),
-              ],
-            ),
-          );
-        },
-      ),
+            return Container(
+              child: Stack(
+                children: [
+                  _buildContent(context, _illustStore.illusts),
+                  _buildAppbar(),
+                ],
+              ),
+            );
+          },
+        ),
       ),
     );
   }
@@ -489,7 +487,7 @@ class _IllustRowPageState extends State<IllustRowPage>
                     ),
                   ),
                 ),
-// 侧边栏，使用 AnimatedPositioned 实现从右侧滑入/滑出
+                // 侧边栏，使用 AnimatedPositioned 实现从右侧滑入/滑出
                 AnimatedPositioned(
                   duration: animationDuration,
                   curve: Curves.easeInOut,
@@ -537,14 +535,16 @@ class _IllustRowPageState extends State<IllustRowPage>
                 AnimatedPositioned(
                   duration: animationDuration,
                   curve: Curves.easeInOut,
-                  right:
-                      (_sidebarVisible && _showComments) ? 0 : -sidebarWidth,
+                  right: (_sidebarVisible && _showComments) ? 0 : -sidebarWidth,
                   top: 0,
                   bottom: 0,
                   width: sidebarWidth,
                   child: Container(
-                    decoration: BoxDecoration(color: Theme.of(context).cardColor),
-                    clipBehavior: Clip.hardEdge, // Ensure overlay doesn't bleed out
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).cardColor,
+                    ),
+                    clipBehavior:
+                        Clip.hardEdge, // Ensure overlay doesn't bleed out
                     child: CommentPage(
                       id: data.id,
                       embedded: true,
@@ -1744,18 +1744,22 @@ class _IllustRowPageState extends State<IllustRowPage>
   void _showPriorityDialog() {
     showDialog(
       context: context,
-      builder: (context) => BookmarkPriorityDialog(
-        onPrioritySelected: (priority) {
-          if (userSetting.saveAfterStar && (_illustStore.state == 0)) {
-            downloadStore.downloadIllust(_illustStore.illusts!, bookmark: priority);
-          }
-          _illustStore.star(
-            restrict: userSetting.defaultPrivateLike ? "private" : "public",
-            bookmark: priority,
-            force: true, // 强制更新，即使已收藏也应用新优先级
-          );
-        },
-      ),
+      builder:
+          (context) => BookmarkPriorityDialog(
+            onPrioritySelected: (priority) {
+              if (userSetting.saveAfterStar && (_illustStore.state == 0)) {
+                downloadStore.downloadIllust(
+                  _illustStore.illusts!,
+                  bookmark: priority,
+                );
+              }
+              _illustStore.star(
+                restrict: userSetting.defaultPrivateLike ? "private" : "public",
+                bookmark: priority,
+                force: true, // 强制更新，即使已收藏也应用新优先级
+              );
+            },
+          ),
     );
   }
 
@@ -1807,7 +1811,10 @@ class _IllustRowPageState extends State<IllustRowPage>
             backgroundColor: Colors.white,
             onPressed: () async {
               if (userSetting.saveAfterStar && (_illustStore.state == 0)) {
-                downloadStore.downloadIllust(_illustStore.illusts!, bookmark: 1);
+                downloadStore.downloadIllust(
+                  _illustStore.illusts!,
+                  bookmark: 1,
+                );
               }
               _illustStore.star(
                 restrict: userSetting.defaultPrivateLike ? "private" : "public",

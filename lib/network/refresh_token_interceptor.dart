@@ -41,7 +41,9 @@ class RefreshTokenInterceptor extends QueuedInterceptorsWrapper {
 
   @override
   Future<void> onRequest(
-      RequestOptions options, RequestInterceptorHandler handler) async {
+    RequestOptions options,
+    RequestInterceptorHandler handler,
+  ) async {
     if (!options.path.contains('v1/walkthrough/illusts')) {
       options.headers[OAuthClient.AUTHORIZATION] = await getToken();
       if (options.headers[OAuthClient.AUTHORIZATION] == null) {
@@ -83,12 +85,14 @@ class RefreshTokenInterceptor extends QueuedInterceptorsWrapper {
             await client.createDioClient();
             AccountPersist accountPersist = accountStore.now!;
             Response response1 = await client.postRefreshAuthToken(
-                refreshToken: accountPersist.refreshToken,
-                deviceToken: accountPersist.deviceToken);
+              refreshToken: accountPersist.refreshToken,
+              deviceToken: accountPersist.deviceToken,
+            );
             AccountResponse accountResponse =
                 Account.fromJson(response1.data).response;
             final user = accountResponse.user;
-            await accountStore.updateSingle(AccountPersist(
+            await accountStore.updateSingle(
+              AccountPersist(
                 userId: user.id,
                 userImage: user.profileImageUrls.px170x170,
                 accessToken: accountResponse.accessToken,
@@ -101,7 +105,9 @@ class RefreshTokenInterceptor extends QueuedInterceptorsWrapper {
                 isPremium: bti(user.isPremium),
                 xRestrict: user.xRestrict,
                 isMailAuthorized: bti(user.isMailAuthorized),
-                id: accountPersist.id));
+                id: accountPersist.id,
+              ),
+            );
             lastRefreshTime = DateTime.now().millisecondsSinceEpoch;
             Log.d(() => "unlock ========================");
           } else if (errorMessage.error.message!.contains("Limit")) {
@@ -138,7 +144,8 @@ class RefreshTokenInterceptor extends QueuedInterceptorsWrapper {
       return handler.resolve(response);
     }
     if (err.message?.contains(
-                "Connection closed before full header was received") ==
+              "Connection closed before full header was received",
+            ) ==
             true &&
         retryNum < 2) {
       Log.d(() => 'retry $retryNum =========================');

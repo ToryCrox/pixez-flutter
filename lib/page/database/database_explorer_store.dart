@@ -5,7 +5,8 @@ import 'database_registry.dart';
 
 part 'database_explorer_store.g.dart';
 
-class DatabaseExplorerStore = _DatabaseExplorerStoreBase with _$DatabaseExplorerStore;
+class DatabaseExplorerStore = _DatabaseExplorerStoreBase
+    with _$DatabaseExplorerStore;
 
 abstract class _DatabaseExplorerStoreBase with Store {
   @observable
@@ -21,7 +22,8 @@ abstract class _DatabaseExplorerStoreBase with Store {
   bool isLoading = false;
 
   @observable
-  ObservableList<Map<String, dynamic>> tables = ObservableList<Map<String, dynamic>>();
+  ObservableList<Map<String, dynamic>> tables =
+      ObservableList<Map<String, dynamic>>();
 
   @observable
   String dbPath = '';
@@ -40,7 +42,7 @@ abstract class _DatabaseExplorerStoreBase with Store {
     isLoading = true;
     selectedEntry = entry;
     dbPath = entry.path;
-    
+
     // 获取文件大小
     try {
       final file = File(dbPath);
@@ -65,20 +67,19 @@ abstract class _DatabaseExplorerStoreBase with Store {
 
     // 查询所有表 (不包括系统表和 sqlite_sequence)
     final List<Map<String, dynamic>> results = await currentDb!.rawQuery(
-      "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+      "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'",
     );
 
     final List<Map<String, dynamic>> tableInfos = [];
     for (var row in results) {
       final tableName = row['name'] as String;
       // 预估行数
-      final countResult = await currentDb!.rawQuery("SELECT count(*) as count FROM $tableName");
+      final countResult = await currentDb!.rawQuery(
+        "SELECT count(*) as count FROM $tableName",
+      );
       final count = countResult.first['count'] as int;
-      
-      tableInfos.add({
-        'name': tableName,
-        'count': count,
-      });
+
+      tableInfos.add({'name': tableName, 'count': count});
     }
 
     tables.clear();
@@ -88,7 +89,8 @@ abstract class _DatabaseExplorerStoreBase with Store {
   // --- 表格数据查看相关 ---
 
   @observable
-  ObservableList<Map<String, dynamic>> tableData = ObservableList<Map<String, dynamic>>();
+  ObservableList<Map<String, dynamic>> tableData =
+      ObservableList<Map<String, dynamic>>();
 
   @observable
   List<String> tableColumns = [];
@@ -118,10 +120,12 @@ abstract class _DatabaseExplorerStoreBase with Store {
   int totalCount = 0;
 
   @observable
-  ObservableList<Map<String, dynamic>> tableFields = ObservableList<Map<String, dynamic>>();
+  ObservableList<Map<String, dynamic>> tableFields =
+      ObservableList<Map<String, dynamic>>();
 
   @observable
-  ObservableList<Map<String, dynamic>> tableIndexes = ObservableList<Map<String, dynamic>>();
+  ObservableList<Map<String, dynamic>> tableIndexes =
+      ObservableList<Map<String, dynamic>>();
 
   @observable
   int tableBytes = 0;
@@ -131,7 +135,7 @@ abstract class _DatabaseExplorerStoreBase with Store {
   @action
   Future<void> loadTableStructure(String tableName) async {
     if (currentDb == null) return;
-    
+
     try {
       // 1. 获取字段详情
       final fields = await currentDb!.rawQuery("PRAGMA table_info($tableName)");
@@ -141,20 +145,22 @@ abstract class _DatabaseExplorerStoreBase with Store {
       // 2. 获取索引信息
       final indexes = await currentDb!.rawQuery(
         "SELECT name, sql FROM sqlite_master WHERE type='index' AND tbl_name=?",
-        [tableName]
+        [tableName],
       );
       tableIndexes.clear();
       tableIndexes.addAll(indexes);
 
       // 3. 获取行数统计 (同步更新 totalCount)
-      final countResult = await currentDb!.rawQuery("SELECT count(*) as count FROM $tableName");
+      final countResult = await currentDb!.rawQuery(
+        "SELECT count(*) as count FROM $tableName",
+      );
       totalCount = countResult.first['count'] as int;
 
       // 4. 估算磁盘空间 (尝试使用 dbstat, 如果不可用则返回 0)
       try {
         final sizeResult = await currentDb!.rawQuery(
           "SELECT sum(pgsize) as size FROM dbstat WHERE name=?",
-          [tableName]
+          [tableName],
         );
         tableBytes = sizeResult.first['size'] as int? ?? 0;
       } catch (e) {
@@ -167,7 +173,10 @@ abstract class _DatabaseExplorerStoreBase with Store {
   }
 
   @action
-  Future<void> loadTableData(String tableName, {bool resetPagination = true}) async {
+  Future<void> loadTableData(
+    String tableName, {
+    bool resetPagination = true,
+  }) async {
     if (currentDb == null) return;
 
     final isNewTable = _currentDataTableName != tableName;
@@ -189,7 +198,9 @@ abstract class _DatabaseExplorerStoreBase with Store {
       try {
         // 1. 确保列结构已就绪 (如果是新表或为空)
         if (tableColumns.isEmpty) {
-          final pragmaRows = await currentDb!.rawQuery("PRAGMA table_info($tableName)");
+          final pragmaRows = await currentDb!.rawQuery(
+            "PRAGMA table_info($tableName)",
+          );
           tableColumns = pragmaRows.map((e) => e['name'] as String).toList();
         }
 
@@ -199,31 +210,39 @@ abstract class _DatabaseExplorerStoreBase with Store {
 
         if (searchText.isNotEmpty) {
           if (searchColumn == '*') {
-            String whereClause = tableColumns.map((col) => "$col $searchOperator ?").join(" OR ");
+            String whereClause = tableColumns
+                .map((col) => "$col $searchOperator ?")
+                .join(" OR ");
             baseQuery += " WHERE $whereClause";
-            final param = searchOperator == 'LIKE' ? "%$searchText%" : searchText;
+            final param =
+                searchOperator == 'LIKE' ? "%$searchText%" : searchText;
             for (var i = 0; i < tableColumns.length; i++) {
               arguments.add(param);
             }
           } else {
             baseQuery += " WHERE $searchColumn $searchOperator ?";
-            final param = searchOperator == 'LIKE' ? "%$searchText%" : searchText;
+            final param =
+                searchOperator == 'LIKE' ? "%$searchText%" : searchText;
             arguments.add(param);
           }
         }
 
         // 并发执行总数查询和分页查询，减少等待时间
-        final countFuture = currentDb!.rawQuery("SELECT count(*) as count FROM ($baseQuery)", arguments);
-        
+        final countFuture = currentDb!.rawQuery(
+          "SELECT count(*) as count FROM ($baseQuery)",
+          arguments,
+        );
+
         String dataQuery = baseQuery;
         if (sortColumn != null) {
-          dataQuery += " ORDER BY $sortColumn ${sortAscending ? 'ASC' : 'DESC'}";
+          dataQuery +=
+              " ORDER BY $sortColumn ${sortAscending ? 'ASC' : 'DESC'}";
         }
         dataQuery += " LIMIT $pageSize OFFSET ${currentPage * pageSize}";
         final dataFuture = currentDb!.rawQuery(dataQuery, arguments);
 
         final results = await Future.wait([countFuture, dataFuture]);
-        
+
         // 集中更新可观察变量，减少 Observer 触发频率
         runInAction(() {
           totalCount = results[0].first['count'] as int;

@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 
 class SideRail extends StatelessWidget {
@@ -29,9 +28,10 @@ class SideRail extends StatelessWidget {
           NavigationRail(
             selectedIndex: selectedIndex,
             minWidth: width,
-            labelType: width < 52
-                ? NavigationRailLabelType.none
-                : NavigationRailLabelType.all,
+            labelType:
+                width < 52
+                    ? NavigationRailLabelType.none
+                    : NavigationRailLabelType.all,
             unselectedIconTheme: IconThemeData(
               size: iconSize,
               color: colorScheme.onSurfaceVariant,
@@ -49,11 +49,12 @@ class SideRail extends StatelessWidget {
               right: 0,
               bottom: 0,
               child: IconTheme(
-                  data: IconThemeData(
-                    size: width < 64 ? 20 : 24,
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                  child: trailing!),
+                data: IconThemeData(
+                  size: width < 64 ? 20 : 24,
+                  color: colorScheme.onSurfaceVariant,
+                ),
+                child: trailing!,
+              ),
             ),
         ],
       ),

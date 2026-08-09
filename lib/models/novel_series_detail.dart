@@ -10,10 +10,7 @@ class NovelSeriesSeries {
   @JsonKey(name: "title")
   String title;
 
-  NovelSeriesSeries({
-    required this.id,
-    required this.title,
-  });
+  NovelSeriesSeries({required this.id, required this.title});
 
   factory NovelSeriesSeries.fromJson(Map<String, dynamic> json) =>
       _$NovelSeriesSeriesFromJson(json);
@@ -141,17 +138,18 @@ class NovelSeriesDetail {
   bool? watchlistAdded;
 
   NovelSeriesDetail(
-      this.id,
-      this.title,
-      this.caption,
-      this.isOriginal,
-      this.isConcluded,
-      this.contentCount,
-      this.totalCharacterCount,
-      this.user,
-      this.displayText,
-      this.novelAiType,
-      this.watchlistAdded);
+    this.id,
+    this.title,
+    this.caption,
+    this.isOriginal,
+    this.isConcluded,
+    this.contentCount,
+    this.totalCharacterCount,
+    this.user,
+    this.displayText,
+    this.novelAiType,
+    this.watchlistAdded,
+  );
 
   factory NovelSeriesDetail.fromJson(Map<String, dynamic> json) =>
       _$NovelSeriesDetailFromJson(json);
@@ -170,8 +168,14 @@ class NovelSeriesUser {
   @JsonKey(name: "is_access_blocking_user")
   bool isAccessBlockingUser;
 
-  NovelSeriesUser(this.id, this.name, this.account, this.profileImageUrls,
-      this.isFollowed, this.isAccessBlockingUser);
+  NovelSeriesUser(
+    this.id,
+    this.name,
+    this.account,
+    this.profileImageUrls,
+    this.isFollowed,
+    this.isAccessBlockingUser,
+  );
 
   factory NovelSeriesUser.fromJson(Map<String, dynamic> json) =>
       _$NovelSeriesUserFromJson(json);
@@ -229,28 +233,29 @@ class NovelSeriesFirstNovel {
   int novelAiType;
 
   NovelSeriesFirstNovel(
-      this.id,
-      this.title,
-      this.caption,
-      this.restrict,
-      this.xRestrict,
-      this.isOriginal,
-      this.imageUrls,
-      this.createDate,
-      this.tags,
-      this.pageCount,
-      this.textLength,
-      this.user,
-      this.series,
-      this.isBookmarked,
-      this.totalBookmarks,
-      this.totalView,
-      this.visible,
-      this.totalComments,
-      this.isMuted,
-      this.isMypixivOnly,
-      this.isXRestricted,
-      this.novelAiType);
+    this.id,
+    this.title,
+    this.caption,
+    this.restrict,
+    this.xRestrict,
+    this.isOriginal,
+    this.imageUrls,
+    this.createDate,
+    this.tags,
+    this.pageCount,
+    this.textLength,
+    this.user,
+    this.series,
+    this.isBookmarked,
+    this.totalBookmarks,
+    this.totalView,
+    this.visible,
+    this.totalComments,
+    this.isMuted,
+    this.isMypixivOnly,
+    this.isXRestricted,
+    this.novelAiType,
+  );
 
   factory NovelSeriesFirstNovel.fromJson(Map<String, dynamic> json) =>
       _$NovelSeriesFirstNovelFromJson(json);
@@ -283,8 +288,13 @@ class NovelSeriesResponse {
   @JsonKey(name: 'next_url')
   String? nextUrl;
 
-  NovelSeriesResponse(this.novelSeriesDetail, this.novelSeriesFirstNovel,
-      this.novelSeriesLatestNovel, this.novels, this.nextUrl);
+  NovelSeriesResponse(
+    this.novelSeriesDetail,
+    this.novelSeriesFirstNovel,
+    this.novelSeriesLatestNovel,
+    this.novels,
+    this.nextUrl,
+  );
 
   factory NovelSeriesResponse.fromJson(Map<String, dynamic> json) =>
       _$NovelSeriesResponseFromJson(json);

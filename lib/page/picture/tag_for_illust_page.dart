@@ -31,121 +31,135 @@ class _TagForIllustPageState extends State<TagForIllustPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Observer(builder: (_) {
-      return Container(
-        child: Column(
-          children: <Widget>[
-            AppBar(
-              title: Text((_store.restrict == "public"
-                      ? I18n.of(context).public
-                      : I18n.of(context).private) +
-                  I18n.of(context).bookmark),
-              actions: [
-                IconButton(
+    return Observer(
+      builder: (_) {
+        return Container(
+          child: Column(
+            children: <Widget>[
+              AppBar(
+                title: Text(
+                  (_store.restrict == "public"
+                          ? I18n.of(context).public
+                          : I18n.of(context).private) +
+                      I18n.of(context).bookmark,
+                ),
+                actions: [
+                  IconButton(
                     icon: Icon(Icons.check_box),
                     onPressed: () {
                       _store.checkAll();
-                    }),
-                Switch(
-                  onChanged: (bool value) {
-                    _store.setRestrict(value);
-                  },
-                  value: _store.restrict == "public",
-                ),
-                // 确认图标
-                IconButton(
+                    },
+                  ),
+                  Switch(
+                    onChanged: (bool value) {
+                      _store.setRestrict(value);
+                    },
+                    value: _store.restrict == "public",
+                  ),
+                  // 确认图标
+                  IconButton(
                     icon: Icon(Icons.check),
                     onPressed: () {
                       confirm();
-                    })
-              ],
-            ),
-            Padding(
-              padding: EdgeInsets.all(8.0),
-              child: TextField(
-                controller: textEditingController,
-                decoration: InputDecoration(
-                    suffixIcon: IconButton(
-                  icon: Icon(Icons.add),
-                  onPressed: () {
-                    final value = textEditingController.value.text.trim();
-                    if (value.isNotEmpty)
-                      _store.insert(TagsR(isRegistered: true, name: value));
-                    textEditingController.clear();
-                  },
-                )),
+                    },
+                  ),
+                ],
               ),
-            ),
-            Expanded(
-              child: _store.errorMessage == null
-                  ? ListView.builder(
-                      padding: EdgeInsets.all(2.0).copyWith(
-                        bottom: (MediaQuery.maybeOf(context)?.padding.bottom ??
-                                0.0) +
-                            2.0,
-                      ),
-                      itemCount: _store.checkList.length,
-                      itemBuilder: (BuildContext context, int index) {
-                        return Row(
-                          children: [
-                            Expanded(
-                              child: InkWell(
-                                onTap: () {
-                                  _store.check(index, !_store.checkList[index]);
-                                },
-                                child: Padding(
-                                  padding: const EdgeInsets.all(8.0),
-                                  child: Text(_store.tags[index].name),
-                                ),
-                              ),
-                            ),
-                            Checkbox(
-                              onChanged: (bool? value) {
-                                _store.check(index, value!);
-                              },
-                              activeColor:
-                                  Theme.of(context).colorScheme.secondary,
-                              value: _store.checkList[index],
-                            )
-                          ],
-                        );
+              Padding(
+                padding: EdgeInsets.all(8.0),
+                child: TextField(
+                  controller: textEditingController,
+                  decoration: InputDecoration(
+                    suffixIcon: IconButton(
+                      icon: Icon(Icons.add),
+                      onPressed: () {
+                        final value = textEditingController.value.text.trim();
+                        if (value.isNotEmpty)
+                          _store.insert(TagsR(isRegistered: true, name: value));
+                        textEditingController.clear();
                       },
-                    )
-                  : Container(
-                      child: Container(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.max,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: <Widget>[
-                            Container(
-                              height: 50,
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.all(8.0),
-                              child: Text(':(',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .headlineMedium),
-                            ),
-                            TextButton(
-                                onPressed: () {
-                                  _store.fetch();
-                                },
-                                child: Text(I18n.of(context).retry)),
-                            Padding(
-                              padding: const EdgeInsets.all(16.0),
-                              child: Text('${_store.errorMessage}'),
-                            )
-                          ],
-                        ),
-                      ),
                     ),
-            )
-          ],
-        ),
-      );
-    });
+                  ),
+                ),
+              ),
+              Expanded(
+                child:
+                    _store.errorMessage == null
+                        ? ListView.builder(
+                          padding: EdgeInsets.all(2.0).copyWith(
+                            bottom:
+                                (MediaQuery.maybeOf(context)?.padding.bottom ??
+                                    0.0) +
+                                2.0,
+                          ),
+                          itemCount: _store.checkList.length,
+                          itemBuilder: (BuildContext context, int index) {
+                            return Row(
+                              children: [
+                                Expanded(
+                                  child: InkWell(
+                                    onTap: () {
+                                      _store.check(
+                                        index,
+                                        !_store.checkList[index],
+                                      );
+                                    },
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(8.0),
+                                      child: Text(_store.tags[index].name),
+                                    ),
+                                  ),
+                                ),
+                                Checkbox(
+                                  onChanged: (bool? value) {
+                                    _store.check(index, value!);
+                                  },
+                                  activeColor:
+                                      Theme.of(context).colorScheme.secondary,
+                                  value: _store.checkList[index],
+                                ),
+                              ],
+                            );
+                          },
+                        )
+                        : Container(
+                          child: Container(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.max,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: <Widget>[
+                                Container(height: 50),
+                                Padding(
+                                  padding: const EdgeInsets.all(8.0),
+                                  child: Text(
+                                    ':(',
+                                    style:
+                                        Theme.of(
+                                          context,
+                                        ).textTheme.headlineMedium,
+                                  ),
+                                ),
+                                TextButton(
+                                  onPressed: () {
+                                    _store.fetch();
+                                  },
+                                  child: Text(I18n.of(context).retry),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.all(16.0),
+                                  child: Text('${_store.errorMessage}'),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   confirm() async {

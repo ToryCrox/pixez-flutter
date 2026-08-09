@@ -30,7 +30,7 @@ class PainterCard extends StatefulWidget {
   final UserPreviews user;
   final bool isNovel;
   const PainterCard({Key? key, required this.user, this.isNovel = false})
-      : super(key: key);
+    : super(key: key);
 
   @override
   State<PainterCard> createState() => _PainterCardState();
@@ -52,18 +52,19 @@ class _PainterCardState extends State<PainterCard> {
     return HoverScaleCard(
       child: InkWell(
         onTap: () async {
-          await Navigator.of(context)
-              .push(MaterialPageRoute(builder: (BuildContext context) {
-            if (isNovel) {
-              return NovelUsersPage(
-                id: _user.user.id,
-              );
-            }
-            return UsersPage(
-              id: _user.user.id,
-              userStore: UserStore(_user.user.id, null, _user.user),
-            );
-          }));
+          await Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (BuildContext context) {
+                if (isNovel) {
+                  return NovelUsersPage(id: _user.user.id);
+                }
+                return UsersPage(
+                  id: _user.user.id,
+                  userStore: UserStore(_user.user.id, null, _user.user),
+                );
+              },
+            ),
+          );
           setState(() {});
         },
         child: Container(
@@ -78,11 +79,12 @@ class _PainterCardState extends State<PainterCard> {
   _buildPreviewSlivers(BuildContext context) {
     return (isNovel)
         ? Row(
-            children: [
-              for (var i = 0; i < 3; i++)
-                Expanded(
-                  child: i < _user.novels.length
-                      ? AspectRatio(
+          children: [
+            for (var i = 0; i < 3; i++)
+              Expanded(
+                child:
+                    i < _user.novels.length
+                        ? AspectRatio(
                           aspectRatio: 1.0,
                           child: Stack(
                             children: [
@@ -105,30 +107,31 @@ class _PainterCardState extends State<PainterCard> {
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
-                              )
+                              ),
                             ],
                           ),
                         )
-                      : Container(),
-                )
-            ],
-          )
+                        : Container(),
+              ),
+          ],
+        )
         : Row(
-            children: [
-              for (var i = 0; i < 3; i++)
-                Expanded(
-                  child: i < _user.illusts.length
-                      ? AspectRatio(
+          children: [
+            for (var i = 0; i < 3; i++)
+              Expanded(
+                child:
+                    i < _user.illusts.length
+                        ? AspectRatio(
                           aspectRatio: 1.0,
                           child: PixivImage(
                             _user.illusts[i].imageUrls.squareMedium,
                             fit: BoxFit.cover,
                           ),
                         )
-                      : Container(),
-                )
-            ],
-          );
+                        : Container(),
+              ),
+          ],
+        );
   }
 
   Widget buildPadding(BuildContext context) {
@@ -144,19 +147,20 @@ class _PainterCardState extends State<PainterCard> {
               url: _user.user.profileImageUrls.medium,
               id: _user.user.id,
               onTap: () {
-                Navigator.of(context)
-                    .push(MaterialPageRoute(builder: (BuildContext context) {
-                  if (isNovel) {
-                    return NovelUsersPage(
-                      id: _user.user.id,
-                    );
-                  }
-                  return UsersPage(
-                    id: _user.user.id,
-                    userStore: UserStore(_user.user.id, null, _user.user),
-                    heroTag: this.hashCode.toString(),
-                  );
-                }));
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (BuildContext context) {
+                      if (isNovel) {
+                        return NovelUsersPage(id: _user.user.id);
+                      }
+                      return UsersPage(
+                        id: _user.user.id,
+                        userStore: UserStore(_user.user.id, null, _user.user),
+                        heroTag: this.hashCode.toString(),
+                      );
+                    },
+                  ),
+                );
               },
             ),
           ),
@@ -204,7 +208,7 @@ class _PainterCardState extends State<PainterCard> {
                   Log.e(() => "Failed to toggle follow", error: e);
                 }
               },
-            )
+            ),
         ],
       ),
     );

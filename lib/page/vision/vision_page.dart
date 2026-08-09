@@ -10,10 +10,6 @@ class VisionPage extends StatefulWidget {
 class _VisionPageState extends State<VisionPage> {
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      extendBody: true,
-      extendBodyBehindAppBar: true,
-
-    );
+    return Scaffold(extendBody: true, extendBodyBehindAppBar: true);
   }
 }

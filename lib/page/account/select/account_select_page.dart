@@ -36,51 +36,56 @@ class _AccountSelectPageState extends State<AccountSelectPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Observer(builder: (context) {
-      return Scaffold(
-        body: Container(
-          child: ListView.builder(
-            itemBuilder: (context, index) {
-              AccountPersist accountPersist = accountStore.accounts[index];
-              return ListTile(
-                leading: PainterAvatar(
-                  url: accountStore.accounts[index].userImage,
-                  id: int.parse(accountStore.accounts[index].userId),
-                ),
-                title: Text(accountPersist.name),
-                subtitle: Text(accountPersist.mailAddress),
-                trailing:
-                    accountStore.accounts.indexOf(accountStore.now) == index
-                        ? Icon(Icons.check)
-                        : IconButton(
+    return Observer(
+      builder: (context) {
+        return Scaffold(
+          body: Container(
+            child: ListView.builder(
+              itemBuilder: (context, index) {
+                AccountPersist accountPersist = accountStore.accounts[index];
+                return ListTile(
+                  leading: PainterAvatar(
+                    url: accountStore.accounts[index].userImage,
+                    id: int.parse(accountStore.accounts[index].userId),
+                  ),
+                  title: Text(accountPersist.name),
+                  subtitle: Text(accountPersist.mailAddress),
+                  trailing:
+                      accountStore.accounts.indexOf(accountStore.now) == index
+                          ? Icon(Icons.check)
+                          : IconButton(
                             icon: Icon(Icons.delete),
                             onPressed: () {
                               accountStore.deleteSingle(accountPersist.id!);
                             },
                           ),
-                onTap: () async {
-                  if (accountStore.accounts.indexOf(accountStore.now) !=
-                      index) {
-                    await accountStore.select(index);
-                    setState(() {});
-                  }
-                },
-              );
-            },
-            itemCount: accountStore.accounts.length,
+                  onTap: () async {
+                    if (accountStore.accounts.indexOf(accountStore.now) !=
+                        index) {
+                      await accountStore.select(index);
+                      setState(() {});
+                    }
+                  },
+                );
+              },
+              itemCount: accountStore.accounts.length,
+            ),
           ),
-        ),
-        appBar: AppBar(
-          title: Text(I18n.of(context).account_change),
-          actions: <Widget>[
-            IconButton(
-              icon: Icon(Icons.add),
-              onPressed: () => Navigator.of(context, rootNavigator: true)
-                  .push(MaterialPageRoute(builder: (_) => LoginPage())),
-            )
-          ],
-        ),
-      );
-    });
+          appBar: AppBar(
+            title: Text(I18n.of(context).account_change),
+            actions: <Widget>[
+              IconButton(
+                icon: Icon(Icons.add),
+                onPressed:
+                    () => Navigator.of(
+                      context,
+                      rootNavigator: true,
+                    ).push(MaterialPageRoute(builder: (_) => LoginPage())),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 }

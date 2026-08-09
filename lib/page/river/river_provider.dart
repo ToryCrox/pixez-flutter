@@ -18,14 +18,16 @@ class IllustListNotifier extends StateNotifier<IllustListState> {
   fetch({int offset = 0}) async {
     try {
       final response = await apiClient.getBookmarksIllustsOffset(
-          int.parse(accountStore.now!.userId),
-          "public",
-          null,
-          offset < 30 ? null : offset);
+        int.parse(accountStore.now!.userId),
+        "public",
+        null,
+        offset < 30 ? null : offset,
+      );
       Recommend recommend = Recommend.fromJson(response.data);
-      final nextCursor = recommend.illusts.length < 30
-          ? null
-          : (offset += recommend.illusts.length);
+      final nextCursor =
+          recommend.illusts.length < 30
+              ? null
+              : (offset += recommend.illusts.length);
       state = IllustListState(recommend.illusts, nextCursor);
     } catch (e) {}
   }
@@ -34,7 +36,11 @@ class IllustListNotifier extends StateNotifier<IllustListState> {
     try {
       if (state.offset == null) return;
       final response = await apiClient.getBookmarksIllustsOffset(
-          int.parse(accountStore.now!.userId), "public", null, state.offset);
+        int.parse(accountStore.now!.userId),
+        "public",
+        null,
+        state.offset,
+      );
       Recommend recommend = Recommend.fromJson(response.data);
       final illusts = [...state.illusts, ...recommend.illusts];
       final nextCursor = recommend.illusts.length < 30 ? null : illusts.length;

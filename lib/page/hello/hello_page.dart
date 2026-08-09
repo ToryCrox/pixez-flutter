@@ -94,26 +94,30 @@ class _HelloPageState extends State<HelloPage> {
   @override
   void initState() {
     _lists = <Widget>[
-      Observer(builder: (context) {
-        if (accountStore.now != null)
-          return RecomSpolightPage();
-        else
-          return PreviewPage();
-      }),
-      Observer(builder: (context) {
-        if (accountStore.now != null)
-          return RankPage();
-        else
-          return Column(children: [
-            AppBar(
-              title: Text('rank(day)'),
-            ),
-            Expanded(child: PreviewPage())
-          ]);
-      }),
+      Observer(
+        builder: (context) {
+          if (accountStore.now != null)
+            return RecomSpolightPage();
+          else
+            return PreviewPage();
+        },
+      ),
+      Observer(
+        builder: (context) {
+          if (accountStore.now != null)
+            return RankPage();
+          else
+            return Column(
+              children: [
+                AppBar(title: Text('rank(day)')),
+                Expanded(child: PreviewPage()),
+              ],
+            );
+        },
+      ),
       NewPage(),
       SearchPage(),
-      SettingPage()
+      SettingPage(),
     ];
     _wideLists = <Widget>[
       ..._lists,
@@ -132,8 +136,9 @@ class _HelloPageState extends State<HelloPage> {
 
   Future<void> initPlatformState() async {
     if (Prefer.getInt('language_num') == null) {
-      Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => GuidePage()));
+      Navigator.of(
+        context,
+      ).pushReplacement(MaterialPageRoute(builder: (context) => GuidePage()));
     }
   }
 
@@ -141,8 +146,9 @@ class _HelloPageState extends State<HelloPage> {
     try {
       Uri? initialLink = await DeepLinkPlugin.getInitialUri();
       if (initialLink != null) Leader.pushWithUri(context, initialLink);
-      _sub = DeepLinkPlugin.uriLinkStream
-          .listen((Uri? link) => Leader.pushWithUri(context, link!));
+      _sub = DeepLinkPlugin.uriLinkStream.listen(
+        (Uri? link) => Leader.pushWithUri(context, link!),
+      );
     } catch (e) {
       Log.e('Failed to initialize links stream', error: e);
     }
@@ -153,128 +159,158 @@ class _HelloPageState extends State<HelloPage> {
     if (bottomNavigatorHeight == null) {
       bottomNavigatorHeight = MediaQuery.of(context).padding.bottom + 80;
     }
-    return LayoutBuilder(builder: (context, constraints) {
-      if (_isWideScreen == null) {
-        _isWideScreen = constraints.maxWidth > constraints.maxHeight;
-      }
-      final wide = _isWideScreen!;
-      final list = wide ? _wideLists : _lists;
-      index = index.clamp(0, list.length - 1);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (_isWideScreen == null) {
+          _isWideScreen = constraints.maxWidth > constraints.maxHeight;
+        }
+        final wide = _isWideScreen!;
+        final list = wide ? _wideLists : _lists;
+        index = index.clamp(0, list.length - 1);
 
-      // 更新 windowFrameController 的宽屏状态
-      if (Platform.isWindows || Platform.isLinux) {
-        windowFrameController.isWideScreen = wide;
-        windowFrameController.wideScreenNavigatorKey =
-            wide ? _contentNavigatorKey : null;
-      }
+        // 更新 windowFrameController 的宽屏状态
+        if (Platform.isWindows || Platform.isLinux) {
+          windowFrameController.isWideScreen = wide;
+          windowFrameController.wideScreenNavigatorKey =
+              wide ? _contentNavigatorKey : null;
+        }
 
-      return WideScreenNavigator(
-        isWideScreen: wide,
-        contentNavigatorKey: wide ? _contentNavigatorKey : null,
-        child: Scaffold(
-          body: Builder(
-            builder: (context) => Row(
-              children: <Widget>[
-                if (wide) ...[
-                  Observer(
-                    builder: (context) {
-                      final bool isFullscreen = fullScreenStore.fullscreen;
-                      return AnimatedContainer(
-                        duration: const Duration(milliseconds: 300),
-                        curve: Curves.easeOutCubic,
-                        width: isFullscreen ? 0 : 37, // 36 (SideRail) + 1 (Divider)
-                        child: ClipRect(
-                          child: OverflowBox(
-                            minWidth: 37,
-                            maxWidth: 37,
-                            alignment: Alignment.centerLeft,
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                SideRail(
-                                  width: 36,
-                                  selectedIndex: index,
-                                  onDestinationSelected: (int index) {
-                                    // 如果右侧 Navigator 有子页面，先清除栈回到主页面
-                                    if (_contentNavigatorKey.currentState !=
-                                        null) {
-                                      _contentNavigatorKey.currentState!
-                                          .popUntil((route) => route.isFirst);
-                                    }
-                                    _pageController.jumpToPage(index);
+        return WideScreenNavigator(
+          isWideScreen: wide,
+          contentNavigatorKey: wide ? _contentNavigatorKey : null,
+          child: Scaffold(
+            body: Builder(
+              builder:
+                  (context) => Row(
+                    children: <Widget>[
+                      if (wide) ...[
+                        Observer(
+                          builder: (context) {
+                            final bool isFullscreen =
+                                fullScreenStore.fullscreen;
+                            return AnimatedContainer(
+                              duration: const Duration(milliseconds: 300),
+                              curve: Curves.easeOutCubic,
+                              width:
+                                  isFullscreen
+                                      ? 0
+                                      : 37, // 36 (SideRail) + 1 (Divider)
+                              child: ClipRect(
+                                child: OverflowBox(
+                                  minWidth: 37,
+                                  maxWidth: 37,
+                                  alignment: Alignment.centerLeft,
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      SideRail(
+                                        width: 36,
+                                        selectedIndex: index,
+                                        onDestinationSelected: (int index) {
+                                          // 如果右侧 Navigator 有子页面，先清除栈回到主页面
+                                          if (_contentNavigatorKey
+                                                  .currentState !=
+                                              null) {
+                                            _contentNavigatorKey.currentState!
+                                                .popUntil(
+                                                  (route) => route.isFirst,
+                                                );
+                                          }
+                                          _pageController.jumpToPage(index);
 
-                                    setState(() {
-                                      this.index = index;
-                                    });
-                                  },
-                                  destinations: <NavigationRailDestination>[
-                                    NavigationRailDestination(
-                                        icon: Icon(Icons.home),
-                                        label: Text(I18n.of(context).home)),
-                                    NavigationRailDestination(
-                                        icon: Icon(Icons.leaderboard),
-                                        label: Text(I18n.of(context).rank)),
-                                    NavigationRailDestination(
-                                        icon: Icon(Icons.favorite),
-                                        label: Text(I18n.of(context).quick_view)),
-                                    NavigationRailDestination(
-                                        icon: Icon(Icons.search),
-                                        label: Text(I18n.of(context).search)),
-                                    NavigationRailDestination(
-                                        icon: Icon(Icons.more_horiz),
-                                        label: Text(I18n.of(context).more)),
-                                    NavigationRailDestination(
-                                        icon: Icon(Icons.download),
-                                        label: Text('下载')),
-                                    NavigationRailDestination(
-                                      icon: Icon(Icons.person),
-                                      label: Text('作者'),
-                                    ),
-                                    NavigationRailDestination(
-                                      icon: Icon(Icons.label),
-                                      label: Text('标签管理'),
-                                    )
-                                  ],
-                                  trailing: _buildTrailing(context),
+                                          setState(() {
+                                            this.index = index;
+                                          });
+                                        },
+                                        destinations: <
+                                          NavigationRailDestination
+                                        >[
+                                          NavigationRailDestination(
+                                            icon: Icon(Icons.home),
+                                            label: Text(I18n.of(context).home),
+                                          ),
+                                          NavigationRailDestination(
+                                            icon: Icon(Icons.leaderboard),
+                                            label: Text(I18n.of(context).rank),
+                                          ),
+                                          NavigationRailDestination(
+                                            icon: Icon(Icons.favorite),
+                                            label: Text(
+                                              I18n.of(context).quick_view,
+                                            ),
+                                          ),
+                                          NavigationRailDestination(
+                                            icon: Icon(Icons.search),
+                                            label: Text(
+                                              I18n.of(context).search,
+                                            ),
+                                          ),
+                                          NavigationRailDestination(
+                                            icon: Icon(Icons.more_horiz),
+                                            label: Text(I18n.of(context).more),
+                                          ),
+                                          NavigationRailDestination(
+                                            icon: Icon(Icons.download),
+                                            label: Text('下载'),
+                                          ),
+                                          NavigationRailDestination(
+                                            icon: Icon(Icons.person),
+                                            label: Text('作者'),
+                                          ),
+                                          NavigationRailDestination(
+                                            icon: Icon(Icons.label),
+                                            label: Text('标签管理'),
+                                          ),
+                                        ],
+                                        trailing: _buildTrailing(context),
+                                      ),
+                                      const VerticalDivider(
+                                        thickness: 1,
+                                        width: 1,
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                                const VerticalDivider(thickness: 1, width: 1),
-                              ],
-                            ),
-                          ),
+                              ),
+                            );
+                          },
                         ),
-                      );
-                    },
+                      ],
+                      Expanded(child: _buildPageView(context, wide)),
+                    ],
                   ),
-                ],
-                Expanded(
-                  child: _buildPageView(context, wide),
-                ),
-              ],
             ),
+            extendBody: true,
+            bottomNavigationBar:
+                wide
+                    ? null
+                    : Observer(
+                      builder: (context) {
+                        return AnimatedContainer(
+                          duration: const Duration(milliseconds: 400),
+                          transform: Matrix4.translationValues(
+                            0,
+                            fullScreenStore.fullscreen
+                                ? bottomNavigatorHeight!
+                                : 0,
+                            0,
+                          ),
+                          child: _buildNavigationBar(context),
+                        );
+                      },
+                    ),
           ),
-          extendBody: true,
-          bottomNavigationBar: wide
-              ? null
-              : Observer(builder: (context) {
-                  return AnimatedContainer(
-                    duration: const Duration(milliseconds: 400),
-                    transform: Matrix4.translationValues(
-                        0,
-                        fullScreenStore.fullscreen ? bottomNavigatorHeight! : 0,
-                        0),
-                    child: _buildNavigationBar(context),
-                  );
-                }),
-        ),
-      );
-    });
+        );
+      },
+    );
   }
 
   Widget _buildTrailing(BuildContext context) {
     return Padding(
       padding: EdgeInsets.only(
-          left: MediaQuery.of(context).padding.left,
-          bottom: MediaQuery.of(context).padding.bottom + 4.0),
+        left: MediaQuery.of(context).padding.left,
+        bottom: MediaQuery.of(context).padding.bottom + 4.0,
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -289,9 +325,7 @@ class _HelloPageState extends State<HelloPage> {
                   wideScreenNav.isWideScreen &&
                   wideScreenNav.contentNavigatorKey != null) {
                 wideScreenNav.contentNavigatorKey!.currentState?.push(
-                  MaterialPageRoute(
-                    builder: (context) => HistoryPage(),
-                  ),
+                  MaterialPageRoute(builder: (context) => HistoryPage()),
                 );
               } else {
                 Leader.push(context, HistoryPage());
@@ -336,11 +370,13 @@ class _HelloPageState extends State<HelloPage> {
             child: SizedBox(
               width: 40,
               height: 40,
-              child: accountStore.now != null
-                  ? PainterAvatar(
-                      url: accountStore.now!.userImage,
-                      id: int.tryParse(accountStore.now!.userId) ?? 0)
-                  : Container(),
+              child:
+                  accountStore.now != null
+                      ? PainterAvatar(
+                        url: accountStore.now!.userImage,
+                        id: int.tryParse(accountStore.now!.userId) ?? 0,
+                      )
+                      : Container(),
             ),
           ),
         ],
@@ -354,29 +390,38 @@ class _HelloPageState extends State<HelloPage> {
         filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
         child: NavigationBar(
           height: 68,
-          backgroundColor:
-              Theme.of(context).colorScheme.surface.withValues(alpha: 0.9),
+          backgroundColor: Theme.of(
+            context,
+          ).colorScheme.surface.withValues(alpha: 0.9),
           destinations: [
             NavigationDestination(
-                icon: Icon(Icons.home), label: I18n.of(context).home),
+              icon: Icon(Icons.home),
+              label: I18n.of(context).home,
+            ),
             NavigationDestination(
-                icon: Icon(
-                  Icons.leaderboard,
-                ),
-                label: I18n.of(context).rank),
+              icon: Icon(Icons.leaderboard),
+              label: I18n.of(context).rank,
+            ),
             NavigationDestination(
-                icon: Icon(Icons.favorite), label: I18n.of(context).quick_view),
+              icon: Icon(Icons.favorite),
+              label: I18n.of(context).quick_view,
+            ),
             NavigationDestination(
-                icon: Icon(Icons.search), label: I18n.of(context).search),
+              icon: Icon(Icons.search),
+              label: I18n.of(context).search,
+            ),
             NavigationDestination(
-                icon: Icon(Icons.more_horiz), label: I18n.of(context).more)
+              icon: Icon(Icons.more_horiz),
+              label: I18n.of(context).more,
+            ),
           ],
           selectedIndex: index,
           onDestinationSelected: (value) {
             // 切换 Tab 时清除 Navigator 栈
             if (_contentNavigatorKey.currentState != null) {
-              _contentNavigatorKey.currentState!
-                  .popUntil((route) => route.isFirst);
+              _contentNavigatorKey.currentState!.popUntil(
+                (route) => route.isFirst,
+              );
             }
             if (this.index == value) {
               topStore.setTop("${value + 1}00");
@@ -394,18 +439,19 @@ class _HelloPageState extends State<HelloPage> {
   Widget _buildPageView(BuildContext context, bool isWideScreen) {
     final list = isWideScreen ? _wideLists : _lists;
     final pageView = PageView.builder(
-        key: const ValueKey('hello_page_view'),
-        physics: const NeverScrollableScrollPhysics(),
-        itemCount: list.length,
-        controller: _pageController,
-        onPageChanged: (index) {
-          setState(() {
-            this.index = index;
-          });
-        },
-        itemBuilder: (context, index) {
-          return list[index];
+      key: const ValueKey('hello_page_view'),
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: list.length,
+      controller: _pageController,
+      onPageChanged: (index) {
+        setState(() {
+          this.index = index;
         });
+      },
+      itemBuilder: (context, index) {
+        return list[index];
+      },
+    );
 
     final Widget content;
     if (isWideScreen) {

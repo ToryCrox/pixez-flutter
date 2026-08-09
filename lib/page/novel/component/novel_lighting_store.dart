@@ -45,14 +45,15 @@ abstract class _NovelLightingStoreBase with Store {
     errorMessage = null;
     try {
       Response response = await source();
-      NovelRecomResponse novelRecomResponse =
-          NovelRecomResponse.fromJson(response.data);
+      NovelRecomResponse novelRecomResponse = NovelRecomResponse.fromJson(
+        response.data,
+      );
       nextUrl = novelRecomResponse.nextUrl;
       final novel = novelRecomResponse.novels;
       this.novels.clear();
-      this
-          .novels
-          .addAll(novel.map((element) => NovelStore(element.id, element)));
+      this.novels.addAll(
+        novel.map((element) => NovelStore(element.id, element)),
+      );
       controller.finishRefresh(IndicatorResult.success);
     } catch (e) {
       Log.e('Failed to fetch novels', error: e);
@@ -66,8 +67,9 @@ abstract class _NovelLightingStoreBase with Store {
     if (nextUrl != null && nextUrl!.isNotEmpty) {
       try {
         Response response = await _client.getNext(nextUrl!);
-        NovelRecomResponse novelRecomResponse =
-            NovelRecomResponse.fromJson(response.data);
+        NovelRecomResponse novelRecomResponse = NovelRecomResponse.fromJson(
+          response.data,
+        );
         nextUrl = novelRecomResponse.nextUrl;
         final novel = novelRecomResponse.novels;
         novels.addAll(novel.map((element) => NovelStore(element.id, element)));

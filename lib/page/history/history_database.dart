@@ -1,4 +1,3 @@
-
 import 'dart:async';
 import 'dart:convert';
 
@@ -79,9 +78,11 @@ class HistoryDatabaseProvider {
         onUpgrade: (db, oldVersion, newVersion) async {
           if (oldVersion < 2) {
             await db.execute(
-                'ALTER TABLE $tableHistory ADD COLUMN $cLastPage INTEGER DEFAULT 0');
+              'ALTER TABLE $tableHistory ADD COLUMN $cLastPage INTEGER DEFAULT 0',
+            );
             await db.execute(
-                'ALTER TABLE $tableHistory ADD COLUMN $cTotalPages INTEGER DEFAULT 0');
+              'ALTER TABLE $tableHistory ADD COLUMN $cTotalPages INTEGER DEFAULT 0',
+            );
           }
         },
         onCreate: (Database db, int version) async {
@@ -99,15 +100,12 @@ class HistoryDatabaseProvider {
         ''');
           // 创建索引以加速搜索和排序
           await db.execute(
-              'CREATE INDEX index_timestamp ON $tableHistory ($cTimestamp)');
+            'CREATE INDEX index_timestamp ON $tableHistory ($cTimestamp)',
+          );
         },
       );
       // 注册到数据库管理中心
-      DatabaseRegistry.instance.register(
-        '插画阅读历史',
-        path,
-        () => _db!,
-      );
+      DatabaseRegistry.instance.register('插画阅读历史', path, () => _db!);
     } finally {
       _openFuture = null;
     }
@@ -125,20 +123,16 @@ class HistoryDatabaseProvider {
     final tags = illust.tags.map((e) => e.name).join(' ');
 
     // 3. 插入数据 (Replace 策略更新时间戳)
-    await database.insert(
-      tableHistory,
-      {
-        cIllustId: illust.id,
-        cData: compressedData,
-        cTimestamp: DateTime.now().millisecondsSinceEpoch,
-        cTitle: title,
-        cUserName: userName,
-        cTags: tags,
-        cLastPage: lastPage,
-        cTotalPages: illust.pageCount,
-      },
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await database.insert(tableHistory, {
+      cIllustId: illust.id,
+      cData: compressedData,
+      cTimestamp: DateTime.now().millisecondsSinceEpoch,
+      cTitle: title,
+      cUserName: userName,
+      cTags: tags,
+      cLastPage: lastPage,
+      cTotalPages: illust.pageCount,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
 
     // 4. 检查并清理旧数据
     // 简单的清理策略：仅在启动app后第一次插入数据的时候检查
@@ -150,7 +144,8 @@ class HistoryDatabaseProvider {
 
   Future<void> _checkAndCleanHistory(Database database) async {
     final count = Sqflite.firstIntValue(
-        await database.rawQuery('SELECT COUNT(*) FROM $tableHistory'));
+      await database.rawQuery('SELECT COUNT(*) FROM $tableHistory'),
+    );
     if (count == null || count <= maxRecordCount) return;
 
     final int overflowCount = count - maxRecordCount;
@@ -183,9 +178,10 @@ class HistoryDatabaseProvider {
       if (idsToDelete.isNotEmpty) {
         // 限制删除数量，不要超过 overflowCount - totalDeleted
         final int batchTarget = overflowCount - totalDeleted;
-        final List<int> finalDeleteIds = idsToDelete.length > batchTarget
-            ? idsToDelete.take(batchTarget).toList()
-            : idsToDelete;
+        final List<int> finalDeleteIds =
+            idsToDelete.length > batchTarget
+                ? idsToDelete.take(batchTarget).toList()
+                : idsToDelete;
 
         final deleteCount = await database.delete(
           tableHistory,
@@ -211,7 +207,11 @@ class HistoryDatabaseProvider {
 
   bool _hasCheckedCleanup = false;
 
-  Future<List<Illusts>> query({String? keyword, int? limit, int? offset}) async {
+  Future<List<Illusts>> query({
+    String? keyword,
+    int? limit,
+    int? offset,
+  }) async {
     final database = await db;
     List<Map<String, dynamic>> maps;
     if (keyword == null || keyword.trim().isEmpty) {
@@ -225,8 +225,7 @@ class HistoryDatabaseProvider {
       final k = '%$keyword%';
       maps = await database.query(
         tableHistory,
-        where:
-            '$cTitle LIKE ? OR $cUserName LIKE ? OR $cTags LIKE ?',
+        where: '$cTitle LIKE ? OR $cUserName LIKE ? OR $cTags LIKE ?',
         whereArgs: [k, k, k],
         orderBy: '$cTimestamp DESC',
         limit: limit,
@@ -234,15 +233,18 @@ class HistoryDatabaseProvider {
       );
     }
 
-    return maps.map((e) {
-      try {
-        final compressedData = e[cData] as String;
-        final jsonStr = TypeUtil.gzipDecodeString(compressedData);
-        return Illusts.fromJson(jsonDecode(jsonStr));
-      } catch (e) {
-        return null;
-      }
-    }).whereType<Illusts>().toList();
+    return maps
+        .map((e) {
+          try {
+            final compressedData = e[cData] as String;
+            final jsonStr = TypeUtil.gzipDecodeString(compressedData);
+            return Illusts.fromJson(jsonDecode(jsonStr));
+          } catch (e) {
+            return null;
+          }
+        })
+        .whereType<Illusts>()
+        .toList();
   }
 
   Future<int> delete(int illustId) async {

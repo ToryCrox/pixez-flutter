@@ -63,7 +63,8 @@ abstract class _IllustAboutStoreBase with Store {
           if (cachedData != null && cachedData.illusts.isNotEmpty) {
             illusts.clear();
             illusts.addAll(
-                cachedData.illusts.takeWhile((value) => !value.hateByUser()));
+              cachedData.illusts.takeWhile((value) => !value.hateByUser()),
+            );
             _nextUrl = cachedData.nextUrl;
             Log.d('从缓存加载相关插画: ${illusts.length} 张');
           }
@@ -74,9 +75,10 @@ abstract class _IllustAboutStoreBase with Store {
       }
 
       // 2. 加载网络数据
-      Response response = _nextUrl == null || _nextUrl!.isEmpty
-          ? await apiClient.getIllustRelated(id)
-          : await apiClient.getNext(_nextUrl!);
+      Response response =
+          _nextUrl == null || _nextUrl!.isEmpty
+              ? await apiClient.getIllustRelated(id)
+              : await apiClient.getNext(_nextUrl!);
       Recommend recommend = Recommend.fromJson(response.data);
       _nextUrl = recommend.nextUrl;
       final resultIllusts = recommend.illusts;

@@ -19,9 +19,9 @@ class Updater {
 Future<Result> checkUpdate(String arg) async {
   Log.d(() => "check for update ============");
   try {
-    Response response =
-        await Dio(BaseOptions(baseUrl: 'https://api.github.com'))
-            .get('/repos/Notsfsssf/pixez-flutter/releases/latest');
+    Response response = await Dio(
+      BaseOptions(baseUrl: 'https://api.github.com'),
+    ).get('/repos/Notsfsssf/pixez-flutter/releases/latest');
     String tagName = response.data['tag_name'];
     Log.d(() => "tagName:$tagName ");
     if (tagName != Constants.tagName) {

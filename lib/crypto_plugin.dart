@@ -25,9 +25,11 @@ class CryptoPlugin {
   static Future<String> getCodeVer() async {
     const String randomKeySet =
         'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
-    final result = List.generate(128,
-            (i) => randomKeySet[Random.secure().nextInt(randomKeySet.length)])
-        .join();
+    final result =
+        List.generate(
+          128,
+          (i) => randomKeySet[Random.secure().nextInt(randomKeySet.length)],
+        ).join();
     Constants.code_verifier = result;
     return Constants.code_verifier!;
   }
@@ -40,4 +42,3 @@ class CryptoPlugin {
     return codeChallenge;
   }
 }
- 

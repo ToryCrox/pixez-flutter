@@ -56,7 +56,8 @@ class OAuthClient {
 
   Future<Dio> createDioClient() async {
     final compatibleClient = await r.RhttpCompatibleClient.create(
-        settings: Hoster.createOAuthClientSettings());
+      settings: Hoster.createOAuthClientSettings(),
+    );
     httpClient.httpClientAdapter = ConversionLayerAdapter(compatibleClient);
     if (Platform.isAndroid) {
       try {
@@ -73,7 +74,8 @@ class OAuthClient {
 
   OAuthClient() {
     String time = getIsoDate();
-    httpClient = Dio(BaseOptions(
+    httpClient = Dio(
+      BaseOptions(
         baseUrl: 'https://${BASE_OAUTH_URL_HOST}',
         headers: {
           "X-Client-Time": time,
@@ -84,15 +86,22 @@ class OAuthClient {
           "App-OS-Version": "Android 6.0",
           "App-Version": "5.0.166",
         },
-          contentType: Headers.formUrlEncodedContentType));
+        contentType: Headers.formUrlEncodedContentType,
+      ),
+    );
     // 添加 Mana Dio 拦截器（网络请求追踪）
     final manaInterceptor = ManaManager.instance.dioInterceptor;
     if (manaInterceptor != null) {
       httpClient.interceptors.add(manaInterceptor);
     }
     if (kDebugMode) {
-      httpClient.interceptors.add(LogInterceptor(
-          responseBody: true, responseHeader: true, requestBody: true));
+      httpClient.interceptors.add(
+        LogInterceptor(
+          responseBody: true,
+          responseHeader: true,
+          requestBody: true,
+        ),
+      );
     }
     httpClient.interceptors.add(NetworkLogInterceptor());
   }
@@ -103,41 +112,50 @@ class OAuthClient {
     return digest.toString();
   }
 
-  Future<Response> postAuthToken(String userName, String passWord,
-      {String deviceToken = "pixiv"}) {
-    return httpClient.post("/auth/token", data: {
-      "client_id": CLIENT_ID,
-      "client_secret": CLIENT_SECRET,
-      "grant_type": "password",
-      "username": userName,
-      "password": passWord,
-      "Device_token": deviceToken,
-      "get_secure_url": true,
-      "include_policy": true
-    });
+  Future<Response> postAuthToken(
+    String userName,
+    String passWord, {
+    String deviceToken = "pixiv",
+  }) {
+    return httpClient.post(
+      "/auth/token",
+      data: {
+        "client_id": CLIENT_ID,
+        "client_secret": CLIENT_SECRET,
+        "grant_type": "password",
+        "username": userName,
+        "password": passWord,
+        "Device_token": deviceToken,
+        "get_secure_url": true,
+        "include_policy": true,
+      },
+    );
   }
 
   Future<Response> code2Token(String code) {
-    return httpClient.post("/auth/token",
-        data: {
-          "code": code,
-          "redirect_uri":
-              "https://app-api.pixiv.net/web/v1/users/auth/pixiv/callback",
-          "grant_type": "authorization_code",
-          "include_policy": true,
-          "client_id": CLIENT_ID,
-          "code_verifier": Constants.code_verifier,
-          "client_secret": CLIENT_SECRET
-        },
-        options: Options(contentType: Headers.formUrlEncodedContentType));
+    return httpClient.post(
+      "/auth/token",
+      data: {
+        "code": code,
+        "redirect_uri":
+            "https://app-api.pixiv.net/web/v1/users/auth/pixiv/callback",
+        "grant_type": "authorization_code",
+        "include_policy": true,
+        "client_id": CLIENT_ID,
+        "code_verifier": Constants.code_verifier,
+        "client_secret": CLIENT_SECRET,
+      },
+      options: Options(contentType: Headers.formUrlEncodedContentType),
+    );
   }
 
   static Future<String> generateWebviewUrl({bool create = false}) async {
     await generateCodeVerify();
     String codeChallenge = await CryptoPlugin.getCodeChallenge();
-    String url = !create
-        ? "https://app-api.pixiv.net/web/v1/login?code_challenge=${codeChallenge}&code_challenge_method=S256&client=pixiv-android"
-        : "https://app-api.pixiv.net/web/v1/provisional-accounts/create?code_challenge=${codeChallenge}&code_challenge_method=S256&client=pixiv-android";
+    String url =
+        !create
+            ? "https://app-api.pixiv.net/web/v1/login?code_challenge=${codeChallenge}&code_challenge_method=S256&client=pixiv-android"
+            : "https://app-api.pixiv.net/web/v1/provisional-accounts/create?code_challenge=${codeChallenge}&code_challenge_method=S256&client=pixiv-android";
     return url;
   }
 
@@ -145,14 +163,19 @@ class OAuthClient {
     return await CryptoPlugin.getCodeVer();
   }
 
-  Future<Response> postRefreshAuthToken(
-      {refreshToken = String, deviceToken = String}) {
-    return httpClient.post("/auth/token", data: {
-      "client_id": CLIENT_ID,
-      "client_secret": CLIENT_SECRET,
-      "grant_type": "refresh_token",
-      "refresh_token": refreshToken,
-      "include_policy": true
-    });
+  Future<Response> postRefreshAuthToken({
+    refreshToken = String,
+    deviceToken = String,
+  }) {
+    return httpClient.post(
+      "/auth/token",
+      data: {
+        "client_id": CLIENT_ID,
+        "client_secret": CLIENT_SECRET,
+        "grant_type": "refresh_token",
+        "refresh_token": refreshToken,
+        "include_policy": true,
+      },
+    );
   }
 }

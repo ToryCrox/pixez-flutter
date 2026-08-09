@@ -7,9 +7,7 @@ class ShowAIResponse {
   @JsonKey(name: 'show_ai')
   bool showAI;
 
-  ShowAIResponse({
-    required this.showAI,
-  });
+  ShowAIResponse({required this.showAI});
 
   factory ShowAIResponse.fromJson(Map<String, dynamic> json) =>
       _$ShowAIResponseFromJson(json);

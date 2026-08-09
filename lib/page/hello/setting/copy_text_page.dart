@@ -31,8 +31,9 @@ class _CopyTextPageState extends State<CopyTextPage> {
 
   @override
   void initState() {
-    _textEditingController =
-        TextEditingController(text: userSetting.copyInfoText);
+    _textEditingController = TextEditingController(
+      text: userSetting.copyInfoText,
+    );
     super.initState();
   }
 
@@ -43,32 +44,42 @@ class _CopyTextPageState extends State<CopyTextPage> {
   }
 
   _buildActionNormalText(String text) => ActionChip(
-      label: Text("$text"),
-      onPressed: () {
-        if (_textEditingController.selection.end == -1) return;
-        var insertText = text;
-        if (text == "_") insertText = "_";
-        final textSelection = _textEditingController.selection;
-        _textEditingController.text = _textEditingController.text
-            .replaceRange(textSelection.start, textSelection.end, insertText);
-        _textEditingController.selection = textSelection.copyWith(
-            baseOffset: textSelection.start + insertText.length,
-            extentOffset: textSelection.start + insertText.length);
-      });
+    label: Text("$text"),
+    onPressed: () {
+      if (_textEditingController.selection.end == -1) return;
+      var insertText = text;
+      if (text == "_") insertText = "_";
+      final textSelection = _textEditingController.selection;
+      _textEditingController.text = _textEditingController.text.replaceRange(
+        textSelection.start,
+        textSelection.end,
+        insertText,
+      );
+      _textEditingController.selection = textSelection.copyWith(
+        baseOffset: textSelection.start + insertText.length,
+        extentOffset: textSelection.start + insertText.length,
+      );
+    },
+  );
 
   _buildActionText(String text) => ActionChip(
-      label: Text("$text"),
-      onPressed: () {
-        if (_textEditingController.selection.end == -1) return;
-        var insertText = "{$text}";
-        if (text == "_") insertText = "_";
-        final textSelection = _textEditingController.selection;
-        _textEditingController.text = _textEditingController.text
-            .replaceRange(textSelection.start, textSelection.end, insertText);
-        _textEditingController.selection = textSelection.copyWith(
-            baseOffset: textSelection.start + insertText.length,
-            extentOffset: textSelection.start + insertText.length);
-      });
+    label: Text("$text"),
+    onPressed: () {
+      if (_textEditingController.selection.end == -1) return;
+      var insertText = "{$text}";
+      if (text == "_") insertText = "_";
+      final textSelection = _textEditingController.selection;
+      _textEditingController.text = _textEditingController.text.replaceRange(
+        textSelection.start,
+        textSelection.end,
+        insertText,
+      );
+      _textEditingController.selection = textSelection.copyWith(
+        baseOffset: textSelection.start + insertText.length,
+        extentOffset: textSelection.start + insertText.length,
+      );
+    },
+  );
 
   String intialFormat =
       "title:{title}\npainter:{user_name}\nillust id:{illust_id}";
@@ -80,49 +91,57 @@ class _CopyTextPageState extends State<CopyTextPage> {
         title: Text(I18n.of(context).share_info_format),
         actions: <Widget>[
           IconButton(
-              icon: Icon(Icons.refresh),
-              onPressed: () async {
-                _textEditingController.text = intialFormat;
-                await userSetting.setCopyInfoText(intialFormat);
-              }),
+            icon: Icon(Icons.refresh),
+            onPressed: () async {
+              _textEditingController.text = intialFormat;
+              await userSetting.setCopyInfoText(intialFormat);
+            },
+          ),
           IconButton(
-              icon: Icon(Icons.save),
-              onPressed: () async {
-                final text = _textEditingController.text;
-                await userSetting.setCopyInfoText(text);
-                Navigator.of(context).pop();
-              }),
+            icon: Icon(Icons.save),
+            onPressed: () async {
+              final text = _textEditingController.text;
+              await userSetting.setCopyInfoText(text);
+              Navigator.of(context).pop();
+            },
+          ),
         ],
       ),
       body: Container(
-        child: ListView(children: [
-          Padding(
-            padding: EdgeInsets.all(12),
-            child: TextField(
+        child: ListView(
+          children: [
+            Padding(
+              padding: EdgeInsets.all(12),
+              child: TextField(
                 controller: _textEditingController,
                 maxLines: null,
                 decoration: InputDecoration(
                   border: OutlineInputBorder(),
                   labelText: I18n.of(context).share_info_format,
-                )),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Wrap(
-              spacing: 6.0,
-              children: <Widget>[
-                _buildActionText("title"),
-                _buildActionText("illust_id"),
-                _buildActionText("user_id"),
-                _buildActionText("user_name"),
-                _buildActionText("tags"),
-                _buildActionNormalText(
-                    "https://www.pixiv.net/artworks/{illust_id}"),
-                _buildActionNormalText("https://www.pixiv.net/users/{user_id}"),
-              ],
+                ),
+              ),
             ),
-          ),
-        ]),
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Wrap(
+                spacing: 6.0,
+                children: <Widget>[
+                  _buildActionText("title"),
+                  _buildActionText("illust_id"),
+                  _buildActionText("user_id"),
+                  _buildActionText("user_name"),
+                  _buildActionText("tags"),
+                  _buildActionNormalText(
+                    "https://www.pixiv.net/artworks/{illust_id}",
+                  ),
+                  _buildActionNormalText(
+                    "https://www.pixiv.net/users/{user_id}",
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

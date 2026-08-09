@@ -79,6 +79,8 @@ class LogViewer extends _$LogViewer {
 
   /// 获取筛选后的日志列表
   List<OutputEvent> getFilteredLogs() {
-    return state.logs.where((log) => state.filterLevels.contains(log.level)).toList();
+    return state.logs
+        .where((log) => state.filterLevels.contains(log.level))
+        .toList();
   }
 }

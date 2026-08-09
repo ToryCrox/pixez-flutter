@@ -50,16 +50,16 @@ class CommentPage extends StatefulWidget {
 
   final bool embedded;
 
-  const CommentPage(
-      {Key? key,
-      required this.id,
-      this.isReplay = false,
-      this.pId,
-      this.name,
-      this.type = CommentArtWorkType.ILLUST,
-      this.onBack,
-      this.embedded = false})
-      : super(key: key);
+  const CommentPage({
+    Key? key,
+    required this.id,
+    this.isReplay = false,
+    this.pId,
+    this.name,
+    this.type = CommentArtWorkType.ILLUST,
+    this.onBack,
+    this.embedded = false,
+  }) : super(key: key);
 
   @override
   _CommentPageState createState() => _CommentPageState();
@@ -75,7 +75,7 @@ class _CommentPageState extends State<CommentPage> {
   final Map<int, String> _commentTranslations = {};
   final Map<int, String> _commentTranslationSources = {};
   final Set<int> _translatingCommentIds = {};
-  
+
   // Overlay state for embedded mode
   Widget? _overlayPage;
   bool _showOverlay = false;
@@ -85,7 +85,7 @@ class _CommentPageState extends State<CommentPage> {
     "77k.live",
     "7mm.live",
     "p26w.com",
-    "33h.live"
+    "33h.live",
   ];
 
   late FocusNode _focusNode;
@@ -98,9 +98,16 @@ class _CommentPageState extends State<CommentPage> {
     parentCommentName = widget.isReplay ? widget.name : null;
     _editController = TextEditingController();
     easyRefreshController = EasyRefreshController(
-        controlFinishLoad: true, controlFinishRefresh: true);
-    _store = CommentStore(easyRefreshController, widget.id, widget.pId,
-        widget.isReplay, widget.type);
+      controlFinishLoad: true,
+      controlFinishRefresh: true,
+    );
+    _store = CommentStore(
+      easyRefreshController,
+      widget.id,
+      widget.pId,
+      widget.isReplay,
+      widget.type,
+    );
     super.initState();
     _fetchComments();
     supportTranslateCheck();
@@ -135,7 +142,10 @@ class _CommentPageState extends State<CommentPage> {
                     return;
                   }
                   String newText = text.replaceRange(
-                      textSelection.start, textSelection.end, key);
+                    textSelection.start,
+                    textSelection.end,
+                    key,
+                  );
                   final emojiLength = key.length;
                   _editController.text = newText;
                   _editController.selection = textSelection.copyWith(
@@ -149,7 +159,7 @@ class _CommentPageState extends State<CommentPage> {
                   height: 32,
                 ),
               ),
-            )
+            ),
         ],
       ),
     );
@@ -185,7 +195,7 @@ class _CommentPageState extends State<CommentPage> {
             });
           },
         );
-        _showOverlay = true; 
+        _showOverlay = true;
       });
 
       // Ensure animation trigger
@@ -194,14 +204,15 @@ class _CommentPageState extends State<CommentPage> {
       });
     } else {
       Leader.push(
-          context,
-          CommentPage(
-            id: widget.id,
-            isReplay: true,
-            pId: comment.id!,
-            type: widget.type,
-            name: comment.user!.name,
-          ));
+        context,
+        CommentPage(
+          id: widget.id,
+          isReplay: true,
+          pId: comment.id!,
+          type: widget.type,
+          name: comment.user!.name,
+        ),
+      );
     }
   }
 
@@ -218,49 +229,51 @@ class _CommentPageState extends State<CommentPage> {
       },
     );
   }
-  
+
   Widget _buildStackBody(BuildContext context) {
-      return Stack(
-          children: [
-              _buildBody(context),
-               if (widget.embedded)
-                AnimatedPositioned(
-                    duration: Duration(milliseconds: 300),
-                    curve: Curves.easeInOut,
-                    top: 0,
-                    bottom: 0,
-                    right: _showOverlay ? 0 : -MediaQuery.of(context).size.width,
-                    // Use a sufficiently large width or layout builder if needed, 
-                    // but usually in sidebar it's constrained by parent.
-                    // However, Positioned needs specific left/right/width.
-                    // To act as an overlay, we can anchor left and right to 0 when showing.
-                    // But to slide in from right, we change 'right' and 'left'.
-                    // Simpler: use left: 0, right: 0 for fixed width scenarios, 
-                    // or slide entire thing.
-                    // Let's assume parent provides constraints.
-                    // We set 'left' and 'right' relative to parent stack.
-                    // When hidden: left: width, right: -width
-                    // When shown: left: 0, right: 0
-                    left: _showOverlay ? 0 : MediaQuery.of(context).size.width,
-                    child: Container(
-                        color: Theme.of(context).scaffoldBackgroundColor,
-                        child: _overlayPage ?? Container(),
-                    ),
-                ),
-          ],
-      );
+    return Stack(
+      children: [
+        _buildBody(context),
+        if (widget.embedded)
+          AnimatedPositioned(
+            duration: Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+            top: 0,
+            bottom: 0,
+            right: _showOverlay ? 0 : -MediaQuery.of(context).size.width,
+            // Use a sufficiently large width or layout builder if needed,
+            // but usually in sidebar it's constrained by parent.
+            // However, Positioned needs specific left/right/width.
+            // To act as an overlay, we can anchor left and right to 0 when showing.
+            // But to slide in from right, we change 'right' and 'left'.
+            // Simpler: use left: 0, right: 0 for fixed width scenarios,
+            // or slide entire thing.
+            // Let's assume parent provides constraints.
+            // We set 'left' and 'right' relative to parent stack.
+            // When hidden: left: width, right: -width
+            // When shown: left: 0, right: 0
+            left: _showOverlay ? 0 : MediaQuery.of(context).size.width,
+            child: Container(
+              color: Theme.of(context).scaffoldBackgroundColor,
+              child: _overlayPage ?? Container(),
+            ),
+          ),
+      ],
+    );
   }
 
   Container _buildBody(BuildContext context) {
     return Container(
       child: Scaffold(
         appBar: AppBar(
-          leading: (widget.onBack != null || widget.isReplay)
-              ? IconButton(
-                  icon: Icon(Icons.arrow_back),
-                  onPressed: widget.onBack ?? () => Navigator.of(context).pop(),
-                )
-              : null,
+          leading:
+              (widget.onBack != null || widget.isReplay)
+                  ? IconButton(
+                    icon: Icon(Icons.arrow_back),
+                    onPressed:
+                        widget.onBack ?? () => Navigator.of(context).pop(),
+                  )
+                  : null,
           title: Text('${I18n.of(context).view_comment}'),
         ),
         body: SafeArea(
@@ -296,10 +309,8 @@ class _CommentPageState extends State<CommentPage> {
                   controller: scrollController,
                   slivers: [
                     SliverFillRemaining(
-                      child: Center(
-                        child: Text(_store.errorMessage!),
-                      ),
-                    )
+                      child: Center(child: Text(_store.errorMessage!)),
+                    ),
                   ],
                 );
               }
@@ -312,18 +323,20 @@ class _CommentPageState extends State<CommentPage> {
                       child: Center(
                         child: Padding(
                           padding: const EdgeInsets.all(8.0),
-                          child: Text('[ ]',
-                              style:
-                                  Theme.of(context).textTheme.headlineMedium),
+                          child: Text(
+                            '[ ]',
+                            style: Theme.of(context).textTheme.headlineMedium,
+                          ),
                         ),
                       ),
-                    )
+                    ),
                   ],
                 );
               }
-              var comments = _store.comments
-                  .where((element) => !commentHateByUser(element))
-                  .toList();
+              var comments =
+                  _store.comments
+                      .where((element) => !commentHateByUser(element))
+                      .toList();
               if (comments.isEmpty) {
                 return CustomScrollView(
                   physics: physics,
@@ -335,7 +348,7 @@ class _CommentPageState extends State<CommentPage> {
                           color: Theme.of(context).colorScheme.secondary,
                         ),
                       ),
-                    )
+                    ),
                   ],
                 );
               }
@@ -349,13 +362,11 @@ class _CommentPageState extends State<CommentPage> {
                 },
                 separatorBuilder: (BuildContext context, int index) {
                   if (banList
-                      .where((element) =>
-                          comments[index].comment!.contains(element))
+                      .where(
+                        (element) => comments[index].comment!.contains(element),
+                      )
                       .isNotEmpty)
-                    return Visibility(
-                      visible: false,
-                      child: Container(),
-                    );
+                    return Visibility(visible: false, child: Container());
                   return Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 8.0),
                     child: Divider(),
@@ -373,10 +384,7 @@ class _CommentPageState extends State<CommentPage> {
     if (banList
         .where((element) => comment.comment!.contains(element))
         .isNotEmpty)
-      return Visibility(
-        visible: false,
-        child: Container(),
-      );
+      return Visibility(visible: false, child: Container());
 
     return Container(
       child: Row(
@@ -404,10 +412,11 @@ class _CommentPageState extends State<CommentPage> {
                       comment.user!.name,
                       maxLines: 1,
                       style: TextStyle(
-                          color: Theme.of(context).colorScheme.secondary,
-                          overflow: TextOverflow.ellipsis),
+                        color: Theme.of(context).colorScheme.secondary,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                    _buildTrailingRow(comment, context)
+                    _buildTrailingRow(comment, context),
                   ],
                 ),
                 if (comment.parentComment?.user != null)
@@ -428,8 +437,7 @@ class _CommentPageState extends State<CommentPage> {
                       width: 100,
                     ),
                   ),
-                if (comment.hasReplies == true ||
-                    _canTranslateComment(comment))
+                if (comment.hasReplies == true || _canTranslateComment(comment))
                   Padding(
                     padding: const EdgeInsets.only(right: 4.0),
                     child: Wrap(
@@ -451,10 +459,10 @@ class _CommentPageState extends State<CommentPage> {
                     comment.date.toString().toShortTime(),
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
-                )
+                ),
               ],
             ),
-          )
+          ),
         ],
       ),
     );
@@ -462,97 +470,100 @@ class _CommentPageState extends State<CommentPage> {
 
   Widget _buildCommentInput(BuildContext context) {
     return Align(
-        alignment: Alignment.bottomCenter,
-        child: Column(
-          children: [
-            Container(
-              child: Row(
-                children: <Widget>[
-                  IconButton(
-                    icon: Icon(Icons.book),
-                    onPressed: () {
-                      if (widget.isReplay) return;
-                      setState(() {
-                        parentCommentName = null;
-                        parentCommentId = null;
-                      });
-                    },
-                  ),
-                  IconButton(
-                    icon: Icon(Icons.emoji_emotions_outlined),
-                    onPressed: () {
-                      setState(() {
-                        _emojiPanelShow = !_emojiPanelShow;
-                        if (_emojiPanelShow) {
-                          FocusScope.of(context).unfocus();
-                        }
-                      });
-                    },
-                  ),
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.only(bottom: 2.0, right: 8.0),
-                      child: Theme(
-                        data: Theme.of(context).copyWith(
-                          colorScheme: Theme.of(context).colorScheme.copyWith(
-                              primary: Theme.of(context).colorScheme.secondary),
+      alignment: Alignment.bottomCenter,
+      child: Column(
+        children: [
+          Container(
+            child: Row(
+              children: <Widget>[
+                IconButton(
+                  icon: Icon(Icons.book),
+                  onPressed: () {
+                    if (widget.isReplay) return;
+                    setState(() {
+                      parentCommentName = null;
+                      parentCommentId = null;
+                    });
+                  },
+                ),
+                IconButton(
+                  icon: Icon(Icons.emoji_emotions_outlined),
+                  onPressed: () {
+                    setState(() {
+                      _emojiPanelShow = !_emojiPanelShow;
+                      if (_emojiPanelShow) {
+                        FocusScope.of(context).unfocus();
+                      }
+                    });
+                  },
+                ),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 2.0, right: 8.0),
+                    child: Theme(
+                      data: Theme.of(context).copyWith(
+                        colorScheme: Theme.of(context).colorScheme.copyWith(
+                          primary: Theme.of(context).colorScheme.secondary,
                         ),
-                        child: TextField(
-                          controller: _editController,
-                          maxLength: 140,
-                          onChanged: (value) {
-                            setState(() {
-                              _commentText = value;
-                            });
-                          },
-                          decoration: InputDecoration(
-                              labelText:
-                                  "${I18n.of(context).reply_to} ${parentCommentName == null ? "illust" : parentCommentName} (${_commentText.length}/140)",
-                              suffixIcon: IconButton(
-                                  icon: Icon(
-                                    Icons.reply,
-                                  ),
-                                  onPressed: () async {
-                                    final client = apiClient;
-                                    String txt = _editController.text.trim();
-                                    final fun1 = BotToast.showLoading();
-                                    try {
-                                      if (txt.isNotEmpty) {
-                                        if (banList
-                                            .where((element) =>
-                                                txt.contains(element))
-                                            .isEmpty) if (widget.type ==
-                                            CommentArtWorkType.ILLUST)
-                                          await client.postIllustComment(
-                                              widget.id, txt,
-                                              parent_comment_id:
-                                                  parentCommentId);
-                                        else if (widget.type ==
-                                            CommentArtWorkType.NOVEL)
-                                          await client.postNovelComment(
-                                              widget.id, txt,
-                                              parent_comment_id:
-                                                  parentCommentId);
-                                      }
-                                      _editController.clear();
-                                      _fetchComments();
-                                    } catch (e) {
-                                      Log.e('Failed to post comment', error: e);
-                                    }
-                                    fun1();
-                                  })),
+                      ),
+                      child: TextField(
+                        controller: _editController,
+                        maxLength: 140,
+                        onChanged: (value) {
+                          setState(() {
+                            _commentText = value;
+                          });
+                        },
+                        decoration: InputDecoration(
+                          labelText:
+                              "${I18n.of(context).reply_to} ${parentCommentName == null ? "illust" : parentCommentName} (${_commentText.length}/140)",
+                          suffixIcon: IconButton(
+                            icon: Icon(Icons.reply),
+                            onPressed: () async {
+                              final client = apiClient;
+                              String txt = _editController.text.trim();
+                              final fun1 = BotToast.showLoading();
+                              try {
+                                if (txt.isNotEmpty) {
+                                  if (banList
+                                      .where((element) => txt.contains(element))
+                                      .isEmpty)
+                                    if (widget.type ==
+                                        CommentArtWorkType.ILLUST)
+                                      await client.postIllustComment(
+                                        widget.id,
+                                        txt,
+                                        parent_comment_id: parentCommentId,
+                                      );
+                                    else if (widget.type ==
+                                        CommentArtWorkType.NOVEL)
+                                      await client.postNovelComment(
+                                        widget.id,
+                                        txt,
+                                        parent_comment_id: parentCommentId,
+                                      );
+                                }
+                                _editController.clear();
+                                _fetchComments();
+                              } catch (e) {
+                                Log.e('Failed to post comment', error: e);
+                              }
+                              fun1();
+                            },
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-            if (MediaQuery.of(context).viewInsets.bottom == 0 &&
-                _emojiPanelShow)
-              _buildEmojiPanel(context),
-          ],
-        ));
+          ),
+          if (MediaQuery.of(context).viewInsets.bottom == 0 && _emojiPanelShow)
+            _buildEmojiPanel(context),
+        ],
+      ),
+    );
   }
 
   SelectionArea _buildCommentContent(BuildContext context, Comment comment) {
@@ -560,14 +571,15 @@ class _CommentPageState extends State<CommentPage> {
       focusNode: _focusNode,
       contextMenuBuilder: (context, selectableRegionState) {
         return _buildSelectionMenu(
-            selectableRegionState, context, supportTranslate);
+          selectableRegionState,
+          context,
+          supportTranslate,
+        );
       },
       onSelectionChanged: (value) {
         _selectedText = value?.plainText ?? "";
       },
-      child: CommentEmojiText(
-        text: comment.comment ?? "",
-      ),
+      child: CommentEmojiText(text: comment.comment ?? ""),
     );
   }
 
@@ -593,18 +605,20 @@ class _CommentPageState extends State<CommentPage> {
         visualDensity: VisualDensity.compact,
         padding: const EdgeInsets.symmetric(horizontal: 6),
       ),
-      onPressed: isTranslating
-          ? null
-          : () => _translateComment(
+      onPressed:
+          isTranslating
+              ? null
+              : () => _translateComment(
                 comment,
                 forceRefresh: _commentTranslation(comment) != null,
               ),
-      icon: isTranslating
-          ? const SizedBox.square(
-              dimension: 14,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          : const Icon(Icons.auto_awesome_outlined, size: 16),
+      icon:
+          isTranslating
+              ? const SizedBox.square(
+                dimension: 14,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+              : const Icon(Icons.auto_awesome_outlined, size: 16),
       label: Text('AI ${I18n.of(context).translate}'),
     );
   }
@@ -618,10 +632,9 @@ class _CommentPageState extends State<CommentPage> {
           width: double.infinity,
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: Theme.of(context)
-                .colorScheme
-                .primaryContainer
-                .withValues(alpha: 0.35),
+            color: Theme.of(
+              context,
+            ).colorScheme.primaryContainer.withValues(alpha: 0.35),
             borderRadius: BorderRadius.circular(8),
           ),
           child: CommentEmojiText(
@@ -676,25 +689,26 @@ class _CommentPageState extends State<CommentPage> {
     if (message.contains('请前往 AI 设置')) {
       showDialog<void>(
         context: context,
-        builder: (dialogContext) => AlertDialog(
-          title: const Text('尚未配置 AI 服务'),
-          content: Text(message),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('取消'),
+        builder:
+            (dialogContext) => AlertDialog(
+              title: const Text('尚未配置 AI 服务'),
+              content: Text(message),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: const Text('取消'),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    Navigator.pop(dialogContext);
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const AiSettingsPage()),
+                    );
+                  },
+                  child: const Text('前往设置'),
+                ),
+              ],
             ),
-            FilledButton(
-              onPressed: () {
-                Navigator.pop(dialogContext);
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const AiSettingsPage()),
-                );
-              },
-              child: const Text('前往设置'),
-            ),
-          ],
-        ),
       );
       return;
     }
@@ -733,70 +747,72 @@ class _CommentPageState extends State<CommentPage> {
     return Row(
       children: [
         InkWell(
-            onTap: () {
-              if (widget.isReplay) return;
-              parentCommentId = comment.id;
-              setState(() {
-                parentCommentName = comment.user!.name;
-              });
-            },
-            child: Text(
-              widget.isReplay ? "" : I18n.of(context).reply,
-              style: TextStyle(color: Theme.of(context).colorScheme.secondary),
-            )),
+          onTap: () {
+            if (widget.isReplay) return;
+            parentCommentId = comment.id;
+            setState(() {
+              parentCommentName = comment.user!.name;
+            });
+          },
+          child: Text(
+            widget.isReplay ? "" : I18n.of(context).reply,
+            style: TextStyle(color: Theme.of(context).colorScheme.secondary),
+          ),
+        ),
         if (!widget.isReplay)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12.0),
             child: InkWell(
-                onTap: () => _showMoreMenu(context, comment),
-                child: Icon(Icons.more_horiz)),
-          )
+              onTap: () => _showMoreMenu(context, comment),
+              child: Icon(Icons.more_horiz),
+            ),
+          ),
       ],
     );
   }
 
   void _showMoreMenu(BuildContext context, Comment comment) {
     showModalBottomSheet(
-        context: context,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(
-            top: Radius.circular(16),
-          ),
-        ),
-        builder: (context) {
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                title: Text(I18n.of(context).ban),
-                onTap: () async {
-                  Navigator.of(context).pop();
-                  await muteStore.insertComment(comment);
-                },
-              ),
-              ListTile(
-                title: Text(I18n.of(context).report),
-                onTap: () {
-                  Navigator.of(context).pop();
-                  Reporter.show(
-                      context, () async => await muteStore.insertComment(comment));
-                },
-              ),
-              Container(
-                height: MediaQuery.of(context).padding.bottom,
-              )
-            ],
-          );
-        });
+      context: context,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              title: Text(I18n.of(context).ban),
+              onTap: () async {
+                Navigator.of(context).pop();
+                await muteStore.insertComment(comment);
+              },
+            ),
+            ListTile(
+              title: Text(I18n.of(context).report),
+              onTap: () {
+                Navigator.of(context).pop();
+                Reporter.show(
+                  context,
+                  () async => await muteStore.insertComment(comment),
+                );
+              },
+            ),
+            Container(height: MediaQuery.of(context).padding.bottom),
+          ],
+        );
+      },
+    );
   }
 
   bool supportTranslate = false;
   String _selectedText = "";
 
   AdaptiveTextSelectionToolbar _buildSelectionMenu(
-      SelectableRegionState editableTextState,
-      BuildContext context,
-      bool supportTranslate) {
+    SelectableRegionState editableTextState,
+    BuildContext context,
+    bool supportTranslate,
+  ) {
     final List<ContextMenuButtonItem> buttonItems =
         editableTextState.contextMenuButtonItems;
     if (supportTranslate) {
@@ -808,14 +824,12 @@ class _CommentPageState extends State<CommentPage> {
             final selectionText = _selectedText;
             if (Platform.isIOS) {
               final box = context.findRenderObject() as RenderBox?;
-              final pos = box != null
-                  ? box.localToGlobal(Offset.zero) & box.size
-                  : null;
+              final pos =
+                  box != null
+                      ? box.localToGlobal(Offset.zero) & box.size
+                      : null;
               SharePlus.instance.share(
-                ShareParams(
-                  text: selectionText,
-                  sharePositionOrigin: pos,
-                ),
+                ShareParams(text: selectionText, sharePositionOrigin: pos),
               );
               return;
             }

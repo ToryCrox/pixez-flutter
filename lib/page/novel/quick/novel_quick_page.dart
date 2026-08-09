@@ -35,27 +35,20 @@ class _NovelQuickPageState extends State<NovelQuickPage> {
         appBar: AppBar(
           title: TabBar(
             tabs: [
-              Tab(
-                text: I18n.of(context).news,
-              ),
-              Tab(
-                text: I18n.of(context).bookmark,
-              ),
-              Tab(
-                text: I18n.of(context).follow,
-              ),
+              Tab(text: I18n.of(context).news),
+              Tab(text: I18n.of(context).bookmark),
+              Tab(text: I18n.of(context).follow),
             ],
             indicatorSize: TabBarIndicatorSize.label,
           ),
         ),
-        body: TabBarView(children: [
-          NovelNewPage(),
-          NovelBookmarkPage(),
-          FollowList(
-            id: int.parse(accountStore.now!.userId),
-            isNovel: true,
-          )
-        ]),
+        body: TabBarView(
+          children: [
+            NovelNewPage(),
+            NovelBookmarkPage(),
+            FollowList(id: int.parse(accountStore.now!.userId), isNovel: true),
+          ],
+        ),
       ),
     );
   }

@@ -20,9 +20,10 @@ class _CommonBackAreaState extends State<CommonBackArea> {
           shape: BoxShape.circle,
         ),
         child: IconButton(
-          icon: _isLongPress
-              ? Icon(Icons.home, color: Colors.white)
-              : Icon(Icons.arrow_back, color: Colors.white),
+          icon:
+              _isLongPress
+                  ? Icon(Icons.home, color: Colors.white)
+                  : Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () {
             Navigator.pop(context);
           },

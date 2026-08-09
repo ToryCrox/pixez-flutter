@@ -24,9 +24,9 @@ import 'package:pixez/main.dart';
 import 'package:pixez/models/ugoira_metadata_response.dart';
 
 enum UgoiraZoomMode {
-  original,  // 1倍图
-  double,    // 2倍图
-  fit,       // 适应窗口
+  original, // 1倍图
+  double, // 2倍图
+  fit, // 适应窗口
 }
 
 class UgoiraWidget extends StatefulWidget {
@@ -98,7 +98,10 @@ class _UgoiraWidgetState extends State<UgoiraWidget> with RouteAware {
     // 首次加载图片时，记录实际图片尺寸（物理像素）并刷新显示
     if (_actualImageSize == null) {
       setState(() {
-        _actualImageSize = Size(image.width.toDouble(), image.height.toDouble());
+        _actualImageSize = Size(
+          image.width.toDouble(),
+          image.height.toDouble(),
+        );
       });
     }
 
@@ -178,9 +181,13 @@ class _UgoiraWidgetState extends State<UgoiraWidget> with RouteAware {
           child: SizedBox(
             width: displaySize.width,
             height: displaySize.height,
-            child: image != null
-                ? CustomPaint(painter: UgoiraPainter(image!), size: displaySize)
-                : Container(),
+            child:
+                image != null
+                    ? CustomPaint(
+                      painter: UgoiraPainter(image!),
+                      size: displaySize,
+                    )
+                    : Container(),
           ),
         ),
         _buildZoomControlBar(),
@@ -211,16 +218,19 @@ class _UgoiraWidgetState extends State<UgoiraWidget> with RouteAware {
     return OutlinedButton(
       onPressed: () => setZoomMode(mode),
       style: OutlinedButton.styleFrom(
-        backgroundColor: isSelected
-            ? Theme.of(context).colorScheme.secondary
-            : Colors.transparent,
-        foregroundColor: isSelected
-            ? Theme.of(context).colorScheme.onSecondary
-            : Theme.of(context).colorScheme.onSurface,
+        backgroundColor:
+            isSelected
+                ? Theme.of(context).colorScheme.secondary
+                : Colors.transparent,
+        foregroundColor:
+            isSelected
+                ? Theme.of(context).colorScheme.onSecondary
+                : Theme.of(context).colorScheme.onSurface,
         side: BorderSide(
-          color: isSelected
-              ? Theme.of(context).colorScheme.secondary
-              : Theme.of(context).dividerColor,
+          color:
+              isSelected
+                  ? Theme.of(context).colorScheme.secondary
+                  : Theme.of(context).dividerColor,
         ),
       ),
       child: Text(label),

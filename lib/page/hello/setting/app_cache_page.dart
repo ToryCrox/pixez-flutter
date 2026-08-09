@@ -10,15 +10,9 @@ class _AppCachePageState extends State<AppCachePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('App Cache'),
-      ),
+      appBar: AppBar(title: Text('App Cache')),
       body: ListView(
-        children: [
-          ListTile(
-            title: Text(I18n.of(context).clear_all_cache),
-          ),
-        ],
+        children: [ListTile(title: Text(I18n.of(context).clear_all_cache))],
       ),
     );
   }

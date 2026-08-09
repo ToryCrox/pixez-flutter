@@ -30,10 +30,7 @@ class LoginErrorResponse {
   late bool hasError;
   late Errors errors;
 
-  LoginErrorResponse({
-    required this.hasError,
-    required this.errors,
-  });
+  LoginErrorResponse({required this.hasError, required this.errors});
 
   factory LoginErrorResponse.fromJson(Map<String, dynamic> json) =>
       LoginErrorResponse(
@@ -42,43 +39,30 @@ class LoginErrorResponse {
       );
 
   Map<String, dynamic> toJson() => {
-        "has_error": hasError,
-        "errors": errors.toJson(),
-      };
+    "has_error": hasError,
+    "errors": errors.toJson(),
+  };
 }
 
 class Errors {
   System system;
 
-  Errors({
-    required this.system,
-  });
+  Errors({required this.system});
 
-  factory Errors.fromJson(Map<String, dynamic> json) => Errors(
-        system: System.fromJson(json["system"]),
-      );
+  factory Errors.fromJson(Map<String, dynamic> json) =>
+      Errors(system: System.fromJson(json["system"]));
 
-  Map<String, dynamic> toJson() => {
-        "system": system.toJson(),
-      };
+  Map<String, dynamic> toJson() => {"system": system.toJson()};
 }
 
 class System {
   late String message;
   late int code;
 
-  System({
-    required this.message,
-    required this.code,
-  });
+  System({required this.message, required this.code});
 
-  factory System.fromJson(Map<String, dynamic> json) => System(
-        message: json["message"],
-        code: json["code"],
-      );
+  factory System.fromJson(Map<String, dynamic> json) =>
+      System(message: json["message"], code: json["code"]);
 
-  Map<String, dynamic> toJson() => {
-        "message": message,
-        "code": code,
-      };
+  Map<String, dynamic> toJson() => {"message": message, "code": code};
 }

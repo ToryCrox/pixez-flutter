@@ -46,16 +46,18 @@ class _TableDataViewerPageState extends State<TableDataViewerPage> {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: () => widget.store.loadTableData(widget.tableName, resetPagination: false),
+            onPressed:
+                () => widget.store.loadTableData(
+                  widget.tableName,
+                  resetPagination: false,
+                ),
           ),
         ],
       ),
       body: Column(
         children: [
           _buildSearchHeader(),
-          Expanded(
-            child: _buildDataTable(),
-          ),
+          Expanded(child: _buildDataTable()),
           _buildFooter(),
         ],
       ),
@@ -78,15 +80,20 @@ class _TableDataViewerPageState extends State<TableDataViewerPage> {
                   decoration: const InputDecoration(
                     labelText: '字段',
                     isDense: true,
-                    contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 8,
+                    ),
                     border: OutlineInputBorder(),
                   ),
                   items: [
                     const DropdownMenuItem(value: '*', child: Text('所有字段')),
-                    ...widget.store.tableColumns.map((col) => DropdownMenuItem(
-                      value: col,
-                      child: Text(col, overflow: TextOverflow.ellipsis),
-                    )),
+                    ...widget.store.tableColumns.map(
+                      (col) => DropdownMenuItem(
+                        value: col,
+                        child: Text(col, overflow: TextOverflow.ellipsis),
+                      ),
+                    ),
                   ],
                   onChanged: (val) {
                     if (val != null) {
@@ -104,7 +111,10 @@ class _TableDataViewerPageState extends State<TableDataViewerPage> {
                   decoration: const InputDecoration(
                     labelText: '逻辑',
                     isDense: true,
-                    contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 8,
+                    ),
                     border: OutlineInputBorder(),
                   ),
                   items: const [
@@ -133,10 +143,15 @@ class _TableDataViewerPageState extends State<TableDataViewerPage> {
                     prefixIcon: const Icon(Icons.search, size: 18),
                     isDense: true,
                     contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
                   onSubmitted: (_) {
-                    widget.store.loadTableData(widget.tableName, resetPagination: true);
+                    widget.store.loadTableData(
+                      widget.tableName,
+                      resetPagination: true,
+                    );
                   },
                 ),
               ),
@@ -148,7 +163,10 @@ class _TableDataViewerPageState extends State<TableDataViewerPage> {
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                 ),
                 onPressed: () {
-                  widget.store.loadTableData(widget.tableName, resetPagination: true);
+                  widget.store.loadTableData(
+                    widget.tableName,
+                    resetPagination: true,
+                  );
                 },
                 child: const Text('执行'),
               ),
@@ -162,7 +180,8 @@ class _TableDataViewerPageState extends State<TableDataViewerPage> {
   Widget _buildDataTable() {
     return Observer(
       builder: (context) {
-        if (widget.store.tableColumns.isEmpty || (widget.store.isLoading && widget.store.tableData.isEmpty)) {
+        if (widget.store.tableColumns.isEmpty ||
+            (widget.store.isLoading && widget.store.tableData.isEmpty)) {
           return const Center(child: CircularProgressIndicator());
         }
 
@@ -183,46 +202,63 @@ class _TableDataViewerPageState extends State<TableDataViewerPage> {
                 controller: _verticalController,
                 scrollDirection: Axis.vertical,
                 child: Theme(
-                  data: Theme.of(context).copyWith(
-                    dividerColor: Colors.grey.withValues(alpha: 0.2),
-                  ),
+                  data: Theme.of(
+                    context,
+                  ).copyWith(dividerColor: Colors.grey.withValues(alpha: 0.2)),
                   child: DataTable(
                     headingRowHeight: 40,
                     dataRowMinHeight: 30,
                     dataRowMaxHeight: 60,
                     horizontalMargin: 12,
                     columnSpacing: 20,
-                    sortColumnIndex: widget.store.sortColumn != null 
-                      ? widget.store.tableColumns.indexOf(widget.store.sortColumn!)
-                      : null,
+                    sortColumnIndex:
+                        widget.store.sortColumn != null
+                            ? widget.store.tableColumns.indexOf(
+                              widget.store.sortColumn!,
+                            )
+                            : null,
                     sortAscending: widget.store.sortAscending,
-                    columns: widget.store.tableColumns.map((col) {
-                      return DataColumn(
-                        label: Text(col, style: const TextStyle(fontWeight: FontWeight.bold)),
-                        onSort: (index, ascending) {
-                          widget.store.setSort(col);
-                          widget.store.loadTableData(widget.tableName, resetPagination: false);
-                        },
-                      );
-                    }).toList(),
-                    rows: widget.store.tableData.map((row) {
-                      return DataRow(
-                        cells: widget.store.tableColumns.map((col) {
-                          final value = row[col]?.toString() ?? '';
-                          return DataCell(
-                            ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 300),
-                              child: SelectableText(
-                                value,
-                                maxLines: 2,
-                                scrollPhysics: const NeverScrollableScrollPhysics(),
-                                style: const TextStyle(fontSize: 13),
+                    columns:
+                        widget.store.tableColumns.map((col) {
+                          return DataColumn(
+                            label: Text(
+                              col,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
+                            onSort: (index, ascending) {
+                              widget.store.setSort(col);
+                              widget.store.loadTableData(
+                                widget.tableName,
+                                resetPagination: false,
+                              );
+                            },
                           );
                         }).toList(),
-                      );
-                    }).toList(),
+                    rows:
+                        widget.store.tableData.map((row) {
+                          return DataRow(
+                            cells:
+                                widget.store.tableColumns.map((col) {
+                                  final value = row[col]?.toString() ?? '';
+                                  return DataCell(
+                                    ConstrainedBox(
+                                      constraints: const BoxConstraints(
+                                        maxWidth: 300,
+                                      ),
+                                      child: SelectableText(
+                                        value,
+                                        maxLines: 2,
+                                        scrollPhysics:
+                                            const NeverScrollableScrollPhysics(),
+                                        style: const TextStyle(fontSize: 13),
+                                      ),
+                                    ),
+                                  );
+                                }).toList(),
+                          );
+                        }).toList(),
                   ),
                 ),
               ),
@@ -238,12 +274,15 @@ class _TableDataViewerPageState extends State<TableDataViewerPage> {
       builder: (context) {
         final start = widget.store.currentPage * widget.store.pageSize + 1;
         final end = (widget.store.currentPage + 1) * widget.store.pageSize;
-        final actualEnd = (end > widget.store.totalCount) ? widget.store.totalCount : end;
+        final actualEnd =
+            (end > widget.store.totalCount) ? widget.store.totalCount : end;
 
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: BoxDecoration(
-            border: Border(top: BorderSide(color: Theme.of(context).dividerColor)),
+            border: Border(
+              top: BorderSide(color: Theme.of(context).dividerColor),
+            ),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -257,22 +296,34 @@ class _TableDataViewerPageState extends State<TableDataViewerPage> {
                 children: [
                   IconButton(
                     icon: const Icon(Icons.arrow_back_ios, size: 16),
-                    onPressed: widget.store.currentPage > 0 
-                      ? () {
-                          widget.store.prevPage();
-                          widget.store.loadTableData(widget.tableName, resetPagination: false);
-                        }
-                      : null,
+                    onPressed:
+                        widget.store.currentPage > 0
+                            ? () {
+                              widget.store.prevPage();
+                              widget.store.loadTableData(
+                                widget.tableName,
+                                resetPagination: false,
+                              );
+                            }
+                            : null,
                   ),
-                  Text('${widget.store.currentPage + 1}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                  Text(
+                    '${widget.store.currentPage + 1}',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
                   IconButton(
                     icon: const Icon(Icons.arrow_forward_ios, size: 16),
-                    onPressed: (widget.store.currentPage + 1) * widget.store.pageSize < widget.store.totalCount
-                      ? () {
-                          widget.store.nextPage();
-                          widget.store.loadTableData(widget.tableName, resetPagination: false);
-                        }
-                      : null,
+                    onPressed:
+                        (widget.store.currentPage + 1) * widget.store.pageSize <
+                                widget.store.totalCount
+                            ? () {
+                              widget.store.nextPage();
+                              widget.store.loadTableData(
+                                widget.tableName,
+                                resetPagination: false,
+                              );
+                            }
+                            : null,
                   ),
                 ],
               ),
@@ -282,5 +333,4 @@ class _TableDataViewerPageState extends State<TableDataViewerPage> {
       },
     );
   }
-
 }

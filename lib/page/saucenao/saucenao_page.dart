@@ -43,12 +43,17 @@ class _SauceNaoPageState extends State<SauceNaoPage> {
     super.initState();
     _store.observableStream.listen((event) {
       if (event != null && _store.results.isNotEmpty) {
-        Navigator.of(context).push(MaterialPageRoute(
-            builder: (context) => PageView(
-                  children: _store.results
-                      .map((element) => IllustLightingPage(id: element))
-                      .toList(),
-                )));
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder:
+                (context) => PageView(
+                  children:
+                      _store.results
+                          .map((element) => IllustLightingPage(id: element))
+                          .toList(),
+                ),
+          ),
+        );
       }
     });
     if (widget.path != null) {
@@ -66,9 +71,7 @@ class _SauceNaoPageState extends State<SauceNaoPage> {
           _store.findImage(context: context);
         },
       ),
-      appBar: AppBar(
-        title: Icon(Icons.dashboard),
-      ),
+      appBar: AppBar(title: Icon(Icons.dashboard)),
       body: Container(
         child: ListView(
           children: <Widget>[
@@ -78,42 +81,53 @@ class _SauceNaoPageState extends State<SauceNaoPage> {
                 child: Center(child: Text('SauceNao')),
               ),
             ),
-            Observer(builder: (_) {
-              if (_store.notStart) {
-                return Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Text(widget.path ?? ""),
+            Observer(
+              builder: (_) {
+                if (_store.notStart) {
+                  return Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Text(widget.path ?? ""),
+                    ),
+                  );
+                }
+                return InkWell(
+                  child: Card(
+                    child:
+                        _store.results.isNotEmpty
+                            ? Padding(
+                              padding: const EdgeInsets.all(8.0),
+                              child: Text(
+                                I18n.of(context).tap_to_show_results(
+                                  _store.results.length.toString(),
+                                ),
+                              ),
+                            )
+                            : Container(
+                              child: Image.asset('assets/images/nine.jpg'),
+                            ),
                   ),
-                );
-              }
-              return InkWell(
-                child: Card(
-                  child: _store.results.isNotEmpty
-                      ? Padding(
-                          padding: const EdgeInsets.all(8.0),
-                          child: Text(I18n.of(context).tap_to_show_results(
-                              _store.results.length.toString())),
-                        )
-                      : Container(
-                          child: Image.asset(
-                            'assets/images/nine.jpg',
-                          ),
+                  onTap: () {
+                    if (_store.results.isNotEmpty) {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder:
+                              (context) => PageView(
+                                children:
+                                    _store.results
+                                        .map(
+                                          (element) =>
+                                              IllustLightingPage(id: element),
+                                        )
+                                        .toList(),
+                              ),
                         ),
-                ),
-                onTap: () {
-                  if (_store.results.isNotEmpty) {
-                    Navigator.of(context).push(MaterialPageRoute(
-                        builder: (context) => PageView(
-                              children: _store.results
-                                  .map((element) =>
-                                      IllustLightingPage(id: element))
-                                  .toList(),
-                            )));
-                  }
-                },
-              );
-            }),
+                      );
+                    }
+                  },
+                );
+              },
+            ),
           ],
         ),
       ),

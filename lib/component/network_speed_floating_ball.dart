@@ -158,13 +158,15 @@ class _FloatingNetworkSpeedBallState extends State<FloatingNetworkSpeedBall> {
   }
 
   Widget _buildBall(bool isDark) {
-    final backgroundColor = isDark
-        ? Colors.white.withValues(alpha: 0.9)
-        : Colors.black.withValues(alpha: 0.75);
+    final backgroundColor =
+        isDark
+            ? Colors.white.withValues(alpha: 0.9)
+            : Colors.black.withValues(alpha: 0.75);
     final textColor = isDark ? Colors.black87 : Colors.white;
-    final shadowColor = isDark
-        ? Colors.white.withValues(alpha: 0.3)
-        : Colors.black.withValues(alpha: 0.3);
+    final shadowColor =
+        isDark
+            ? Colors.white.withValues(alpha: 0.3)
+            : Colors.black.withValues(alpha: 0.3);
 
     return Container(
       decoration: BoxDecoration(
@@ -180,9 +182,10 @@ class _FloatingNetworkSpeedBallState extends State<FloatingNetworkSpeedBall> {
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: _isDragging
-            ? _buildDraggingContent(textColor)
-            : _buildSpeedContent(textColor),
+        child:
+            _isDragging
+                ? _buildDraggingContent(textColor)
+                : _buildSpeedContent(textColor),
       ),
     );
   }
@@ -196,17 +199,29 @@ class _FloatingNetworkSpeedBallState extends State<FloatingNetworkSpeedBall> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSpeedRow(Icons.arrow_downward, _speedData!.downloadSpeedText,
-            Colors.green, textColor),
+        _buildSpeedRow(
+          Icons.arrow_downward,
+          _speedData!.downloadSpeedText,
+          Colors.green,
+          textColor,
+        ),
         const SizedBox(height: 4),
-        _buildSpeedRow(Icons.arrow_upward, _speedData!.uploadSpeedText,
-            Colors.blue, textColor),
+        _buildSpeedRow(
+          Icons.arrow_upward,
+          _speedData!.uploadSpeedText,
+          Colors.blue,
+          textColor,
+        ),
       ],
     );
   }
 
   Widget _buildSpeedRow(
-      IconData icon, String text, Color iconColor, Color textColor) {
+    IconData icon,
+    String text,
+    Color iconColor,
+    Color textColor,
+  ) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -239,14 +254,8 @@ class _FloatingNetworkSpeedBallState extends State<FloatingNetworkSpeedBall> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(
-          '↓ 0 B/s',
-          style: TextStyle(color: textColor, fontSize: 11),
-        ),
-        Text(
-          '↑ 0 B/s',
-          style: TextStyle(color: textColor, fontSize: 11),
-        ),
+        Text('↓ 0 B/s', style: TextStyle(color: textColor, fontSize: 11)),
+        Text('↑ 0 B/s', style: TextStyle(color: textColor, fontSize: 11)),
       ],
     );
   }

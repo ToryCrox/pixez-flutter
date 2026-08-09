@@ -59,8 +59,9 @@ abstract class _NovelStoreBase with Store {
   bookPosition(double offset) async {
     Log.d(() => "bookPosition $offset");
     await _novelViewerPersistProvider.open();
-    await _novelViewerPersistProvider
-        .insert(NovelViewerPersist(novelId: id, offset: offset));
+    await _novelViewerPersistProvider.insert(
+      NovelViewerPersist(novelId: id, offset: offset),
+    );
     positionBooked = true;
   }
 

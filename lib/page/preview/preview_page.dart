@@ -34,9 +34,7 @@ class GoToLoginPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(illust.title),
-      ),
+      appBar: AppBar(title: Text(illust.title)),
       body: SafeArea(
         child: SingleChildScrollView(
           child: Column(
@@ -64,9 +62,9 @@ class GoToLoginPage extends StatelessWidget {
                       ),
                       Text(illust.createDate),
                     ],
-                  )
+                  ),
                 ],
-              )
+              ),
             ],
           ),
         ),
@@ -83,26 +81,26 @@ class LoginInFirst extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.center,
         mainAxisAlignment: MainAxisAlignment.center,
         children: <Widget>[
+          Center(child: Text('>_<', style: TextStyle(fontSize: 26))),
           Center(
-            child: Text(
-              '>_<',
-              style: TextStyle(fontSize: 26),
+            child: Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Text(I18n.of(context).login_message),
             ),
           ),
-          Center(
-              child: Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Text(I18n.of(context).login_message),
-          )),
           ElevatedButton(
             child: Text(I18n.of(context).go_to_login),
             onPressed: () {
-              Navigator.push(context,
-                  MaterialPageRoute(builder: (BuildContext context) {
-                return LoginPage();
-              }));
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (BuildContext context) {
+                    return LoginPage();
+                  },
+                ),
+              );
             },
-          )
+          ),
         ],
       ),
     );
@@ -117,7 +115,9 @@ class PreviewPage extends StatefulWidget {
 class _PreviewPageState extends State<PreviewPage> {
   late LightingStore _lightingStore;
   EasyRefreshController _easyRefreshController = EasyRefreshController(
-      controlFinishLoad: true, controlFinishRefresh: true);
+    controlFinishLoad: true,
+    controlFinishRefresh: true,
+  );
 
   @override
   void initState() {
@@ -138,36 +138,48 @@ class _PreviewPageState extends State<PreviewPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Observer(builder: (_) {
-      return SafeArea(
-        child: EasyRefresh(
-          controller: _easyRefreshController,
-          onRefresh: () => _lightingStore.fetch(url: "walkthrough"),
-          onLoad: () => _lightingStore.fetchNext(),
-          child: WaterfallFlow.builder(
-            shrinkWrap: true,
-            gridDelegate: SliverWaterfallFlowDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-            ),
-            itemBuilder: (BuildContext context, int index) {
-              return InkWell(
-                onTap: () {
-                  Navigator.of(context).push(MaterialPageRoute(
-                      builder: (BuildContext context) => GoToLoginPage(
-                          illust: _lightingStore.iStores[index].illusts!)));
-                },
-                child: Card(
-                  child: Container(
-                    child: PixivImage(_lightingStore
-                        .iStores[index].illusts!.imageUrls.squareMedium),
+    return Observer(
+      builder: (_) {
+        return SafeArea(
+          child: EasyRefresh(
+            controller: _easyRefreshController,
+            onRefresh: () => _lightingStore.fetch(url: "walkthrough"),
+            onLoad: () => _lightingStore.fetchNext(),
+            child: WaterfallFlow.builder(
+              shrinkWrap: true,
+              gridDelegate: SliverWaterfallFlowDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+              ),
+              itemBuilder: (BuildContext context, int index) {
+                return InkWell(
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder:
+                            (BuildContext context) => GoToLoginPage(
+                              illust: _lightingStore.iStores[index].illusts!,
+                            ),
+                      ),
+                    );
+                  },
+                  child: Card(
+                    child: Container(
+                      child: PixivImage(
+                        _lightingStore
+                            .iStores[index]
+                            .illusts!
+                            .imageUrls
+                            .squareMedium,
+                      ),
+                    ),
                   ),
-                ),
-              );
-            },
-            itemCount: _lightingStore.iStores.length,
+                );
+              },
+              itemCount: _lightingStore.iStores.length,
+            ),
           ),
-        ),
-      );
-    });
+        );
+      },
+    );
   }
 }

@@ -30,14 +30,16 @@ class DatabaseRegistry {
   List<DatabaseEntry> get entries => List.unmodifiable(_entries);
 
   /// 注册一个数据库
-  void register(String name, String path, FutureOr<Database> Function() getDatabase) {
+  void register(
+    String name,
+    String path,
+    FutureOr<Database> Function() getDatabase,
+  ) {
     // 避免重复注册同名数据库
     if (_entries.any((e) => e.name == name)) return;
-    
-    _entries.add(DatabaseEntry(
-      name: name,
-      path: path,
-      getDatabase: getDatabase,
-    ));
+
+    _entries.add(
+      DatabaseEntry(name: name, path: path, getDatabase: getDatabase),
+    );
   }
 }

@@ -18,7 +18,7 @@ import 'package:path/path.dart' as path;
 import '../custom/log.dart';
 
 /// WebP动图编码器
-/// 
+///
 /// 使用Google官方img2webp命令行工具将序列帧转换为WebP动图
 /// 目前仅支持Windows平台
 class WebPEncoder {
@@ -29,7 +29,7 @@ class WebPEncoder {
   static bool get isSupported => Platform.isWindows;
 
   /// 获取img2webp.exe的路径
-  /// 
+  ///
   /// 工具应放置在应用目录的data/flutter_assets/assets/executables/下
   static Future<String?> _getImg2WebpPath() async {
     if (!Platform.isWindows) {
@@ -39,15 +39,27 @@ class WebPEncoder {
 
     // 获取应用程序所在目录
     final exeDir = path.dirname(Platform.resolvedExecutable);
-    
+
     // 尝试多个可能的路径
     final possiblePaths = [
       // 打包后的路径
-      path.join(exeDir, 'data', 'flutter_assets', 'assets', 'executables', 'img2webp.exe'),
+      path.join(
+        exeDir,
+        'data',
+        'flutter_assets',
+        'assets',
+        'executables',
+        'img2webp.exe',
+      ),
       // 开发时的路径
       path.join(exeDir, 'assets', 'executables', 'img2webp.exe'),
       // 项目根目录（开发调试用）
-      path.join(Directory.current.path, 'assets', 'executables', 'img2webp.exe'),
+      path.join(
+        Directory.current.path,
+        'assets',
+        'executables',
+        'img2webp.exe',
+      ),
     ];
 
     for (final p in possiblePaths) {
@@ -62,13 +74,13 @@ class WebPEncoder {
   }
 
   /// 将序列帧转换为WebP动图
-  /// 
+  ///
   /// [framesPaths]: 序列帧图片路径列表（按顺序）
   /// [delays]: 每帧的延迟时间列表（毫秒），长度应与framesPaths相同
   /// [outputPath]: 输出的WebP文件路径
   /// [quality]: 压缩质量（0-100），默认80
   /// [loop]: 循环次数（0表示无限循环），默认0
-  /// 
+  ///
   /// 返回生成的WebP文件路径，失败返回null
   static Future<String?> encode({
     required List<String> framesPaths,
@@ -83,7 +95,9 @@ class WebPEncoder {
     }
 
     if (framesPaths.length != delays.length) {
-      Log.w('WebPEncoder: 帧数(${framesPaths.length})与延迟数(${delays.length})不匹配，使用第一个延迟值');
+      Log.w(
+        'WebPEncoder: 帧数(${framesPaths.length})与延迟数(${delays.length})不匹配，使用第一个延迟值',
+      );
     }
 
     final img2webpPath = await _getImg2WebpPath();
@@ -103,11 +117,15 @@ class WebPEncoder {
       // -mixed: 自动选择每帧最佳压缩方式（有损/无损）
       // -m 6: 使用最高压缩方法，速度较慢但压缩率最高
       final arguments = <String>[
-        '-o', outputPath,
+        '-o',
+        outputPath,
         '-mixed',
-        '-m', '4',
-        '-q', quality.toString(),
-        '-loop', loop.toString(),
+        '-m',
+        '4',
+        '-q',
+        quality.toString(),
+        '-loop',
+        loop.toString(),
       ];
 
       // 添加每一帧及其延迟
@@ -119,7 +137,7 @@ class WebPEncoder {
       }
 
       Log.d('WebPEncoder: 开始转换, 帧数: ${framesPaths.length}');
-      
+
       // 执行命令
       final result = await Process.run(
         img2webpPath,
@@ -131,7 +149,9 @@ class WebPEncoder {
         // 验证输出文件是否存在
         if (await File(outputPath).exists()) {
           final fileSize = await File(outputPath).length();
-          Log.d('WebPEncoder: 转换成功, 输出: $outputPath, 大小: ${fileSize ~/ 1024}KB');
+          Log.d(
+            'WebPEncoder: 转换成功, 输出: $outputPath, 大小: ${fileSize ~/ 1024}KB',
+          );
           return outputPath;
         } else {
           Log.e('WebPEncoder: 转换完成但输出文件不存在');
@@ -152,7 +172,7 @@ class WebPEncoder {
   }
 
   /// 从Ugoira帧目录生成WebP动图
-  /// 
+  ///
   /// [framesDir]: 序列帧所在目录
   /// [delays]: 每帧延迟时间列表（毫秒）
   /// [outputPath]: 输出WebP文件路径

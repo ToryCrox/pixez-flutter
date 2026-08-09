@@ -61,25 +61,32 @@ class NovelWebResponse {
         rating: NovelRating.fromJson(json['rating'] as Map<String, dynamic>),
         text: json['text'] as String,
         marker: json['marker'],
-        illusts: (json['illusts'] is Map<String, dynamic>)
-            ? (json['illusts'] as Map<String, dynamic>?)?.map(
-                (k, e) => MapEntry(
+        illusts:
+            (json['illusts'] is Map<String, dynamic>)
+                ? (json['illusts'] as Map<String, dynamic>?)?.map(
+                  (k, e) => MapEntry(
                     k,
                     (e == null || (e as Map?)?['illust'] == null)
                         ? null
-                        : NovelIllusts.fromJson(e as Map<String, dynamic>)),
-              )
-            : null,
-        images: (json['images'] is Map<String, dynamic>)
-            ? (json['images'] as Map<String, dynamic>?)?.map(
-                (k, e) =>
-                    MapEntry(k, NovelImage.fromJson(e as Map<String, dynamic>)),
-              )
-            : null,
-        seriesNavigation: json['seriesNavigation'] == null
-            ? null
-            : SeriesNavigation.fromJson(
-                json['seriesNavigation'] as Map<String, dynamic>),
+                        : NovelIllusts.fromJson(e as Map<String, dynamic>),
+                  ),
+                )
+                : null,
+        images:
+            (json['images'] is Map<String, dynamic>)
+                ? (json['images'] as Map<String, dynamic>?)?.map(
+                  (k, e) => MapEntry(
+                    k,
+                    NovelImage.fromJson(e as Map<String, dynamic>),
+                  ),
+                )
+                : null,
+        seriesNavigation:
+            json['seriesNavigation'] == null
+                ? null
+                : SeriesNavigation.fromJson(
+                  json['seriesNavigation'] as Map<String, dynamic>,
+                ),
         glossaryItems: json['glossaryItems'] as List<dynamic>?,
         replaceableItemIds: json['replaceableItemIds'] as List<dynamic>?,
         aiType: json['aiType'] as int?,
@@ -93,9 +100,7 @@ class NovelWebResponse {
 class NovelIllusts {
   NovelIllust illust;
 
-  NovelIllusts({
-    required this.illust,
-  });
+  NovelIllusts({required this.illust});
 
   Map<String, dynamic> toJson() => _$NovelIllustsToJson(this);
 
@@ -106,9 +111,7 @@ class NovelIllusts {
 @JsonSerializable()
 class NovelIllust {
   NovelIllustImages images;
-  NovelIllust({
-    required this.images,
-  });
+  NovelIllust({required this.images});
   Map<String, dynamic> toJson() => _$NovelIllustToJson(this);
 
   factory NovelIllust.fromJson(Map<String, dynamic> json) =>
@@ -139,11 +142,7 @@ class NovelRating {
   int bookmark;
   int view;
 
-  NovelRating({
-    required this.like,
-    required this.bookmark,
-    required this.view,
-  });
+  NovelRating({required this.like, required this.bookmark, required this.view});
 
   Map<String, dynamic> toJson() => _$NovelRatingToJson(this);
 
@@ -156,10 +155,7 @@ class SeriesNavigation {
   PrevNovel? nextNovel;
   PrevNovel? prevNovel;
 
-  SeriesNavigation({
-    required this.nextNovel,
-    required this.prevNovel,
-  });
+  SeriesNavigation({required this.nextNovel, required this.prevNovel});
 
   factory SeriesNavigation.fromJson(Map<String, dynamic> json) =>
       _$SeriesNavigationFromJson(json);

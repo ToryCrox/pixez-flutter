@@ -14,7 +14,6 @@
  *
  */
 
-
 class Constants {
   static const String no_h = 'assets/images/h_long.jpg';
   static String tagName = "0.9.75";

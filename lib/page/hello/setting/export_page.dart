@@ -19,30 +19,32 @@ class _ExportPageState extends State<ExportPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(),
-      body: ListView(children: [
-        ListTile(
-          title: Text("Export tag history"),
-          onTap: () {
-            final tags = tagHistoryStore.tags;
-            List<TagsPersist> tagsPersist = tags.toList();
-            String json = jsonEncode(tagsPersist);
-            final data = Uint8List.fromList(json.codeUnits);
-            DocumentPlugin.openSave(data, "export_tag_history.json");
-          },
-        ),
-        ListTile(
-          title: Text("Import tag history"),
-          onTap: () async {
-            Uint8List uint8list = Uint8List(10);
-            String json = String.fromCharCodes(uint8list);
-            List<TagsPersist> tagsPersist = jsonDecode(json);
-            for (var element in tagsPersist) {
-              await tagHistoryStore.insert(element);
-            }
-            BotToast.showText(text: "Ok");
-          },
-        ),
-      ]),
+      body: ListView(
+        children: [
+          ListTile(
+            title: Text("Export tag history"),
+            onTap: () {
+              final tags = tagHistoryStore.tags;
+              List<TagsPersist> tagsPersist = tags.toList();
+              String json = jsonEncode(tagsPersist);
+              final data = Uint8List.fromList(json.codeUnits);
+              DocumentPlugin.openSave(data, "export_tag_history.json");
+            },
+          ),
+          ListTile(
+            title: Text("Import tag history"),
+            onTap: () async {
+              Uint8List uint8list = Uint8List(10);
+              String json = String.fromCharCodes(uint8list);
+              List<TagsPersist> tagsPersist = jsonDecode(json);
+              for (var element in tagsPersist) {
+                await tagHistoryStore.insert(element);
+              }
+              BotToast.showText(text: "Ok");
+            },
+          ),
+        ],
+      ),
     );
   }
 }

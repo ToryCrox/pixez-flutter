@@ -27,13 +27,13 @@ class PictureListPage extends StatefulWidget {
   final String? heroString;
   final LightingStore? lightingStore;
 
-  const PictureListPage(
-      {Key? key,
-      required this.lightingStore,
-      required this.store,
-      required this.iStores,
-      this.heroString})
-      : super(key: key);
+  const PictureListPage({
+    Key? key,
+    required this.lightingStore,
+    required this.store,
+    required this.iStores,
+    this.heroString,
+  }) : super(key: key);
 
   @override
   _PictureListPageState createState() => _PictureListPageState();
@@ -66,32 +66,33 @@ class _PictureListPageState extends State<PictureListPage> {
   @override
   Widget build(BuildContext context) {
     screenWidth = MediaQuery.of(context).size.width / 2;
-    return Observer(builder: (_) {
-      return PageView.builder(
-        controller: _pageController,
-        physics: userSetting.swipeChangeArtwork
-            ? null
-            : NeverScrollableScrollPhysics(),
-        itemBuilder: (BuildContext context, int index) {
-          if (index == _iStores.length && _lightingStore != null) {
-            return PictureListNextPage(
-              lightingStore: _lightingStore!,
+    return Observer(
+      builder: (_) {
+        return PageView.builder(
+          controller: _pageController,
+          physics:
+              userSetting.swipeChangeArtwork
+                  ? null
+                  : NeverScrollableScrollPhysics(),
+          itemBuilder: (BuildContext context, int index) {
+            if (index == _iStores.length && _lightingStore != null) {
+              return PictureListNextPage(lightingStore: _lightingStore!);
+            }
+            final f = _iStores[index];
+            String? tag = nowPosition == index ? widget.heroString : null;
+            return IllustLightingPage(
+              id: f.id,
+              heroString: tag,
+              store: f,
+              onHorizontalDragEnd: (details) {
+                _onDrag(details);
+              },
             );
-          }
-          final f = _iStores[index];
-          String? tag = nowPosition == index ? widget.heroString : null;
-          return IllustLightingPage(
-            id: f.id,
-            heroString: tag,
-            store: f,
-            onHorizontalDragEnd: (details) {
-              _onDrag(details);
-            },
-          );
-        },
-        itemCount: _iStores.length + 1,
-      );
-    });
+          },
+          itemCount: _iStores.length + 1,
+        );
+      },
+    );
   }
 
   _onDrag(DragEndDetails details) {
@@ -103,8 +104,11 @@ class _PictureListPageState extends State<PictureListPage> {
         result++;
       else
         result--;
-      _pageController.animateToPage(result,
-          duration: Duration(milliseconds: 200), curve: Curves.easeInOut);
+      _pageController.animateToPage(
+        result,
+        duration: Duration(milliseconds: 200),
+        curve: Curves.easeInOut,
+      );
       if (result >= _iStores.length) result = _iStores.length - 1;
       if (result < 0) result = 0;
       setState(() {
@@ -152,31 +156,28 @@ class _PictureListNextPageState extends State<PictureListNextPage> {
   @override
   Widget build(BuildContext context) {
     if (_lightingStore.nextUrl == null) {
-      return Scaffold(
-        appBar: AppBar(),
-        body: Center(child: Text("No More")),
-      );
+      return Scaffold(appBar: AppBar(), body: Center(child: Text("No More")));
     }
     if (loadResult == false) {
       return Scaffold(
         appBar: AppBar(),
         body: Container(
-            child: Center(
-          child: Column(children: [
-            Text("Load Failed"),
-            TextButton(
-                onPressed: () {
-                  _maybeFetch(false);
-                },
-                child: Text("Retry"))
-          ]),
-        )),
+          child: Center(
+            child: Column(
+              children: [
+                Text("Load Failed"),
+                TextButton(
+                  onPressed: () {
+                    _maybeFetch(false);
+                  },
+                  child: Text("Retry"),
+                ),
+              ],
+            ),
+          ),
+        ),
       );
     }
-    return Scaffold(
-      body: Center(
-        child: CircularProgressIndicator(),
-      ),
-    );
+    return Scaffold(body: Center(child: CircularProgressIndicator()));
   }
 }

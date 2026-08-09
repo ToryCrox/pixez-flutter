@@ -107,53 +107,57 @@ class _IllustCardState extends State<IllustCard> {
 
   @override
   Widget build(BuildContext context) {
-    return Observer(builder: (context) {
-      if (store.illusts == null) return const SizedBox.shrink();
-      if (userSetting.hIsNotAllow)
-        for (int i = 0; i < store.illusts!.tags.length; i++) {
-          if (store.illusts!.tags[i].name.startsWith('R-18')) {
-            return InkWell(
-              onTap: () => _buildTap(context),
-              onLongPress: () => _onLongPressSave(),
-              child: Card(
-                margin: EdgeInsets.all(8.0),
-                elevation: 8.0,
-                clipBehavior: Clip.antiAlias,
-                shape: const RoundedRectangleBorder(
-                    borderRadius: BorderRadius.all(Radius.circular(8.0))),
-                child: Image.asset(Constants.no_h),
-              ),
-            );
+    return Observer(
+      builder: (context) {
+        if (store.illusts == null) return const SizedBox.shrink();
+        if (userSetting.hIsNotAllow)
+          for (int i = 0; i < store.illusts!.tags.length; i++) {
+            if (store.illusts!.tags[i].name.startsWith('R-18')) {
+              return InkWell(
+                onTap: () => _buildTap(context),
+                onLongPress: () => _onLongPressSave(),
+                child: Card(
+                  margin: EdgeInsets.all(8.0),
+                  elevation: 8.0,
+                  clipBehavior: Clip.antiAlias,
+                  shape: const RoundedRectangleBorder(
+                    borderRadius: BorderRadius.all(Radius.circular(8.0)),
+                  ),
+                  child: Image.asset(Constants.no_h),
+                ),
+              );
+            }
           }
-        }
-      return _buildInkWell(context);
-    });
+        return _buildInkWell(context);
+      },
+    );
   }
 
   _onLongPressSave() async {
     if (userSetting.longPressSaveConfirm) {
       final result = await showDialog(
-          context: context,
-          builder: (context) {
-            return AlertDialog(
-              title: Text(I18n.of(context).save),
-              content: Text(store.illusts?.title ?? ""),
-              actions: <Widget>[
-                TextButton(
-                  child: Text(I18n.of(context).cancel),
-                  onPressed: () {
-                    Navigator.of(context).pop(false);
-                  },
-                ),
-                TextButton(
-                  child: Text(I18n.of(context).ok),
-                  onPressed: () {
-                    Navigator.of(context).pop(true);
-                  },
-                ),
-              ],
-            );
-          });
+        context: context,
+        builder: (context) {
+          return AlertDialog(
+            title: Text(I18n.of(context).save),
+            content: Text(store.illusts?.title ?? ""),
+            actions: <Widget>[
+              TextButton(
+                child: Text(I18n.of(context).cancel),
+                onPressed: () {
+                  Navigator.of(context).pop(false);
+                },
+              ),
+              TextButton(
+                child: Text(I18n.of(context).ok),
+                onPressed: () {
+                  Navigator.of(context).pop(true);
+                },
+              ),
+            ],
+          );
+        },
+      );
       if (!result) {
         return;
       }
@@ -162,29 +166,30 @@ class _IllustCardState extends State<IllustCard> {
     downloadStore.downloadIllust(store.illusts!);
     if (userSetting.starAfterSave && (store.state == 0)) {
       store.star(
-          restrict: userSetting.defaultPrivateLike ? "private" : "public",
-          bookmark: 1);
+        restrict: userSetting.defaultPrivateLike ? "private" : "public",
+        bookmark: 1,
+      );
     }
   }
 
   Future _buildTap(BuildContext context) {
-    return Navigator.of(context)
-        .push(MaterialPageRoute(builder: (_) {
-      return PictureListPage(
-        iStores: iStores!,
-        store: store,
-        lightingStore: _lightingStore,
-        heroString: tag,
-      );
-    }));
+    return Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) {
+          return PictureListPage(
+            iStores: iStores!,
+            store: store,
+            lightingStore: _lightingStore,
+            heroString: tag,
+          );
+        },
+      ),
+    );
   }
 
   Widget cardText() {
     if (store.illusts!.type != "illust") {
-      return Text(
-        store.illusts!.type,
-        style: TextStyle(color: Colors.white),
-      );
+      return Text(store.illusts!.type, style: TextStyle(color: Colors.white));
     }
     if (store.illusts!.metaPages.isNotEmpty) {
       return Text(
@@ -199,9 +204,10 @@ class _IllustCardState extends State<IllustCard> {
     final imageUrl = store.illusts!.previewUrl;
     final quality = store.illusts!.previewQuality;
 
-    final fit = widget.layoutMode == IllustCardLayoutMode.waterfall
-        ? BoxFit.fitWidth
-        : BoxFit.cover;
+    final fit =
+        widget.layoutMode == IllustCardLayoutMode.waterfall
+            ? BoxFit.fitWidth
+            : BoxFit.cover;
 
     return NullHero(
       tag: tag,
@@ -209,10 +215,7 @@ class _IllustCardState extends State<IllustCard> {
         imageUrl,
         fit: fit,
         // 传递封面 ID 和质量标识以支持本地查找
-        httpHeaders: {
-          'cover': '${store.id}',
-          'quality': quality,
-        },
+        httpHeaders: {'cover': '${store.id}', 'quality': quality},
         memCacheWidth: 480,
       ),
     );
@@ -224,9 +227,13 @@ class _IllustCardState extends State<IllustCard> {
     if (widget.layoutMode == IllustCardLayoutMode.waterfall) {
       // 瀑布流模式：使用 AspectRatio
       var tooLong =
-          store.illusts!.height.toDouble() / store.illusts!.width.toDouble() > 3;
+          store.illusts!.height.toDouble() / store.illusts!.width.toDouble() >
+          3;
       var radio =
-          (tooLong) ? 1.0 : store.illusts!.width.toDouble() / store.illusts!.height.toDouble();
+          (tooLong)
+              ? 1.0
+              : store.illusts!.width.toDouble() /
+                  store.illusts!.height.toDouble();
       imageArea = AspectRatio(
         aspectRatio: radio,
         child: Stack(
@@ -259,18 +266,13 @@ class _IllustCardState extends State<IllustCard> {
         context,
         Stack(
           children: [
-            Column(
-              children: <Widget>[
-                imageArea,
-                _buildFooter(context),
-              ],
-            ),
+            Column(children: <Widget>[imageArea, _buildFooter(context)]),
             _buildHistoryProgress(),
           ],
         ),
       ),
     );
-}
+  }
 
   /// 构建徽章区域（AI徽章 + 页数/类型徽章）
   Widget _buildBadges() {
@@ -292,38 +294,47 @@ class _IllustCardState extends State<IllustCard> {
   // 移除 _buildReadBadge
 
   Widget _buildLastReadBadge() {
-    return Observer(builder: (context) {
-      final history = HistoryManager.instance.getHistory(store.id);
-      final readTime = history?.timestamp.toRelativeTime();
-      if (readTime == null) return const SizedBox.shrink();
+    return Observer(
+      builder: (context) {
+        final history = HistoryManager.instance.getHistory(store.id);
+        final readTime = history?.timestamp.toRelativeTime();
+        if (readTime == null) return const SizedBox.shrink();
 
-      return Positioned(
-        right: 4.0,
-        bottom: 4.0,
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.black54,
-            borderRadius: BorderRadius.all(Radius.circular(4.0)),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 2.0, horizontal: 4.0),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.history, color: Colors.white, size: 10),
-                SizedBox(width: 4),
-                Text(
-                  history!.totalPages > 1
-                      ? "$readTime · ${history.lastPage + 1}/${history.totalPages}P"
-                      : readTime,
-                  style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                ),
-              ],
+        return Positioned(
+          right: 4.0,
+          bottom: 4.0,
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.black54,
+              borderRadius: BorderRadius.all(Radius.circular(4.0)),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                vertical: 2.0,
+                horizontal: 4.0,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.history, color: Colors.white, size: 10),
+                  SizedBox(width: 4),
+                  Text(
+                    history!.totalPages > 1
+                        ? "$readTime · ${history.lastPage + 1}/${history.totalPages}P"
+                        : readTime,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
-      );
-    });
+        );
+      },
+    );
   }
 
   /// 构建底部区域（信息 + 系列作品链接）
@@ -335,10 +346,12 @@ class _IllustCardState extends State<IllustCard> {
         if (widget.showSeriesLink && store.illusts?.series != null)
           GestureDetector(
             onTap: () {
-              Navigator.of(context).push(MaterialPageRoute(
-                  builder: (_) => IllustSeriesPage(
-                        id: store.illusts!.series!.id,
-                      )));
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder:
+                      (_) => IllustSeriesPage(id: store.illusts!.series!.id),
+                ),
+              );
             },
             behavior: HitTestBehavior.opaque,
             child: Container(
@@ -362,10 +375,7 @@ class _IllustCardState extends State<IllustCard> {
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 2.0, horizontal: 2.0),
-        child: Text(
-          "AI",
-          style: TextStyle(color: Colors.white),
-        ),
+        child: Text("AI", style: TextStyle(color: Colors.white)),
       ),
     );
   }
@@ -379,9 +389,11 @@ class _IllustCardState extends State<IllustCard> {
         _showContextMenu(context);
       },
       child: InkWell(
-        onLongPress: widget.onLongPress ?? () {
-          _buildLongPressToSaveHint();
-        },
+        onLongPress:
+            widget.onLongPress ??
+            () {
+              _buildLongPressToSaveHint();
+            },
         onTap: () {
           _buildInkTap(context, tag);
         },
@@ -396,20 +408,22 @@ class _IllustCardState extends State<IllustCard> {
       if (firstLongPress) {
         await Prefer.setBool("first_long_press", false);
         await showDialog(
-            context: context,
-            builder: (context) {
-              return AlertDialog(
-                title: Text('长按保存'),
-                content: Text('长按卡片将会保存插画到相册'),
-                actions: <Widget>[
-                  TextButton(
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                      },
-                      child: Text(I18n.of(context).ok))
-                ],
-              );
-            });
+          context: context,
+          builder: (context) {
+            return AlertDialog(
+              title: Text('长按保存'),
+              content: Text('长按卡片将会保存插画到相册'),
+              actions: <Widget>[
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                  child: Text(I18n.of(context).ok),
+                ),
+              ],
+            );
+          },
+        );
       }
     }
     _onLongPressSave();
@@ -418,7 +432,9 @@ class _IllustCardState extends State<IllustCard> {
   Future<void> _showContextMenu(BuildContext context) async {
     if (store.illusts == null) return;
 
-    final isDirectoryExists = await downloadStore.isIllustDirectoryExists(store.illusts!);
+    final isDirectoryExists = await downloadStore.isIllustDirectoryExists(
+      store.illusts!,
+    );
 
     if (!isDirectoryExists) return;
 
@@ -459,7 +475,9 @@ class _IllustCardState extends State<IllustCard> {
       return;
     }
     try {
-      final dirPath = await downloadStore.getIllustDownloadDirectory(store.illusts!);
+      final dirPath = await downloadStore.getIllustDownloadDirectory(
+        store.illusts!,
+      );
       if (dirPath != null) {
         await FileUtils.openFileOrDirectory(dirPath);
       }
@@ -471,22 +489,26 @@ class _IllustCardState extends State<IllustCard> {
   Future<void> _buildInkTap(BuildContext context, String heroTag) async {
     // 预加载首帧图片信息，避免详情页渲染时的尺寸跳动
     await store.preloadFirstImage();
-    
-    await Navigator.of(context).push(MaterialPageRoute(builder: (_) {
-      if (iStores != null) {
-        return PictureListPage(
-          heroString: heroTag,
-          store: store,
-          lightingStore: _lightingStore,
-          iStores: iStores!,
-        );
-      }
-      return IllustLightingPage(
-        id: store.illusts!.id,
-        heroString: heroTag,
-        store: store,
-      );
-    }));
+
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) {
+          if (iStores != null) {
+            return PictureListPage(
+              heroString: heroTag,
+              store: store,
+              lightingStore: _lightingStore,
+              iStores: iStores!,
+            );
+          }
+          return IllustLightingPage(
+            id: store.illusts!.id,
+            heroString: heroTag,
+            store: store,
+          );
+        },
+      ),
+    );
   }
 
   Widget _buildBottom(BuildContext context) {
@@ -501,11 +523,12 @@ class _IllustCardState extends State<IllustCard> {
                 _buildTitleRow(context),
                 InkWell(
                   onTap: () {
-                    Navigator.of(context).push(MaterialPageRoute(
-                      builder: (context) => UsersPage(
-                        id: store.illusts!.user.id,
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder:
+                            (context) => UsersPage(id: store.illusts!.user.id),
                       ),
-                    ));
+                    );
                   },
                   child: Text(
                     store.illusts!.user.name,
@@ -519,24 +542,26 @@ class _IllustCardState extends State<IllustCard> {
             ),
           ),
           InkWell(
-            child: Observer(builder: (_) {
-              return StarIcon(
-                state: store.state,
-              );
-            }),
+            child: Observer(
+              builder: (_) {
+                return StarIcon(state: store.state);
+              },
+            ),
             onTap: () async {
               if (userSetting.saveAfterStar && (store.state == 0)) {
                 downloadStore.downloadIllust(store.illusts!, bookmark: 1);
               }
               store.star(
-                  restrict: userSetting.defaultPrivateLike ? "private" : "public",
-                  bookmark: userSetting.saveAfterStar ? 1 : null);
+                restrict: userSetting.defaultPrivateLike ? "private" : "public",
+                bookmark: userSetting.saveAfterStar ? 1 : null,
+              );
               if (userSetting.followAfterStar) {
                 bool success = await store.followAfterStar();
                 if (success) {
                   BotToast.showText(
-                      text:
-                          "${store.illusts!.user.name} ${I18n.of(context).followed}");
+                    text:
+                        "${store.illusts!.user.name} ${I18n.of(context).followed}",
+                  );
                 }
               }
             },
@@ -545,11 +570,11 @@ class _IllustCardState extends State<IllustCard> {
                 context: context,
                 clipBehavior: Clip.hardEdge,
                 shape: RoundedRectangleBorder(
-                  borderRadius:
-                      BorderRadius.vertical(top: Radius.circular(16)),
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
                 ),
                 constraints: BoxConstraints.expand(
-                    height: MediaQuery.of(context).size.height * .618),
+                  height: MediaQuery.of(context).size.height * .618,
+                ),
                 isScrollControlled: true,
                 builder: (_) => TagForIllustPage(id: store.illusts!.id),
               );
@@ -561,10 +586,7 @@ class _IllustCardState extends State<IllustCard> {
               }
             },
           ),
-          IllustDownloadButton(
-            illusts: store.illusts!,
-            iconSize: 20,
-          ),
+          IllustDownloadButton(illusts: store.illusts!, iconSize: 20),
         ],
       ),
     );
@@ -572,7 +594,8 @@ class _IllustCardState extends State<IllustCard> {
 
   Widget _buildVisibility() {
     return Visibility(
-      visible: store.illusts!.type != "illust" ||
+      visible:
+          store.illusts!.type != "illust" ||
           store.illusts!.metaPages.isNotEmpty,
       child: Align(
         alignment: Alignment.topRight,
@@ -580,8 +603,10 @@ class _IllustCardState extends State<IllustCard> {
           padding: EdgeInsets.all(4.0),
           child: Container(
             child: Padding(
-              padding:
-                  const EdgeInsets.symmetric(vertical: 2.0, horizontal: 2.0),
+              padding: const EdgeInsets.symmetric(
+                vertical: 2.0,
+                horizontal: 2.0,
+              ),
               child: cardText(),
             ),
             decoration: BoxDecoration(
@@ -608,10 +633,7 @@ class _IllustCardState extends State<IllustCard> {
           padding: const EdgeInsets.symmetric(vertical: 2.0, horizontal: 4.0),
           child: Text(
             _formatCreateDate(store.illusts!.createDate),
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 10,
-            ),
+            style: TextStyle(color: Colors.white, fontSize: 10),
           ),
         ),
       ),
@@ -635,32 +657,37 @@ class _IllustCardState extends State<IllustCard> {
   }
 
   Widget _buildHistoryProgress() {
-    return Observer(builder: (context) {
-      final history = HistoryManager.instance.getHistory(store.id);
-      if (history == null || history.totalPages <= 1) {
-        return const SizedBox.shrink();
-      }
-      return Positioned(
-        bottom: 0,
-        left: 0,
-        right: 0,
-        child: LinearProgressIndicator(
-          value: history.progress.clamp(0.0, 1.0),
-          minHeight: 3,
-          backgroundColor: Colors.black26,
-          valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).colorScheme.primary),
-        ),
-      );
-    });
+    return Observer(
+      builder: (context) {
+        final history = HistoryManager.instance.getHistory(store.id);
+        if (history == null || history.totalPages <= 1) {
+          return const SizedBox.shrink();
+        }
+        return Positioned(
+          bottom: 0,
+          left: 0,
+          right: 0,
+          child: LinearProgressIndicator(
+            value: history.progress.clamp(0.0, 1.0),
+            minHeight: 3,
+            backgroundColor: Colors.black26,
+            valueColor: AlwaysStoppedAnimation<Color>(
+              Theme.of(context).colorScheme.primary,
+            ),
+          ),
+        );
+      },
+    );
   }
 }
 
 class TrianglePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    var paint = Paint()
-      ..color = Colors.yellow
-      ..style = PaintingStyle.fill;
+    var paint =
+        Paint()
+          ..color = Colors.yellow
+          ..style = PaintingStyle.fill;
 
     var path = Path();
     path.moveTo(0, 0);

@@ -26,9 +26,9 @@ class BoardInfo {
   factory BoardInfo.fromJson(Map<String, dynamic> json) =>
       _$BoardInfoFromJson(json);
   Map<String, dynamic> toJson() => _$BoardInfoToJson(this);
-  
+
   static bool boardDataLoaded = false;
-  
+
   static List<BoardInfo> boardList = [];
 
   static String path() {
@@ -49,10 +49,12 @@ class BoardInfo {
   static Future<List<BoardInfo>> load() async {
     Log.d('Loading board data from: ${path()}');
     final request = await Dio().get(
-        'https://raw.githubusercontent.com/Notsfsssf/pixez-flutter/refs/heads/master/.github/board/${path()}');
-    final list = (jsonDecode(request.data) as List)
-        .map((e) => BoardInfo.fromJson(e))
-        .toList();
+      'https://raw.githubusercontent.com/Notsfsssf/pixez-flutter/refs/heads/master/.github/board/${path()}',
+    );
+    final list =
+        (jsonDecode(request.data) as List)
+            .map((e) => BoardInfo.fromJson(e))
+            .toList();
     boardList = list;
     return list;
   }

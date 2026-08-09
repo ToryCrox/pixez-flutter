@@ -37,9 +37,10 @@ class _State extends ConsumerState<FollowDetailAlert> {
       if (mounted) {
         setState(() {
           _isFollowed = followDetail.isFollowed;
-          _restrict = followDetail.restrict.isNotEmpty
-              ? followDetail.restrict
-              : 'private';
+          _restrict =
+              followDetail.restrict.isNotEmpty
+                  ? followDetail.restrict
+                  : 'private';
           _isLoading = false;
         });
       }
@@ -74,50 +75,52 @@ class _State extends ConsumerState<FollowDetailAlert> {
                   borderRadius: BorderRadius.circular(16),
                   color: Theme.of(context).colorScheme.surface,
                 ),
-                child: _isLoading
-                    ? Container(
-                        height: 100,
-                        child: const Center(child: CircularProgressIndicator()))
-                    : Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          SwitchListTile(
-                            value: _restrict == 'private',
-                            title: Text(I18n.of(context).quietly_follow),
-                            onChanged: (value) {
-                              setState(() {
-                                _restrict = value ? 'private' : 'public';
-                              });
-                            },
+                child:
+                    _isLoading
+                        ? Container(
+                          height: 100,
+                          child: const Center(
+                            child: CircularProgressIndicator(),
                           ),
-                          Divider(
-                            height: 1,
-                          ),
-                          if (_isFollowed)
-                            Container(
-                              child: TextButton(
-                                onPressed: () {
-                                  widget.onConfirm(false, _restrict);
-                                  Navigator.of(context).pop();
-                                },
-                                child: Text(I18n.of(context).cancel_follow),
-                              ),
+                        )
+                        : Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            SwitchListTile(
+                              value: _restrict == 'private',
+                              title: Text(I18n.of(context).quietly_follow),
+                              onChanged: (value) {
+                                setState(() {
+                                  _restrict = value ? 'private' : 'public';
+                                });
+                              },
                             ),
-                          Row(
-                            children: [
-                              Expanded(
+                            Divider(height: 1),
+                            if (_isFollowed)
+                              Container(
                                 child: TextButton(
                                   onPressed: () {
+                                    widget.onConfirm(false, _restrict);
                                     Navigator.of(context).pop();
                                   },
-                                  child: Text(I18n.of(context).cancel),
+                                  child: Text(I18n.of(context).cancel_follow),
                                 ),
                               ),
-                              Expanded(child: _rightButton())
-                            ],
-                          )
-                        ],
-                      ),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: TextButton(
+                                    onPressed: () {
+                                      Navigator.of(context).pop();
+                                    },
+                                    child: Text(I18n.of(context).cancel),
+                                  ),
+                                ),
+                                Expanded(child: _rightButton()),
+                              ],
+                            ),
+                          ],
+                        ),
               ),
             ),
           ),

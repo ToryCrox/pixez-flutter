@@ -92,11 +92,13 @@ abstract class _UserSetting with Store {
   static const String GRID_ASPECT_RATIO_KEY = "grid_aspect_ratio";
   static const String ILLUST_AUTO_SCROLL_SPEED_KEY = "illust_auto_scroll_speed";
   static const String ENABLE_MANA_IN_RELEASE_KEY = "enable_mana_in_release";
-  static const String UPDATE_ILLUST_CONCURRENT_COUNT_KEY = "update_illust_concurrent_count";
+  static const String UPDATE_ILLUST_CONCURRENT_COUNT_KEY =
+      "update_illust_concurrent_count";
   static const String SHOW_NETWORK_SPEED_BALL_KEY = "show_network_speed_ball";
   static const String NETWORK_SPEED_BALL_X_KEY = "network_speed_ball_x";
   static const String NETWORK_SPEED_BALL_Y_KEY = "network_speed_ball_y";
-  static const String IS_NETWORK_LOG_COLLECTING_KEY = "is_network_log_collecting";
+  static const String IS_NETWORK_LOG_COLLECTING_KEY =
+      "is_network_log_collecting";
 
   @observable
   double dragStartX = 0;
@@ -230,7 +232,7 @@ abstract class _UserSetting with Store {
     if (!useWaterfallFlow) {
       return Constants.qualitySquareMedium;
     }
-    
+
     // 瀑布流模式根据设置返回对应质量
     switch (feedPreviewQuality) {
       case Constants.qualityLevelMedium:
@@ -516,19 +518,18 @@ abstract class _UserSetting with Store {
     welcomePageNum = prefs.getInt('welcome_page_num') ?? 0;
     feedAIBadge = prefs.getBool(FEED_AI_BADGE_KEY) ?? true;
     padMode = prefs.getInt(PAD_MODE_KEY) ?? 0;
-    pictureSource = disableBypassSni
-        ? ImageHost
-        : (prefs.getString(PICTURE_SOURCE_KEY) ?? ImageHost);
+    pictureSource =
+        disableBypassSni
+            ? ImageHost
+            : (prefs.getString(PICTURE_SOURCE_KEY) ?? ImageHost);
     await Hoster.initMap();
     themeInitState = 1;
-
   }
-
 
   @action
   Future<void> init() async {
     prefs = await Prefer.getInstance();
-    
+
     // logic to migrate storePath to downloadPath if downloadPath is not set
     storePath = prefs.getString(STORE_PATH_KEY);
     downloadPath = prefs.getString(DOWNLOAD_PATH_KEY);
@@ -556,7 +557,8 @@ abstract class _UserSetting with Store {
     starAfterSave = prefs.getBool(STAR_AFTER_SAVE) ?? false;
     novelFontsize = prefs.getDouble(NOVEL_FONT_SIZE_KEY) ?? 16.0;
     novelTextStyle = novelTextStyle.copyWith(fontSize: novelFontsize);
-    saveMode = prefs.getInt(SAVE_MODE_KEY) ??
+    saveMode =
+        prefs.getInt(SAVE_MODE_KEY) ??
         (isHelplessWay == null ? 0 : (isHelplessWay! ? 2 : 1));
 
     splashStore.setHost(pictureSource!);
@@ -578,11 +580,13 @@ abstract class _UserSetting with Store {
     illustAutoScrollSpeed =
         prefs.getDouble(ILLUST_AUTO_SCROLL_SPEED_KEY) ?? 2.0;
     enableManaInRelease = prefs.getBool(ENABLE_MANA_IN_RELEASE_KEY) ?? false;
-    updateIllustConcurrentCount = prefs.getInt(UPDATE_ILLUST_CONCURRENT_COUNT_KEY) ?? 4;
+    updateIllustConcurrentCount =
+        prefs.getInt(UPDATE_ILLUST_CONCURRENT_COUNT_KEY) ?? 4;
     showNetworkSpeedBall = prefs.getBool(SHOW_NETWORK_SPEED_BALL_KEY) ?? false;
     networkSpeedBallX = prefs.getDouble(NETWORK_SPEED_BALL_X_KEY) ?? 16.0;
     networkSpeedBallY = prefs.getDouble(NETWORK_SPEED_BALL_Y_KEY) ?? 0.0;
-    isNetworkLogCollecting = prefs.getBool(IS_NETWORK_LOG_COLLECTING_KEY) ?? false;
+    isNetworkLogCollecting =
+        prefs.getBool(IS_NETWORK_LOG_COLLECTING_KEY) ?? false;
     if (Platform.isAndroid) {
       try {
         await SecurePlugin.configSecureWindow(nsfwMask);
@@ -594,7 +598,7 @@ abstract class _UserSetting with Store {
     }
     format = prefs.getString(SAVE_FORMAT_KEY);
     if (format == null || format!.isEmpty) format = intialFormat;
-    
+
     fontFamily = prefs.getString(FONT_FAMILY_KEY);
   }
 

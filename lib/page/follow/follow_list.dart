@@ -29,7 +29,7 @@ class FollowList extends StatefulWidget {
   final bool? isFollowMe;
 
   FollowList({Key? key, required this.id, this.isNovel, this.isFollowMe})
-      : super(key: key);
+    : super(key: key);
 
   @override
   _FollowListState createState() => _FollowListState();
@@ -55,31 +55,34 @@ class _FollowListState extends State<FollowList> {
   void initState() {
     _isNovel = widget.isNovel ?? false;
     _isFollowMe = widget.isFollowMe ?? false;
-    futureGet = _isFollowMe
-        ? () => apiClient.getFollowUser(widget.id, restrict)
-        : () => apiClient.getUserFollowing(widget.id, restrict);
+    futureGet =
+        _isFollowMe
+            ? () => apiClient.getFollowUser(widget.id, restrict)
+            : () => apiClient.getUserFollowing(widget.id, restrict);
     super.initState();
   }
 
   Widget buildHeader() {
-    return Observer(builder: (_) {
-      return Visibility(
-        visible: int.parse(accountStore.now!.userId) == widget.id,
-        child: Align(
-          alignment: Alignment.topCenter,
-          child: SortGroup(
-            children: [I18n.of(context).public, I18n.of(context).private],
-            onChange: (index) {
-              setState(() {
-                restrict = index == 0 ? 'public' : 'private';
-                futureGet =
-                    () => apiClient.getUserFollowing(widget.id, restrict);
-              });
-            },
+    return Observer(
+      builder: (_) {
+        return Visibility(
+          visible: int.parse(accountStore.now!.userId) == widget.id,
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: SortGroup(
+              children: [I18n.of(context).public, I18n.of(context).private],
+              onChange: (index) {
+                setState(() {
+                  restrict = index == 0 ? 'public' : 'private';
+                  futureGet =
+                      () => apiClient.getUserFollowing(widget.id, restrict);
+                });
+              },
+            ),
           ),
-        ),
-      );
-    });
+        );
+      },
+    );
   }
 
   @override
@@ -90,9 +93,7 @@ class _FollowListState extends State<FollowList> {
           futureGet: futureGet,
           isNovel: _isNovel,
           cacheKey: _cacheKey,
-          header: Container(
-            height: _isFollowMe ? 0 : 45,
-          ),
+          header: Container(height: _isFollowMe ? 0 : 45),
         ),
         if (!_isFollowMe) buildHeader(),
       ],

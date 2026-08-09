@@ -43,11 +43,12 @@ class OnezeroAnswer {
   @JsonKey(name: 'TTL')
   int ttl;
 
-  OnezeroAnswer(
-      {required this.name,
-      required this.type,
-      required this.data,
-      required this.ttl});
+  OnezeroAnswer({
+    required this.name,
+    required this.type,
+    required this.data,
+    required this.ttl,
+  });
 
   factory OnezeroAnswer.fromJson(Map<String, dynamic> json) =>
       _$OnezeroAnswerFromJson(json);

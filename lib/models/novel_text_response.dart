@@ -48,9 +48,7 @@ class NovelTextResponse {
 class NovelMarker {
   int? page;
 
-  NovelMarker({
-    this.page,
-  });
+  NovelMarker({this.page});
 
   factory NovelMarker.fromJson(Map<String, dynamic> json) =>
       _$NovelMarkerFromJson(json);
@@ -61,7 +59,7 @@ class TextNovel {
   int? id;
   String? title;
 
-  TextNovel({this.id,this.title});
+  TextNovel({this.id, this.title});
 
   factory TextNovel.fromJson(Map<String, dynamic> json) =>
       _$TextNovelFromJson(json);

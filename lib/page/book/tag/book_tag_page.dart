@@ -32,8 +32,10 @@ class _BookTagPageState extends State<BookTagPage>
 
   @override
   void initState() {
-    _tabController =
-        TabController(length: bookTagStore.bookTagList.length, vsync: this);
+    _tabController = TabController(
+      length: bookTagStore.bookTagList.length,
+      vsync: this,
+    );
     super.initState();
   }
 
@@ -45,93 +47,95 @@ class _BookTagPageState extends State<BookTagPage>
   @override
   Widget build(BuildContext context) {
     if (edit)
-      return Observer(builder: (context) {
-        return Container(
-          child: Column(
-            children: [
-              AppBar(
-                elevation: 0.0,
-                backgroundColor: Colors.transparent,
-                actions: [
-                  IconButton(
+      return Observer(
+        builder: (context) {
+          return Container(
+            child: Column(
+              children: [
+                AppBar(
+                  elevation: 0.0,
+                  backgroundColor: Colors.transparent,
+                  actions: [
+                    IconButton(
                       icon: Icon(Icons.save),
                       onPressed: () {
                         setState(() {
                           edit = false;
                         });
-                      })
-                ],
-              ),
-              Expanded(child: _buildTagChip())
-            ],
-          ),
-        );
-      });
-    return Observer(builder: (_) {
-      if (_tabController.length != bookTagStore.bookTagList.length) {
-        var index = (_tabController.index >= bookTagStore.bookTagList.length)
-            ? bookTagStore.bookTagList.length - 1
-            : _tabController.index;
-        index = (index < 0) ? 0 : index;
-        _tabController = TabController(
+                      },
+                    ),
+                  ],
+                ),
+                Expanded(child: _buildTagChip()),
+              ],
+            ),
+          );
+        },
+      );
+    return Observer(
+      builder: (_) {
+        if (_tabController.length != bookTagStore.bookTagList.length) {
+          var index =
+              (_tabController.index >= bookTagStore.bookTagList.length)
+                  ? bookTagStore.bookTagList.length - 1
+                  : _tabController.index;
+          index = (index < 0) ? 0 : index;
+          _tabController = TabController(
             initialIndex: index,
             length: bookTagStore.bookTagList.length,
-            vsync: this);
-      }
-      return Scaffold(
-        appBar: AppBar(
-          elevation: 0.0,
-          title: TabBar(
-            isScrollable: true,
-            controller: _tabController,
-            indicatorSize: TabBarIndicatorSize.label,
-            tabs: [
-              for (var i in bookTagStore.bookTagList)
-                Tab(
-                  text: i,
-                )
-            ],
-          ),
-          actions: [
-            IconButton(
-                icon: Icon(
-                  Icons.undo,
-                ),
+            vsync: this,
+          );
+        }
+        return Scaffold(
+          appBar: AppBar(
+            elevation: 0.0,
+            title: TabBar(
+              isScrollable: true,
+              controller: _tabController,
+              indicatorSize: TabBarIndicatorSize.label,
+              tabs: [for (var i in bookTagStore.bookTagList) Tab(text: i)],
+            ),
+            actions: [
+              IconButton(
+                icon: Icon(Icons.undo),
                 onPressed: () {
                   setState(() {
                     edit = true;
                   });
-                }),
-          ],
-        ),
-        body: TabBarView(controller: _tabController, children: [
-          for (var j in bookTagStore.bookTagList)
-            ResultIllustList(
-              word: j,
-            )
-        ]),
-        floatingActionButton: FloatingActionButton(
-          onPressed: () {
-            Navigator.of(context).pop();
-          },
-          child: Icon(Icons.close),
-        ),
-        endDrawer: Drawer(
-          child: ListView(
-            children: [
-              for (var j in bookTagStore.bookTagList)
-                ListTile(
-                  title: Text(j),
-                  onTap: () {
-                    _tabController
-                        .animateTo(bookTagStore.bookTagList.indexOf(j));
-                  },
-                )
+                },
+              ),
             ],
           ),
-        ),
-      );
-    });
+          body: TabBarView(
+            controller: _tabController,
+            children: [
+              for (var j in bookTagStore.bookTagList) ResultIllustList(word: j),
+            ],
+          ),
+          floatingActionButton: FloatingActionButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+            },
+            child: Icon(Icons.close),
+          ),
+          endDrawer: Drawer(
+            child: ListView(
+              children: [
+                for (var j in bookTagStore.bookTagList)
+                  ListTile(
+                    title: Text(j),
+                    onTap: () {
+                      _tabController.animateTo(
+                        bookTagStore.bookTagList.indexOf(j),
+                      );
+                    },
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   Widget _buildTagChip() {
@@ -150,10 +154,7 @@ class _BookTagPageState extends State<BookTagPage>
               await _deleteConfirm(_items[index]);
               return null;
             },
-            background: Container(
-              color: Colors.red,
-              child: Icon(Icons.delete),
-            ),
+            background: Container(color: Colors.red, child: Icon(Icons.delete)),
             child: ListTile(
               key: Key('$index'),
               title: Text('${_items[index]}'),
@@ -175,24 +176,27 @@ class _BookTagPageState extends State<BookTagPage>
 
   Future _deleteConfirm(String i) async {
     await showDialog(
-        context: context,
-        builder: (context) {
-          return AlertDialog(
-            title: Text(I18n.of(context).delete + "$i?"),
-            actions: [
-              TextButton(
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                  },
-                  child: Text(I18n.of(context).cancel)),
-              TextButton(
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                    bookTagStore.unBookTag(i);
-                  },
-                  child: Text(I18n.of(context).ok)),
-            ],
-          );
-        });
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text(I18n.of(context).delete + "$i?"),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: Text(I18n.of(context).cancel),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                bookTagStore.unBookTag(i);
+              },
+              child: Text(I18n.of(context).ok),
+            ),
+          ],
+        );
+      },
+    );
   }
 }

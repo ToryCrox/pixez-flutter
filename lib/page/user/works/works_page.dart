@@ -42,14 +42,14 @@ class WorksPage extends StatefulWidget {
   final String workType;
   final ValueChanged<String> onWorkTypeChange;
 
-  const WorksPage(
-      {Key? key,
-      required this.id,
-      required this.store,
-      required this.portal,
-      required this.workType,
-      required this.onWorkTypeChange})
-      : super(key: key);
+  const WorksPage({
+    Key? key,
+    required this.id,
+    required this.store,
+    required this.portal,
+    required this.workType,
+    required this.onWorkTypeChange,
+  }) : super(key: key);
 
   @override
   _WorksPageState createState() => _WorksPageState();
@@ -63,7 +63,9 @@ class _WorksPageState extends State<WorksPage> {
   @override
   void initState() {
     _easyRefreshController = EasyRefreshController(
-        controlFinishLoad: true, controlFinishRefresh: true);
+      controlFinishLoad: true,
+      controlFinishRefresh: true,
+    );
     _store = widget.store;
     _store.easyRefreshController = _easyRefreshController;
     super.initState();
@@ -80,9 +82,11 @@ class _WorksPageState extends State<WorksPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Observer(builder: (_) {
-      return _buildContent(context);
-    });
+    return Observer(
+      builder: (_) {
+        return _buildContent(context);
+      },
+    );
   }
 
   Widget _buildContent(context) {
@@ -98,26 +102,28 @@ class _WorksPageState extends State<WorksPage> {
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: <Widget>[
-          Container(
-            height: 50,
-          ),
+          Container(height: 50),
           Padding(
             padding: const EdgeInsets.all(8.0),
-            child:
-                Text(':(', style: Theme.of(context).textTheme.headlineMedium),
+            child: Text(
+              ':(',
+              style: Theme.of(context).textTheme.headlineMedium,
+            ),
           ),
           TextButton(
-              onPressed: () {
-                _store.fetch(force: true);
-              },
-              child: Text(I18n.of(context).retry)),
+            onPressed: () {
+              _store.fetch(force: true);
+            },
+            child: Text(I18n.of(context).retry),
+          ),
           Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Text(
-                (_store.errorMessage?.contains("400") == true
-                    ? '${I18n.of(context).error_400_hint}\n ${_store.errorMessage}'
-                    : '${_store.errorMessage}'),
-              ))
+            padding: const EdgeInsets.all(16.0),
+            child: Text(
+              (_store.errorMessage?.contains("400") == true
+                  ? '${I18n.of(context).error_400_hint}\n ${_store.errorMessage}'
+                  : '${_store.errorMessage}'),
+            ),
+          ),
         ],
       ),
     );
@@ -125,94 +131,92 @@ class _WorksPageState extends State<WorksPage> {
 
   Widget _buildWorks(BuildContext context) {
     return SafeArea(
-        top: false,
-        bottom: false,
-        child: Builder(
-          builder: (BuildContext context) {
-            return PixezEasyRefresh.builder(
-                controller: _easyRefreshController,
-                onLoad: () async {
-                  await _store.fetchNext();
-                },
-                onRefresh: () async {
-                  await _store.fetch(force: true);
-                },
-                header: PixezDefault.header(
-                  context,
-                  position: IndicatorPosition.locator,
-                  safeArea: false,
-                ),
-                footer: PixezDefault.footer(
-                  context,
-                  position: IndicatorPosition.locator,
-                ),
-                childBuilder: (context, phy, scrollController) {
-                  return Observer(builder: (_) {
-                    // PixezEasyRefresh 会自动处理 NestedScrollView 的情况
-                    // 如果在 NestedScrollView 中，scrollController 会是 null
-                    return CustomScrollView(
-                      physics: phy,
-                      controller: scrollController,
-                      key: PageStorageKey<String>(widget.portal),
-                      slivers: [
-                        SliverPinnedOverlapInjector(
-                          handle:
-                              NestedScrollView.sliverOverlapAbsorberHandleFor(
-                                  context),
+      top: false,
+      bottom: false,
+      child: Builder(
+        builder: (BuildContext context) {
+          return PixezEasyRefresh.builder(
+            controller: _easyRefreshController,
+            onLoad: () async {
+              await _store.fetchNext();
+            },
+            onRefresh: () async {
+              await _store.fetch(force: true);
+            },
+            header: PixezDefault.header(
+              context,
+              position: IndicatorPosition.locator,
+              safeArea: false,
+            ),
+            footer: PixezDefault.footer(
+              context,
+              position: IndicatorPosition.locator,
+            ),
+            childBuilder: (context, phy, scrollController) {
+              return Observer(
+                builder: (_) {
+                  // PixezEasyRefresh 会自动处理 NestedScrollView 的情况
+                  // 如果在 NestedScrollView 中，scrollController 会是 null
+                  return CustomScrollView(
+                    physics: phy,
+                    controller: scrollController,
+                    key: PageStorageKey<String>(widget.portal),
+                    slivers: [
+                      SliverPinnedOverlapInjector(
+                        handle: NestedScrollView.sliverOverlapAbsorberHandleFor(
+                          context,
                         ),
-                        const HeaderLocator.sliver(),
-                        SliverPersistentHeader(
-                          key: ValueKey('works_header'),
-                          delegate: SliverChipDelegate(
-                            Container(
-                              alignment: Alignment.center,
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  _buildSortChip(),
-                                  const SizedBox(
-                                    width: 8,
-                                  ),
-                                  _buildBatchDownloadButton(),
-                                  const SizedBox(
-                                    width: 8,
-                                  ),
-                                  _buildDownloadPageButton(),
-                                ],
-                              ),
-                            ),
-                            height: 52,
-                          ),
-                          pinned: true,
-                        ),
-                        if (_store.refreshing && _store.iStores.isEmpty)
-                          SliverToBoxAdapter(
-                            child: Container(
-                              height: 200,
-                              child: Center(
-                                child: CircularProgressIndicator(),
-                              ),
+                      ),
+                      const HeaderLocator.sliver(),
+                      SliverPersistentHeader(
+                        key: ValueKey('works_header'),
+                        delegate: SliverChipDelegate(
+                          Container(
+                            alignment: Alignment.center,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                _buildSortChip(),
+                                const SizedBox(width: 8),
+                                _buildBatchDownloadButton(),
+                                const SizedBox(width: 8),
+                                _buildDownloadPageButton(),
+                              ],
                             ),
                           ),
-                        userSetting.useWaterfallFlow
-                            ? SliverWaterfallFlow(
-                                gridDelegate: _buildGridDelegate(),
-                                delegate:
-                                    _buildSliverChildBuilderDelegate(context),
-                              )
-                            : SliverGrid(
-                                gridDelegate: _buildSliverGridDelegate(),
-                                delegate: _buildSliverGridChildBuilderDelegate(
-                                    context),
-                              ),
-                        const FooterLocator.sliver(),
-                      ],
-                    );
-                  });
-                });
-          },
-        ));
+                          height: 52,
+                        ),
+                        pinned: true,
+                      ),
+                      if (_store.refreshing && _store.iStores.isEmpty)
+                        SliverToBoxAdapter(
+                          child: Container(
+                            height: 200,
+                            child: Center(child: CircularProgressIndicator()),
+                          ),
+                        ),
+                      userSetting.useWaterfallFlow
+                          ? SliverWaterfallFlow(
+                            gridDelegate: _buildGridDelegate(),
+                            delegate: _buildSliverChildBuilderDelegate(context),
+                          )
+                          : SliverGrid(
+                            gridDelegate: _buildSliverGridDelegate(),
+                            delegate: _buildSliverGridChildBuilderDelegate(
+                              context,
+                            ),
+                          ),
+                      const FooterLocator.sliver(),
+                    ],
+                  );
+                },
+              );
+            },
+          );
+        },
+      ),
+    );
   }
 
   SliverWaterfallFlowDelegate _buildGridDelegate() {
@@ -220,9 +224,10 @@ class _WorksPageState extends State<WorksPage> {
     if (userSetting.crossAdapt) {
       count = _buildSliderValue();
     } else {
-      count = (MediaQuery.of(context).orientation == Orientation.portrait)
-          ? userSetting.crossCount
-          : userSetting.hCrossCount;
+      count =
+          (MediaQuery.of(context).orientation == Orientation.portrait)
+              ? userSetting.crossCount
+              : userSetting.hCrossCount;
     }
     return SliverWaterfallFlowDelegateWithFixedCrossAxisCount(
       crossAxisCount: count,
@@ -230,7 +235,8 @@ class _WorksPageState extends State<WorksPage> {
   }
 
   SliverChildBuilderDelegate _buildSliverChildBuilderDelegate(
-      BuildContext context) {
+    BuildContext context,
+  ) {
     final stores = _store.displayStores;
     stores.removeWhere((element) => element.illusts!.hateByUser(ai: false));
     return SliverChildBuilderDelegate((BuildContext context, int index) {
@@ -244,7 +250,8 @@ class _WorksPageState extends State<WorksPage> {
   }
 
   SliverChildBuilderDelegate _buildSliverGridChildBuilderDelegate(
-      BuildContext context) {
+    BuildContext context,
+  ) {
     final stores = _store.displayStores;
     stores.removeWhere((element) => element.illusts!.hateByUser(ai: false));
     return SliverChildBuilderDelegate((BuildContext context, int index) {
@@ -296,14 +303,12 @@ class _WorksPageState extends State<WorksPage> {
         });
         widget.onWorkTypeChange(_workType);
         _store.source = ApiForceSource(
-            futureGet: (bool e) => apiClient.getUserIllusts(widget.id, type),
-            cacheKey: 'user_illusts_${widget.id}_${type}');
+          futureGet: (bool e) => apiClient.getUserIllusts(widget.id, type),
+          cacheKey: 'user_illusts_${widget.id}_${type}',
+        );
         _store.fetch();
       },
-      children: [
-        I18n.of(context).illust,
-        I18n.of(context).manga,
-      ],
+      children: [I18n.of(context).illust, I18n.of(context).manga],
       initIndex: _workType == 'illust' ? 0 : 1,
     );
   }
@@ -313,10 +318,14 @@ class _WorksPageState extends State<WorksPage> {
       icon: Icon(Icons.download, color: Theme.of(context).iconTheme.color),
       tooltip: '批量下载',
       onPressed: () {
-        final availableIllusts = _store.displayStores
-            .where((store) =>
-                store.illusts != null && !store.illusts!.hateByUser(ai: false))
-            .toList();
+        final availableIllusts =
+            _store.displayStores
+                .where(
+                  (store) =>
+                      store.illusts != null &&
+                      !store.illusts!.hateByUser(ai: false),
+                )
+                .toList();
         _handleBatchDownload(availableIllusts);
       },
     );
@@ -329,19 +338,16 @@ class _WorksPageState extends State<WorksPage> {
       onPressed: () {
         // 从作品列表中获取画师用户名
         String? userName;
-        final firstIllust = _store.displayStores
-            .where((store) => store.illusts != null)
-            .firstOrNull
-            ?.illusts;
+        final firstIllust =
+            _store.displayStores
+                .where((store) => store.illusts != null)
+                .firstOrNull
+                ?.illusts;
         if (firstIllust != null) {
           userName = firstIllust.user.name;
         }
 
-        DownloadedPage.open(
-          context,
-          userId: widget.id,
-          userName: userName,
-        );
+        DownloadedPage.open(context, userId: widget.id, userName: userName);
       },
     );
   }
@@ -384,30 +390,32 @@ class _WorksPageState extends State<WorksPage> {
 
     if (totalIllustCount == 0) {
       BotToast.showText(
-          text: '没有可下载的插画${skipCount > 0 ? '（跳过 $skipCount 个动图）' : ''}');
+        text: '没有可下载的插画${skipCount > 0 ? '（跳过 $skipCount 个动图）' : ''}',
+      );
       return;
     }
 
     // 显示确认对话框
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text('批量下载'),
-        content: Text(
-          '确定要下载 $totalIllustCount 个插画（共 $totalImageCount 张图片）吗？'
-          '${skipCount > 0 ? '\n\n将跳过 $skipCount 个动图' : ''}',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text(I18n.of(context).cancel),
+      builder:
+          (context) => AlertDialog(
+            title: Text('批量下载'),
+            content: Text(
+              '确定要下载 $totalIllustCount 个插画（共 $totalImageCount 张图片）吗？'
+              '${skipCount > 0 ? '\n\n将跳过 $skipCount 个动图' : ''}',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: Text(I18n.of(context).cancel),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: Text(I18n.of(context).ok),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: Text(I18n.of(context).ok),
-          ),
-        ],
-      ),
     );
 
     if (confirm != true) {
@@ -474,18 +482,14 @@ class _WorksPageState extends State<WorksPage> {
 }
 
 class SliverPinnedOverlapInjector extends SingleChildRenderObjectWidget {
-  const SliverPinnedOverlapInjector({
-    required this.handle,
-    Key? key,
-  }) : super(key: key);
+  const SliverPinnedOverlapInjector({required this.handle, Key? key})
+    : super(key: key);
 
   final SliverOverlapAbsorberHandle handle;
 
   @override
   RenderSliverPinnedOverlapInjector createRenderObject(BuildContext context) {
-    return RenderSliverPinnedOverlapInjector(
-      handle: handle,
-    );
+    return RenderSliverPinnedOverlapInjector(handle: handle);
   }
 
   @override
@@ -517,7 +521,8 @@ class RenderSliverPinnedOverlapInjector extends RenderSliver {
     if (attached) {
       handle.addListener(markNeedsLayout);
       if (handle.layoutExtent != _currentLayoutExtent ||
-          handle.scrollExtent != _currentMaxExtent) markNeedsLayout();
+          handle.scrollExtent != _currentMaxExtent)
+        markNeedsLayout();
     }
   }
 
@@ -526,7 +531,8 @@ class RenderSliverPinnedOverlapInjector extends RenderSliver {
     super.attach(owner);
     handle.addListener(markNeedsLayout);
     if (handle.layoutExtent != _currentLayoutExtent ||
-        handle.scrollExtent != _currentMaxExtent) markNeedsLayout();
+        handle.scrollExtent != _currentMaxExtent)
+      markNeedsLayout();
   }
 
   @override
@@ -570,7 +576,10 @@ class SliverChipDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   Widget build(
-      BuildContext context, double shrinkOffset, bool overlapsContent) {
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
     return child;
   }
 

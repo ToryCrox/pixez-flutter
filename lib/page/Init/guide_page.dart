@@ -52,8 +52,10 @@ class _GuidePageState extends State<GuidePage> {
               ),
             ),
             Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 15.0, vertical: 10),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 15.0,
+                vertical: 10,
+              ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: <Widget>[
@@ -78,14 +80,16 @@ class _GuidePageState extends State<GuidePage> {
                       int nextValue = index + 1;
                       if (nextValue == 1) {
                         await Prefer.setInt(
-                            'language_num', userSetting.languageNum);
+                          'language_num',
+                          userSetting.languageNum,
+                        );
                         //有可能用户啥都没选
                         final languageList =
                             Languages.map((e) => e.language).toList();
                         ApiClient.Accept_Language =
                             languageList[userSetting.languageNum];
-                        apiClient.httpClient.options
-                                .headers[HttpHeaders.acceptLanguageHeader] =
+                        apiClient.httpClient.options.headers[HttpHeaders
+                                .acceptLanguageHeader] =
                             ApiClient.Accept_Language;
                         setState(() {
                           index = nextValue;

@@ -12,8 +12,11 @@ class ReportItemsPage extends StatefulWidget {
 
 class Reporter {
   static Future<void> show(BuildContext context, FutureFunc onSubmit) async {
-    await Navigator.of(context).push(MaterialPageRoute(
-        builder: (context) => ReportItemsPage(onSubmit: onSubmit)));
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => ReportItemsPage(onSubmit: onSubmit),
+      ),
+    );
   }
 }
 
@@ -39,28 +42,32 @@ class _ReportItemsPageState extends State<ReportItemsPage> {
       body: Stack(
         children: [
           ListView.builder(
-              itemBuilder: (context, index) {
-                final title = items[index];
-                return Container(
-                  color: index == _selectItem
-                      ? Theme.of(context).primaryColor.withValues(alpha: 0.5)
-                      : Colors.transparent,
-                  child: ListTile(
-                    title: Text(title),
-                    onTap: () {
-                      setState(() {
-                        _selectItem = index;
-                      });
-                    },
-                  ),
-                );
-              },
-              itemCount: items.length),
+            itemBuilder: (context, index) {
+              final title = items[index];
+              return Container(
+                color:
+                    index == _selectItem
+                        ? Theme.of(context).primaryColor.withValues(alpha: 0.5)
+                        : Colors.transparent,
+                child: ListTile(
+                  title: Text(title),
+                  onTap: () {
+                    setState(() {
+                      _selectItem = index;
+                    });
+                  },
+                ),
+              );
+            },
+            itemCount: items.length,
+          ),
           Align(
             alignment: Alignment.bottomCenter,
             child: Padding(
-              padding:
-                  const EdgeInsets.symmetric(vertical: 32.0, horizontal: 16),
+              padding: const EdgeInsets.symmetric(
+                vertical: 32.0,
+                horizontal: 16,
+              ),
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   minimumSize: const Size.fromHeight(40), // NEW
@@ -70,12 +77,14 @@ class _ReportItemsPageState extends State<ReportItemsPage> {
                   await widget.onSubmit();
                   BotToast.closeAllLoading();
                   Navigator.of(context).pop();
-                  BotToast.showText(text: I18n.ofContext().thanks_for_your_feedback);
+                  BotToast.showText(
+                    text: I18n.ofContext().thanks_for_your_feedback,
+                  );
                 },
                 child: Text(I18n.ofContext().submit),
               ),
             ),
-          )
+          ),
         ],
       ),
     );

@@ -45,7 +45,8 @@ class ClipboardPlugin {
 
   /// 下载或从缓存中加载图片
   static Future<File> _getImagePathFromUrl(String url) async {
-    final image = await pixivCacheManager.getFileFromCache(url) ??
+    final image =
+        await pixivCacheManager.getFileFromCache(url) ??
         await pixivCacheManager.downloadFile(url);
 
     return image.file;

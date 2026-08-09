@@ -89,7 +89,8 @@ abstract class _HistoryStore with Store {
         easyRefreshController.resetFooter();
       } else {
         easyRefreshController.finishLoad(
-            hasMore ? IndicatorResult.success : IndicatorResult.noMore);
+          hasMore ? IndicatorResult.success : IndicatorResult.noMore,
+        );
       }
     } catch (e) {
       Log.e('Fetch history failed (refresh: $refresh)', error: e);
@@ -139,22 +140,26 @@ abstract class _HistoryStore with Store {
 
   Future<void> exportData(BuildContext context) async {
     try {
-       final list = await _dbProvider.query();
-       final entity = list.map((e) => e.toJson()).toList();
-       final exportJson = jsonEncode(entity);
-       final uint8List = utf8.encode(exportJson);
-       
-        if (Platform.isIOS) {
-          await Sharer.exportUint8List(context, uint8List,
-              "pixez_history_${DateTime.now().toIso8601String()}.json");
-        } else {
-          final uri = await SAFPlugin.createFile(
-              "pixez_history_${DateTime.now().toIso8601String()}.json",
-              "application/json");
-          if (uri != null) {
-            await SAFPlugin.writeUri(uri, uint8List);
-          }
+      final list = await _dbProvider.query();
+      final entity = list.map((e) => e.toJson()).toList();
+      final exportJson = jsonEncode(entity);
+      final uint8List = utf8.encode(exportJson);
+
+      if (Platform.isIOS) {
+        await Sharer.exportUint8List(
+          context,
+          uint8List,
+          "pixez_history_${DateTime.now().toIso8601String()}.json",
+        );
+      } else {
+        final uri = await SAFPlugin.createFile(
+          "pixez_history_${DateTime.now().toIso8601String()}.json",
+          "application/json",
+        );
+        if (uri != null) {
+          await SAFPlugin.writeUri(uri, uint8List);
         }
+      }
     } catch (e) {
       Log.e('Export history failed', error: e);
       BotToast.showText(text: "Export failed: $e");
@@ -183,4 +188,3 @@ abstract class _HistoryStore with Store {
     }
   }
 }
-

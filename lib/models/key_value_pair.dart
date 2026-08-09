@@ -22,11 +22,12 @@ class KVPair {
   @JsonKey(name: 'date_time')
   int dateTime;
 
-  KVPair(
-      {required this.key,
-      required this.value,
-      required this.expireTime,
-      required this.dateTime});
+  KVPair({
+    required this.key,
+    required this.value,
+    required this.expireTime,
+    required this.dateTime,
+  });
 
   factory KVPair.fromJson(Map<String, dynamic> json) => _$KVPairFromJson(json);
 
@@ -44,9 +45,11 @@ class KVProvider {
   Future open() async {
     String databasesPath = (await getDatabasesPath());
     String path = join(databasesPath, 'kvpair.db');
-    db = await openDatabase(path, version: 1,
-        onCreate: (Database db, int version) async {
-      await db.execute('''
+    db = await openDatabase(
+      path,
+      version: 1,
+      onCreate: (Database db, int version) async {
+        await db.execute('''
 create table $tableKVPair ( 
   $columnId integer primary key autoincrement, 
   $columnKey text not null,
@@ -55,31 +58,33 @@ create table $tableKVPair (
   $columnDateTime integer not null
   )
 ''');
-    });
-    // 注册到数据库管理中心
-    DatabaseRegistry.instance.register(
-      '配置数据库',
-      path,
-      () => db,
+      },
     );
+    // 注册到数据库管理中心
+    DatabaseRegistry.instance.register('配置数据库', path, () => db);
   }
 
   Future<void> insert(KVPair todo) async {
-    await db.insert(tableKVPair, todo.toJson(),
-        conflictAlgorithm: ConflictAlgorithm.replace);
+    await db.insert(
+      tableKVPair,
+      todo.toJson(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
   }
 
   Future<KVPair?> getAccount(String key) async {
-    List<Map<String, dynamic>> maps = await db.query(tableKVPair,
-        columns: [
-          columnId,
-          columnKey,
-          columnValue,
-          columnExpireTime,
-          columnDateTime,
-        ],
-        where: '$columnKey = ?',
-        whereArgs: [key]);
+    List<Map<String, dynamic>> maps = await db.query(
+      tableKVPair,
+      columns: [
+        columnId,
+        columnKey,
+        columnValue,
+        columnExpireTime,
+        columnDateTime,
+      ],
+      where: '$columnKey = ?',
+      whereArgs: [key],
+    );
     if (maps.length > 0) {
       return KVPair.fromJson(maps.first);
     }
@@ -87,8 +92,11 @@ create table $tableKVPair (
   }
 
   Future<int> remove(String key) async {
-    final result =
-        await db.delete(tableKVPair, where: '$columnKey = ?', whereArgs: [key]);
+    final result = await db.delete(
+      tableKVPair,
+      where: '$columnKey = ?',
+      whereArgs: [key],
+    );
     return result;
   }
 
@@ -98,19 +106,26 @@ create table $tableKVPair (
   }
 
   Future<int> update(todo) async {
-    return await db.update(tableKVPair, todo.toJson(),
-        where: '$columnId = ?', whereArgs: [todo.id]);
+    return await db.update(
+      tableKVPair,
+      todo.toJson(),
+      where: '$columnId = ?',
+      whereArgs: [todo.id],
+    );
   }
 
   Future<List<KVPair>> getAllAccount() async {
     List<KVPair> result = [];
-    List<Map<String, dynamic>> maps = await db.query(tableKVPair, columns: [
-      columnId,
-      columnKey,
-      columnValue,
-      columnExpireTime,
-      columnDateTime,
-    ]);
+    List<Map<String, dynamic>> maps = await db.query(
+      tableKVPair,
+      columns: [
+        columnId,
+        columnKey,
+        columnValue,
+        columnExpireTime,
+        columnDateTime,
+      ],
+    );
 
     if (maps.length > 0) {
       maps.forEach((f) {

@@ -27,32 +27,27 @@ class MetaPages {
   @JsonKey(name: 'image_urls')
   MetaPagesImageUrls? imageUrls;
 
-  MetaPages({
-    this.imageUrls,
-  });
+  MetaPages({this.imageUrls});
 
   bool get isEmpty => imageUrls == null;
 
-  MetaPages copyWith({
-    MetaPagesImageUrls? imageUrls,
-  }) {
-    return MetaPages(
-      imageUrls: imageUrls ?? this.imageUrls,
-    );
+  MetaPages copyWith({MetaPagesImageUrls? imageUrls}) {
+    return MetaPages(imageUrls: imageUrls ?? this.imageUrls);
   }
 
   factory MetaPages.fromMap(Map<String, dynamic> map) {
     return MetaPages(
-      imageUrls: map['image_urls'] == null
-          ? null
-          : MetaPagesImageUrls.fromMap(TypeUtil.parseMap(map['image_urls'])),
+      imageUrls:
+          map['image_urls'] == null
+              ? null
+              : MetaPagesImageUrls.fromMap(
+                TypeUtil.parseMap(map['image_urls']),
+              ),
     );
   }
 
   Map<String, dynamic> toMap() {
-    return {
-      'image_urls': imageUrls?.toMap(),
-    };
+    return {'image_urls': imageUrls?.toMap()};
   }
 
   factory MetaPages.fromJson(Map<String, dynamic> json) =>
@@ -159,42 +154,44 @@ class MetaPagesImageUrls {
 
 extension IllustsExtension on Illusts {
   String get illustDetailUrl => switch (userSetting.pictureQuality) {
-        0 => imageUrls.medium,
-        1 => imageUrls.large,
-        2 => metaPages.firstOrNull?.imageUrls?.original ??
-            metaSinglePage!.originalImageUrl!,
-        _ => imageUrls.medium,
-      };
+    0 => imageUrls.medium,
+    1 => imageUrls.large,
+    2 =>
+      metaPages.firstOrNull?.imageUrls?.original ??
+          metaSinglePage!.originalImageUrl!,
+    _ => imageUrls.medium,
+  };
 
   String get managaDetailUrl => switch (userSetting.mangaQuality) {
-        0 => imageUrls.medium,
-        1 => imageUrls.large,
-        2 => metaPages.firstOrNull?.imageUrls?.original ??
-            metaSinglePage!.originalImageUrl!,
-        _ => imageUrls.medium,
-      };
+    0 => imageUrls.medium,
+    1 => imageUrls.large,
+    2 =>
+      metaPages.firstOrNull?.imageUrls?.original ??
+          metaSinglePage!.originalImageUrl!,
+    _ => imageUrls.medium,
+  };
 
-  String illustDetailImageUrl(int index) =>
-      switch (userSetting.pictureQuality) {
-        0 => metaPages[index].imageUrls!.medium,
-        1 => metaPages[index].imageUrls!.large,
-        2 => metaPages[index].imageUrls!.original,
-        _ => metaPages[index].imageUrls!.medium,
-      };
+  String illustDetailImageUrl(int index) => switch (userSetting
+      .pictureQuality) {
+    0 => metaPages[index].imageUrls!.medium,
+    1 => metaPages[index].imageUrls!.large,
+    2 => metaPages[index].imageUrls!.original,
+    _ => metaPages[index].imageUrls!.medium,
+  };
 
-  String managaDetailImageUrl(int index) =>
-      switch (userSetting.mangaQuality) {
-        0 => metaPages[index].imageUrls!.medium,
-        1 => metaPages[index].imageUrls!.large,
-        2 => metaPages[index].imageUrls!.original,
-        _ => metaPages[index].imageUrls!.medium,
-      };
+  String managaDetailImageUrl(int index) => switch (userSetting.mangaQuality) {
+    0 => metaPages[index].imageUrls!.medium,
+    1 => metaPages[index].imageUrls!.large,
+    2 => metaPages[index].imageUrls!.original,
+    _ => metaPages[index].imageUrls!.medium,
+  };
 }
 
 @JsonSerializable(explicitToJson: true)
 class Illusts {
   int id;
   String title;
+
   /// illust | manga | ugoira
   String type;
   @JsonKey(name: 'image_urls')
@@ -256,7 +253,7 @@ class Illusts {
     if (user != other.user) return true;
     if (!listEquals(metaPages, other.metaPages)) return true;
     if (metaSinglePage != other.metaSinglePage) return true;
-    
+
     return false;
   }
 
@@ -388,7 +385,9 @@ class Illusts {
       restrict: TypeUtil.parseInt(map['restrict']),
       user: User.fromMap(TypeUtil.parseMap(map['user'])),
       tags: TypeUtil.parseList(
-          map['tags'], (e) => Tags.fromMap(TypeUtil.parseMap(e))),
+        map['tags'],
+        (e) => Tags.fromMap(TypeUtil.parseMap(e)),
+      ),
       tools: TypeUtil.parseStringList(map['tools']),
       createDate: TypeUtil.parseString(map['create_date']),
       pageCount: TypeUtil.parseInt(map['page_count']),
@@ -396,26 +395,34 @@ class Illusts {
       height: TypeUtil.parseInt(map['height']),
       sanityLevel: TypeUtil.parseInt(map['sanity_level']),
       xRestrict: TypeUtil.parseInt(map['x_restrict']),
-      metaSinglePage: map['meta_single_page'] == null
-          ? null
-          : MetaSinglePage.fromMap(TypeUtil.parseMap(map['meta_single_page'])),
+      metaSinglePage:
+          map['meta_single_page'] == null
+              ? null
+              : MetaSinglePage.fromMap(
+                TypeUtil.parseMap(map['meta_single_page']),
+              ),
       metaPages: TypeUtil.parseList(
-          map['meta_pages'], (e) => MetaPages.fromMap(TypeUtil.parseMap(e))),
+        map['meta_pages'],
+        (e) => MetaPages.fromMap(TypeUtil.parseMap(e)),
+      ),
       totalView: TypeUtil.parseInt(map['total_view']),
       totalBookmarks: TypeUtil.parseInt(map['total_bookmarks']),
       isBookmarked: TypeUtil.parseBool(map['is_bookmarked']),
       visible: TypeUtil.parseBool(map['visible']),
       isMuted: TypeUtil.parseBool(map['is_muted']),
       illustAIType: TypeUtil.parseInt(map['illust_ai_type']),
-      series: map['series'] == null
-          ? null
-          : IllustSeries.fromMap(TypeUtil.parseMap(map['series'])),
-      illustBookStyle: map['illust_book_style'] == null
-          ? null
-          : TypeUtil.parseInt(map['illust_book_style']),
-      totalComments: map['total_comments'] == null
-          ? null
-          : TypeUtil.parseInt(map['total_comments']),
+      series:
+          map['series'] == null
+              ? null
+              : IllustSeries.fromMap(TypeUtil.parseMap(map['series'])),
+      illustBookStyle:
+          map['illust_book_style'] == null
+              ? null
+              : TypeUtil.parseInt(map['illust_book_style']),
+      totalComments:
+          map['total_comments'] == null
+              ? null
+              : TypeUtil.parseInt(map['total_comments']),
     );
   }
 
@@ -526,21 +533,12 @@ class IllustSeries {
   int id;
   String? title;
 
-  IllustSeries({
-    this.id = 0,
-    this.title,
-  });
+  IllustSeries({this.id = 0, this.title});
 
   bool get isEmpty => id == 0 && title == null;
 
-  IllustSeries copyWith({
-    int? id,
-    String? title,
-  }) {
-    return IllustSeries(
-      id: id ?? this.id,
-      title: title ?? this.title,
-    );
+  IllustSeries copyWith({int? id, String? title}) {
+    return IllustSeries(id: id ?? this.id, title: title ?? this.title);
   }
 
   factory IllustSeries.fromMap(Map<String, dynamic> map) {
@@ -551,10 +549,7 @@ class IllustSeries {
   }
 
   Map<String, dynamic> toMap() {
-    return {
-      'id': id,
-      'title': title,
-    };
+    return {'id': id, 'title': title};
   }
 
   factory IllustSeries.fromJson(Map<String, dynamic> json) =>
@@ -586,19 +581,11 @@ class ImageUrls {
   final String medium;
   final String large;
 
-  const ImageUrls({
-    this.squareMedium = '',
-    this.medium = '',
-    this.large = '',
-  });
+  const ImageUrls({this.squareMedium = '', this.medium = '', this.large = ''});
 
   bool get isEmpty => squareMedium.isEmpty && medium.isEmpty && large.isEmpty;
 
-  ImageUrls copyWith({
-    String? squareMedium,
-    String? medium,
-    String? large,
-  }) {
+  ImageUrls copyWith({String? squareMedium, String? medium, String? large}) {
     return ImageUrls(
       squareMedium: squareMedium ?? this.squareMedium,
       medium: medium ?? this.medium,
@@ -615,11 +602,7 @@ class ImageUrls {
   }
 
   Map<String, dynamic> toMap() {
-    return {
-      'square_medium': squareMedium,
-      'medium': medium,
-      'large': large,
-    };
+    return {'square_medium': squareMedium, 'medium': medium, 'large': large};
   }
 
   factory ImageUrls.fromJson(Map<String, dynamic> json) =>
@@ -646,16 +629,19 @@ class ImageUrls {
 }
 
 extension IllustExtension on Illusts {
-  String get feedPreviewUrl => (userSetting.feedPreviewQuality == 0)
-      ? imageUrls.medium
-      : (userSetting.feedPreviewQuality == 1)
+  String get feedPreviewUrl =>
+      (userSetting.feedPreviewQuality == 0)
+          ? imageUrls.medium
+          : (userSetting.feedPreviewQuality == 1)
           ? this.imageUrls.large
           : this.metaSinglePage?.originalImageUrl ??
               this.metaPages[0].imageUrls!.original;
 
   /// 根据当前布局模式（瀑布流/网格）获取封面 URL
   String get previewUrl {
-    return userSetting.useWaterfallFlow ? feedPreviewUrl : imageUrls.squareMedium;
+    return userSetting.useWaterfallFlow
+        ? feedPreviewUrl
+        : imageUrls.squareMedium;
   }
 
   /// 根据当前布局模式（瀑布流/网格）获取质量标识
@@ -673,7 +659,7 @@ class User {
   @JsonKey(name: 'is_followed')
   bool? isFollowed;
 
-   User({
+  User({
     this.id = 0,
     this.name = '',
     this.account = '',
@@ -714,12 +700,14 @@ class User {
       name: TypeUtil.parseString(map['name']),
       account: TypeUtil.parseString(map['account']),
       profileImageUrls: ProfileImageUrls.fromMap(
-          TypeUtil.parseMap(map['profile_image_urls'])),
+        TypeUtil.parseMap(map['profile_image_urls']),
+      ),
       comment:
           map['comment'] == null ? null : TypeUtil.parseString(map['comment']),
-      isFollowed: map['is_followed'] == null
-          ? null
-          : TypeUtil.parseBool(map['is_followed']),
+      isFollowed:
+          map['is_followed'] == null
+              ? null
+              : TypeUtil.parseBool(map['is_followed']),
     );
   }
 
@@ -769,30 +757,20 @@ class User {
 class ProfileImageUrls {
   final String medium;
 
-  const ProfileImageUrls({
-    this.medium = '',
-  });
+  const ProfileImageUrls({this.medium = ''});
 
   bool get isEmpty => medium.isEmpty;
 
-  ProfileImageUrls copyWith({
-    String? medium,
-  }) {
-    return ProfileImageUrls(
-      medium: medium ?? this.medium,
-    );
+  ProfileImageUrls copyWith({String? medium}) {
+    return ProfileImageUrls(medium: medium ?? this.medium);
   }
 
   factory ProfileImageUrls.fromMap(Map<String, dynamic> map) {
-    return ProfileImageUrls(
-      medium: TypeUtil.parseString(map['medium']),
-    );
+    return ProfileImageUrls(medium: TypeUtil.parseString(map['medium']));
   }
 
   Map<String, dynamic> toMap() {
-    return {
-      'medium': medium,
-    };
+    return {'medium': medium};
   }
 
   factory ProfileImageUrls.fromJson(Map<String, dynamic> json) =>
@@ -822,17 +800,11 @@ class Tags {
   @JsonKey(name: 'translated_name')
   String? translatedName;
 
-  Tags({
-    this.name = '',
-    this.translatedName,
-  });
+  Tags({this.name = '', this.translatedName});
 
   bool get isEmpty => name.isEmpty && translatedName == null;
 
-  Tags copyWith({
-    String? name,
-    String? translatedName,
-  }) {
+  Tags copyWith({String? name, String? translatedName}) {
     return Tags(
       name: name ?? this.name,
       translatedName: translatedName ?? this.translatedName,
@@ -842,17 +814,15 @@ class Tags {
   factory Tags.fromMap(Map<String, dynamic> map) {
     return Tags(
       name: TypeUtil.parseString(map['name']),
-      translatedName: map['translated_name'] == null
-          ? null
-          : TypeUtil.parseString(map['translated_name']),
+      translatedName:
+          map['translated_name'] == null
+              ? null
+              : TypeUtil.parseString(map['translated_name']),
     );
   }
 
   Map<String, dynamic> toMap() {
-    return {
-      'name': name,
-      'translated_name': translatedName,
-    };
+    return {'name': name, 'translated_name': translatedName};
   }
 
   factory Tags.fromJson(Map<String, dynamic> json) => Tags.fromMap(json);
@@ -881,15 +851,11 @@ class MetaSinglePage {
   @JsonKey(name: 'original_image_url')
   String? originalImageUrl;
 
-  MetaSinglePage({
-    this.originalImageUrl,
-  });
+  MetaSinglePage({this.originalImageUrl});
 
   bool get isEmpty => originalImageUrl == null;
 
-  MetaSinglePage copyWith({
-    String? originalImageUrl,
-  }) {
+  MetaSinglePage copyWith({String? originalImageUrl}) {
     return MetaSinglePage(
       originalImageUrl: originalImageUrl ?? this.originalImageUrl,
     );
@@ -897,16 +863,15 @@ class MetaSinglePage {
 
   factory MetaSinglePage.fromMap(Map<String, dynamic> map) {
     return MetaSinglePage(
-      originalImageUrl: map['original_image_url'] == null
-          ? null
-          : TypeUtil.parseString(map['original_image_url']),
+      originalImageUrl:
+          map['original_image_url'] == null
+              ? null
+              : TypeUtil.parseString(map['original_image_url']),
     );
   }
 
   Map<String, dynamic> toMap() {
-    return {
-      'original_image_url': originalImageUrl,
-    };
+    return {'original_image_url': originalImageUrl};
   }
 
   factory MetaSinglePage.fromJson(Map<String, dynamic> json) =>
@@ -929,4 +894,5 @@ class MetaSinglePage {
     return 'MetaSinglePage${TypeUtil.parseString(toMap())}';
   }
 }
+
 // {"illust":{"id":125547965,"title":"X'max Present 下篇","type":"manga","image_urls":{"square_medium":"https://i.pximg.net/c/360x360_70/img-master/img/2024/12/26/01/27/47/125547965_p0_square1200.jpg","medium":"https://i.pximg.net/c/540x540_70/img-master/img/2024/12/26/01/27/47/125547965_p0_master1200.jpg","large":"https://i.pximg.net/c/600x1200_90/img-master/img/2024/12/26/01/27/47/125547965_p0_master1200.jpg"},"caption":"テメェ...アロナ！！💢","restrict":0,"user":{"id":4004637,"name":"幻羽","account":"9365710x","profile_image_urls":{"medium":"https://i.pximg.net/user-profile/img/2023/09/15/12/22/50/24938498_0b12205fb7799c6445233c446333cd43_170.jpg"},"is_followed":false},"tags":[{"name":"R-18","translated_name":null},{"name":"漫画","translated_name":"manga"},{"name":"ブルーアーカイブ","translated_name":"碧蓝档案"},{"name":"ブルアカ","translated_name":null},{"name":"BlueArchive","translated_name":null},{"name":"アロナ(ブルーアーカイブ)","translated_name":"Alona (Blue Archive)"},{"name":"プラナ(ブルーアーカイブ)","translated_name":"Plana (Blue Archive)"}],"tools":[],"create_date":"2024-12-26T01:27:47+09:00","page_count":2,"width":3031,"height":4238,"sanity_level":6,"x_restrict":1,"series":{"id":266067,"title":"X'max Present"},"meta_single_page":{},"meta_pages":[{"image_urls":{"square_medium":"https://i.pximg.net/c/360x360_70/img-master/img/2024/12/26/01/27/47/125547965_p0_square1200.jpg","medium":"https://i.pximg.net/c/540x540_70/img-master/img/2024/12/26/01/27/47/125547965_p0_master1200.jpg","large":"https://i.pximg.net/c/600x1200_90/img-master/img/2024/12/26/01/27/47/125547965_p0_master1200.jpg","original":"https://i.pximg.net/img-original/img/2024/12/26/01/27/47/125547965_p0.jpg"}},{"image_urls":{"square_medium":"https://i.pximg.net/c/360x360_70/img-master/img/2024/12/26/01/27/47/125547965_p1_square1200.jpg","medium":"https://i.pximg.net/c/540x540_70/img-master/img/2024/12/26/01/27/47/125547965_p1_master1200.jpg","large":"https://i.pximg.net/c/600x1200_90/img-master/img/2024/12/26/01/27/47/125547965_p1_master1200.jpg","original":"https://i.pximg.net/img-original/img/2024/12/26/01/27/47/125547965_p1.jpg"}}],"total_view":12394,"total_bookmarks":1298,"is_bookmarked":true,"visible":true,"is_muted":false,"total_comments":11,"illust_ai_type":1,"illust_book_style":0,"restriction_attributes":["restricted_mode"],"comment_access_control":0}}

@@ -654,7 +654,7 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
     }
 
     final firstVisibleIndex = observeModel.firstChild?.index;
-    
+
     int clampedIndex;
     if (firstVisibleIndex == null) {
       if (_photoScrollController.hasClients) {

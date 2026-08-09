@@ -22,7 +22,7 @@ class PendingDownloadDialog extends StatefulWidget {
   final List<DownloadTask> tasks;
 
   const PendingDownloadDialog({Key? key, required this.tasks})
-      : super(key: key);
+    : super(key: key);
 
   @override
   State<PendingDownloadDialog> createState() => _PendingDownloadDialogState();
@@ -67,8 +67,9 @@ class _PendingDownloadDialogState extends State<PendingDownloadDialog> {
                   final illustId = groupedTasks.keys.elementAt(index);
                   final tasks = groupedTasks[illustId]!;
                   final illusts = tasks.first.illusts;
-                  final allSelected =
-                      tasks.every((t) => _selectedTaskKeys.contains(t.taskKey));
+                  final allSelected = tasks.every(
+                    (t) => _selectedTaskKeys.contains(t.taskKey),
+                  );
 
                   return Card(
                     margin: EdgeInsets.symmetric(vertical: 4),
@@ -151,14 +152,16 @@ class _PendingDownloadDialogState extends State<PendingDownloadDialog> {
             });
           },
           child: Text(
-              _selectedTaskKeys.length == widget.tasks.length ? '取消全选' : '全选'),
+            _selectedTaskKeys.length == widget.tasks.length ? '取消全选' : '全选',
+          ),
         ),
         FilledButton(
-          onPressed: _selectedTaskKeys.isEmpty
-              ? null
-              : () {
-                  Navigator.of(context).pop(_selectedTaskKeys.toList());
-                },
+          onPressed:
+              _selectedTaskKeys.isEmpty
+                  ? null
+                  : () {
+                    Navigator.of(context).pop(_selectedTaskKeys.toList());
+                  },
           child: Text('继续下载 (${_selectedTaskKeys.length})'),
         ),
       ],

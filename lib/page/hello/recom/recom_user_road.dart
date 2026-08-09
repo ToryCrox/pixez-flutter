@@ -17,8 +17,9 @@ class _RecomUserRoadState extends State<RecomUserRoad> {
 
   @override
   void initState() {
-    _recomUserStore = widget.recomUserStore ?? RecomUserStore(null)
-      ..fetch();
+    _recomUserStore =
+        widget.recomUserStore ?? RecomUserStore(null)
+          ..fetch();
     super.initState();
   }
 
@@ -26,11 +27,13 @@ class _RecomUserRoadState extends State<RecomUserRoad> {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: () {
-        Navigator.of(context).push(MaterialPageRoute(builder: (context) {
-          return RecomUserPage(
-            recomUserStore: _recomUserStore,
-          );
-        }));
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) {
+              return RecomUserPage(recomUserStore: _recomUserStore);
+            },
+          ),
+        );
       },
       child: Container(
         height: 60,
@@ -42,21 +45,24 @@ class _RecomUserRoadState extends State<RecomUserRoad> {
                 height: 40,
                 margin: EdgeInsets.only(left: 8.0),
                 decoration: BoxDecoration(
-                    borderRadius: BorderRadius.only(
-                        bottomLeft: Radius.circular(16.0),
-                        topLeft: Radius.circular(16.0)),
-                    color: Colors.transparent),
-                child: _recomUserStore.users.isNotEmpty
-                    ? ListView.builder(
-                        itemCount: _recomUserStore.users.length,
-                        scrollDirection: Axis.horizontal,
-                        itemBuilder: (context, index) {
-                          return _buildUserList(index);
-                        },
-                      )
-                    : Container(),
+                  borderRadius: BorderRadius.only(
+                    bottomLeft: Radius.circular(16.0),
+                    topLeft: Radius.circular(16.0),
+                  ),
+                  color: Colors.transparent,
+                ),
+                child:
+                    _recomUserStore.users.isNotEmpty
+                        ? ListView.builder(
+                          itemCount: _recomUserStore.users.length,
+                          scrollDirection: Axis.horizontal,
+                          itemBuilder: (context, index) {
+                            return _buildUserList(index);
+                          },
+                        )
+                        : Container(),
               ),
-            )
+            ),
           ],
         ),
       ),
@@ -71,8 +77,10 @@ class _RecomUserRoadState extends State<RecomUserRoad> {
         height: 40,
         width: 40,
         child: CircleAvatar(
-          backgroundImage: PixivProvider.url(data.user.profileImageUrls.medium,
-              preUrl: data.user.profileImageUrls.medium),
+          backgroundImage: PixivProvider.url(
+            data.user.profileImageUrls.medium,
+            preUrl: data.user.profileImageUrls.medium,
+          ),
           radius: 100.0,
         ),
       ),

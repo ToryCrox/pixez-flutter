@@ -86,9 +86,10 @@ class _TagImportDialogState extends State<TagImportDialog> {
     try {
       final jsonStr = await File(filePath).readAsString();
       final json = jsonDecode(jsonStr) as Map<String, dynamic>;
-      final updates = (json['updates'] as List)
-          .map((e) => TagImportItem.fromJson(e as Map<String, dynamic>))
-          .toList();
+      final updates =
+          (json['updates'] as List)
+              .map((e) => TagImportItem.fromJson(e as Map<String, dynamic>))
+              .toList();
 
       if (updates.isEmpty) {
         setState(() {
@@ -260,11 +261,12 @@ class _TagImportDialogState extends State<TagImportDialog> {
         Expanded(
           child: ListView.builder(
             itemCount: _results.length,
-            itemBuilder: (context, index) => _TagImportResultItem(
-              result: _results[index],
-              onToggle: () => _toggleItem(index),
-              onEdit: () => setState(() {}),
-            ),
+            itemBuilder:
+                (context, index) => _TagImportResultItem(
+                  result: _results[index],
+                  onToggle: () => _toggleItem(index),
+                  onEdit: () => setState(() {}),
+                ),
           ),
         ),
       ],
@@ -272,8 +274,7 @@ class _TagImportDialogState extends State<TagImportDialog> {
   }
 
   Widget _buildPreviewHeader() {
-    final selectedCount =
-        _results.where((r) => r.matched && r.selected).length;
+    final selectedCount = _results.where((r) => r.matched && r.selected).length;
     final matchedCount = _results.where((r) => r.matched).length;
     final unmatchedCount = _results.where((r) => !r.matched).length;
 
@@ -281,10 +282,7 @@ class _TagImportDialogState extends State<TagImportDialog> {
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
-          Checkbox(
-            value: _allSelected,
-            onChanged: (_) => _toggleAll(),
-          ),
+          Checkbox(value: _allSelected, onChanged: (_) => _toggleAll()),
           Text('全选 ($selectedCount/$matchedCount)'),
           const Spacer(),
           if (unmatchedCount > 0)
@@ -391,10 +389,7 @@ class _TagImportResultItem extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (result.matched)
-                  Checkbox(
-                    value: result.selected,
-                    onChanged: (_) => onToggle(),
-                  )
+                  Checkbox(value: result.selected, onChanged: (_) => onToggle())
                 else
                   const SizedBox(width: 48),
                 _buildPreview(context, tagData),
@@ -418,7 +413,8 @@ class _TagImportResultItem extends StatelessWidget {
                           item.reason,
                           style: TextStyle(
                             fontSize: 11,
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
                             fontStyle: FontStyle.italic,
                           ),
                         ),
@@ -451,10 +447,7 @@ class _TagImportResultItem extends StatelessWidget {
     return Wrap(
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        Text(
-          nameText,
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
+        Text(nameText, style: const TextStyle(fontWeight: FontWeight.bold)),
         if (tag != null) ...[
           const SizedBox(width: 8),
           Container(
@@ -482,7 +475,8 @@ class _TagImportResultItem extends StatelessWidget {
 
     final currentCatValue = result.editableCategory ?? tag.category;
     final currentCat = TagCategory.fromValue(currentCatValue);
-    final hasChange = result.editableCategory != null &&
+    final hasChange =
+        result.editableCategory != null &&
         result.editableCategory != tag.category;
 
     return PopupMenuButton<int>(
@@ -490,40 +484,52 @@ class _TagImportResultItem extends StatelessWidget {
         result.editableCategory = val;
         onEdit();
       },
-      itemBuilder: (context) => TagCategory.values.map((c) {
-        final isSelected = c.value == currentCatValue;
-        return PopupMenuItem(
-          value: c.value,
-          child: Text(
-            c.label,
-            style: TextStyle(
-              color: isSelected ? Theme.of(context).colorScheme.primary : null,
-              fontWeight: isSelected ? FontWeight.bold : null,
-            ),
-          ),
-        );
-      }).toList(),
+      itemBuilder:
+          (context) =>
+              TagCategory.values.map((c) {
+                final isSelected = c.value == currentCatValue;
+                return PopupMenuItem(
+                  value: c.value,
+                  child: Text(
+                    c.label,
+                    style: TextStyle(
+                      color:
+                          isSelected
+                              ? Theme.of(context).colorScheme.primary
+                              : null,
+                      fontWeight: isSelected ? FontWeight.bold : null,
+                    ),
+                  ),
+                );
+              }).toList(),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 2),
         child: Row(
           children: [
-            Icon(Icons.category_outlined,
-                size: 14, color: Theme.of(context).hintColor),
+            Icon(
+              Icons.category_outlined,
+              size: 14,
+              color: Theme.of(context).hintColor,
+            ),
             const SizedBox(width: 4),
             Expanded(
               child: Text(
                 '分类: ${currentCat.label}',
                 style: TextStyle(
                   fontSize: 12,
-                  color: hasChange
-                      ? Theme.of(context).colorScheme.primary
-                      : Theme.of(context).hintColor,
+                  color:
+                      hasChange
+                          ? Theme.of(context).colorScheme.primary
+                          : Theme.of(context).hintColor,
                   fontWeight: hasChange ? FontWeight.bold : FontWeight.normal,
                 ),
               ),
             ),
-            Icon(Icons.arrow_drop_down,
-                size: 16, color: Theme.of(context).hintColor),
+            Icon(
+              Icons.arrow_drop_down,
+              size: 16,
+              color: Theme.of(context).hintColor,
+            ),
           ],
         ),
       ),
@@ -534,8 +540,10 @@ class _TagImportResultItem extends StatelessWidget {
     final tag = result.tagData?.tag;
     if (tag == null) return const SizedBox.shrink();
 
-    final currentVal = result.editableTranslation ?? tag.customTranslatedName ?? '';
-    final hasChange = result.editableTranslation != null &&
+    final currentVal =
+        result.editableTranslation ?? tag.customTranslatedName ?? '';
+    final hasChange =
+        result.editableTranslation != null &&
         result.editableTranslation != tag.customTranslatedName;
 
     return InkWell(
@@ -551,9 +559,10 @@ class _TagImportResultItem extends StatelessWidget {
                 '翻译: ${currentVal.isEmpty ? "(无)" : currentVal}',
                 style: TextStyle(
                   fontSize: 12,
-                  color: hasChange
-                      ? Theme.of(context).colorScheme.primary
-                      : Theme.of(context).hintColor,
+                  color:
+                      hasChange
+                          ? Theme.of(context).colorScheme.primary
+                          : Theme.of(context).hintColor,
                   fontWeight: hasChange ? FontWeight.bold : FontWeight.normal,
                 ),
               ),
@@ -593,8 +602,11 @@ class _TagImportResultItem extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 2),
         child: Row(
           children: [
-            Icon(Icons.account_tree_outlined,
-                size: 14, color: Theme.of(context).hintColor),
+            Icon(
+              Icons.account_tree_outlined,
+              size: 14,
+              color: Theme.of(context).hintColor,
+            ),
             const SizedBox(width: 4),
             Expanded(
               child: Text.rich(
@@ -606,10 +618,9 @@ class _TagImportResultItem extends StatelessWidget {
                         text: countSuffix,
                         style: TextStyle(
                           fontSize: 10,
-                          color: Theme.of(context)
-                              .colorScheme
-                              .primary
-                              .withOpacity(0.7),
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.primary.withOpacity(0.7),
                           fontWeight: FontWeight.normal,
                         ),
                       ),
@@ -617,9 +628,10 @@ class _TagImportResultItem extends StatelessWidget {
                 ),
                 style: TextStyle(
                   fontSize: 12,
-                  color: hasChange
-                      ? Theme.of(context).colorScheme.primary
-                      : Theme.of(context).hintColor,
+                  color:
+                      hasChange
+                          ? Theme.of(context).colorScheme.primary
+                          : Theme.of(context).hintColor,
                   fontWeight: hasChange ? FontWeight.bold : FontWeight.normal,
                 ),
               ),
@@ -634,23 +646,29 @@ class _TagImportResultItem extends StatelessWidget {
   Future<void> _editTranslation(BuildContext context) async {
     final tag = result.tagData!.tag;
     final controller = TextEditingController(
-        text: result.editableTranslation ?? tag.customTranslatedName ?? '');
+      text: result.editableTranslation ?? tag.customTranslatedName ?? '',
+    );
     final newVal = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('修改自定义翻译'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: const InputDecoration(labelText: '翻译内容'),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消')),
-          TextButton(
-              onPressed: () => Navigator.pop(context, controller.text),
-              child: const Text('确定')),
-        ],
-      ),
+      builder:
+          (context) => AlertDialog(
+            title: const Text('修改自定义翻译'),
+            content: TextField(
+              controller: controller,
+              autofocus: true,
+              decoration: const InputDecoration(labelText: '翻译内容'),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('取消'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, controller.text),
+                child: const Text('确定'),
+              ),
+            ],
+          ),
     );
 
     if (newVal != null) {
@@ -664,10 +682,9 @@ class _TagImportResultItem extends StatelessWidget {
     // 使用现有的 ParentSelectionDialog 选取父标签
     final res = await showDialog<ParentSelectionDialogResult>(
       context: context,
-      builder: (context) => ParentSelectionDialog(
-        tags: [tag],
-        currentParentId: tag.parentId,
-      ),
+      builder:
+          (context) =>
+              ParentSelectionDialog(tags: [tag], currentParentId: tag.parentId),
     );
 
     if (res != null) {
@@ -677,8 +694,9 @@ class _TagImportResultItem extends StatelessWidget {
         final pData = tagManagerStore.tagIdMap[res.parentId];
         if (pData != null) {
           // 这里如果是同义标签，resolveToMainTagName
-          result.editableParentName =
-              tagManagerStore.resolveToMainTagName(pData.tag.name);
+          result.editableParentName = tagManagerStore.resolveToMainTagName(
+            pData.tag.name,
+          );
         }
       }
       onEdit();
@@ -712,7 +730,6 @@ class _TagImportResultItem extends StatelessWidget {
       ),
     );
   }
-
 
   void _navigateToDownloaded(BuildContext context, TagDisplayData tagData) {
     Navigator.of(context).push(

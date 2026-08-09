@@ -50,7 +50,8 @@ abstract class _SplashStoreBase with Store {
   fetch() async {
     if (helloWord == OK_TEXT ||
         host != ImageHost ||
-        userSetting.pictureSource != ImageHost) return;
+        userSetting.pictureSource != ImageHost)
+      return;
     try {
       await Hoster.dnsQueryAll();
     } catch (e) {}

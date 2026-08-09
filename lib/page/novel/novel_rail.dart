@@ -39,7 +39,7 @@ class _NovelRailState extends State<NovelRail> {
     NovelRankPage(),
     NovelNewPage(),
     NovelSearchPage(),
-    SettingPage()
+    SettingPage(),
   ];
   late PageController _pageController;
 
@@ -71,38 +71,47 @@ class _NovelRailState extends State<NovelRail> {
           setState(() {
             _preTime = DateTime.now();
           });
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            duration: Duration(seconds: 1),
-            content: Text(I18n.of(context).return_again_to_exit),
-          ));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              duration: Duration(seconds: 1),
+              content: Text(I18n.of(context).return_again_to_exit),
+            ),
+          );
         }
       },
-      canPop: !userSetting.isReturnAgainToExit ||
+      canPop:
+          !userSetting.isReturnAgainToExit ||
           _preTime != null &&
               DateTime.now().difference(_preTime!) <= Duration(seconds: 2),
       child: Scaffold(
         floatingActionButton: FloatingActionButton(
           onPressed: () {
             Constants.type = 0;
-            Navigator.of(context).pushReplacement(MaterialPageRoute(
-                builder: (context) => Platform.isAndroid
-                    ? const AndroidHelloPage()
-                    : HelloPage()));
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(
+                builder:
+                    (context) =>
+                        Platform.isAndroid
+                            ? const AndroidHelloPage()
+                            : HelloPage(),
+              ),
+            );
           },
           child: const Icon(Icons.picture_in_picture_alt_rounded),
         ),
         bottomNavigationBar: _buildNavigationBar(context),
         body: PageView.builder(
-            itemCount: _pageList.length,
-            controller: _pageController,
-            onPageChanged: (index) {
-              setState(() {
-                this.selectedIndex = index;
-              });
-            },
-            itemBuilder: (context, index) {
-              return _pageList[index];
-            }),
+          itemCount: _pageList.length,
+          controller: _pageController,
+          onPageChanged: (index) {
+            setState(() {
+              this.selectedIndex = index;
+            });
+          },
+          itemBuilder: (context, index) {
+            return _pageList[index];
+          },
+        ),
       ),
     );
   }
@@ -111,18 +120,25 @@ class _NovelRailState extends State<NovelRail> {
     return NavigationBar(
       destinations: [
         NavigationDestination(
-            icon: Icon(Icons.home), label: I18n.of(context).home),
+          icon: Icon(Icons.home),
+          label: I18n.of(context).home,
+        ),
         NavigationDestination(
-            icon: Icon(
-              Icons.leaderboard,
-            ),
-            label: I18n.of(context).rank),
+          icon: Icon(Icons.leaderboard),
+          label: I18n.of(context).rank,
+        ),
         NavigationDestination(
-            icon: Icon(Icons.favorite), label: I18n.of(context).news),
+          icon: Icon(Icons.favorite),
+          label: I18n.of(context).news,
+        ),
         NavigationDestination(
-            icon: Icon(Icons.search), label: I18n.of(context).search),
+          icon: Icon(Icons.search),
+          label: I18n.of(context).search,
+        ),
         NavigationDestination(
-            icon: Icon(Icons.settings), label: I18n.of(context).setting)
+          icon: Icon(Icons.settings),
+          label: I18n.of(context).setting,
+        ),
       ],
       selectedIndex: selectedIndex,
       onDestinationSelected: (index) {

@@ -45,46 +45,54 @@ class BanIllustIdProvider {
   Future open() async {
     String databasesPath = (await getDatabasesPath());
     String path = join(databasesPath, 'banillustid.db');
-    db = await openDatabase(path, version: 1,
-        onCreate: (Database db, int version) async {
-      await db.execute('''
+    db = await openDatabase(
+      path,
+      version: 1,
+      onCreate: (Database db, int version) async {
+        await db.execute('''
 create table $tableBanIllustId ( 
   $columnId integer primary key autoincrement, 
   $columnIllustId text not null,
   $columnName text not null
   )
 ''');
-    });
-    // 注册到数据库管理中心
-    DatabaseRegistry.instance.register(
-      '作品屏蔽数据库',
-      path,
-      () => db,
+      },
     );
+    // 注册到数据库管理中心
+    DatabaseRegistry.instance.register('作品屏蔽数据库', path, () => db);
   }
 
   Future<BanIllustIdPersist> insert(BanIllustIdPersist todo) async {
-    todo.id = await db.insert(tableBanIllustId, todo.toJson(),
-        conflictAlgorithm: ConflictAlgorithm.replace);
+    todo.id = await db.insert(
+      tableBanIllustId,
+      todo.toJson(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
     return todo;
   }
 
   Future<List<BanIllustIdPersist>> insertAll(
-      List<BanIllustIdPersist> todos) async {
+    List<BanIllustIdPersist> todos,
+  ) async {
     await db.transaction((txn) async {
       for (var todo in todos) {
-        todo.id = await txn.insert(tableBanIllustId, todo.toJson(),
-            conflictAlgorithm: ConflictAlgorithm.replace);
+        todo.id = await txn.insert(
+          tableBanIllustId,
+          todo.toJson(),
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
       }
     });
     return todos;
   }
 
   Future<BanIllustIdPersist?> getAccount(int id) async {
-    List<Map<String, dynamic>> maps = await db.query(tableBanIllustId,
-        columns: [columnId, columnIllustId],
-        where: '$columnId = ?',
-        whereArgs: [id]);
+    List<Map<String, dynamic>> maps = await db.query(
+      tableBanIllustId,
+      columns: [columnId, columnIllustId],
+      where: '$columnId = ?',
+      whereArgs: [id],
+    );
     if (maps.length > 0) {
       return BanIllustIdPersist.fromJson(maps.first);
     }
@@ -93,8 +101,10 @@ create table $tableBanIllustId (
 
   Future<List<BanIllustIdPersist>> getAllAccount() async {
     List<BanIllustIdPersist> result = [];
-    List<Map<String, dynamic>> maps = await db.query(tableBanIllustId,
-        columns: [columnId, columnIllustId, columnName]);
+    List<Map<String, dynamic>> maps = await db.query(
+      tableBanIllustId,
+      columns: [columnId, columnIllustId, columnName],
+    );
 
     if (maps.length > 0) {
       maps.forEach((f) {
@@ -105,8 +115,11 @@ create table $tableBanIllustId (
   }
 
   Future<int> delete(int id) async {
-    return await db
-        .delete(tableBanIllustId, where: '$columnId = ?', whereArgs: [id]);
+    return await db.delete(
+      tableBanIllustId,
+      where: '$columnId = ?',
+      whereArgs: [id],
+    );
   }
 
   Future<int> deleteAll() async {
@@ -114,8 +127,12 @@ create table $tableBanIllustId (
   }
 
   Future<int> update(BanIllustIdPersist todo) async {
-    return await db.update(tableBanIllustId, todo.toJson(),
-        where: '$columnId = ?', whereArgs: [todo.id]);
+    return await db.update(
+      tableBanIllustId,
+      todo.toJson(),
+      where: '$columnId = ?',
+      whereArgs: [todo.id],
+    );
   }
 
   Future close() async => db.close();

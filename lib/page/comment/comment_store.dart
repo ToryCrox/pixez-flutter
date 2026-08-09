@@ -14,7 +14,6 @@
  *
  */
 
-
 import 'package:dio/dio.dart';
 import 'package:easy_refresh/easy_refresh.dart';
 import 'package:mobx/mobx.dart';
@@ -64,7 +63,7 @@ final emojisMap = {
   '(sleep4)': '408.png',
   '(heart)': '501.png',
   '(teardrop)': '502.png',
-  '(star)': '503.png'
+  '(star)': '503.png',
 };
 
 abstract class _CommentStoreBase with Store {
@@ -82,20 +81,26 @@ abstract class _CommentStoreBase with Store {
   final bool isReplay;
 
   _CommentStoreBase(
-      this._controller, this.id, this.pId, this.isReplay, this.type);
+    this._controller,
+    this.id,
+    this.pId,
+    this.isReplay,
+    this.type,
+  );
 
   @action
   fetch() async {
     errorMessage = null;
     nextUrl = null;
     try {
-      Response response = type == CommentArtWorkType.ILLUST
-          ? (isReplay
-              ? await apiClient.getIllustCommentsReplies(pId!)
-              : await apiClient.getIllustComments(id, force: true))
-          : (isReplay
-              ? await apiClient.getNovelCommentsReplies(pId!)
-              : await apiClient.getNovelComments(id, force: true));
+      Response response =
+          type == CommentArtWorkType.ILLUST
+              ? (isReplay
+                  ? await apiClient.getIllustCommentsReplies(pId!)
+                  : await apiClient.getIllustComments(id, force: true))
+              : (isReplay
+                  ? await apiClient.getNovelCommentsReplies(pId!)
+                  : await apiClient.getNovelComments(id, force: true));
       CommentResponse commentResponse = CommentResponse.fromJson(response.data);
       nextUrl = commentResponse.nextUrl;
       comments.clear();
@@ -113,8 +118,9 @@ abstract class _CommentStoreBase with Store {
     if (nextUrl != null && nextUrl!.isNotEmpty) {
       try {
         Response response = await apiClient.getNext(nextUrl!);
-        CommentResponse commentResponse =
-            CommentResponse.fromJson(response.data);
+        CommentResponse commentResponse = CommentResponse.fromJson(
+          response.data,
+        );
         nextUrl = commentResponse.nextUrl;
         comments.addAll(commentResponse.comments);
         _controller.finishLoad(IndicatorResult.success);

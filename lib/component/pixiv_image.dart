@@ -338,7 +338,9 @@ class PixivCacheManager extends CacheManager with ImageCacheManager {
 
           if (result != null) {
             // 只有在明确要求且不是原地替换时才删除
-            if (deleteSource && sourcePath != null && sourcePath != targetPath) {
+            if (deleteSource &&
+                sourcePath != null &&
+                sourcePath != targetPath) {
               final sourceFile = io.File(sourcePath);
               if (await sourceFile.exists()) {
                 await sourceFile.delete();
@@ -386,7 +388,7 @@ class PixivCacheManager extends CacheManager with ImageCacheManager {
 
       // 优化：如果在 Windows 平台且不需要裁剪（Waterfall 模式），且不是处理本地原图
       // 我们信任 Pixiv 下载回来的封面尺寸已经是合适的（medium 为 540，large 为 1200），直接转码
-      if (!isLocalOriginal ) {
+      if (!isLocalOriginal) {
         return await _encodeToWebp(
           targetPath: targetPath,
           quality: quality,
@@ -545,7 +547,6 @@ class PixivCacheManager extends CacheManager with ImageCacheManager {
 
     return null;
   }
-
 
   @override
   Stream<FileResponse> getImageFile(
@@ -790,7 +791,11 @@ class _PixivImageState extends State<PixivImage> {
         Log.d(() => 'display local image $displayWidth x $displayHeight');
         return CachedNetworkImage(
           placeholder:
-              (context, url) => SizedBox(width: displayWidth, height: displayHeight, child: widget.placeWidget ?? Container(height: height),),
+              (context, url) => SizedBox(
+                width: displayWidth,
+                height: displayHeight,
+                child: widget.placeWidget ?? Container(height: height),
+              ),
           errorWidget:
               (context, url, _) => Container(
                 height: height,

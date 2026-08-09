@@ -90,7 +90,8 @@ abstract class _DirectoryStoreBase with Store {
   @action
   Future<void> init(String? initPath) async {
     try {
-      path = initPath ??
+      path =
+          initPath ??
           Prefer.getString("store_path") ??
           (await getExternalStorageDirectory())!.path; //绝了
       final directory = Directory(path!);

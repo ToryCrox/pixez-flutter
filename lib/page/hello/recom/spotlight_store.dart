@@ -43,7 +43,9 @@ abstract class _SpotlightStoreBase with Store {
     if (articles.isEmpty) {
       try {
         final cachedData = await DiskCache.readModel(
-            "spotlight_cache", (map) => SpotlightResponse.fromJson(map));
+          "spotlight_cache",
+          (map) => SpotlightResponse.fromJson(map),
+        );
         if (cachedData != null) {
           articles.clear();
           articles.addAll(cachedData.spotlightArticles);
@@ -85,9 +87,9 @@ abstract class _SpotlightStoreBase with Store {
           final results = SpotlightResponse.fromJson(response.data);
           nextUrl = results.nextUrl;
           articles.addAll(results.spotlightArticles);
-          _controller?.finishLoad(nextUrl == null
-              ? IndicatorResult.noMore
-              : IndicatorResult.success);
+          _controller?.finishLoad(
+            nextUrl == null ? IndicatorResult.noMore : IndicatorResult.success,
+          );
           return true;
         } catch (e) {
           _controller?.finishLoad(IndicatorResult.fail);

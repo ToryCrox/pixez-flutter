@@ -44,10 +44,10 @@ class CreateUserResponse {
       );
 
   Map<String, dynamic> toJson() => {
-        "error": error,
-        "message": message,
-        "body": body.toJson(),
-      };
+    "error": error,
+    "message": message,
+    "body": body.toJson(),
+  };
 }
 
 class Body {
@@ -62,14 +62,14 @@ class Body {
   });
 
   factory Body.fromJson(Map<String, dynamic> json) => Body(
-        userAccount: json["user_account"],
-        password: json["password"],
-        deviceToken: json["device_token"],
-      );
+    userAccount: json["user_account"],
+    password: json["password"],
+    deviceToken: json["device_token"],
+  );
 
   Map<String, dynamic> toJson() => {
-        "user_account": userAccount,
-        "password": password,
-        "device_token": deviceToken,
-      };
+    "user_account": userAccount,
+    "password": password,
+    "device_token": deviceToken,
+  };
 }

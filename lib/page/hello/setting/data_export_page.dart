@@ -25,17 +25,12 @@ class _DataExportPageState extends State<DataExportPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(I18n.of(context).app_data),
-      ),
+      appBar: AppBar(title: Text(I18n.of(context).app_data)),
       body: SingleChildScrollView(
         child: Column(
           children: [
-            Card(
-              margin: EdgeInsets.all(8.0),
-              child: _buildColumn(context),
-            ),
-            Container(height: MediaQuery.of(context).padding.bottom + 20)
+            Card(margin: EdgeInsets.all(8.0), child: _buildColumn(context)),
+            Container(height: MediaQuery.of(context).padding.bottom + 20),
           ],
         ),
       ),
@@ -46,19 +41,21 @@ class _DataExportPageState extends State<DataExportPage> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Builder(builder: (context) {
-          return ListTile(
-            title: Text(I18n.of(context).export_title),
-            subtitle: Text(I18n.of(context).export_tag_history),
-            onTap: () async {
-              try {
-                await tagHistoryStore.exportData(context);
-              } catch (e) {
-                Log.e('Failed to export tag history', error: e);
-              }
-            },
-          );
-        }),
+        Builder(
+          builder: (context) {
+            return ListTile(
+              title: Text(I18n.of(context).export_title),
+              subtitle: Text(I18n.of(context).export_tag_history),
+              onTap: () async {
+                try {
+                  await tagHistoryStore.exportData(context);
+                } catch (e) {
+                  Log.e('Failed to export tag history', error: e);
+                }
+              },
+            );
+          },
+        ),
         ListTile(
           title: Text(I18n.of(context).import_title),
           subtitle: Text(I18n.of(context).import_tag_history),
@@ -72,19 +69,21 @@ class _DataExportPageState extends State<DataExportPage> {
           },
         ),
         Divider(),
-        Builder(builder: (context) {
-          return ListTile(
-            title: Text(I18n.of(context).export_title),
-            subtitle: Text(I18n.of(context).export_bookmark_tag),
-            onTap: () async {
-              try {
-                await bookTagStore.exportData(context);
-              } catch (e) {
-                Log.e('Failed to export bookmark tags', error: e);
-              }
-            },
-          );
-        }),
+        Builder(
+          builder: (context) {
+            return ListTile(
+              title: Text(I18n.of(context).export_title),
+              subtitle: Text(I18n.of(context).export_bookmark_tag),
+              onTap: () async {
+                try {
+                  await bookTagStore.exportData(context);
+                } catch (e) {
+                  Log.e('Failed to export bookmark tags', error: e);
+                }
+              },
+            );
+          },
+        ),
         ListTile(
           title: Text(I18n.of(context).import_title),
           subtitle: Text(I18n.of(context).import_bookmark_tag),
@@ -98,91 +97,103 @@ class _DataExportPageState extends State<DataExportPage> {
           },
         ),
         Divider(),
-        Builder(builder: (context) {
-          return ListTile(
-            title: Text(I18n.of(context).export_title),
-            subtitle: Text(I18n.of(context).export_illust_history),
-            onTap: () async {
-              try {
-                await HistoryStore().exportData(context);
-              } catch (e) {
-                Log.e('Failed to export illust history', error: e);
-              }
-            },
-          );
-        }),
-        Builder(builder: (context) {
-          return ListTile(
-            title: Text(I18n.of(context).import_title),
-            subtitle: Text(I18n.of(context).import_illust_history),
-            onTap: () async {
-              try {
-                await HistoryStore().importData();
-              } catch (e) {
-                Log.e('Failed to import illust history', error: e);
-                BotToast.showText(text: e.toString());
-              }
-            },
-          );
-        }),
+        Builder(
+          builder: (context) {
+            return ListTile(
+              title: Text(I18n.of(context).export_title),
+              subtitle: Text(I18n.of(context).export_illust_history),
+              onTap: () async {
+                try {
+                  await HistoryStore().exportData(context);
+                } catch (e) {
+                  Log.e('Failed to export illust history', error: e);
+                }
+              },
+            );
+          },
+        ),
+        Builder(
+          builder: (context) {
+            return ListTile(
+              title: Text(I18n.of(context).import_title),
+              subtitle: Text(I18n.of(context).import_illust_history),
+              onTap: () async {
+                try {
+                  await HistoryStore().importData();
+                } catch (e) {
+                  Log.e('Failed to import illust history', error: e);
+                  BotToast.showText(text: e.toString());
+                }
+              },
+            );
+          },
+        ),
         Divider(),
-        Consumer(builder: (context, ref, widget) {
-          return ListTile(
-            title: Text(I18n.of(context).export_title),
-            subtitle: Text(I18n.of(context).export_novel_history),
-            onTap: () async {
-              try {
-                await novelHistoryStore.fetch();
-                await novelHistoryStore.exportData(context);
-              } catch (e) {
-                Log.e('Failed to export novel history', error: e);
-              }
-            },
-          );
-        }),
-        Consumer(builder: (context, ref, widget) {
-          return ListTile(
-            title: Text(I18n.of(context).import_title),
-            subtitle: Text(I18n.of(context).import_novel_history),
-            onTap: () async {
-              try {
-                await novelHistoryStore.fetch();
-                await novelHistoryStore.importData();
-              } catch (e) {
-                Log.e('Failed to import novel history', error: e);
-                BotToast.showText(text: e.toString());
-              }
-            },
-          );
-        }),
+        Consumer(
+          builder: (context, ref, widget) {
+            return ListTile(
+              title: Text(I18n.of(context).export_title),
+              subtitle: Text(I18n.of(context).export_novel_history),
+              onTap: () async {
+                try {
+                  await novelHistoryStore.fetch();
+                  await novelHistoryStore.exportData(context);
+                } catch (e) {
+                  Log.e('Failed to export novel history', error: e);
+                }
+              },
+            );
+          },
+        ),
+        Consumer(
+          builder: (context, ref, widget) {
+            return ListTile(
+              title: Text(I18n.of(context).import_title),
+              subtitle: Text(I18n.of(context).import_novel_history),
+              onTap: () async {
+                try {
+                  await novelHistoryStore.fetch();
+                  await novelHistoryStore.importData();
+                } catch (e) {
+                  Log.e('Failed to import novel history', error: e);
+                  BotToast.showText(text: e.toString());
+                }
+              },
+            );
+          },
+        ),
         Divider(),
-        Consumer(builder: (context, ref, widget) {
-          return ListTile(
-            title: Text(I18n.of(context).export_title),
-            subtitle: Text(I18n.of(context).export_mute_data),
-            onTap: () async {
-              try {
-                await muteStore.export(context);
-              } catch (e) {
-                Log.e('Failed to export mute data', error: e);
-              }
-            },
-          );
-        }),
-        Consumer(builder: (context, ref, widget) {
-          return ListTile(
-            title: Text(I18n.of(context).import_title),
-            subtitle: Text(I18n.of(context).import_mute_data),
-            onTap: () async {
-              try {
-                await muteStore.importFile();
-              } catch (e) {
-                Log.e('Failed to import mute data', error: e);
-                BotToast.showText(text: e.toString());
-              }
-            },
-          );
-        }),
+        Consumer(
+          builder: (context, ref, widget) {
+            return ListTile(
+              title: Text(I18n.of(context).export_title),
+              subtitle: Text(I18n.of(context).export_mute_data),
+              onTap: () async {
+                try {
+                  await muteStore.export(context);
+                } catch (e) {
+                  Log.e('Failed to export mute data', error: e);
+                }
+              },
+            );
+          },
+        ),
+        Consumer(
+          builder: (context, ref, widget) {
+            return ListTile(
+              title: Text(I18n.of(context).import_title),
+              subtitle: Text(I18n.of(context).import_mute_data),
+              onTap: () async {
+                try {
+                  await muteStore.importFile();
+                } catch (e) {
+                  Log.e('Failed to import mute data', error: e);
+                  BotToast.showText(text: e.toString());
+                }
+              },
+            );
+          },
+        ),
         Divider(),
         ListTile(
           title: Text(I18n.of(context).clear_all_cache),
@@ -198,26 +209,27 @@ class _DataExportPageState extends State<DataExportPage> {
 
   Future _showClearCacheDialog(BuildContext context) async {
     final result = await showDialog(
-        builder: (BuildContext context) {
-          return AlertDialog(
-            title: Text(I18n.of(context).clear_all_cache),
-            actions: <Widget>[
-              TextButton(
-                child: Text(I18n.of(context).cancel),
-                onPressed: () {
-                  Navigator.of(context).pop("CANCEL");
-                },
-              ),
-              TextButton(
-                child: Text(I18n.of(context).ok),
-                onPressed: () {
-                  Navigator.of(context).pop("OK");
-                },
-              ),
-            ],
-          );
-        },
-        context: context);
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(I18n.of(context).clear_all_cache),
+          actions: <Widget>[
+            TextButton(
+              child: Text(I18n.of(context).cancel),
+              onPressed: () {
+                Navigator.of(context).pop("CANCEL");
+              },
+            ),
+            TextButton(
+              child: Text(I18n.of(context).ok),
+              onPressed: () {
+                Navigator.of(context).pop("OK");
+              },
+            ),
+          ],
+        );
+      },
+      context: context,
+    );
     switch (result) {
       case "OK":
         {

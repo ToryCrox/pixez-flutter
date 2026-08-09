@@ -31,7 +31,7 @@ class NovelLightingList extends StatefulWidget {
   final bool? isNested;
 
   const NovelLightingList({Key? key, required this.futureGet, this.isNested})
-      : super(key: key);
+    : super(key: key);
 
   @override
   _NovelLightingListState createState() => _NovelLightingListState();
@@ -46,7 +46,9 @@ class _NovelLightingListState extends State<NovelLightingList> {
   void initState() {
     _isNested = widget.isNested ?? false;
     _easyRefreshController = EasyRefreshController(
-        controlFinishLoad: true, controlFinishRefresh: true);
+      controlFinishLoad: true,
+      controlFinishRefresh: true,
+    );
     _store = NovelLightingStore(widget.futureGet, _easyRefreshController);
     super.initState();
     if (_isNested) _store.fetch();
@@ -76,7 +78,9 @@ class _NovelLightingListState extends State<NovelLightingList> {
       controller: _easyRefreshController,
       header: PixezDefault.header(context),
       childBuilder: (context, physics, scrollController) {
-        _store.novels.removeWhere((element) => element.novel?.hateByUser() == true);
+        _store.novels.removeWhere(
+          (element) => element.novel?.hateByUser() == true,
+        );
         return ListView.builder(
           padding: EdgeInsets.all(0),
           physics: physics,
@@ -87,11 +91,15 @@ class _NovelLightingListState extends State<NovelLightingList> {
               padding: const EdgeInsets.symmetric(horizontal: 4.0),
               child: InkWell(
                 onTap: () {
-                  Navigator.of(context, rootNavigator: true).push(MaterialPageRoute(
-                      builder: (BuildContext context) => NovelViewerPage(
+                  Navigator.of(context, rootNavigator: true).push(
+                    MaterialPageRoute(
+                      builder:
+                          (BuildContext context) => NovelViewerPage(
                             id: novel.id,
                             novelStore: _store.novels[index],
-                          )));
+                          ),
+                    ),
+                  );
                 },
                 child: Card(
                   child: Row(
@@ -104,7 +112,9 @@ class _NovelLightingListState extends State<NovelLightingList> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 8.0),
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 8.0,
+                              ),
                               child: PixivImage(
                                 novel.imageUrls.medium,
                                 width: 80,
@@ -115,31 +125,37 @@ class _NovelLightingListState extends State<NovelLightingList> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Padding(
-                                    padding:
-                                        const EdgeInsets.only(top: 8.0, left: 8.0),
+                                    padding: const EdgeInsets.only(
+                                      top: 8.0,
+                                      left: 8.0,
+                                    ),
                                     child: Text(
                                       novel.title,
                                       overflow: TextOverflow.ellipsis,
-                                      style: Theme.of(context).textTheme.bodyLarge,
+                                      style:
+                                          Theme.of(context).textTheme.bodyLarge,
                                       maxLines: 3,
                                     ),
                                   ),
                                   Padding(
-                                    padding:
-                                        const EdgeInsets.symmetric(horizontal: 8.0),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8.0,
+                                    ),
                                     child: Row(
-                                      crossAxisAlignment: CrossAxisAlignment.center,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.center,
                                       children: [
                                         Text(
                                           novel.user.name,
                                           maxLines: 1,
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .bodySmall!
-                                              .copyWith(
-                                                  color: Theme.of(context)
-                                                      .colorScheme
-                                                      .secondary),
+                                          style: Theme.of(
+                                            context,
+                                          ).textTheme.bodySmall!.copyWith(
+                                            color:
+                                                Theme.of(
+                                                  context,
+                                                ).colorScheme.secondary,
+                                          ),
                                         ),
                                         Padding(
                                           padding: EdgeInsets.only(left: 8),
@@ -148,20 +164,20 @@ class _NovelLightingListState extends State<NovelLightingList> {
                                               Icon(
                                                 Icons.article,
                                                 size: 12,
-                                                color: Theme.of(context)
-                                                    .textTheme
-                                                    .labelSmall!
-                                                    .color,
+                                                color:
+                                                    Theme.of(context)
+                                                        .textTheme
+                                                        .labelSmall!
+                                                        .color,
                                               ),
-                                              SizedBox(
-                                                width: 2,
-                                              ),
+                                              SizedBox(width: 2),
                                               Text(
                                                 '${novel.textLength}',
-                                                style: Theme.of(context)
-                                                    .textTheme
-                                                    .labelSmall,
-                                              )
+                                                style:
+                                                    Theme.of(
+                                                      context,
+                                                    ).textTheme.labelSmall,
+                                              ),
                                             ],
                                           ),
                                         ),
@@ -169,30 +185,32 @@ class _NovelLightingListState extends State<NovelLightingList> {
                                     ),
                                   ),
                                   Padding(
-                                    padding:
-                                        const EdgeInsets.symmetric(horizontal: 8.0),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8.0,
+                                    ),
                                     child: Wrap(
-                                      crossAxisAlignment: WrapCrossAlignment.center,
+                                      crossAxisAlignment:
+                                          WrapCrossAlignment.center,
                                       spacing: 2,
                                       runSpacing: 0,
                                       children: [
                                         for (var f in novel.tags)
                                           Padding(
                                             padding: const EdgeInsets.symmetric(
-                                                horizontal: 1),
+                                              horizontal: 1,
+                                            ),
                                             child: Text(
                                               f.name,
-                                              style: Theme.of(context)
-                                                  .textTheme
-                                                  .bodySmall,
+                                              style:
+                                                  Theme.of(
+                                                    context,
+                                                  ).textTheme.bodySmall,
                                             ),
-                                          )
+                                          ),
                                       ],
                                     ),
                                   ),
-                                  Container(
-                                    height: 8.0,
-                                  )
+                                  Container(height: 8.0),
                                 ],
                               ),
                             ),
@@ -205,11 +223,13 @@ class _NovelLightingListState extends State<NovelLightingList> {
                           mainAxisSize: MainAxisSize.max,
                           children: [
                             NovelBookmarkButton(novel: novel),
-                            Text('${novel.totalBookmarks}',
-                                style: Theme.of(context).textTheme.bodySmall)
+                            Text(
+                              '${novel.totalBookmarks}',
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
                           ],
                         ),
-                      )
+                      ),
                     ],
                   ),
                 ),

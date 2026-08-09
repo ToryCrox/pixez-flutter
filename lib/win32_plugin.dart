@@ -6,9 +6,7 @@ class Win32 {
   /// 判断系统build版本号是否大于 [build]
   static Future<bool> isBuildOrGreater(int build) async {
     try {
-      return await channel.invokeMethod("isBuildOrGreater", {
-        'build': build
-      });
+      return await channel.invokeMethod("isBuildOrGreater", {'build': build});
     } catch (e) {
       return false;
     }

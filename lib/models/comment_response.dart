@@ -96,16 +96,10 @@ class Stamp {
 class ProfileImageUrls {
   String medium;
 
-  ProfileImageUrls({
-    required this.medium,
-  });
+  ProfileImageUrls({required this.medium});
 
   factory ProfileImageUrls.fromJson(Map<String, dynamic> json) =>
-      ProfileImageUrls(
-        medium: json["medium"],
-      );
+      ProfileImageUrls(medium: json["medium"]);
 
-  Map<String, dynamic> toJson() => {
-        "medium": medium,
-      };
+  Map<String, dynamic> toJson() => {"medium": medium};
 }

@@ -109,9 +109,9 @@ abstract class _DownloadedImageOrganizerStore with Store {
     this.illustIds,
     this.title,
   }) : assert(
-          author != null || (illustIds != null && illustIds.isNotEmpty),
-          'author 或 illustIds 至少需要提供一个',
-        ) {
+         author != null || (illustIds != null && illustIds.isNotEmpty),
+         'author 或 illustIds 至少需要提供一个',
+       ) {
     _illustIdFilter = initialIllustId;
     if (isTempFilter) {
       _excludeWebp = false;
@@ -260,7 +260,10 @@ abstract class _DownloadedImageOrganizerStore with Store {
   }
 
   @action
-  Future<void> loadData({bool forceReload = false, bool refilter = true}) async {
+  Future<void> loadData({
+    bool forceReload = false,
+    bool refilter = true,
+  }) async {
     if (forceReload) {
       loading = true;
       error = null;
@@ -332,8 +335,9 @@ abstract class _DownloadedImageOrganizerStore with Store {
         );
       }
 
-      final sortedItems =
-          List<DownloadedImageDisplayItem>.from(allFilteredItems);
+      final sortedItems = List<DownloadedImageDisplayItem>.from(
+        allFilteredItems,
+      );
       sortedItems.sort(_compareBySortOption);
 
       final grouped = _groupItems(sortedItems);
@@ -411,8 +415,7 @@ abstract class _DownloadedImageOrganizerStore with Store {
 
   @action
   Future<void> toggleSortOrder() async {
-    sortOrder =
-        sortOrder == SortOrder.asc ? SortOrder.desc : SortOrder.asc;
+    sortOrder = sortOrder == SortOrder.asc ? SortOrder.desc : SortOrder.asc;
     await persistFilterPrefs();
     await loadData(refilter: false);
   }
@@ -484,8 +487,9 @@ abstract class _DownloadedImageOrganizerStore with Store {
 
   @action
   void toggleGroupSelection(GroupedItems group) {
-    final allSelected =
-        group.items.every((item) => selectedItemIds.contains(item.id));
+    final allSelected = group.items.every(
+      (item) => selectedItemIds.contains(item.id),
+    );
     if (allSelected) {
       for (final item in group.items) {
         selectedItemIds.remove(item.id);
@@ -526,55 +530,57 @@ abstract class _DownloadedImageOrganizerStore with Store {
       _pickMode = PerIllustPickMode.values[modeIndex];
     }
 
-    final pickCount =
-        userSetting.prefs.getInt(_kAuthorOrganizerPickCountKey);
+    final pickCount = userSetting.prefs.getInt(_kAuthorOrganizerPickCountKey);
     if (pickCount != null) {
       _pickCount = pickCount.clamp(1, 20);
     }
 
-    final widthOpIndex =
-        userSetting.prefs.getInt(_kAuthorOrganizerWidthOpKey);
+    final widthOpIndex = userSetting.prefs.getInt(_kAuthorOrganizerWidthOpKey);
     if (widthOpIndex != null &&
         widthOpIndex >= 0 &&
         widthOpIndex < ResolutionFilterOp.values.length) {
       _widthOp = ResolutionFilterOp.values[widthOpIndex];
     }
-    final widthValue =
-        userSetting.prefs.getInt(_kAuthorOrganizerWidthValueKey);
+    final widthValue = userSetting.prefs.getInt(_kAuthorOrganizerWidthValueKey);
     if (widthValue != null && widthValue > 0) {
       _widthValue = widthValue;
     }
 
-    final heightOpIndex =
-        userSetting.prefs.getInt(_kAuthorOrganizerHeightOpKey);
+    final heightOpIndex = userSetting.prefs.getInt(
+      _kAuthorOrganizerHeightOpKey,
+    );
     if (heightOpIndex != null &&
         heightOpIndex >= 0 &&
         heightOpIndex < ResolutionFilterOp.values.length) {
       _heightOp = ResolutionFilterOp.values[heightOpIndex];
     }
-    final heightValue =
-        userSetting.prefs.getInt(_kAuthorOrganizerHeightValueKey);
+    final heightValue = userSetting.prefs.getInt(
+      _kAuthorOrganizerHeightValueKey,
+    );
     if (heightValue != null && heightValue > 0) {
       _heightValue = heightValue;
     }
 
-    final sortTypeIndex =
-        userSetting.prefs.getInt(_kAuthorOrganizerSortTypeKey);
+    final sortTypeIndex = userSetting.prefs.getInt(
+      _kAuthorOrganizerSortTypeKey,
+    );
     if (sortTypeIndex != null &&
         sortTypeIndex >= 0 &&
         sortTypeIndex < SortType.values.length) {
       sortType = SortType.values[sortTypeIndex];
     }
-    final sortOrderIndex =
-        userSetting.prefs.getInt(_kAuthorOrganizerSortOrderKey);
+    final sortOrderIndex = userSetting.prefs.getInt(
+      _kAuthorOrganizerSortOrderKey,
+    );
     if (sortOrderIndex != null &&
         sortOrderIndex >= 0 &&
         sortOrderIndex < SortOrder.values.length) {
       sortOrder = SortOrder.values[sortOrderIndex];
     }
 
-    final groupTypeIndex =
-        userSetting.prefs.getInt(_kAuthorOrganizerGroupTypeKey);
+    final groupTypeIndex = userSetting.prefs.getInt(
+      _kAuthorOrganizerGroupTypeKey,
+    );
     if (groupTypeIndex != null &&
         groupTypeIndex >= 0 &&
         groupTypeIndex < GroupType.values.length) {
@@ -596,14 +602,8 @@ abstract class _DownloadedImageOrganizerStore with Store {
       _kAuthorOrganizerPickModeKey,
       _pickMode.index,
     );
-    await userSetting.prefs.setInt(
-      _kAuthorOrganizerPickCountKey,
-      _pickCount,
-    );
-    await userSetting.prefs.setInt(
-      _kAuthorOrganizerWidthOpKey,
-      _widthOp.index,
-    );
+    await userSetting.prefs.setInt(_kAuthorOrganizerPickCountKey, _pickCount);
+    await userSetting.prefs.setInt(_kAuthorOrganizerWidthOpKey, _widthOp.index);
     if (_widthValue != null && _widthValue! > 0) {
       await userSetting.prefs.setInt(
         _kAuthorOrganizerWidthValueKey,
@@ -646,12 +646,12 @@ abstract class _DownloadedImageOrganizerStore with Store {
     const batchSize = 50;
     final result = <int, List<DownloadedImage>>{};
     for (var i = 0; i < illustIds.length; i += batchSize) {
-      final end = (i + batchSize < illustIds.length)
-          ? i + batchSize
-          : illustIds.length;
+      final end =
+          (i + batchSize < illustIds.length) ? i + batchSize : illustIds.length;
       final chunk = illustIds.sublist(i, end);
-      final chunkMap =
-          await downloadStore.dbProvider.getImagesByIllustIds(chunk);
+      final chunkMap = await downloadStore.dbProvider.getImagesByIllustIds(
+        chunk,
+      );
       result.addAll(chunkMap);
     }
     return result;
@@ -709,27 +709,29 @@ abstract class _DownloadedImageOrganizerStore with Store {
     final asc = sortOrder == SortOrder.asc;
     final sortBy = switch (sortType) {
       SortType.idAndPart => _compareFallback(a, b, asc: asc),
-      SortType.downloadTime => asc
-          ? a.illust.downloadTime.compareTo(b.illust.downloadTime)
-          : b.illust.downloadTime.compareTo(a.illust.downloadTime),
-      SortType.fileSize => asc
-          ? a.fileSize.compareTo(b.fileSize)
-          : b.fileSize.compareTo(a.fileSize),
+      SortType.downloadTime =>
+        asc
+            ? a.illust.downloadTime.compareTo(b.illust.downloadTime)
+            : b.illust.downloadTime.compareTo(a.illust.downloadTime),
+      SortType.fileSize =>
+        asc
+            ? a.fileSize.compareTo(b.fileSize)
+            : b.fileSize.compareTo(a.fileSize),
       SortType.width => _compareResolutionValue(
-          a.resolutionWidth,
-          b.resolutionWidth,
-          asc: asc,
-        ),
+        a.resolutionWidth,
+        b.resolutionWidth,
+        asc: asc,
+      ),
       SortType.height => _compareResolutionValue(
-          a.resolutionHeight,
-          b.resolutionHeight,
-          asc: asc,
-        ),
+        a.resolutionHeight,
+        b.resolutionHeight,
+        asc: asc,
+      ),
       SortType.area => _compareResolutionValue(
-          a.resolutionArea,
-          b.resolutionArea,
-          asc: asc,
-        ),
+        a.resolutionArea,
+        b.resolutionArea,
+        asc: asc,
+      ),
     };
     if (sortBy != 0) return sortBy;
     if (sortType == SortType.idAndPart) return 0;

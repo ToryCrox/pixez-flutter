@@ -139,7 +139,9 @@ class _DownloadedPageState extends State<DownloadedPage> {
 
   Future<void> _openImageOrganizer() async {
     if (_store.filterUserId != null) {
-      final author = await downloadStore.getAuthorByUserId(_store.filterUserId!);
+      final author = await downloadStore.getAuthorByUserId(
+        _store.filterUserId!,
+      );
       if (author != null && context.mounted) {
         DownloadedImageOrganizerPage.open(context, author: author);
       }
@@ -869,8 +871,18 @@ class _DownloadedPageState extends State<DownloadedPage> {
 
         if (!isMulti) ..._buildSingleModeMenus(context, illust),
 
-        _buildBookmarkMenuItem(isSelectedInMulti, selectedCount, illust, targetIllusts),
-        _buildPriorityMenuItem(isSelectedInMulti, selectedCount, illust, targetIllusts),
+        _buildBookmarkMenuItem(
+          isSelectedInMulti,
+          selectedCount,
+          illust,
+          targetIllusts,
+        ),
+        _buildPriorityMenuItem(
+          isSelectedInMulti,
+          selectedCount,
+          illust,
+          targetIllusts,
+        ),
 
         _buildContextMenuItem(
           icon: Icons.update,
@@ -902,7 +914,11 @@ class _DownloadedPageState extends State<DownloadedPage> {
   }
 
   /// 构建多选/退出选择切换项
-  PopupMenuItem<void> _buildSelectionToggleItem(bool isMulti, bool isSelectedInMulti, DownloadedIllust illust) {
+  PopupMenuItem<void> _buildSelectionToggleItem(
+    bool isMulti,
+    bool isSelectedInMulti,
+    DownloadedIllust illust,
+  ) {
     final icon = isMulti ? Icons.check_box_outline_blank : Icons.check_box;
     final label = isMulti ? '退出多选模式' : '进入多选模式';
     return _buildContextMenuItem(
@@ -920,7 +936,10 @@ class _DownloadedPageState extends State<DownloadedPage> {
   }
 
   /// 构建单选模式特有的菜单项
-  List<PopupMenuEntry<void>> _buildSingleModeMenus(BuildContext context, DownloadedIllust illust) {
+  List<PopupMenuEntry<void>> _buildSingleModeMenus(
+    BuildContext context,
+    DownloadedIllust illust,
+  ) {
     final status = _store.illustDownloadStatus[illust.illustId];
     final isDownloading =
         status == DownloadTaskStatus.downloading ||
@@ -931,7 +950,10 @@ class _DownloadedPageState extends State<DownloadedPage> {
     return [
       if (_store.filterTagId != null)
         _buildContextMenuItem(
-          icon: _store.isExample(illust.illustId) ? Icons.star : Icons.star_border,
+          icon:
+              _store.isExample(illust.illustId)
+                  ? Icons.star
+                  : Icons.star_border,
           label: _store.isExample(illust.illustId) ? '取消示例插画' : '设置为示例插画',
           onTap: () => _handleSetExampleIllust(illust),
         ),
@@ -948,11 +970,12 @@ class _DownloadedPageState extends State<DownloadedPage> {
       _buildContextMenuItem(
         icon: Icons.collections,
         label: '整理该作者',
-        onTap: () => DownloadedImageOrganizerPage.pushByUserId(
-          context,
-          userId: illust.userId,
-          illustId: illust.illustId,
-        ),
+        onTap:
+            () => DownloadedImageOrganizerPage.pushByUserId(
+              context,
+              userId: illust.userId,
+              illustId: illust.illustId,
+            ),
       ),
       if (isDownloading)
         _buildContextMenuItem(
@@ -992,9 +1015,9 @@ class _DownloadedPageState extends State<DownloadedPage> {
     final path = downloadStore.getIllustDirectoryPath(illust);
     if (path != null) {
       Clipboard.setData(ClipboardData(text: path));
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('路径已复制到剪贴板')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('路径已复制到剪贴板')));
     }
   }
 
@@ -1073,7 +1096,6 @@ class _DownloadedPageState extends State<DownloadedPage> {
     );
   }
 }
-
 
 class SliverChipDelegate extends SliverPersistentHeaderDelegate {
   final Widget child;

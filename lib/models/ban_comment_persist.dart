@@ -5,7 +5,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 part 'ban_comment_persist.g.dart';
 
 final String columnId = 'id';
-final String columnCommentId= 'comment_id';
+final String columnCommentId = 'comment_id';
 final String columnName = 'name';
 final String tableBanComment = 'banComment';
 
@@ -30,35 +30,39 @@ class BanCommenProvider {
   Future open() async {
     String databasesPath = (await getDatabasesPath());
     String path = join(databasesPath, 'banncommentid.db');
-    db = await openDatabase(path, version: 1,
-        onCreate: (Database db, int version) async {
-      await db.execute('''
+    db = await openDatabase(
+      path,
+      version: 1,
+      onCreate: (Database db, int version) async {
+        await db.execute('''
 create table $tableBanComment ( 
   $columnId integer primary key autoincrement, 
   $columnCommentId text not null,
   $columnName text not null
   )
 ''');
-    });
-    // 注册到数据库管理中心
-    DatabaseRegistry.instance.register(
-      '评论屏蔽数据库',
-      path,
-      () => db,
+      },
     );
+    // 注册到数据库管理中心
+    DatabaseRegistry.instance.register('评论屏蔽数据库', path, () => db);
   }
 
   Future<BanCommentPersist> insert(BanCommentPersist todo) async {
-    todo.id = await db.insert(tableBanComment, todo.toJson(),
-        conflictAlgorithm: ConflictAlgorithm.replace);
+    todo.id = await db.insert(
+      tableBanComment,
+      todo.toJson(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
     return todo;
   }
 
   Future<BanCommentPersist?> getAccount(int id) async {
-    List<Map<String, dynamic>> maps = await db.query(tableBanComment,
-        columns: [columnId, columnCommentId],
-        where: '$columnId = ?',
-        whereArgs: [id]);
+    List<Map<String, dynamic>> maps = await db.query(
+      tableBanComment,
+      columns: [columnId, columnCommentId],
+      where: '$columnId = ?',
+      whereArgs: [id],
+    );
     if (maps.length > 0) {
       return BanCommentPersist.fromJson(maps.first);
     }
@@ -67,8 +71,10 @@ create table $tableBanComment (
 
   Future<List<BanCommentPersist>> getAllAccount() async {
     List<BanCommentPersist> result = [];
-    List<Map<String, dynamic>> maps = await db.query(tableBanComment,
-        columns: [columnId, columnCommentId, columnName]);
+    List<Map<String, dynamic>> maps = await db.query(
+      tableBanComment,
+      columns: [columnId, columnCommentId, columnName],
+    );
 
     if (maps.length > 0) {
       maps.forEach((f) {
@@ -79,8 +85,11 @@ create table $tableBanComment (
   }
 
   Future<int> delete(int id) async {
-    return await db
-        .delete(tableBanComment, where: '$columnId = ?', whereArgs: [id]);
+    return await db.delete(
+      tableBanComment,
+      where: '$columnId = ?',
+      whereArgs: [id],
+    );
   }
 
   Future<int> deleteAll() async {
@@ -88,8 +97,12 @@ create table $tableBanComment (
   }
 
   Future<int> update(BanCommentPersist todo) async {
-    return await db.update(tableBanComment, todo.toJson(),
-        where: '$columnId = ?', whereArgs: [todo.id]);
+    return await db.update(
+      tableBanComment,
+      todo.toJson(),
+      where: '$columnId = ?',
+      whereArgs: [todo.id],
+    );
   }
 
   Future close() async => db.close();

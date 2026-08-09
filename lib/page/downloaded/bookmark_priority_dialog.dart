@@ -40,10 +40,9 @@ class BookmarkPriorityDialog extends StatefulWidget {
   }) {
     return showDialog(
       context: context,
-      builder: (context) => BookmarkPriorityDialog(
-        illusts: illusts,
-        onUpdate: onUpdate,
-      ),
+      builder:
+          (context) =>
+              BookmarkPriorityDialog(illusts: illusts, onUpdate: onUpdate),
     );
   }
 }
@@ -65,25 +64,29 @@ class _BookmarkPriorityDialogState extends State<BookmarkPriorityDialog> {
   @override
   Widget build(BuildContext context) {
     final isBatch = (widget.illusts?.length ?? 0) > 1;
-    final title = isBatch
-        ? '批量设置收藏优先级 (${widget.illusts!.length})'
-        : '设置插画收藏优先级';
-    
+    final title =
+        isBatch ? '批量设置收藏优先级 (${widget.illusts!.length})' : '设置插画收藏优先级';
+
     return AlertDialog(
       title: Text(title),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(isBatch
-              ? '将选中的 ${widget.illusts!.length} 个作品设为相同优先级。\n0 表示取消收藏。'
-              : '数值越大优先级越高 (0-99)。\n0 表示取消收藏。'),
+          Text(
+            isBatch
+                ? '将选中的 ${widget.illusts!.length} 个作品设为相同优先级。\n0 表示取消收藏。'
+                : '数值越大优先级越高 (0-99)。\n0 表示取消收藏。',
+          ),
           const SizedBox(height: 24),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
                 '优先级: ${_tempBookmark.toInt()}',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
               ),
               if (_tempBookmark > 0)
                 const Icon(Icons.favorite, color: Colors.red),
@@ -135,7 +138,10 @@ class _BookmarkPriorityDialogState extends State<BookmarkPriorityDialog> {
                 if (widget.onUpdate != null) {
                   widget.onUpdate!(illust.illustId, _tempBookmark);
                 } else {
-                  await downloadStore.updateIllustBookmark(illust.illustId, _tempBookmark);
+                  await downloadStore.updateIllustBookmark(
+                    illust.illustId,
+                    _tempBookmark,
+                  );
                 }
               }
             }

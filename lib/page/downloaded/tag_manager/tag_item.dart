@@ -48,7 +48,7 @@ class TagItem extends StatelessWidget {
     // 1: 1张大图 -> 16:9 或 4:3
     // 2-3: 组合图 -> 1:1 或 4:3
     // 这里由内容撑开，Card 包装 Column
-    
+
     if (showAsTreeRow) {
       return _buildTreeRow(context);
     }
@@ -102,16 +102,13 @@ class TagItem extends StatelessWidget {
                 isVisible: !isSelectionMode,
                 onTap: onShowChildren,
               ),
-              if (isSelectionMode)
-                _TagSelectionOverlay(isSelected: isSelected),
+              if (isSelectionMode) _TagSelectionOverlay(isSelected: isSelected),
             ],
           ),
         ),
       ),
     );
   }
-
-
 
   static Offset _tapPosition = Offset.zero;
 
@@ -357,15 +354,20 @@ class TagItem extends StatelessWidget {
       onSecondaryTap: () => _showContextMenu(context),
       child: Container(
         padding: EdgeInsets.only(left: data.indentLevel * 16.0),
-        color: isSelected
-            ? Theme.of(context).colorScheme.primaryContainer.withOpacity(0.5)
-            : null,
+        color:
+            isSelected
+                ? Theme.of(
+                  context,
+                ).colorScheme.primaryContainer.withOpacity(0.5)
+                : null,
         child: Row(
           children: [
             if (hasChildren)
               IconButton(
-                icon: Icon(isExpanded ? Icons.expand_more : Icons.chevron_right,
-                    size: 20),
+                icon: Icon(
+                  isExpanded ? Icons.expand_more : Icons.chevron_right,
+                  size: 20,
+                ),
                 onPressed: onToggleExpansion,
                 visualDensity: VisualDensity.compact,
               )
@@ -384,7 +386,7 @@ class TagItem extends StatelessWidget {
                     width: double.infinity,
                     height: double.infinity,
                     httpHeaders: {
-                      'cover': '${data.previewIllusts.first.illustId}'
+                      'cover': '${data.previewIllusts.first.illustId}',
                     },
                   ),
                 ),
@@ -396,9 +398,10 @@ class TagItem extends StatelessWidget {
                   Text(
                     '${data.tag.displayName} (${data.tag.count})',
                     style: TextStyle(
-                      fontWeight: data.indentLevel == 0
-                          ? FontWeight.bold
-                          : FontWeight.normal,
+                      fontWeight:
+                          data.indentLevel == 0
+                              ? FontWeight.bold
+                              : FontWeight.normal,
                       color: data.tag.categoryEnum.color,
                     ),
                     maxLines: 1,
@@ -416,8 +419,11 @@ class TagItem extends StatelessWidget {
               ),
             ),
             if (data.tag.isBookmarked)
-              Icon(Icons.bookmark,
-                  size: 16, color: Theme.of(context).colorScheme.primary),
+              Icon(
+                Icons.bookmark,
+                size: 16,
+                color: Theme.of(context).colorScheme.primary,
+              ),
             IconButton(
               icon: const Icon(Icons.more_vert, size: 16),
               onPressed: () {
@@ -522,9 +528,9 @@ class _TagInfo extends StatelessWidget {
                   child: Text(
                     tag.name,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: tag.categoryEnum.color,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      color: tag.categoryEnum.color,
+                      fontWeight: FontWeight.bold,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -548,9 +554,7 @@ class _TagInfo extends StatelessWidget {
             const SizedBox(height: 2),
             Row(
               children: [
-                Expanded(
-                  child: _buildTranslationAndParent(context),
-                ),
+                Expanded(child: _buildTranslationAndParent(context)),
                 if (hasEquivalentTags)
                   IconButton(
                     onPressed: onAssociate,
@@ -565,8 +569,11 @@ class _TagInfo extends StatelessWidget {
                   ),
                 IconButton(
                   onPressed: onEdit,
-                  icon: const Icon(Icons.settings_outlined,
-                      size: 16, color: Colors.blue),
+                  icon: const Icon(
+                    Icons.settings_outlined,
+                    size: 16,
+                    color: Colors.blue,
+                  ),
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(
                     minWidth: 32,
@@ -586,9 +593,10 @@ class _TagInfo extends StatelessWidget {
   Widget _buildTranslationAndParent(BuildContext context) {
     final translation = tag.displayTranslatedName;
     final hasTranslation = translation.isNotEmpty;
-    final parent = tag.parentId != 0
-        ? tagManagerStore.getTagDisplayDataByID(tag.parentId)?.tag
-        : null;
+    final parent =
+        tag.parentId != 0
+            ? tagManagerStore.getTagDisplayDataByID(tag.parentId)?.tag
+            : null;
 
     String tooltipMessage = '';
     if (hasTranslation) tooltipMessage += '翻译: $translation';
@@ -606,18 +614,18 @@ class _TagInfo extends StatelessWidget {
               TextSpan(
                 text: translation,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color:
-                          tag.isCustomTranslatedName ? Colors.purple : Colors.grey,
-                    ),
+                  color:
+                      tag.isCustomTranslatedName ? Colors.purple : Colors.grey,
+                ),
               ),
             if (parent != null) ...[
               if (hasTranslation) const TextSpan(text: ' '),
               TextSpan(
                 text: '(${parent.displayName})',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.blueGrey,
-                      fontSize: 10,
-                    ),
+                  color: Colors.blueGrey,
+                  fontSize: 10,
+                ),
               ),
             ],
           ],
@@ -698,9 +706,10 @@ class _TagSelectionOverlay extends StatelessWidget {
       right: 8,
       child: Container(
         decoration: BoxDecoration(
-          color: isSelected
-              ? Theme.of(context).colorScheme.primary
-              : Colors.black54,
+          color:
+              isSelected
+                  ? Theme.of(context).colorScheme.primary
+                  : Colors.black54,
           shape: BoxShape.circle,
           border: Border.all(color: Colors.white, width: 2),
         ),

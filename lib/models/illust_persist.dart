@@ -36,14 +36,15 @@ class IllustPersist {
   String? title;
   int time;
 
-  IllustPersist(
-      {this.id,
-      required this.illustId,
-      required this.userId,
-      required this.pictureUrl,
-      required this.time,
-      required this.title,
-      required this.userName});
+  IllustPersist({
+    this.id,
+    required this.illustId,
+    required this.userId,
+    required this.pictureUrl,
+    required this.time,
+    required this.title,
+    required this.userName,
+  });
 
   factory IllustPersist.fromJson(Map<String, dynamic> json) =>
       _$IllustPersistFromJson(json);
@@ -106,11 +107,7 @@ create table $tableIllustPersist (
       },
     );
     // 注册到数据库管理中心
-    DatabaseRegistry.instance.register(
-      '作品收藏数据库',
-      path,
-      () => db,
-    );
+    DatabaseRegistry.instance.register('作品收藏数据库', path, () => db);
   }
 
   Future<IllustPersist> insert(IllustPersist todo) async {
@@ -118,16 +115,21 @@ create table $tableIllustPersist (
     if (result != null) {
       todo.id = result.id;
     }
-    todo.id = await db.insert(tableIllustPersist, todo.toJson(),
-        conflictAlgorithm: ConflictAlgorithm.replace);
+    todo.id = await db.insert(
+      tableIllustPersist,
+      todo.toJson(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
     return todo;
   }
 
   Future<IllustPersist?> getAccount(int illust_id) async {
-    List<Map<String, dynamic>> maps = await db.query(tableIllustPersist,
-        columns: [cid, cillust_id, cuser_id, cpicture_url, ctime],
-        where: '$cillust_id = ?',
-        whereArgs: [illust_id]);
+    List<Map<String, dynamic>> maps = await db.query(
+      tableIllustPersist,
+      columns: [cid, cillust_id, cuser_id, cpicture_url, ctime],
+      where: '$cillust_id = ?',
+      whereArgs: [illust_id],
+    );
     if (maps.length > 0) {
       return IllustPersist.fromJson(maps.first);
     }
@@ -136,19 +138,21 @@ create table $tableIllustPersist (
 
   Future<List<IllustPersist>> getLikeIllusts(String word) async {
     List<IllustPersist> result = [];
-    List<Map<String, dynamic>> maps = await db.query(tableIllustPersist,
-        columns: [
-          cid,
-          cillust_id,
-          cuser_id,
-          cpicture_url,
-          ctime,
-          cuser_name,
-          ctitle
-        ],
-        where: '$ctitle LIKE ? or $cuser_name LIKE ?',
-        whereArgs: ["%${word}%", "%${word}%"],
-        orderBy: ctime);
+    List<Map<String, dynamic>> maps = await db.query(
+      tableIllustPersist,
+      columns: [
+        cid,
+        cillust_id,
+        cuser_id,
+        cpicture_url,
+        ctime,
+        cuser_name,
+        ctitle,
+      ],
+      where: '$ctitle LIKE ? or $cuser_name LIKE ?',
+      whereArgs: ["%${word}%", "%${word}%"],
+      orderBy: ctime,
+    );
 
     if (maps.length > 0) {
       maps.forEach((f) {
@@ -160,17 +164,19 @@ create table $tableIllustPersist (
 
   Future<List<IllustPersist>> getAllAccount() async {
     List<IllustPersist> result = [];
-    List<Map<String, dynamic>> maps = await db.query(tableIllustPersist,
-        columns: [
-          cid,
-          cillust_id,
-          cuser_id,
-          cpicture_url,
-          ctime,
-          cuser_name,
-          ctitle
-        ],
-        orderBy: ctime);
+    List<Map<String, dynamic>> maps = await db.query(
+      tableIllustPersist,
+      columns: [
+        cid,
+        cillust_id,
+        cuser_id,
+        cpicture_url,
+        ctime,
+        cuser_name,
+        ctitle,
+      ],
+      orderBy: ctime,
+    );
 
     if (maps.length > 0) {
       maps.forEach((f) {
@@ -181,13 +187,20 @@ create table $tableIllustPersist (
   }
 
   Future<int> delete(int id) async {
-    return await db
-        .delete(tableIllustPersist, where: '$cillust_id = ?', whereArgs: [id]);
+    return await db.delete(
+      tableIllustPersist,
+      where: '$cillust_id = ?',
+      whereArgs: [id],
+    );
   }
 
   Future<int> update(IllustPersist todo) async {
-    return await db.update(tableIllustPersist, todo.toJson(),
-        where: '$cid = ?', whereArgs: [todo.id]);
+    return await db.update(
+      tableIllustPersist,
+      todo.toJson(),
+      where: '$cid = ?',
+      whereArgs: [todo.id],
+    );
   }
 
   Future close() async => db.close();

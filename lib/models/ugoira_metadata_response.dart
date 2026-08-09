@@ -22,9 +22,7 @@ class UgoiraMetadataResponse {
   @JsonKey(name: 'ugoira_metadata')
   UgoiraMetadata ugoiraMetadata;
 
-  UgoiraMetadataResponse({
-    required this.ugoiraMetadata,
-  });
+  UgoiraMetadataResponse({required this.ugoiraMetadata});
 
   factory UgoiraMetadataResponse.fromJson(Map<String, dynamic> json) =>
       _$UgoiraMetadataResponseFromJson(json);
@@ -38,10 +36,7 @@ class UgoiraMetadata {
   ZipUrls zipUrls;
   List<Frame> frames;
 
-  UgoiraMetadata({
-    required this.zipUrls,
-    required this.frames,
-  });
+  UgoiraMetadata({required this.zipUrls, required this.frames});
 
   factory UgoiraMetadata.fromJson(Map<String, dynamic> json) =>
       _$UgoiraMetadataFromJson(json);
@@ -54,10 +49,7 @@ class Frame {
   String file;
   int delay;
 
-  Frame({
-    required this.file,
-    required this.delay,
-  });
+  Frame({required this.file, required this.delay});
 
   factory Frame.fromJson(Map<String, dynamic> json) => _$FrameFromJson(json);
 
@@ -68,9 +60,7 @@ class Frame {
 class ZipUrls {
   String medium;
 
-  ZipUrls({
-    required this.medium,
-  });
+  ZipUrls({required this.medium});
 
   factory ZipUrls.fromJson(Map<String, dynamic> json) =>
       _$ZipUrlsFromJson(json);

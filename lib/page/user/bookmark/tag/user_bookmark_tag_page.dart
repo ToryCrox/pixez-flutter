@@ -53,23 +53,18 @@ class _UserBookmarkTagPageState extends State<UserBookmarkTagPage>
         bottom: TabBar(
           controller: _tabController,
           tabs: <Widget>[
-            Tab(
-              text: I18n.of(context).public,
-            ),
-            Tab(
-              text: I18n.of(context).private,
-            ),
+            Tab(text: I18n.of(context).public),
+            Tab(text: I18n.of(context).private),
           ],
         ),
       ),
-      body: TabBarView(controller: _tabController, children: [
-        NewWidget(
-          restrict: "public",
-        ),
-        NewWidget(
-          restrict: "private",
-        ),
-      ]),
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          NewWidget(restrict: "public"),
+          NewWidget(restrict: "private"),
+        ],
+      ),
     );
   }
 }
@@ -91,9 +86,13 @@ class _NewWidgetState extends State<NewWidget> {
   void initState() {
     super.initState();
     _easyRefreshController = EasyRefreshController(
-        controlFinishLoad: true, controlFinishRefresh: true);
+      controlFinishLoad: true,
+      controlFinishRefresh: true,
+    );
     _bookMarkTagStore = BookMarkTagStore(
-        int.parse(accountStore.now!.userId), _easyRefreshController);
+      int.parse(accountStore.now!.userId),
+      _easyRefreshController,
+    );
   }
 
   @override
@@ -104,50 +103,59 @@ class _NewWidgetState extends State<NewWidget> {
 
   @override
   Widget build(BuildContext context) {
-    return Observer(builder: (_) {
-      return PixezEasyRefresh.builder(
-        controller: _easyRefreshController,
-        refreshOnStart: true,
-        onRefresh: () async {
-          await _bookMarkTagStore.fetch(widget.restrict);
-        },
-        onLoad: () async {
-          await _bookMarkTagStore.next();
-        },
-        childBuilder: (context, physics, scrollController) {
-          return ListView.builder(
-            physics: physics,
-            controller: scrollController,
-            itemBuilder: (context, index) {
-              if (index == 0)
+    return Observer(
+      builder: (_) {
+        return PixezEasyRefresh.builder(
+          controller: _easyRefreshController,
+          refreshOnStart: true,
+          onRefresh: () async {
+            await _bookMarkTagStore.fetch(widget.restrict);
+          },
+          onLoad: () async {
+            await _bookMarkTagStore.next();
+          },
+          childBuilder: (context, physics, scrollController) {
+            return ListView.builder(
+              physics: physics,
+              controller: scrollController,
+              itemBuilder: (context, index) {
+                if (index == 0)
+                  return ListTile(
+                    title: Text(I18n.of(context).all),
+                    onTap: () {
+                      Navigator.pop(context, {
+                        "tag": null,
+                        "restrict": widget.restrict,
+                      });
+                    },
+                  );
+                else if (index == 1)
+                  return ListTile(
+                    title: Text(I18n.of(context).unclassified),
+                    onTap: () {
+                      Navigator.pop(context, {
+                        "tag": "未分類",
+                        "restrict": widget.restrict,
+                      }); //日语
+                    },
+                  );
+                var bookmarkTag = _bookMarkTagStore.bookmarkTags[index - 2];
                 return ListTile(
-                  title: Text(I18n.of(context).all),
+                  title: Text(bookmarkTag.name),
+                  trailing: Text(bookmarkTag.count.toString()),
                   onTap: () {
-                    Navigator.pop(context, {"tag": null, "restrict": widget.restrict});
+                    Navigator.pop(context, {
+                      "tag": bookmarkTag.name,
+                      "restrict": widget.restrict,
+                    });
                   },
                 );
-              else if (index == 1)
-                return ListTile(
-                  title: Text(I18n.of(context).unclassified),
-                  onTap: () {
-                    Navigator.pop(
-                        context, {"tag": "未分類", "restrict": widget.restrict}); //日语
-                  },
-                );
-              var bookmarkTag = _bookMarkTagStore.bookmarkTags[index - 2];
-              return ListTile(
-                title: Text(bookmarkTag.name),
-                trailing: Text(bookmarkTag.count.toString()),
-                onTap: () {
-                  Navigator.pop(
-                      context, {"tag": bookmarkTag.name, "restrict": widget.restrict});
-                },
-              );
-            },
-            itemCount: _bookMarkTagStore.bookmarkTags.length + 2,
-          );
-        },
-      );
-    });
+              },
+              itemCount: _bookMarkTagStore.bookmarkTags.length + 2,
+            );
+          },
+        );
+      },
+    );
   }
 }

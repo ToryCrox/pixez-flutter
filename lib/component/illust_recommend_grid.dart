@@ -41,13 +41,10 @@ class IllustRecommendGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SliverGrid(
-      delegate: SliverChildBuilderDelegate(
-        (BuildContext context, int index) {
-          final illust = illusts[index];
-          return _buildRecommendItem(context, illust, index);
-        },
-        childCount: illusts.length,
-      ),
+      delegate: SliverChildBuilderDelegate((BuildContext context, int index) {
+        final illust = illusts[index];
+        return _buildRecommendItem(context, illust, index);
+      }, childCount: illusts.length),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 3,
       ),
@@ -57,9 +54,8 @@ class IllustRecommendGrid extends StatelessWidget {
   Widget _buildRecommendItem(BuildContext context, Illusts illust, int index) {
     return InkWell(
       onTap: () {
-        final list = illusts
-            .map((element) => IllustStore(element.id, element))
-            .toList();
+        final list =
+            illusts.map((element) => IllustStore(element.id, element)).toList();
         Leader.push(
           context,
           PictureListPage(
@@ -76,9 +72,7 @@ class IllustRecommendGrid extends StatelessWidget {
             illust.imageUrls.squareMedium,
             enableMemoryCache: false,
             fit: BoxFit.cover,
-            httpHeaders: {
-              'cover': '${illust.id}',
-            },
+            httpHeaders: {'cover': '${illust.id}'},
             memCacheWidth: memCacheWidth,
           ),
           Positioned(

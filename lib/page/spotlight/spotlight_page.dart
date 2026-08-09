@@ -42,7 +42,9 @@ class _SpotLightPageState extends State<SpotLightPage> {
     super.initState();
     _controller = ScrollController();
     _refreshController = EasyRefreshController(
-        controlFinishLoad: true, controlFinishRefresh: true);
+      controlFinishLoad: true,
+      controlFinishRefresh: true,
+    );
     _spotlightStore = SpotlightStore(_refreshController);
   }
 
@@ -55,21 +57,25 @@ class _SpotLightPageState extends State<SpotLightPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Observer(builder: (_) {
-      return Scaffold(
-        appBar: AppBar(
-          title: Text(I18n.of(context).spotlight),
-          actions: <Widget>[
-            IconButton(
-              icon: Icon(Icons.arrow_upward),
-              onPressed: () {
-                _controller.animateTo(0,
-                    duration: Duration(seconds: 1), curve: Curves.ease);
-              },
-            )
-          ],
-        ),
-        body: PixezEasyRefresh.builder(
+    return Observer(
+      builder: (_) {
+        return Scaffold(
+          appBar: AppBar(
+            title: Text(I18n.of(context).spotlight),
+            actions: <Widget>[
+              IconButton(
+                icon: Icon(Icons.arrow_upward),
+                onPressed: () {
+                  _controller.animateTo(
+                    0,
+                    duration: Duration(seconds: 1),
+                    curve: Curves.ease,
+                  );
+                },
+              ),
+            ],
+          ),
+          body: PixezEasyRefresh.builder(
             onLoad: () => _spotlightStore.next(),
             onRefresh: () => _spotlightStore.fetch(),
             header: PixezDefault.header(context),
@@ -83,13 +89,16 @@ class _SpotLightPageState extends State<SpotLightPage> {
                 controller: scrollController,
                 itemBuilder: (BuildContext context, int index) {
                   return SpotlightCard(
-                      spotlight: _spotlightStore.articles[index]);
+                    spotlight: _spotlightStore.articles[index],
+                  );
                 },
                 itemCount: _spotlightStore.articles.length,
               );
-            }),
-      );
-    });
+            },
+          ),
+        );
+      },
+    );
   }
 
   SliverWaterfallFlowDelegate _buildGridDelegate(BuildContext context) {
@@ -97,9 +106,10 @@ class _SpotLightPageState extends State<SpotLightPage> {
     if (userSetting.crossAdapt) {
       count = _buildSliderValue(context);
     } else {
-      count = (MediaQuery.of(context).orientation == Orientation.portrait)
-          ? userSetting.crossCount
-          : userSetting.hCrossCount;
+      count =
+          (MediaQuery.of(context).orientation == Orientation.portrait)
+              ? userSetting.crossCount
+              : userSetting.hCrossCount;
     }
     return SliverWaterfallFlowDelegateWithFixedCrossAxisCount(
       crossAxisCount: count,

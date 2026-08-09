@@ -40,9 +40,7 @@ class WaterFallLoading extends StatefulWidget {
 class _WaterFallLoadingState extends State<WaterFallLoading> {
   @override
   Widget build(BuildContext context) {
-    return Container(
-      child: Center(child: CircularProgressIndicator()),
-    );
+    return Container(child: Center(child: CircularProgressIndicator()));
   }
 }
 
@@ -54,15 +52,15 @@ class LightingList extends StatefulWidget {
   final String? portal;
   final bool? ai;
 
-  const LightingList(
-      {Key? key,
-      required this.source,
-      this.header,
-      this.isNested,
-      this.scrollController,
-      this.portal,
-      this.ai})
-      : super(key: key);
+  const LightingList({
+    Key? key,
+    required this.source,
+    this.header,
+    this.isNested,
+    this.scrollController,
+    this.portal,
+    this.ai,
+  }) : super(key: key);
 
   @override
   _LightingListState createState() => _LightingListState();
@@ -101,10 +99,10 @@ class _LightingListState extends State<LightingList> {
     _isNested = widget.isNested ?? false;
     _scrollController = widget.scrollController ?? ScrollController();
     _refreshController = EasyRefreshController(
-        controlFinishLoad: true, controlFinishRefresh: true);
-    _store = LightingStore(
-      widget.source,
+      controlFinishLoad: true,
+      controlFinishRefresh: true,
     );
+    _store = LightingStore(widget.source);
     _store.easyRefreshController = _refreshController;
     super.initState();
     _store.fetch();
@@ -125,17 +123,20 @@ class _LightingListState extends State<LightingList> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      child: Observer(builder: (_) {
-        return Container(child: _buildContent(context));
-      }),
+      child: Observer(
+        builder: (_) {
+          return Container(child: _buildContent(context));
+        },
+      ),
     );
   }
 
   late EasyRefreshController _refreshController;
 
   Widget _buildWithoutHeader(context) {
-    _store.iStores
-        .removeWhere((element) => element.illusts!.hateByUser(ai: _ai));
+    _store.iStores.removeWhere(
+      (element) => element.illusts!.hateByUser(ai: _ai),
+    );
     return PixezEasyRefresh.builder(
       controller: _refreshController,
       header: PixezDefault.header(context),
@@ -147,28 +148,29 @@ class _LightingListState extends State<LightingList> {
       onLoad: () async {
         await _store.fetchNext();
       },
-      childBuilder: (context, physics, scrollController) =>
-          userSetting.useWaterfallFlow
-              ? WaterfallFlow.builder(
-                  physics: physics,
-                  controller: scrollController,
-                  padding: EdgeInsets.all(5.0),
-                  itemCount: _store.iStores.length,
-                  itemBuilder: (context, index) {
-                    return _buildItem(index);
-                  },
-                  gridDelegate: _buildGridDelegate(),
-                )
-              : GridView.builder(
-                  physics: physics,
-                  controller: scrollController,
-                  padding: EdgeInsets.all(5.0),
-                  itemCount: _store.iStores.length,
-                  itemBuilder: (context, index) {
-                    return _buildGridItem(index);
-                  },
-                  gridDelegate: _buildSliverGridDelegate(),
-                ),
+      childBuilder:
+          (context, physics, scrollController) =>
+              userSetting.useWaterfallFlow
+                  ? WaterfallFlow.builder(
+                    physics: physics,
+                    controller: scrollController,
+                    padding: EdgeInsets.all(5.0),
+                    itemCount: _store.iStores.length,
+                    itemBuilder: (context, index) {
+                      return _buildItem(index);
+                    },
+                    gridDelegate: _buildGridDelegate(),
+                  )
+                  : GridView.builder(
+                    physics: physics,
+                    controller: scrollController,
+                    padding: EdgeInsets.all(5.0),
+                    itemCount: _store.iStores.length,
+                    itemBuilder: (context, index) {
+                      return _buildGridItem(index);
+                    },
+                    gridDelegate: _buildSliverGridDelegate(),
+                  ),
     );
   }
 
@@ -191,12 +193,12 @@ class _LightingListState extends State<LightingList> {
     return _store.errorMessage != null
         ? _buildErrorContent(context)
         : _store.iStores.isNotEmpty
-            ? (widget.header != null
-                ? _buildWithHeader(context)
-                : _buildWithoutHeader(context))
-            : Container(
-                child: _store.refreshing ? WaterFallLoading() : Container(),
-              );
+        ? (widget.header != null
+            ? _buildWithHeader(context)
+            : _buildWithoutHeader(context))
+        : Container(
+          child: _store.refreshing ? WaterFallLoading() : Container(),
+        );
   }
 
   Widget _buildErrorContent(context) {
@@ -206,26 +208,28 @@ class _LightingListState extends State<LightingList> {
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: <Widget>[
-          Container(
-            height: 50,
-          ),
+          Container(height: 50),
           Padding(
             padding: const EdgeInsets.all(8.0),
-            child:
-                Text(':(', style: Theme.of(context).textTheme.headlineMedium),
+            child: Text(
+              ':(',
+              style: Theme.of(context).textTheme.headlineMedium,
+            ),
           ),
           TextButton(
-              onPressed: () {
-                _store.fetch(force: true);
-              },
-              child: Text(I18n.of(context).retry)),
+            onPressed: () {
+              _store.fetch(force: true);
+            },
+            child: Text(I18n.of(context).retry),
+          ),
           Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Text(
-                (_store.errorMessage?.contains("400") == true
-                    ? '${I18n.of(context).error_400_hint}\n ${_store.errorMessage}'
-                    : '${_store.errorMessage}'),
-              ))
+            padding: const EdgeInsets.all(16.0),
+            child: Text(
+              (_store.errorMessage?.contains("400") == true
+                  ? '${I18n.of(context).error_400_hint}\n ${_store.errorMessage}'
+                  : '${_store.errorMessage}'),
+            ),
+          ),
         ],
       ),
     );
@@ -248,18 +252,16 @@ class _LightingListState extends State<LightingList> {
           physics: physics,
           controller: scrollController,
           slivers: [
-            SliverToBoxAdapter(
-              child: Container(child: widget.header),
-            ),
+            SliverToBoxAdapter(child: Container(child: widget.header)),
             userSetting.useWaterfallFlow
                 ? SliverWaterfallFlow(
-                    gridDelegate: _buildGridDelegate(),
-                    delegate: _buildSliverChildBuilderDelegate(context),
-                  )
+                  gridDelegate: _buildGridDelegate(),
+                  delegate: _buildSliverChildBuilderDelegate(context),
+                )
                 : SliverGrid(
-                    gridDelegate: _buildSliverGridDelegate(),
-                    delegate: _buildSliverGridChildBuilderDelegate(context),
-                  ),
+                  gridDelegate: _buildSliverGridDelegate(),
+                  delegate: _buildSliverGridChildBuilderDelegate(context),
+                ),
             const FooterLocator.sliver(),
           ],
         );
@@ -268,9 +270,11 @@ class _LightingListState extends State<LightingList> {
   }
 
   SliverChildBuilderDelegate _buildSliverChildBuilderDelegate(
-      BuildContext context) {
-    _store.iStores
-        .removeWhere((element) => element.illusts!.hateByUser(ai: _ai));
+    BuildContext context,
+  ) {
+    _store.iStores.removeWhere(
+      (element) => element.illusts!.hateByUser(ai: _ai),
+    );
     return SliverChildBuilderDelegate((BuildContext context, int index) {
       return IllustCard(
         lightingStore: _store,
@@ -282,9 +286,11 @@ class _LightingListState extends State<LightingList> {
   }
 
   SliverChildBuilderDelegate _buildSliverGridChildBuilderDelegate(
-      BuildContext context) {
-    _store.iStores
-        .removeWhere((element) => element.illusts!.hateByUser(ai: _ai));
+    BuildContext context,
+  ) {
+    _store.iStores.removeWhere(
+      (element) => element.illusts!.hateByUser(ai: _ai),
+    );
     return SliverChildBuilderDelegate((BuildContext context, int index) {
       return IllustCard(
         lightingStore: _store,
@@ -300,9 +306,10 @@ class _LightingListState extends State<LightingList> {
     if (userSetting.crossAdapt) {
       count = _buildSliderValue();
     } else {
-      count = (MediaQuery.of(context).orientation == Orientation.portrait)
-          ? userSetting.crossCount
-          : userSetting.hCrossCount;
+      count =
+          (MediaQuery.of(context).orientation == Orientation.portrait)
+              ? userSetting.crossCount
+              : userSetting.hCrossCount;
     }
     return SliverWaterfallFlowDelegateWithFixedCrossAxisCount(
       crossAxisCount: count,

@@ -12,8 +12,8 @@ import 'package:waterfall_flow/waterfall_flow.dart';
 class RiverPage extends HookConsumerWidget {
   final illustsProvider =
       StateNotifierProvider<IllustListNotifier, IllustListState>((ref) {
-    return IllustListNotifier(ref);
-  });
+        return IllustListNotifier(ref);
+      });
 
   @override
   Widget build(Object context, WidgetRef ref) {
@@ -32,10 +32,11 @@ class RiverPage extends HookConsumerWidget {
         title: Text("${offset ?? 0}"),
         actions: [
           IconButton(
-              onPressed: () {
-                ref.read(illustsProvider.notifier).fetch(offset: offset ?? 0);
-              },
-              icon: Icon(Icons.next_plan))
+            onPressed: () {
+              ref.read(illustsProvider.notifier).fetch(offset: offset ?? 0);
+            },
+            icon: Icon(Icons.next_plan),
+          ),
         ],
       ),
       body: Stack(
@@ -45,9 +46,11 @@ class RiverPage extends HookConsumerWidget {
             slivers: [
               SliverWaterfallFlow(
                 gridDelegate: _buildGridDelegate(ref.context),
-                delegate:
-                    _buildSliverChildBuilderDelegate(ref.context, illusts),
-              )
+                delegate: _buildSliverChildBuilderDelegate(
+                  ref.context,
+                  illusts,
+                ),
+              ),
             ],
           ),
         ],
@@ -56,12 +59,12 @@ class RiverPage extends HookConsumerWidget {
   }
 
   SliverChildBuilderDelegate _buildSliverChildBuilderDelegate(
-      BuildContext context, List<Illusts> illusts) {
+    BuildContext context,
+    List<Illusts> illusts,
+  ) {
     return SliverChildBuilderDelegate((BuildContext context, int index) {
       final illust = illusts[index];
-      return Card(
-        child: PixivImage(illust.imageUrls.medium),
-      );
+      return Card(child: PixivImage(illust.imageUrls.medium));
     }, childCount: illusts.length);
   }
 
@@ -70,9 +73,10 @@ class RiverPage extends HookConsumerWidget {
     if (userSetting.crossAdapt) {
       count = _buildSliderValue(context);
     } else {
-      count = (MediaQuery.of(context).orientation == Orientation.portrait)
-          ? userSetting.crossCount
-          : userSetting.hCrossCount;
+      count =
+          (MediaQuery.of(context).orientation == Orientation.portrait)
+              ? userSetting.crossCount
+              : userSetting.hCrossCount;
     }
     return SliverWaterfallFlowDelegateWithFixedCrossAxisCount(
       crossAxisCount: count,

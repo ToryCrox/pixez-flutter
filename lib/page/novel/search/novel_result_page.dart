@@ -11,7 +11,7 @@ class NovelResultPage extends StatefulWidget {
   final String? translatedName;
 
   const NovelResultPage({Key? key, required this.word, this.translatedName})
-      : super(key: key);
+    : super(key: key);
 
   @override
   _NovelResultPageState createState() => _NovelResultPageState();
@@ -21,8 +21,12 @@ class _NovelResultPageState extends State<NovelResultPage> {
   @override
   void initState() {
     super.initState();
-    tagHistoryStore.insert(TagsPersist(
-        name: widget.word, translatedName: widget.translatedName ?? ""));
+    tagHistoryStore.insert(
+      TagsPersist(
+        name: widget.word,
+        translatedName: widget.translatedName ?? "",
+      ),
+    );
   }
 
   @override
@@ -32,14 +36,12 @@ class _NovelResultPageState extends State<NovelResultPage> {
       child: Scaffold(
         appBar: AppBar(
           title: Text(widget.word),
-          bottom: TabBar(tabs: [
-            Tab(
-              child: Text('Novel'),
-            ),
-            Tab(
-              child: Text(I18n.of(context).painter),
-            ),
-          ]),
+          bottom: TabBar(
+            tabs: [
+              Tab(child: Text('Novel')),
+              Tab(child: Text(I18n.of(context).painter)),
+            ],
+          ),
         ),
         body: TabBarView(
           children: [
@@ -47,7 +49,7 @@ class _NovelResultPageState extends State<NovelResultPage> {
             PainterList(
               futureGet: () => apiClient.getSearchUser(widget.word),
               isNovel: true,
-            )
+            ),
           ],
         ),
       ),

@@ -46,9 +46,7 @@ class _BoardPageState extends State<BoardPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(I18n.of(context).bulletin_board),
-      ),
+      appBar: AppBar(title: Text(I18n.of(context).bulletin_board)),
       body: RefreshIndicator(
         onRefresh: () async {
           await fetchBoard();
@@ -67,9 +65,7 @@ class _BoardPageState extends State<BoardPage> {
                       board.title,
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
-                    SizedBox(
-                      height: 1,
-                    ),
+                    SizedBox(height: 1),
                     HtmlWidget(
                       board.content,
                       onTapUrl: (url) {
@@ -78,7 +74,7 @@ class _BoardPageState extends State<BoardPage> {
                     ),
                   ],
                 ),
-              )
+              ),
           ],
         ),
       ),

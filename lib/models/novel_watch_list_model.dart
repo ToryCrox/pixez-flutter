@@ -24,10 +24,7 @@ class NovelWatchListModel {
   @JsonKey(name: 'next_url')
   final String? nextUrl;
 
-  NovelWatchListModel({
-    required this.series,
-    required this.nextUrl,
-  });
+  NovelWatchListModel({required this.series, required this.nextUrl});
 
   factory NovelWatchListModel.fromJson(Map<String, dynamic> json) =>
       _$NovelWatchListModelFromJson(json);

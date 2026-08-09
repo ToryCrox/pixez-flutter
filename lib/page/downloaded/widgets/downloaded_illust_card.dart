@@ -95,11 +95,12 @@ class DownloadedIllustCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         child: InkWell(
           borderRadius: BorderRadius.circular(20),
-          onTap: () => DownloadedImageOrganizerPage.pushByUserId(
-            context,
-            userId: illust.userId,
-            illustId: illust.illustId,
-          ),
+          onTap:
+              () => DownloadedImageOrganizerPage.pushByUserId(
+                context,
+                userId: illust.userId,
+                illustId: illust.illustId,
+              ),
           child: Container(
             padding: EdgeInsets.all(6),
             child: Icon(Icons.collections, color: Colors.white, size: 18),
@@ -235,7 +236,12 @@ class DownloadedIllustCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Expanded(
-                  child: _buildThumbnailStack(context, status, isMarked, isSelected),
+                  child: _buildThumbnailStack(
+                    context,
+                    status,
+                    isMarked,
+                    isSelected,
+                  ),
                 ),
                 _buildInfoSection(context),
               ],
@@ -273,31 +279,23 @@ class DownloadedIllustCard extends StatelessWidget {
         if (isDownloading) _buildDownloadingOverlay(),
         if (isPending) _buildPendingOverlay(context),
         if (isPaused)
-          _buildStatusBadge(
-            context,
-            I18n.of(context).paused,
-            Colors.orange,
-          ),
+          _buildStatusBadge(context, I18n.of(context).paused, Colors.orange),
         if (isFailed) _buildFailedOverlay(context),
         // 多选模式下的复选框指示器
-        if (store.isMultiSelectMode) _buildSelectionOverlay(context, isSelected),
+        if (store.isMultiSelectMode)
+          _buildSelectionOverlay(context, isSelected),
       ],
     );
   }
 
   /// 构建选择模式下的覆盖层
   Widget _buildSelectionOverlay(BuildContext context, bool isSelected) {
-    final color = isSelected
-        ? Theme.of(context).colorScheme.primary
-        : Colors.black45;
+    final color =
+        isSelected ? Theme.of(context).colorScheme.primary : Colors.black45;
 
     Widget child;
     if (isSelected) {
-      child = const Icon(
-        Icons.check,
-        size: 16,
-        color: Colors.white,
-      );
+      child = const Icon(Icons.check, size: 16, color: Colors.white);
     } else {
       child = const SizedBox(width: 16, height: 16);
     }
@@ -311,10 +309,7 @@ class DownloadedIllustCard extends StatelessWidget {
           color: color,
           border: Border.all(color: Colors.white, width: 2),
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(4.0),
-          child: child,
-        ),
+        child: Padding(padding: const EdgeInsets.all(4.0), child: child),
       ),
     );
   }
@@ -539,7 +534,8 @@ class DownloadedIllustCard extends StatelessWidget {
 
         String labelText = readTime;
         if (history.totalPages > 1) {
-          labelText = "$readTime · ${history.lastPage + 1}/${history.totalPages}P";
+          labelText =
+              "$readTime · ${history.lastPage + 1}/${history.totalPages}P";
         }
 
         return Positioned(
@@ -747,12 +743,15 @@ class DownloadedIllustCard extends StatelessWidget {
     // 动图的 downloadedCount 包含预览图(part=0)和所有帧(part=1,2,3...)
     // Ugoira 的 pageCount 通常为 1，因此需要从元数据解析真实总帧数
     final totalFrames = illust.getUgoiraFrames()?.length ?? 0;
-    
+
     // 如果 downloadedCount 为 2 且元数据中记录的帧数 > 1，说明已经合并为单个 WebP (预览图 + WebP)
     final isMerged = illust.isUgoira && downloadedCount == 2 && totalFrames > 1;
-    
+
     // 实际帧数逻辑：已合并则取 totalFrames，未合并取已下载数-1
-    final frameCount = isMerged ? totalFrames : (downloadedCount > 0 ? downloadedCount - 1 : 0);
+    final frameCount =
+        isMerged
+            ? totalFrames
+            : (downloadedCount > 0 ? downloadedCount - 1 : 0);
 
     String frameText;
     if (frameCount > 0) {

@@ -10,8 +10,10 @@ class IllustSeriesDetailResponse {
   @JsonKey(name: 'illust_series_detail')
   IllustSeriesDetail? illustSeriesDetail;
 
-  IllustSeriesDetailResponse(
-      {required this.illustSeriesContext, required this.illustSeriesDetail});
+  IllustSeriesDetailResponse({
+    required this.illustSeriesContext,
+    required this.illustSeriesDetail,
+  });
 
   factory IllustSeriesDetailResponse.fromJson(Map<String, dynamic> json) =>
       _$IllustSeriesDetailResponseFromJson(json);
@@ -75,17 +77,18 @@ class IllustSeriesDetail {
   String caption;
   IllustSeriesUser? user;
 
-  IllustSeriesDetail(
-      {required this.height,
-      required this.seriesWorkCount,
-      required this.id,
-      required this.createDate,
-      required this.title,
-      required this.width,
-      required this.coverImageUrls,
-      required this.watchlistAdded,
-      required this.caption,
-      required this.user});
+  IllustSeriesDetail({
+    required this.height,
+    required this.seriesWorkCount,
+    required this.id,
+    required this.createDate,
+    required this.title,
+    required this.width,
+    required this.coverImageUrls,
+    required this.watchlistAdded,
+    required this.caption,
+    required this.user,
+  });
 
   factory IllustSeriesDetail.fromJson(Map<String, dynamic> json) =>
       _$IllustSeriesDetailFromJson(json);
@@ -103,12 +106,13 @@ class IllustSeriesUser {
   @JsonKey(name: 'is_followed')
   bool isFollowed;
 
-  IllustSeriesUser(
-      {required this.id,
-      required this.account,
-      required this.name,
-      required this.profileImageUrls,
-      required this.isFollowed});
+  IllustSeriesUser({
+    required this.id,
+    required this.account,
+    required this.name,
+    required this.profileImageUrls,
+    required this.isFollowed,
+  });
 
   factory IllustSeriesUser.fromJson(Map<String, dynamic> json) =>
       _$IllustSeriesUserFromJson(json);

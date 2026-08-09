@@ -112,10 +112,7 @@ class TaskItemWidget extends StatelessWidget {
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
-                      PixivImage(
-                        illust.imageUrls.medium,
-                        fit: BoxFit.cover,
-                      ),
+                      PixivImage(illust.imageUrls.medium, fit: BoxFit.cover),
                       if (isRunning)
                         Container(
                           color: Colors.black26,
@@ -126,18 +123,28 @@ class TaskItemWidget extends StatelessWidget {
                               child: CircularProgressIndicator(
                                 value: progress > 0 ? progress : null,
                                 strokeWidth: 3,
-                                valueColor: const AlwaysStoppedAnimation(Colors.white),
+                                valueColor: const AlwaysStoppedAnimation(
+                                  Colors.white,
+                                ),
                               ),
                             ),
                           ),
                         ),
                       if (isPaused)
-                         const Center(
-                          child: Icon(Icons.pause_circle_filled, color: Colors.white70, size: 40),
+                        const Center(
+                          child: Icon(
+                            Icons.pause_circle_filled,
+                            color: Colors.white70,
+                            size: 40,
+                          ),
                         ),
-                       if (isFailed)
-                         const Center(
-                          child: Icon(Icons.error, color: Colors.redAccent, size: 40),
+                      if (isFailed)
+                        const Center(
+                          child: Icon(
+                            Icons.error,
+                            color: Colors.redAccent,
+                            size: 40,
+                          ),
                         ),
                     ],
                   ),
@@ -157,7 +164,10 @@ class TaskItemWidget extends StatelessWidget {
                               '${illust.title} (p${task.part})',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
                             ),
                             const SizedBox(height: 2),
                             Text(
@@ -166,7 +176,9 @@ class TaskItemWidget extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 fontSize: 11,
-                                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.7),
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.primary.withValues(alpha: 0.7),
                               ),
                             ),
                           ],
@@ -178,24 +190,39 @@ class TaskItemWidget extends StatelessWidget {
                             if (isRunning) ...[
                               Text(
                                 _formatBytes(task.speed),
-                                style: const TextStyle(fontSize: 10, fontFeatures: [FontFeature.tabularFigures()]),
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  fontFeatures: [FontFeature.tabularFigures()],
+                                ),
                               ),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
                                   'ETA: ${_formatDuration(task.eta)}',
-                                  style: const TextStyle(fontSize: 10, color: Colors.grey),
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    color: Colors.grey,
+                                  ),
                                   textAlign: TextAlign.end,
                                   maxLines: 1,
                                 ),
                               ),
                             ] else ...[
-                               Expanded(
+                              Expanded(
                                 child: Text(
-                                  isFailed ? '下载失败' : (isPaused ? '已暂停' : (isPending ? '等待确认' : '等待中')),
+                                  isFailed
+                                      ? '下载失败'
+                                      : (isPaused
+                                          ? '已暂停'
+                                          : (isPending ? '等待确认' : '等待中')),
                                   style: TextStyle(
-                                    fontSize: 10, 
-                                    color: isFailed ? Colors.red : (isPaused ? Colors.orange : Colors.grey)
+                                    fontSize: 10,
+                                    color:
+                                        isFailed
+                                            ? Colors.red
+                                            : (isPaused
+                                                ? Colors.orange
+                                                : Colors.grey),
                                   ),
                                 ),
                               ),
@@ -203,7 +230,10 @@ class TaskItemWidget extends StatelessWidget {
                             const SizedBox(width: 8),
                             Text(
                               '${_formatSize(task.received)} / ${_formatSize(task.total)}',
-                              style: TextStyle(fontSize: 10, color: Colors.grey.withValues(alpha: 0.8)),
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: Colors.grey.withValues(alpha: 0.8),
+                              ),
                             ),
                           ],
                         ),
@@ -212,9 +242,14 @@ class TaskItemWidget extends StatelessWidget {
                         ClipRRect(
                           borderRadius: BorderRadius.circular(2),
                           child: LinearProgressIndicator(
-                            value: progress > 0 ? progress : (isRunning ? null : 0.0),
+                            value:
+                                progress > 0
+                                    ? progress
+                                    : (isRunning ? null : 0.0),
                             minHeight: 4,
-                            backgroundColor: Theme.of(context).dividerColor.withValues(alpha: 0.05),
+                            backgroundColor: Theme.of(
+                              context,
+                            ).dividerColor.withValues(alpha: 0.05),
                           ),
                         ),
                       ],
@@ -225,27 +260,48 @@ class TaskItemWidget extends StatelessWidget {
                 Container(
                   width: 48,
                   decoration: BoxDecoration(
-                    border: Border(left: BorderSide(color: Theme.of(context).dividerColor.withValues(alpha: 0.1))),
+                    border: Border(
+                      left: BorderSide(
+                        color: Theme.of(
+                          context,
+                        ).dividerColor.withValues(alpha: 0.1),
+                      ),
+                    ),
                   ),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
                       if (isPaused || isFailed || isPending)
                         IconButton(
-                          icon: const Icon(Icons.play_arrow_rounded, color: Colors.green, size: 20),
+                          icon: const Icon(
+                            Icons.play_arrow_rounded,
+                            color: Colors.green,
+                            size: 20,
+                          ),
                           onPressed: onResume ?? onRetry,
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(),
                         )
-                      else if (isRunning || task.status == DownloadTaskStatus.pending)
+                      else if (isRunning ||
+                          task.status == DownloadTaskStatus.pending)
                         IconButton(
-                          icon: const Icon(Icons.pause_rounded, color: Colors.orange, size: 20),
-                          onPressed: () => downloadStore.pauseIllustDownload(illust.id),
+                          icon: const Icon(
+                            Icons.pause_rounded,
+                            color: Colors.orange,
+                            size: 20,
+                          ),
+                          onPressed:
+                              () =>
+                                  downloadStore.pauseIllustDownload(illust.id),
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(),
                         ),
                       IconButton(
-                        icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 20),
+                        icon: const Icon(
+                          Icons.delete_outline_rounded,
+                          color: Colors.redAccent,
+                          size: 20,
+                        ),
                         onPressed: onDelete,
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),

@@ -19,13 +19,17 @@ import 'package:pixez/main.dart';
 class DocumentPlugin {
   static const platform = const MethodChannel('com.perol.dev/save');
 
-  static Future<bool?> save(Uint8List uint8list, String fileName,
-      {bool clearOld = false, int? saveMode}) async {
+  static Future<bool?> save(
+    Uint8List uint8list,
+    String fileName, {
+    bool clearOld = false,
+    int? saveMode,
+  }) async {
     return platform.invokeMethod<bool>('save', {
       "data": uint8list,
       "name": fileName,
       "save_mode": saveMode ?? userSetting.saveMode,
-      "clear_old": clearOld
+      "clear_old": clearOld,
     });
   }
 
@@ -56,8 +60,8 @@ class DocumentPlugin {
         "save_mode": saveMode ?? userSetting.saveMode,
       });
 
-  static Future<dynamic> choiceFolder({int? saveMode}) =>
-      platform.invokeMethod("choice_folder", {
-        "save_mode": saveMode ?? userSetting.saveMode,
-      });
+  static Future<dynamic> choiceFolder({int? saveMode}) => platform.invokeMethod(
+    "choice_folder",
+    {"save_mode": saveMode ?? userSetting.saveMode},
+  );
 }

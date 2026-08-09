@@ -9,9 +9,11 @@ import 'package:pixez/network/api_client.dart';
 part 'painter_list_store.g.dart';
 
 class PainterListStore extends _PainterListStoreBase with _$PainterListStore {
-  PainterListStore(EasyRefreshController controller, FutureGet source,
-      {String? cacheKey})
-      : super(controller, source, cacheKey: cacheKey);
+  PainterListStore(
+    EasyRefreshController controller,
+    FutureGet source, {
+    String? cacheKey,
+  }) : super(controller, source, cacheKey: cacheKey);
 }
 
 abstract class _PainterListStoreBase with Store {
@@ -50,8 +52,9 @@ abstract class _PainterListStoreBase with Store {
     // 2. 加载网络数据
     try {
       Response response = await source();
-      UserPreviewsResponse userPreviewsResponse =
-          UserPreviewsResponse.fromJson(response.data);
+      UserPreviewsResponse userPreviewsResponse = UserPreviewsResponse.fromJson(
+        response.data,
+      );
       nextUrl = userPreviewsResponse.next_url;
       final results = userPreviewsResponse.user_previews;
       users.clear();

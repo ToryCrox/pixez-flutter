@@ -22,7 +22,9 @@ class IllustSeriesState with _$IllustSeriesState {
 @riverpod
 class IllustSeriesStore extends _$IllustSeriesStore {
   EasyRefreshController controller = EasyRefreshController(
-      controlFinishLoad: true, controlFinishRefresh: true);
+    controlFinishLoad: true,
+    controlFinishRefresh: true,
+  );
   late int id;
 
   @override
@@ -52,17 +54,22 @@ class IllustSeriesStore extends _$IllustSeriesStore {
       final model = IllustSeriesWithIdModel.fromJson(response.data);
       final nextUrl = model.nextUrl;
       controller.finishRefresh(
-          nextUrl != null ? IndicatorResult.success : IndicatorResult.noMore);
+        nextUrl != null ? IndicatorResult.success : IndicatorResult.noMore,
+      );
       state = state.copyWith(
-          isLoading: false,
-          model: model,
-          watchlistAdded: model.illustSeriesDetail?.watchlistAdded ?? false,
-          illusts: [...model.illusts?.map((e) => IllustStore(e.id, e)) ?? []],
-          errorMessage: null);
+        isLoading: false,
+        model: model,
+        watchlistAdded: model.illustSeriesDetail?.watchlistAdded ?? false,
+        illusts: [...model.illusts?.map((e) => IllustStore(e.id, e)) ?? []],
+        errorMessage: null,
+      );
     } catch (e) {
       controller.finishRefresh(IndicatorResult.fail);
       state = state.copyWith(
-          isLoading: false, errorMessage: e.toString(), watchlistAdded: false);
+        isLoading: false,
+        errorMessage: e.toString(),
+        watchlistAdded: false,
+      );
     }
   }
 
@@ -76,16 +83,19 @@ class IllustSeriesStore extends _$IllustSeriesStore {
       }
       final response = await apiClient.getNext(nextUrl);
       final model = IllustSeriesWithIdModel.fromJson(response.data);
-      controller.finishLoad(state.model?.nextUrl != null
-          ? IndicatorResult.success
-          : IndicatorResult.noMore);
+      controller.finishLoad(
+        state.model?.nextUrl != null
+            ? IndicatorResult.success
+            : IndicatorResult.noMore,
+      );
       state = state.copyWith(
-          model: model,
-          illusts: [
-            ...state.illusts,
-            ...model.illusts?.map((e) => IllustStore(e.id, e)) ?? []
-          ],
-          errorMessage: null);
+        model: model,
+        illusts: [
+          ...state.illusts,
+          ...model.illusts?.map((e) => IllustStore(e.id, e)) ?? [],
+        ],
+        errorMessage: null,
+      );
     } catch (e) {
       controller.finishLoad(IndicatorResult.fail);
     }

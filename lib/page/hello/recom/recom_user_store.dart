@@ -37,7 +37,9 @@ abstract class _RecomUserStoreBase with Store {
     if (users.isEmpty) {
       try {
         final cachedData = await DiskCache.readModel(
-            "recom_user_cache", (map) => UserPreviewsResponse.fromJson(map));
+          "recom_user_cache",
+          (map) => UserPreviewsResponse.fromJson(map),
+        );
         if (cachedData != null) {
           users.clear();
           users.addAll(cachedData.user_previews);

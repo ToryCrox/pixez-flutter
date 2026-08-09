@@ -31,7 +31,8 @@ extension HostExts on Uri {
           if (userSetting.pictureSource!.contains('/')) {
             final preHost = this.host;
             return Uri.parse(
-                '${this.toString().replaceAll(preHost, userSetting.pictureSource!)}');
+              '${this.toString().replaceAll(preHost, userSetting.pictureSource!)}',
+            );
           }
           return this.replace(host: userSetting.pictureSource);
         } catch (e) {}
@@ -115,19 +116,19 @@ extension TimeExts on String {
         .replaceAll("\n", "")
         .replaceAll("\r", "")
         .replaceAll("\t", "");
-    
+
     // Windows平台需要移除控制字符
     if (Platform.isWindows) {
       // 移除控制字符
       result = result.replaceAll(RegExp(r'[\x00-\x1F\x7F]'), '');
     }
-    
+
     // 移除尾随空格和点（Windows不允许文件名以空格或点结尾）
     result = result.trim();
     while (result.endsWith('.') || result.endsWith(' ')) {
       result = result.substring(0, result.length - 1).trim();
     }
-    
+
     // 移除Windows保留名称（CON, PRN, AUX, NUL, COM1-9, LPT1-9等）
     final reservedNames = ['CON', 'PRN', 'AUX', 'NUL'];
     for (int i = 1; i <= 9; i++) {
@@ -137,12 +138,12 @@ extension TimeExts on String {
     if (reservedNames.contains(result.toUpperCase())) {
       result = '_$result';
     }
-    
+
     // 如果结果为空，使用默认名称
     if (result.isEmpty) {
       result = 'unnamed';
     }
-    
+
     return result;
   }
 
@@ -269,9 +270,9 @@ extension IllustExts on Illusts {
       if (this.id == int.parse(i.illustId)) {
         return true;
       }
-    if (accountStore.now?.mailAddress
-            .toLowerCase()
-            .contains("pxezfeedback@outlook.com") ==
+    if (accountStore.now?.mailAddress.toLowerCase().contains(
+          "pxezfeedback@outlook.com",
+        ) ==
         true) {
       if (sanityLevel > 4) return true;
     }

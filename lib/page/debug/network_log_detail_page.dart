@@ -16,15 +16,18 @@ class NetworkLogDetailPage extends StatefulWidget {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       constraints: const BoxConstraints(maxWidth: 900),
-      builder: (context) => Container(
-        height: MediaQuery.of(context).size.height * 0.9,
-        decoration: BoxDecoration(
-          color: Theme.of(context).scaffoldBackgroundColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-        ),
-        clipBehavior: Clip.antiAliasWithSaveLayer,
-        child: NetworkLogDetailPage(log: log),
-      ),
+      builder:
+          (context) => Container(
+            height: MediaQuery.of(context).size.height * 0.9,
+            decoration: BoxDecoration(
+              color: Theme.of(context).scaffoldBackgroundColor,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(16),
+              ),
+            ),
+            clipBehavior: Clip.antiAliasWithSaveLayer,
+            child: NetworkLogDetailPage(log: log),
+          ),
     );
   }
 
@@ -72,17 +75,23 @@ class _NetworkLogDetailPageState extends State<NetworkLogDetailPage> {
                     _buildInfoRow('Method', widget.log.method),
                     _buildInfoRow('Protocol', widget.log.protocol ?? "Unknown"),
                     _buildInfoRow(
-                        'Status', widget.log.statusCode?.toString() ?? 'Pending',
-                        valueColor: _getStatusColor(widget.log.statusCode)),
+                      'Status',
+                      widget.log.statusCode?.toString() ?? 'Pending',
+                      valueColor: _getStatusColor(widget.log.statusCode),
+                    ),
                     _buildInfoRow('Time', widget.log.formattedRequestTime),
                     if (widget.log.duration != null)
                       _buildInfoRow(
-                          'Duration', '${widget.log.duration!.inMilliseconds} ms'),
+                        'Duration',
+                        '${widget.log.duration!.inMilliseconds} ms',
+                      ),
                   ]),
                   if (widget.log.error != null)
                     _buildSection(context, '错误信息', [
-                      Text(widget.log.error!,
-                          style: const TextStyle(color: Colors.red, fontSize: 12)),
+                      Text(
+                        widget.log.error!,
+                        style: const TextStyle(color: Colors.red, fontSize: 12),
+                      ),
                     ]),
                   _buildSection(context, '请求头 (Request Headers)', [
                     _buildHeaders(widget.log.requestHeaders),
@@ -107,7 +116,11 @@ class _NetworkLogDetailPageState extends State<NetworkLogDetailPage> {
     );
   }
 
-  Widget _buildSection(BuildContext context, String title, List<Widget> children) {
+  Widget _buildSection(
+    BuildContext context,
+    String title,
+    List<Widget> children,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -135,8 +148,12 @@ class _NetworkLogDetailPageState extends State<NetworkLogDetailPage> {
     );
   }
 
- Widget _buildInfoRow(String label, String value,
-      {Color? valueColor, bool selectable = false}) {
+  Widget _buildInfoRow(
+    String label,
+    String value, {
+    Color? valueColor,
+    bool selectable = false,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
       child: Row(
@@ -147,11 +164,17 @@ class _NetworkLogDetailPageState extends State<NetworkLogDetailPage> {
             child: Text(
               '$label:',
               style: const TextStyle(
-                  fontSize: 12, color: Colors.grey, fontWeight: FontWeight.w500),
+                fontSize: 12,
+                color: Colors.grey,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
           Expanded(
-            child: Text(value, style: TextStyle(fontSize: 12, color: valueColor)),
+            child: Text(
+              value,
+              style: TextStyle(fontSize: 12, color: valueColor),
+            ),
           ),
         ],
       ),
@@ -160,24 +183,37 @@ class _NetworkLogDetailPageState extends State<NetworkLogDetailPage> {
 
   Widget _buildHeaders(Map<String, dynamic>? headers) {
     if (headers == null || headers.isEmpty) {
-      return const Text('无', style: TextStyle(fontSize: 12, color: Colors.grey));
+      return const Text(
+        '无',
+        style: TextStyle(fontSize: 12, color: Colors.grey),
+      );
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: headers.entries.map((e) {
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 4.0),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('${e.key}: ',
-                  style:
-                      const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-              Expanded(child: Text('${e.value}', style: const TextStyle(fontSize: 12))),
-            ],
-          ),
-        );
-      }).toList(),
+      children:
+          headers.entries.map((e) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 4.0),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${e.key}: ',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Expanded(
+                    child: Text(
+                      '${e.value}',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }).toList(),
     );
   }
 
@@ -189,15 +225,19 @@ class _NetworkLogDetailPageState extends State<NetworkLogDetailPage> {
           return const Padding(
             padding: EdgeInsets.all(16.0),
             child: Center(
-                child: SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(strokeWidth: 2))),
+              child: SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
           );
         }
         if (snapshot.hasError) {
-          return Text('Error formatting body: ${snapshot.error}',
-              style: const TextStyle(color: Colors.red));
+          return Text(
+            'Error formatting body: ${snapshot.error}',
+            style: const TextStyle(color: Colors.red),
+          );
         }
         if (snapshot.hasData) {
           return _buildFormattedBodyView(context, snapshot.data!);
@@ -228,8 +268,9 @@ class _NetworkLogDetailPageState extends State<NetworkLogDetailPage> {
               tooltip: "复制完整内容",
               onPressed: () {
                 Clipboard.setData(ClipboardData(text: result.fullContent));
-                ScaffoldMessenger.of(context)
-                    .showSnackBar(const SnackBar(content: Text('已复制完整内容到剪贴板')));
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(const SnackBar(content: Text('已复制完整内容到剪贴板')));
               },
             ),
           ],
@@ -241,34 +282,40 @@ class _NetworkLogDetailPageState extends State<NetworkLogDetailPage> {
             borderRadius: BorderRadius.circular(8),
           ),
           padding: const EdgeInsets.all(8),
-          child: result.isTruncated
-              ? Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    JsonHighlighter(
-                      json: result.displayContent,
-                      isDark: isDark,
-                      padding: EdgeInsets.zero,
-                    ),
-                    const Divider(),
-                    Center(
-                      child: TextButton(
-                        onPressed: () {
-                          Clipboard.setData(ClipboardData(text: result.fullContent));
-                          ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('已复制完整内容到剪贴板')));
-                        },
-                        child: const Text("点击复制完整内容 (显示已截断)",
-                            style: TextStyle(fontSize: 12)),
+          child:
+              result.isTruncated
+                  ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      JsonHighlighter(
+                        json: result.displayContent,
+                        isDark: isDark,
+                        padding: EdgeInsets.zero,
                       ),
-                    )
-                  ],
-                )
-              : JsonHighlighter(
-                  json: result.displayContent,
-                  isDark: isDark,
-                  padding: EdgeInsets.zero,
-                ),
+                      const Divider(),
+                      Center(
+                        child: TextButton(
+                          onPressed: () {
+                            Clipboard.setData(
+                              ClipboardData(text: result.fullContent),
+                            );
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('已复制完整内容到剪贴板')),
+                            );
+                          },
+                          child: const Text(
+                            "点击复制完整内容 (显示已截断)",
+                            style: TextStyle(fontSize: 12),
+                          ),
+                        ),
+                      ),
+                    ],
+                  )
+                  : JsonHighlighter(
+                    json: result.displayContent,
+                    isDark: isDark,
+                    padding: EdgeInsets.zero,
+                  ),
         ),
       ],
     );

@@ -99,8 +99,9 @@ class _WindowFrameState extends State<WindowFrame> {
         actions: <Type, Action<Intent>>{
           _GoBackIntent: CallbackAction<_GoBackIntent>(
             onInvoke: (_) {
-              final navigator =
-                  Navigator.maybeOf(globalNavigatorKey.currentContext!);
+              final navigator = Navigator.maybeOf(
+                globalNavigatorKey.currentContext!,
+              );
               if (navigator != null && navigator.canPop()) {
                 navigator.pop();
               }
@@ -140,71 +141,90 @@ class _WindowFrameState extends State<WindowFrame> {
                   child: Stack(
                     children: [
                       // 背景拖动层：响应最灵敏的原生拖动
-                      const Positioned.fill(child: DragToMoveArea(child: SizedBox.shrink())),
+                      const Positioned.fill(
+                        child: DragToMoveArea(child: SizedBox.shrink()),
+                      ),
                       // 交互层：包含图标和按钮
                       Material(
                         color: Colors.transparent,
                         child: Theme(
                           data: Theme.of(context).copyWith(
-                            brightness: windowFrameController.useDarkTheme
-                                ? Brightness.dark
-                                : null,
+                            brightness:
+                                windowFrameController.useDarkTheme
+                                    ? Brightness.dark
+                                    : null,
                           ),
-                          child: Builder(builder: (context) {
-                            return Row(
-                              children: [
-                                if (!Platform.isMacOS)
-                                  Observer(
-                                    builder: (context) => Visibility(
-                                      visible: !fullScreenStore.fullscreen,
-                                      child: buildMenuButton(windowFrameController, context),
+                          child: Builder(
+                            builder: (context) {
+                              return Row(
+                                children: [
+                                  if (!Platform.isMacOS)
+                                    Observer(
+                                      builder:
+                                          (context) => Visibility(
+                                            visible:
+                                                !fullScreenStore.fullscreen,
+                                            child: buildMenuButton(
+                                              windowFrameController,
+                                              context,
+                                            ),
+                                          ),
+                                    )
+                                  else
+                                    // macOS 信号灯区域占位，但仍可拖动
+                                    const DragToMoveArea(
+                                      child: SizedBox(
+                                        height: double.infinity,
+                                        width: 16,
+                                      ),
                                     ),
-                                  )
-                                else
-                                  // macOS 信号灯区域占位，但仍可拖动
-                                  const DragToMoveArea(
-                                    child: SizedBox(
-                                      height: double.infinity,
-                                      width: 16,
-                                    ),
-                                  ),
-                                Expanded(
-                                  // 文字区域也支持拖动，但通过包裹 DragToMoveArea 确保万无一失
-                                  child: DragToMoveArea(
-                                    child: Align(
-                                      alignment: Alignment.centerLeft,
-                                      child: Text(
-                                        'Pixez',
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          color: (windowFrameController.useDarkTheme ||
-                                                  Theme.of(context).brightness ==
-                                                      Brightness.dark)
-                                              ? Colors.white
-                                              : Colors.black,
+                                  Expanded(
+                                    // 文字区域也支持拖动，但通过包裹 DragToMoveArea 确保万无一失
+                                    child: DragToMoveArea(
+                                      child: Align(
+                                        alignment: Alignment.centerLeft,
+                                        child: Text(
+                                          'Pixez',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            color:
+                                                (windowFrameController
+                                                            .useDarkTheme ||
+                                                        Theme.of(
+                                                              context,
+                                                            ).brightness ==
+                                                            Brightness.dark)
+                                                    ? Colors.white
+                                                    : Colors.black,
+                                          ),
                                         ),
                                       ),
                                     ),
                                   ),
-                                ),
-                                if (!Platform.isMacOS)
-                                  const WindowButtons()
-                                else
-                                  Observer(
-                                    builder: (context) => Visibility(
-                                      visible: !fullScreenStore.fullscreen,
-                                      child: buildMenuButton(windowFrameController, context),
+                                  if (!Platform.isMacOS)
+                                    const WindowButtons()
+                                  else
+                                    Observer(
+                                      builder:
+                                          (context) => Visibility(
+                                            visible:
+                                                !fullScreenStore.fullscreen,
+                                            child: buildMenuButton(
+                                              windowFrameController,
+                                              context,
+                                            ),
+                                          ),
                                     ),
-                                  ),
-                              ],
-                            );
-                          }),
+                                ],
+                              );
+                            },
+                          ),
                         ),
                       ),
                     ],
                   ),
                 ),
-              )
+              ),
             ],
           ),
         ),
@@ -213,7 +233,9 @@ class _WindowFrameState extends State<WindowFrame> {
   }
 
   Widget buildMenuButton(
-      WindowFrameController controller, BuildContext context) {
+    WindowFrameController controller,
+    BuildContext context,
+  ) {
     return InkWell(
       onTap: () {
         controller.openSideBar();
@@ -225,10 +247,12 @@ class _WindowFrameState extends State<WindowFrame> {
           child: CustomPaint(
             size: const Size(18, 20),
             painter: _MenuPainter(
-                color: (controller.useDarkTheme ||
-                        Theme.of(context).brightness == Brightness.dark)
-                    ? Colors.white
-                    : Colors.black),
+              color:
+                  (controller.useDarkTheme ||
+                          Theme.of(context).brightness == Brightness.dark)
+                      ? Colors.white
+                      : Colors.black,
+            ),
           ),
         ),
       ),
@@ -244,13 +268,14 @@ class _MenuPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = getPaint(color);
-    final path = Path()
-      ..moveTo(0, size.height / 4)
-      ..lineTo(size.width, size.height / 4)
-      ..moveTo(0, size.height / 4 * 2)
-      ..lineTo(size.width, size.height / 4 * 2)
-      ..moveTo(0, size.height / 4 * 3)
-      ..lineTo(size.width, size.height / 4 * 3);
+    final path =
+        Path()
+          ..moveTo(0, size.height / 4)
+          ..lineTo(size.width, size.height / 4)
+          ..moveTo(0, size.height / 4 * 2)
+          ..lineTo(size.width, size.height / 4 * 2)
+          ..moveTo(0, size.height / 4 * 3)
+          ..lineTo(size.width, size.height / 4 * 3);
     canvas.drawPath(path, paint);
   }
 
@@ -282,7 +307,10 @@ class __SideBarState extends State<_SideBar>
   void initState() {
     super.initState();
     _controller = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 160), value: 0);
+      vsync: this,
+      duration: const Duration(milliseconds: 160),
+      value: 0,
+    );
     var controller = windowFrameController;
     controller.openSideBar = run;
   }
@@ -296,14 +324,16 @@ class __SideBarState extends State<_SideBar>
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-        animation: CurvedAnimation(
-            parent: _controller, curve: Curves.fastEaseInToSlowEaseOut),
-        builder: (context, child) {
-          var value = _controller.value;
-          return Stack(
-            children: [
-              Positioned.fill(
-                  child: GestureDetector(
+      animation: CurvedAnimation(
+        parent: _controller,
+        curve: Curves.fastEaseInToSlowEaseOut,
+      ),
+      builder: (context, child) {
+        var value = _controller.value;
+        return Stack(
+          children: [
+            Positioned.fill(
+              child: GestureDetector(
                 onTap: run,
                 child: Container(
                   width: double.infinity,
@@ -311,36 +341,35 @@ class __SideBarState extends State<_SideBar>
                   color:
                       value == 0 ? null : Colors.black.withOpacity(0.2 * value),
                 ),
-              )),
-              Positioned(
-                left:
-                    !Platform.isMacOS ? (1 - _controller.value) * (-300) : null,
-                right: Platform.isMacOS ? (_controller.value - 1) * 300 : null,
-                top: 0,
-                bottom: 0,
-                child: Material(
-                  color: Theme.of(context).colorScheme.surface,
-                  surfaceTintColor: Theme.of(context).colorScheme.surfaceTint,
-                  elevation: 2,
-                  borderRadius: const BorderRadius.only(
-                    topRight: Radius.circular(8),
-                    bottomRight: Radius.circular(8),
-                  ),
-                  child: SizedBox(
-                    width: 200,
-                    height: double.infinity,
-                    child: Padding(
-                      padding: const EdgeInsets.only(top: _kTitleBarHeight),
-                      child: const SingleChildScrollView(
-                        child: _SideBarBody(),
-                      ),
-                    ),
+              ),
+            ),
+            Positioned(
+              left: !Platform.isMacOS ? (1 - _controller.value) * (-300) : null,
+              right: Platform.isMacOS ? (_controller.value - 1) * 300 : null,
+              top: 0,
+              bottom: 0,
+              child: Material(
+                color: Theme.of(context).colorScheme.surface,
+                surfaceTintColor: Theme.of(context).colorScheme.surfaceTint,
+                elevation: 2,
+                borderRadius: const BorderRadius.only(
+                  topRight: Radius.circular(8),
+                  bottomRight: Radius.circular(8),
+                ),
+                child: SizedBox(
+                  width: 200,
+                  height: double.infinity,
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: _kTitleBarHeight),
+                    child: const SingleChildScrollView(child: _SideBarBody()),
                   ),
                 ),
-              )
-            ],
-          );
-        });
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 }
 
@@ -431,10 +460,11 @@ class _SideBarBody extends StatelessWidget {
     );
   }
 
-  Widget buildItem(
-      {required IconData icon,
-      required String title,
-      required VoidCallback onTap}) {
+  Widget buildItem({
+    required IconData icon,
+    required String title,
+    required VoidCallback onTap,
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: InkWell(
@@ -556,9 +586,7 @@ class _WindowButtonsState extends State<WindowButtons> with WindowListener {
                 ),
                 if (isMaximized)
                   WindowButton(
-                    icon: RestoreIcon(
-                      color: color,
-                    ),
+                    icon: RestoreIcon(color: color),
                     hoverColor: hoverColor,
                     onPressed: () {
                       windowManager.unmaximize();
@@ -566,9 +594,7 @@ class _WindowButtonsState extends State<WindowButtons> with WindowListener {
                   )
                 else
                   WindowButton(
-                    icon: MaximizeIcon(
-                      color: color,
-                    ),
+                    icon: MaximizeIcon(color: color),
                     hoverColor: hoverColor,
                     onPressed: () {
                       windowManager.maximize();
@@ -576,9 +602,7 @@ class _WindowButtonsState extends State<WindowButtons> with WindowListener {
                   ),
               ],
               WindowButton(
-                icon: CloseIcon(
-                  color: color,
-                ),
+                icon: CloseIcon(color: color),
                 hoverIcon: CloseIcon(
                   color: !dark ? Colors.white : Colors.black,
                 ),
@@ -589,12 +613,13 @@ class _WindowButtonsState extends State<WindowButtons> with WindowListener {
                     return;
                   }
                   showDialog(
-                      context: globalNavigatorKey.currentContext!,
-                      builder: (context) {
-                        bool isCheck = false;
-                        return AlertDialog(
-                          title: Text('是否退出程序?'),
-                          content: StatefulBuilder(builder: (context, setState) {
+                    context: globalNavigatorKey.currentContext!,
+                    builder: (context) {
+                      bool isCheck = false;
+                      return AlertDialog(
+                        title: Text('是否退出程序?'),
+                        content: StatefulBuilder(
+                          builder: (context, setState) {
                             return Row(
                               children: [
                                 Checkbox(
@@ -608,25 +633,27 @@ class _WindowButtonsState extends State<WindowButtons> with WindowListener {
                                 Text('不再提示'),
                               ],
                             );
-                          }),
-                          actions: [
-                            TextButton(
-                              onPressed: () {
-                                Navigator.of(context).pop();
-                              },
-                              child: Text('否'),
-                            ),
-                            TextButton(
-                              onPressed: () {
-                                windowManager.close();
-                              },
-                              child: Text('是'),
-                            ),
-                          ],
-                        );
-                      });
+                          },
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () {
+                              Navigator.of(context).pop();
+                            },
+                            child: Text('否'),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              windowManager.close();
+                            },
+                            child: Text('是'),
+                          ),
+                        ],
+                      );
+                    },
+                  );
                 },
-              )
+              ),
             ],
           ),
         );
@@ -636,12 +663,13 @@ class _WindowButtonsState extends State<WindowButtons> with WindowListener {
 }
 
 class WindowButton extends StatefulWidget {
-  const WindowButton(
-      {required this.icon,
-      required this.onPressed,
-      required this.hoverColor,
-      this.hoverIcon,
-      super.key});
+  const WindowButton({
+    required this.icon,
+    required this.onPressed,
+    required this.hoverColor,
+    this.hoverIcon,
+    super.key,
+  });
 
   final Widget icon;
 
@@ -661,19 +689,22 @@ class _WindowButtonState extends State<WindowButton> {
   @override
   Widget build(BuildContext context) {
     return MouseRegion(
-      onEnter: (event) => setState(() {
-        isHovering = true;
-      }),
-      onExit: (event) => setState(() {
-        isHovering = false;
-      }),
+      onEnter:
+          (event) => setState(() {
+            isHovering = true;
+          }),
+      onExit:
+          (event) => setState(() {
+            isHovering = false;
+          }),
       child: GestureDetector(
         onTap: widget.onPressed,
         child: Container(
           width: 46,
           height: double.infinity,
-          decoration:
-              BoxDecoration(color: isHovering ? widget.hoverColor : null),
+          decoration: BoxDecoration(
+            color: isHovering ? widget.hoverColor : null,
+          ),
           child: isHovering ? widget.hoverIcon ?? widget.icon : widget.icon,
         ),
       ),
@@ -726,10 +757,7 @@ class _MaximizePainter extends _IconPainter {
 class RestoreIcon extends StatelessWidget {
   final Color color;
 
-  const RestoreIcon({
-    super.key,
-    required this.color,
-  });
+  const RestoreIcon({super.key, required this.color});
 
   @override
   Widget build(BuildContext context) => _AlignedPaint(_RestorePainter(color));
@@ -745,9 +773,15 @@ class _RestorePainter extends _IconPainter {
     canvas.drawLine(const Offset(2, 2), const Offset(2, 0), p);
     canvas.drawLine(const Offset(2, 0), Offset(size.width, 0), p);
     canvas.drawLine(
-        Offset(size.width, 0), Offset(size.width, size.height - 2), p);
-    canvas.drawLine(Offset(size.width, size.height - 2),
-        Offset(size.width - 2, size.height - 2), p);
+      Offset(size.width, 0),
+      Offset(size.width, size.height - 2),
+      p,
+    );
+    canvas.drawLine(
+      Offset(size.width, size.height - 2),
+      Offset(size.width - 2, size.height - 2),
+      p,
+    );
   }
 }
 
@@ -768,7 +802,10 @@ class _MinimizePainter extends _IconPainter {
   void paint(Canvas canvas, Size size) {
     Paint p = getPaint(color);
     canvas.drawLine(
-        Offset(0, size.height / 2), Offset(size.width, size.height / 2), p);
+      Offset(0, size.height / 2),
+      Offset(size.width, size.height / 2),
+      p,
+    );
   }
 }
 
@@ -790,16 +827,18 @@ class _AlignedPaint extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Align(
-        alignment: Alignment.center,
-        child: CustomPaint(size: const Size(10, 10), painter: painter));
+      alignment: Alignment.center,
+      child: CustomPaint(size: const Size(10, 10), painter: painter),
+    );
   }
 }
 
-Paint getPaint(Color color, [bool isAntiAlias = false]) => Paint()
-  ..color = color
-  ..style = PaintingStyle.stroke
-  ..isAntiAlias = isAntiAlias
-  ..strokeWidth = 1;
+Paint getPaint(Color color, [bool isAntiAlias = false]) =>
+    Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..isAntiAlias = isAntiAlias
+      ..strokeWidth = 1;
 
 class WindowPlacement with WindowListener {
   final Rect rect;
@@ -822,19 +861,25 @@ class WindowPlacement with WindowListener {
 
   factory WindowPlacement.fromMap(Map<String, dynamic> map) {
     return WindowPlacement(
-      Rect.fromLTRB(map['rect']['left'], map['rect']['top'],
-          map['rect']['right'], map['rect']['bottom']),
+      Rect.fromLTRB(
+        map['rect']['left'],
+        map['rect']['top'],
+        map['rect']['right'],
+        map['rect']['bottom'],
+      ),
       map['isMaximized'],
     );
   }
 
   /// 将保存的窗口位置和大小应用到窗口，不处理最大化状态
   Future<void> applyToWindow() async {
-    Log.d('WindowPlacement.applyToWindow: rect=$rect, isMaximized=$isMaximized');
-    
+    Log.d(
+      'WindowPlacement.applyToWindow: rect=$rect, isMaximized=$isMaximized',
+    );
+
     // 只设置还原态的位置和大小
     await windowManager.setBounds(rect);
-    
+
     // 验证位置，如果不合法（如在屏幕外）则居中
     if (!validate(rect)) {
       await windowManager.center();
@@ -843,7 +888,9 @@ class WindowPlacement with WindowListener {
 
   Future<void> writeToFile() async {
     final data = toMap();
-    Log.d('WindowPlacement.writeToFile: 位置=${rect.topLeft}, 尺寸=${rect.size}, 最大化=$isMaximized');
+    Log.d(
+      'WindowPlacement.writeToFile: 位置=${rect.topLeft}, 尺寸=${rect.size}, 最大化=$isMaximized',
+    );
     await Prefer.setString('window_frame', jsonEncode(data));
   }
 
@@ -856,7 +903,9 @@ class WindowPlacement with WindowListener {
       }
       var json = jsonDecode(jsonString);
       final placement = WindowPlacement.fromMap(json);
-      Log.d('WindowPlacement.loadFromFile: 位置=${placement.rect.topLeft}, 尺寸=${placement.rect.size}, 最大化=${placement.isMaximized}');
+      Log.d(
+        'WindowPlacement.loadFromFile: 位置=${placement.rect.topLeft}, 尺寸=${placement.rect.size}, 最大化=${placement.isMaximized}',
+      );
       return placement;
     } catch (e) {
       Log.e('WindowPlacement.loadFromFile 错误，使用默认值', error: e);
@@ -887,7 +936,7 @@ class WindowPlacement with WindowListener {
   static Future<WindowPlacement> get current async {
     bool maximized = await windowManager.isMaximized();
     bool minimized = await windowManager.isMinimized();
-    
+
     Rect bounds;
     if (maximized || minimized) {
       // 如果是最大化或最小化，我们希望保存的是还原后的尺寸
@@ -895,17 +944,22 @@ class WindowPlacement with WindowListener {
     } else {
       bounds = await windowManager.getBounds();
     }
-    
+
     return WindowPlacement(bounds, maximized);
   }
 
-  static const defaultPlacement =
-      WindowPlacement(Rect.fromLTWH(10, 10, 1200, 800), false);
+  static const defaultPlacement = WindowPlacement(
+    Rect.fromLTWH(10, 10, 1200, 800),
+    false,
+  );
 
   static WindowPlacement cache = defaultPlacement;
 
   // WindowListener 实现
-  static final WindowPlacement instance = WindowPlacement(defaultPlacement.rect, false);
+  static final WindowPlacement instance = WindowPlacement(
+    defaultPlacement.rect,
+    false,
+  );
 
   /// 初始化窗口位置监听，必须传入已加载的 placement 来正确初始化 cache
   static void init(WindowPlacement loadedPlacement) {
@@ -938,7 +992,7 @@ class WindowPlacement with WindowListener {
   static Future<void> _updateAndSave() async {
     bool maximized = await windowManager.isMaximized();
     bool minimized = await windowManager.isMinimized();
-    
+
     if (minimized) return; // 最小化时通常不记录
 
     Rect bounds;
@@ -964,19 +1018,16 @@ class WindowPlacement with WindowListener {
     const maxCoordinate = 10000.0;
     // 只要宽度和高度大于 0 且在合理范围内即可，topLeft 负值在多显示器环境下可能是正常的
     return rect.width > 100 &&
-           rect.height > 100 &&
-           rect.width < maxCoordinate &&
-           rect.height < maxCoordinate &&
-           rect.left.abs() < maxCoordinate &&
-           rect.top.abs() < maxCoordinate;
+        rect.height > 100 &&
+        rect.width < maxCoordinate &&
+        rect.height < maxCoordinate &&
+        rect.left.abs() < maxCoordinate &&
+        rect.top.abs() < maxCoordinate;
   }
 }
 
 class VirtualWindowFrame extends StatefulWidget {
-  const VirtualWindowFrame({
-    super.key,
-    required this.child,
-  });
+  const VirtualWindowFrame({super.key, required this.child});
 
   /// The [child] contained by the VirtualWindowFrame.
   final Widget child;
@@ -1017,7 +1068,7 @@ class _VirtualWindowFrameState extends State<VirtualWindowFrame>
               color: Colors.black.withOpacity(0.1),
               offset: Offset(0.0, _isFocused ? 4 : 2),
               blurRadius: 6,
-            )
+            ),
         ],
       ),
       child: widget.child,
@@ -1078,8 +1129,6 @@ class _VirtualWindowFrameState extends State<VirtualWindowFrame>
 // ignore: non_constant_identifier_names
 TransitionBuilder VirtualWindowFrameInit() {
   return (_, Widget? child) {
-    return VirtualWindowFrame(
-      child: child!,
-    );
+    return VirtualWindowFrame(child: child!);
   };
 }

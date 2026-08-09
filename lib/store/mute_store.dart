@@ -89,9 +89,11 @@ abstract class _MuteStoreBase with Store {
   @action
   Future<void> insertBanUserId(String id, String name) async {
     await banUserIdProvider.open();
-    await banUserIdProvider.insert(BanUserIdPersist()
-      ..userId = id
-      ..name = name);
+    await banUserIdProvider.insert(
+      BanUserIdPersist()
+        ..userId = id
+        ..name = name,
+    );
     await fetchBanUserIds();
   }
 
@@ -120,9 +122,12 @@ abstract class _MuteStoreBase with Store {
   @action
   insertComment(Comment comment) async {
     await banCommentPersistProvider.open();
-    await banCommentPersistProvider.insert(BanCommentPersist(
+    await banCommentPersistProvider.insert(
+      BanCommentPersist(
         commentId: comment.id?.toString() ?? "",
-        name: comment.user?.name ?? ""));
+        name: comment.user?.name ?? "",
+      ),
+    );
     await fetchBanComments();
   }
 
@@ -165,17 +170,21 @@ abstract class _MuteStoreBase with Store {
     var entity = {
       "banillustid": banIllust,
       "banuserid": banUser,
-      "bantag": banTag
+      "bantag": banTag,
     };
     final exportJson = jsonEncode(entity);
     final uint8List = utf8.encode(exportJson);
     if (Platform.isIOS) {
-      await Sharer.exportUint8List(context, uint8List,
-          "pixez_mute_${DateTime.now().toIso8601String()}.json");
+      await Sharer.exportUint8List(
+        context,
+        uint8List,
+        "pixez_mute_${DateTime.now().toIso8601String()}.json",
+      );
     } else {
       final uri = await SAFPlugin.createFile(
-          "pixez_mute_${DateTime.now().toIso8601String()}.json",
-          "application/json");
+        "pixez_mute_${DateTime.now().toIso8601String()}.json",
+        "application/json",
+      );
       Log.d(() => "exportJson:$exportJson");
       if (uri != null) {
         await SAFPlugin.writeUri(uri, uint8List);
@@ -196,15 +205,18 @@ abstract class _MuteStoreBase with Store {
       await banTagProvider.open();
       if (banIllust is List) {
         await banIllustIdProvider.insertAll(
-            banIllust.map((e) => BanIllustIdPersist.fromJson(e)).toList());
+          banIllust.map((e) => BanIllustIdPersist.fromJson(e)).toList(),
+        );
       }
       if (banUser is List) {
         await banUserIdProvider.insertAll(
-            banUser.map((e) => BanUserIdPersist.fromJson(e)).toList());
+          banUser.map((e) => BanUserIdPersist.fromJson(e)).toList(),
+        );
       }
       if (banTag is List) {
-        await banTagProvider
-            .insertAll(banTag.map((e) => BanTagPersist.fromJson(e)).toList());
+        await banTagProvider.insertAll(
+          banTag.map((e) => BanTagPersist.fromJson(e)).toList(),
+        );
       }
       await fetchBanIllusts();
       await fetchBanUserIds();

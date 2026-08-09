@@ -42,9 +42,10 @@ class _NewIllustPageState extends State<NewIllustPage> {
   void initState() {
     _scrollController = ScrollController();
     futureGet = ApiForceSource(
-        futureGet: (e) => apiClient.getFollowIllusts(widget.restrict, force: e),
-        glanceKey: "follow_illust",
-        cacheKey: "new_illust_${widget.restrict}");
+      futureGet: (e) => apiClient.getFollowIllusts(widget.restrict, force: e),
+      glanceKey: "follow_illust",
+      cacheKey: "new_illust_${widget.restrict}",
+    );
     super.initState();
     subscription = topStore.topStream.listen((event) {
       if (event == "301") {
@@ -67,9 +68,7 @@ class _NewIllustPageState extends State<NewIllustPage> {
         LightingList(
           source: futureGet,
           scrollController: _scrollController,
-          header: Container(
-            height: 45.0,
-          ),
+          header: Container(height: 45.0),
           portal: "new",
         ),
         Align(
@@ -80,101 +79,119 @@ class _NewIllustPageState extends State<NewIllustPage> {
                 if (index == 0)
                   setState(() {
                     futureGet = ApiForceSource(
-                        futureGet: (e) =>
-                            apiClient.getFollowIllusts('all', force: e),
-                        glanceKey: "follow_illust",
-                        cacheKey: "new_illust_all");
+                      futureGet:
+                          (e) => apiClient.getFollowIllusts('all', force: e),
+                      glanceKey: "follow_illust",
+                      cacheKey: "new_illust_all",
+                    );
                   });
                 if (index == 1)
                   setState(() {
                     futureGet = ApiForceSource(
-                        futureGet: (e) =>
-                            apiClient.getFollowIllusts('public', force: e),
-                        glanceKey: "follow_illust",
-                        cacheKey: "new_illust_public");
+                      futureGet:
+                          (e) => apiClient.getFollowIllusts('public', force: e),
+                      glanceKey: "follow_illust",
+                      cacheKey: "new_illust_public",
+                    );
                   });
                 if (index == 2)
                   setState(() {
                     futureGet = ApiForceSource(
-                        futureGet: (e) =>
-                            apiClient.getFollowIllusts('private', force: e),
-                        glanceKey: "follow_illust",
-                        cacheKey: "new_illust_private");
+                      futureGet:
+                          (e) =>
+                              apiClient.getFollowIllusts('private', force: e),
+                      glanceKey: "follow_illust",
+                      cacheKey: "new_illust_private",
+                    );
                   });
               },
               children: [
                 I18n.of(context).all,
                 I18n.of(context).public,
-                I18n.of(context).private
+                I18n.of(context).private,
               ],
             ),
           ),
-        )
+        ),
       ],
     );
   }
 
   Container buildContainer(BuildContext context) {
     return Container(
-        child: Align(
-      alignment: Alignment.centerRight,
-      child: IconButton(
+      child: Align(
+        alignment: Alignment.centerRight,
+        child: IconButton(
           icon: Icon(Icons.list),
           onPressed: () {
             showModalBottomSheet(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.vertical(
-                    top: Radius.circular(16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+              ),
+              context: context,
+              builder:
+                  (context) => SafeArea(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        ListTile(
+                          title: Text(I18n.of(context).all),
+                          onTap: () {
+                            Navigator.of(context).pop();
+                            setState(() {
+                              futureGet = ApiForceSource(
+                                futureGet:
+                                    (e) => apiClient.getFollowIllusts(
+                                      'all',
+                                      force: e,
+                                    ),
+                                glanceKey: "follow_illust",
+                                cacheKey: "new_illust_all",
+                              );
+                            });
+                          },
+                        ),
+                        ListTile(
+                          title: Text(I18n.of(context).public),
+                          onTap: () {
+                            Navigator.of(context).pop();
+                            setState(() {
+                              futureGet = ApiForceSource(
+                                futureGet:
+                                    (e) => apiClient.getFollowIllusts(
+                                      'public',
+                                      force: e,
+                                    ),
+                                glanceKey: "follow_illust",
+                                cacheKey: "new_illust_public",
+                              );
+                            });
+                          },
+                        ),
+                        ListTile(
+                          title: Text(I18n.of(context).private),
+                          onTap: () {
+                            Navigator.of(context).pop();
+                            setState(() {
+                              futureGet = ApiForceSource(
+                                futureGet:
+                                    (e) => apiClient.getFollowIllusts(
+                                      'private',
+                                      force: e,
+                                    ),
+                                glanceKey: "follow_illust",
+                                cacheKey: "new_illust_private",
+                              );
+                            });
+                          },
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                context: context,
-                builder: (context) => SafeArea(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: <Widget>[
-                          ListTile(
-                            title: Text(I18n.of(context).all),
-                            onTap: () {
-                              Navigator.of(context).pop();
-                              setState(() {
-                                futureGet = ApiForceSource(
-                                    futureGet: (e) => apiClient
-                                        .getFollowIllusts('all', force: e),
-                                    glanceKey: "follow_illust",
-                                    cacheKey: "new_illust_all");
-                              });
-                            },
-                          ),
-                          ListTile(
-                            title: Text(I18n.of(context).public),
-                            onTap: () {
-                              Navigator.of(context).pop();
-                              setState(() {
-                                futureGet = ApiForceSource(
-                                    futureGet: (e) => apiClient
-                                        .getFollowIllusts('public', force: e),
-                                    glanceKey: "follow_illust",
-                                    cacheKey: "new_illust_public");
-                              });
-                            },
-                          ),
-                          ListTile(
-                            title: Text(I18n.of(context).private),
-                            onTap: () {
-                              Navigator.of(context).pop();
-                              setState(() {
-                                futureGet = ApiForceSource(
-                                    futureGet: (e) => apiClient
-                                        .getFollowIllusts('private', force: e),
-                                    glanceKey: "follow_illust",
-                                    cacheKey: "new_illust_private");
-                              });
-                            },
-                          ),
-                        ],
-                      ),
-                    ));
-          }),
-    ));
+            );
+          },
+        ),
+      ),
+    );
   }
 }

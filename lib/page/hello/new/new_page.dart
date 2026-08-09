@@ -30,12 +30,12 @@ import 'package:pixez/page/watchlist/watchlist.dart';
 class NewPage extends StatefulWidget {
   final String newRestrict, bookRestrict, painterRestrict;
 
-  const NewPage(
-      {Key? key,
-      this.newRestrict = "public",
-      this.bookRestrict = "public",
-      this.painterRestrict = "public"})
-      : super(key: key);
+  const NewPage({
+    Key? key,
+    this.newRestrict = "public",
+    this.bookRestrict = "public",
+    this.painterRestrict = "public",
+  }) : super(key: key);
 
   @override
   _NewPageState createState() => _NewPageState();
@@ -68,14 +68,15 @@ class _NewPageState extends State<NewPage>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    return Observer(builder: (context) {
-      if (accountStore.now != null)
-        return Column(
-          mainAxisSize: MainAxisSize.max,
-          children: <Widget>[
-            AppBar(
-              automaticallyImplyLeading: false,
-              title: TabBar(
+    return Observer(
+      builder: (context) {
+        if (accountStore.now != null)
+          return Column(
+            mainAxisSize: MainAxisSize.max,
+            children: <Widget>[
+              AppBar(
+                automaticallyImplyLeading: false,
+                title: TabBar(
                   indicatorSize: TabBarIndicatorSize.label,
                   tabAlignment: TabAlignment.start,
                   controller: _tabController,
@@ -85,55 +86,47 @@ class _NewPageState extends State<NewPage>
                       topStore.setTop((301 + i).toString());
                   },
                   tabs: [
-                    Tab(
-                      text: I18n.of(context).news,
-                    ),
-                    Tab(
-                      text: I18n.of(context).bookmark,
-                    ),
-                    Tab(
-                      text: I18n.of(context).watchlist,
-                    ),
-                    Tab(
-                      text: I18n.of(context).news_follow_title,
-                    ),
-                  ]),
-              actions: <Widget>[
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                  child: Container(
-                    height: 26,
-                    width: 26,
-                    decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 1.0)),
-                    child: PainterAvatar(
-                      url: accountStore.now!.userImage,
-                      id: int.parse(accountStore.now!.userId),
-                    ),
-                  ),
+                    Tab(text: I18n.of(context).news),
+                    Tab(text: I18n.of(context).bookmark),
+                    Tab(text: I18n.of(context).watchlist),
+                    Tab(text: I18n.of(context).news_follow_title),
+                  ],
                 ),
-              ],
-            ),
-            Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                children: <Widget>[
-                  NewIllustPage(),
-                  BookmarkPage(
-                    isNested: false,
-                    id: int.parse(accountStore.now!.userId),
-                  ),
-                  WatchlistPage(),
-                  FollowList(
-                    id: int.parse(accountStore.now!.userId),
+                actions: <Widget>[
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                    child: Container(
+                      height: 26,
+                      width: 26,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 1.0),
+                      ),
+                      child: PainterAvatar(
+                        url: accountStore.now!.userImage,
+                        id: int.parse(accountStore.now!.userId),
+                      ),
+                    ),
                   ),
                 ],
               ),
-            )
-          ],
-        );
-      return DefaultTabController(
+              Expanded(
+                child: TabBarView(
+                  controller: _tabController,
+                  children: <Widget>[
+                    NewIllustPage(),
+                    BookmarkPage(
+                      isNested: false,
+                      id: int.parse(accountStore.now!.userId),
+                    ),
+                    WatchlistPage(),
+                    FollowList(id: int.parse(accountStore.now!.userId)),
+                  ],
+                ),
+              ),
+            ],
+          );
+        return DefaultTabController(
           length: 3,
           child: Scaffold(
             appBar: AppBar(
@@ -141,15 +134,18 @@ class _NewPageState extends State<NewPage>
                 tabs: [
                   Tab(
                     child: Text(
-                        '${I18n.of(context).follow}${I18n.of(context).news}'),
+                      '${I18n.of(context).follow}${I18n.of(context).news}',
+                    ),
                   ),
                   Tab(
                     child: Text(
-                        '${I18n.of(context).personal}${I18n.of(context).bookmark}'),
+                      '${I18n.of(context).personal}${I18n.of(context).bookmark}',
+                    ),
                   ),
                   Tab(
                     child: Text(
-                        '${I18n.of(context).follow}${I18n.of(context).painter}'),
+                      '${I18n.of(context).follow}${I18n.of(context).painter}',
+                    ),
                   ),
                 ],
               ),
@@ -161,8 +157,10 @@ class _NewPageState extends State<NewPage>
                 LoginInFirst(),
               ],
             ),
-          ));
-    });
+          ),
+        );
+      },
+    );
   }
 
   @override

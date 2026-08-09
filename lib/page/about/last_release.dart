@@ -33,25 +33,26 @@ class LastRelease {
   String zipballUrl;
   String body;
 
-  LastRelease(
-      {required this.url,
-      required this.assetsUrl,
-      required this.uploadUrl,
-      required this.htmlUrl,
-      required this.id,
-      required this.nodeId,
-      required this.tagName,
-      required this.targetCommitish,
-      required this.name,
-      required this.draft,
-      required this.author,
-      required this.prerelease,
-      required this.createdAt,
-      required this.publishedAt,
-      required this.assets,
-      required this.tarballUrl,
-      required this.zipballUrl,
-      required this.body});
+  LastRelease({
+    required this.url,
+    required this.assetsUrl,
+    required this.uploadUrl,
+    required this.htmlUrl,
+    required this.id,
+    required this.nodeId,
+    required this.tagName,
+    required this.targetCommitish,
+    required this.name,
+    required this.draft,
+    required this.author,
+    required this.prerelease,
+    required this.createdAt,
+    required this.publishedAt,
+    required this.assets,
+    required this.tarballUrl,
+    required this.zipballUrl,
+    required this.body,
+  });
 
   factory LastRelease.fromJson(Map<String, dynamic> json) {
     List<Assets> assets = [];
@@ -61,24 +62,25 @@ class LastRelease {
       });
     }
     return LastRelease(
-        url: json['url'],
-        assetsUrl: json['assets_url'],
-        uploadUrl: json['upload_url'],
-        htmlUrl: json['html_url'],
-        id: json['id'],
-        nodeId: json['node_id'],
-        tagName: json['tag_name'],
-        targetCommitish: json['target_commitish'],
-        name: json['name'],
-        draft: json['draft'],
-        author: Author.fromJson(json['author']),
-        prerelease: json['prerelease'],
-        createdAt: json['created_at'],
-        publishedAt: json['published_at'],
-        assets: assets,
-        tarballUrl: json['tarball_url'],
-        zipballUrl: json['zipball_url'],
-        body: json['body']);
+      url: json['url'],
+      assetsUrl: json['assets_url'],
+      uploadUrl: json['upload_url'],
+      htmlUrl: json['html_url'],
+      id: json['id'],
+      nodeId: json['node_id'],
+      tagName: json['tag_name'],
+      targetCommitish: json['target_commitish'],
+      name: json['name'],
+      draft: json['draft'],
+      author: Author.fromJson(json['author']),
+      prerelease: json['prerelease'],
+      createdAt: json['created_at'],
+      publishedAt: json['published_at'],
+      assets: assets,
+      tarballUrl: json['tarball_url'],
+      zipballUrl: json['zipball_url'],
+      body: json['body'],
+    );
   }
 
   Map<String, dynamic> toJson() {
@@ -125,46 +127,48 @@ class Author {
   String type;
   bool siteAdmin;
 
-  Author(
-      {required this.login,
-      required this.id,
-      required this.nodeId,
-      required this.avatarUrl,
-      required this.gravatarId,
-      required this.url,
-      required this.htmlUrl,
-      required this.followersUrl,
-      required this.followingUrl,
-      required this.gistsUrl,
-      required this.starredUrl,
-      required this.subscriptionsUrl,
-      required this.organizationsUrl,
-      required this.reposUrl,
-      required this.eventsUrl,
-      required this.receivedEventsUrl,
-      required this.type,
-      required this.siteAdmin});
+  Author({
+    required this.login,
+    required this.id,
+    required this.nodeId,
+    required this.avatarUrl,
+    required this.gravatarId,
+    required this.url,
+    required this.htmlUrl,
+    required this.followersUrl,
+    required this.followingUrl,
+    required this.gistsUrl,
+    required this.starredUrl,
+    required this.subscriptionsUrl,
+    required this.organizationsUrl,
+    required this.reposUrl,
+    required this.eventsUrl,
+    required this.receivedEventsUrl,
+    required this.type,
+    required this.siteAdmin,
+  });
 
   factory Author.fromJson(Map<String, dynamic> json) {
     return Author(
-        login: json['login'],
-        id: json['id'],
-        nodeId: json['node_id'],
-        avatarUrl: json['avatar_url'],
-        gravatarId: json['gravatar_id'],
-        url: json['url'],
-        htmlUrl: json['html_url'],
-        followersUrl: json['followers_url'],
-        followingUrl: json['following_url'],
-        gistsUrl: json['gists_url'],
-        starredUrl: json['starred_url'],
-        subscriptionsUrl: json['subscriptions_url'],
-        organizationsUrl: json['organizations_url'],
-        reposUrl: json['repos_url'],
-        eventsUrl: json['events_url'],
-        receivedEventsUrl: json['received_events_url'],
-        type: json['type'],
-        siteAdmin: json['site_admin']);
+      login: json['login'],
+      id: json['id'],
+      nodeId: json['node_id'],
+      avatarUrl: json['avatar_url'],
+      gravatarId: json['gravatar_id'],
+      url: json['url'],
+      htmlUrl: json['html_url'],
+      followersUrl: json['followers_url'],
+      followingUrl: json['following_url'],
+      gistsUrl: json['gists_url'],
+      starredUrl: json['starred_url'],
+      subscriptionsUrl: json['subscriptions_url'],
+      organizationsUrl: json['organizations_url'],
+      reposUrl: json['repos_url'],
+      eventsUrl: json['events_url'],
+      receivedEventsUrl: json['received_events_url'],
+      type: json['type'],
+      siteAdmin: json['site_admin'],
+    );
   }
 
   Map<String, dynamic> toJson() {
@@ -206,20 +210,21 @@ class Assets {
   String updatedAt;
   String browserDownloadUrl;
 
-  Assets(
-      {required this.url,
-      required this.id,
-      required this.nodeId,
-      required this.name,
-      required this.label,
-      required this.uploader,
-      required this.contentType,
-      required this.state,
-      required this.size,
-      required this.downloadCount,
-      required this.createdAt,
-      required this.updatedAt,
-      required this.browserDownloadUrl});
+  Assets({
+    required this.url,
+    required this.id,
+    required this.nodeId,
+    required this.name,
+    required this.label,
+    required this.uploader,
+    required this.contentType,
+    required this.state,
+    required this.size,
+    required this.downloadCount,
+    required this.createdAt,
+    required this.updatedAt,
+    required this.browserDownloadUrl,
+  });
 
   factory Assets.fromJson(Map<String, dynamic> json) {
     return Assets(

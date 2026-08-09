@@ -28,7 +28,7 @@ class RankModePage extends StatefulWidget {
   final int? index;
 
   const RankModePage({Key? key, this.mode, this.date, this.index})
-      : super(key: key);
+    : super(key: key);
 
   @override
   _RankModePageState createState() => _RankModePageState();
@@ -38,10 +38,7 @@ class _RankModePageState extends State<RankModePage> {
   late ScrollController _scrollController;
   late StreamSubscription<String> subscription;
   late ApiForceSource source;
-  var list = [
-    "day_ai",
-    "day_r18_ai",
-  ];
+  var list = ["day_ai", "day_r18_ai"];
 
   @override
   void dispose() {
@@ -53,8 +50,9 @@ class _RankModePageState extends State<RankModePage> {
   @override
   void initState() {
     source = ApiForceSource(
-      futureGet: (e) =>
-          apiClient.getIllustRanking(widget.mode!, widget.date, force: e),
+      futureGet:
+          (e) =>
+              apiClient.getIllustRanking(widget.mode!, widget.date, force: e),
       glanceKey: "rank",
     );
     _scrollController = ScrollController();
@@ -69,8 +67,9 @@ class _RankModePageState extends State<RankModePage> {
   @override
   Widget build(BuildContext context) {
     return LightingList(
-        scrollController: _scrollController,
-        source: source,
-        ai: list.contains(widget.mode ?? ""));
+      scrollController: _scrollController,
+      source: source,
+      ai: list.contains(widget.mode ?? ""),
+    );
   }
 }

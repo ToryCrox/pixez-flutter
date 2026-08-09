@@ -84,23 +84,24 @@ class _LogViewerPageState extends ConsumerState<LogViewerPage> {
         if (!mounted) return;
         await showDialog(
           context: context,
-          builder: (context) => AlertDialog(
-            title: Text(I18n.of(context).log_directory),
-            content: SelectableText(logPath),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Clipboard.setData(ClipboardData(text: logPath));
-                  Navigator.of(context).pop();
-                },
-                child: Text(I18n.of(context).copy),
+          builder:
+              (context) => AlertDialog(
+                title: Text(I18n.of(context).log_directory),
+                content: SelectableText(logPath),
+                actions: [
+                  TextButton(
+                    onPressed: () {
+                      Clipboard.setData(ClipboardData(text: logPath));
+                      Navigator.of(context).pop();
+                    },
+                    child: Text(I18n.of(context).copy),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: Text(I18n.of(context).ok),
+                  ),
+                ],
               ),
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: Text(I18n.of(context).ok),
-              ),
-            ],
-          ),
         );
       }
     } catch (e) {
@@ -111,7 +112,8 @@ class _LogViewerPageState extends ConsumerState<LogViewerPage> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(logViewerProvider);
-    final filteredLogs = ref.watch(logViewerProvider.notifier).getFilteredLogs();
+    final filteredLogs =
+        ref.watch(logViewerProvider.notifier).getFilteredLogs();
 
     // 自动滚动到底部
     if (state.autoScroll && !_isUserScrolling) {
@@ -138,11 +140,13 @@ class _LogViewerPageState extends ConsumerState<LogViewerPage> {
           ),
           IconButton(
             icon: Icon(
-              state.autoScroll ? Icons.arrow_downward : Icons.vertical_align_center,
+              state.autoScroll
+                  ? Icons.arrow_downward
+                  : Icons.vertical_align_center,
             ),
             tooltip: state.autoScroll ? '停止自动滚动' : '启用自动滚动',
-            onPressed: () =>
-                ref.read(logViewerProvider.notifier).toggleAutoScroll(),
+            onPressed:
+                () => ref.read(logViewerProvider.notifier).toggleAutoScroll(),
           ),
         ],
         bottom: PreferredSize(
@@ -150,9 +154,10 @@ class _LogViewerPageState extends ConsumerState<LogViewerPage> {
           child: _buildFilterChips(state, ref),
         ),
       ),
-      body: filteredLogs.isEmpty
-          ? _buildEmptyState()
-          : _buildLogList(filteredLogs, state),
+      body:
+          filteredLogs.isEmpty
+              ? _buildEmptyState()
+              : _buildLogList(filteredLogs, state),
     );
   }
 
@@ -216,9 +221,7 @@ class _LogViewerPageState extends ConsumerState<LogViewerPage> {
         color: isSelected ? color : null,
         fontWeight: isSelected ? FontWeight.bold : null,
       ),
-      side: BorderSide(
-        color: isSelected ? color : Colors.grey,
-      ),
+      side: BorderSide(color: isSelected ? color : Colors.grey),
     );
   }
 
@@ -243,10 +246,7 @@ class _LogViewerPageState extends ConsumerState<LogViewerPage> {
       controller: _scrollController,
       itemCount: logs.length,
       itemBuilder: (context, index) {
-        return _LogEventTile(
-          event: logs[index],
-          maxLines: maxLogPreviewLines,
-        );
+        return _LogEventTile(event: logs[index], maxLines: maxLogPreviewLines);
       },
     );
   }
@@ -257,10 +257,7 @@ class _LogEventTile extends StatefulWidget {
   final OutputEvent event;
   final int maxLines;
 
-  const _LogEventTile({
-    required this.event,
-    required this.maxLines,
-  });
+  const _LogEventTile({required this.event, required this.maxLines});
 
   @override
   State<_LogEventTile> createState() => _LogEventTileState();
@@ -276,14 +273,13 @@ class _LogEventTileState extends State<_LogEventTile> {
     final textPainter = TextPainter(
       text: TextSpan(
         text: message,
-        style: const TextStyle(
-          fontFamily: 'monospace',
-          fontSize: 12,
-        ),
+        style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
       ),
       textDirection: Directionality.of(context),
       maxLines: widget.maxLines,
-    )..layout(maxWidth: MediaQuery.of(context).size.width - 80); // 减去 padding 和 margin
+    )..layout(
+      maxWidth: MediaQuery.of(context).size.width - 80,
+    ); // 减去 padding 和 margin
 
     final didExceedMaxLines = textPainter.didExceedMaxLines;
     final displayMessage = _expanded ? message : message;
@@ -344,7 +340,8 @@ class _LogEventTileState extends State<_LogEventTile> {
               child: Text(
                 displayMessage,
                 maxLines: _expanded ? null : widget.maxLines,
-                overflow: _expanded ? TextOverflow.visible : TextOverflow.ellipsis,
+                overflow:
+                    _expanded ? TextOverflow.visible : TextOverflow.ellipsis,
                 style: TextStyle(
                   fontFamily: 'monospace',
                   fontSize: 12,

@@ -33,8 +33,9 @@ class _NovelWebViewerState extends State<NovelWebViewer> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        appBar: AppBar(),
-        body: initNovelHtml != null ? _buildWebView(context) : Container());
+      appBar: AppBar(),
+      body: initNovelHtml != null ? _buildWebView(context) : Container(),
+    );
   }
 
   Widget _buildWebView(BuildContext context) {

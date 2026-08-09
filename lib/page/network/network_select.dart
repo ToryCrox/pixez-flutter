@@ -30,51 +30,44 @@ class _NetworkSelectPageState extends State<NetworkSelectPage>
 
   @override
   Widget build(BuildContext context) {
-    return Observer(builder: (context) {
-      return Scaffold(
-        body: SafeArea(
-          child: ListView(
-            children: [
-              AppBar(
-                backgroundColor: Colors.transparent,
-                automaticallyImplyLeading: false,
-                elevation: 0.0,
-              ),
-              Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: Text(
-                  I18n.of(context).network_question,
-                  style: Theme.of(context).textTheme.headlineSmall,
-                  textAlign: TextAlign.center,
+    return Observer(
+      builder: (context) {
+        return Scaffold(
+          body: SafeArea(
+            child: ListView(
+              children: [
+                AppBar(
+                  backgroundColor: Colors.transparent,
+                  automaticallyImplyLeading: false,
+                  elevation: 0.0,
                 ),
-              ),
-              Container(
-                height: 24,
-              ),
-              Center(
-                child: Padding(
+                Padding(
                   padding: const EdgeInsets.all(8.0),
-                  child: TabBar(
-                    controller: tabController,
-                    indicatorSize: TabBarIndicatorSize.label,
-                    tabs: [
-                      Tab(
-                        text: "Nope",
-                      ),
-                      Tab(
-                        text: "Yes",
-                      ),
-                    ],
-                    onTap: (index) async {
-                      await userSetting.setDisableBypassSni(index != 0);
-                    },
+                  child: Text(
+                    I18n.of(context).network_question,
+                    style: Theme.of(context).textTheme.headlineSmall,
+                    textAlign: TextAlign.center,
                   ),
                 ),
-              ),
-            ],
+                Container(height: 24),
+                Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: TabBar(
+                      controller: tabController,
+                      indicatorSize: TabBarIndicatorSize.label,
+                      tabs: [Tab(text: "Nope"), Tab(text: "Yes")],
+                      onTap: (index) async {
+                        await userSetting.setDisableBypassSni(index != 0);
+                      },
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-      );
-    });
+        );
+      },
+    );
   }
 }

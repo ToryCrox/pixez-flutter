@@ -12,20 +12,21 @@ class AutoAssociateDialog extends StatefulWidget {
   static Future<void> show(BuildContext context) async {
     // 执行智能扫描获取关联建议
     final proposals = await tagManagerStore.scanForAutoAssociations();
-    
+
     if (proposals.isEmpty) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('未找到可自动关联的标签')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('未找到可自动关联的标签')));
       }
       return;
     }
 
-    final List<TagAssociationProposal>? selectedProposals = await showDialog<List<TagAssociationProposal>>(
-      context: context,
-      builder: (context) => AutoAssociateDialog(proposals: proposals),
-    );
+    final List<TagAssociationProposal>? selectedProposals =
+        await showDialog<List<TagAssociationProposal>>(
+          context: context,
+          builder: (context) => AutoAssociateDialog(proposals: proposals),
+        );
 
     if (selectedProposals != null && selectedProposals.isNotEmpty) {
       for (final p in selectedProposals) {
@@ -55,17 +56,18 @@ class _AutoAssociateDialogState extends State<AutoAssociateDialog> {
   @override
   void initState() {
     super.initState();
-    _editStates = widget.proposals.map((p) {
-      final controller = TextEditingController(text: p.newChildName);
-      _controllers[p.childTag.id] = controller;
-      return _ProposalEditState(
-        proposal: p,
-        isSelected: true,
-        newChildName: p.newChildName,
-        parentTag: p.parentTag,
-        controller: controller,
-      );
-    }).toList();
+    _editStates =
+        widget.proposals.map((p) {
+          final controller = TextEditingController(text: p.newChildName);
+          _controllers[p.childTag.id] = controller;
+          return _ProposalEditState(
+            proposal: p,
+            isSelected: true,
+            newChildName: p.newChildName,
+            parentTag: p.parentTag,
+            controller: controller,
+          );
+        }).toList();
   }
 
   @override
@@ -92,16 +94,20 @@ class _AutoAssociateDialogState extends State<AutoAssociateDialog> {
       tags: [state.proposal.childTag],
       currentParentId: state.parentTag.id,
       onUpdated: () {
-        final updatedChild = tagManagerStore.getTagDisplayDataByID(state.proposal.childTag.id)?.tag;
+        final updatedChild =
+            tagManagerStore
+                .getTagDisplayDataByID(state.proposal.childTag.id)
+                ?.tag;
         if (updatedChild != null && updatedChild.parentId != 0) {
-           final newParent = tagManagerStore.getTagDisplayDataByID(updatedChild.parentId)?.tag;
-           if (newParent != null && mounted) {
-              setState(() {
-                state.parentTag = newParent;
-              });
-           }
+          final newParent =
+              tagManagerStore.getTagDisplayDataByID(updatedChild.parentId)?.tag;
+          if (newParent != null && mounted) {
+            setState(() {
+              state.parentTag = newParent;
+            });
+          }
         }
-      }
+      },
     );
   }
 
@@ -113,7 +119,9 @@ class _AutoAssociateDialogState extends State<AutoAssociateDialog> {
     return AlertDialog(
       title: const Text('智能自动关联预览'),
       content: Container(
-        constraints: const BoxConstraints(maxWidth: 800), // Higher limit for sideways layout
+        constraints: const BoxConstraints(
+          maxWidth: 800,
+        ), // Higher limit for sideways layout
         width: MediaQuery.of(context).size.width * 0.9,
         height: MediaQuery.of(context).size.height * 0.7,
         child: Column(
@@ -134,7 +142,7 @@ class _AutoAssociateDialogState extends State<AutoAssociateDialog> {
                 itemBuilder: (context, index) {
                   final state = _editStates[index];
                   final child = state.proposal.childTag;
-                  
+
                   return Padding(
                     padding: const EdgeInsets.symmetric(vertical: 4.0),
                     child: Row(
@@ -142,7 +150,9 @@ class _AutoAssociateDialogState extends State<AutoAssociateDialog> {
                       children: [
                         Checkbox(
                           value: state.isSelected,
-                          onChanged: (v) => setState(() => state.isSelected = v ?? false),
+                          onChanged:
+                              (v) =>
+                                  setState(() => state.isSelected = v ?? false),
                         ),
                         Expanded(
                           child: Column(
@@ -153,25 +163,44 @@ class _AutoAssociateDialogState extends State<AutoAssociateDialog> {
                                   Expanded(
                                     child: Text(
                                       '${child.name} (${child.displayTranslatedName})',
-                                      style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+                                      style: theme.textTheme.bodyMedium
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.bold,
+                                          ),
                                     ),
                                   ),
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
                                     decoration: BoxDecoration(
-                                      color: state.proposal.suggestionReason == '正则匹配' 
-                                          ? theme.colorScheme.primaryContainer 
-                                          : theme.colorScheme.secondaryContainer,
+                                      color:
+                                          state.proposal.suggestionReason ==
+                                                  '正则匹配'
+                                              ? theme
+                                                  .colorScheme
+                                                  .primaryContainer
+                                              : theme
+                                                  .colorScheme
+                                                  .secondaryContainer,
                                       borderRadius: BorderRadius.circular(4),
                                     ),
                                     child: Text(
                                       state.proposal.suggestionReason,
-                                      style: theme.textTheme.labelSmall?.copyWith(
-                                        color: state.proposal.suggestionReason == '正则匹配' 
-                                            ? theme.colorScheme.primary 
-                                            : theme.colorScheme.secondary,
-                                        fontSize: 10,
-                                      ),
+                                      style: theme.textTheme.labelSmall
+                                          ?.copyWith(
+                                            color:
+                                                state
+                                                            .proposal
+                                                            .suggestionReason ==
+                                                        '正则匹配'
+                                                    ? theme.colorScheme.primary
+                                                    : theme
+                                                        .colorScheme
+                                                        .secondary,
+                                            fontSize: 10,
+                                          ),
                                     ),
                                   ),
                                   const SizedBox(width: 8),
@@ -191,11 +220,15 @@ class _AutoAssociateDialogState extends State<AutoAssociateDialog> {
                                       child: TextField(
                                         decoration: const InputDecoration(
                                           isDense: true,
-                                          contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                          contentPadding: EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 8,
+                                          ),
                                           border: OutlineInputBorder(),
                                         ),
                                         controller: state.controller,
-                                        onChanged: (v) => state.newChildName = v,
+                                        onChanged:
+                                            (v) => state.newChildName = v,
                                       ),
                                     ),
                                   ),
@@ -208,14 +241,22 @@ class _AutoAssociateDialogState extends State<AutoAssociateDialog> {
                                   InkWell(
                                     onTap: () => _changeParent(state),
                                     child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 4,
+                                      ),
                                       decoration: BoxDecoration(
-                                        border: Border.all(color: theme.dividerColor),
+                                        border: Border.all(
+                                          color: theme.dividerColor,
+                                        ),
                                         borderRadius: BorderRadius.circular(4),
                                       ),
                                       child: Text(
                                         '${state.parentTag.name} (${state.parentTag.displayTranslatedName})',
-                                        style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.primary),
+                                        style: theme.textTheme.bodySmall
+                                            ?.copyWith(
+                                              color: theme.colorScheme.primary,
+                                            ),
                                       ),
                                     ),
                                   ),
@@ -244,15 +285,24 @@ class _AutoAssociateDialogState extends State<AutoAssociateDialog> {
           child: const Text('取消'),
         ),
         ElevatedButton(
-          onPressed: selectedCount == 0 ? null : () {
-            final results = _editStates.where((s) => s.isSelected).map((s) => TagAssociationProposal(
-              childTag: s.proposal.childTag,
-              parentTag: s.parentTag,
-              newChildName: s.newChildName,
-              suggestionReason: s.proposal.suggestionReason,
-            )).toList();
-            Navigator.pop(context, results);
-          },
+          onPressed:
+              selectedCount == 0
+                  ? null
+                  : () {
+                    final results =
+                        _editStates
+                            .where((s) => s.isSelected)
+                            .map(
+                              (s) => TagAssociationProposal(
+                                childTag: s.proposal.childTag,
+                                parentTag: s.parentTag,
+                                newChildName: s.newChildName,
+                                suggestionReason: s.proposal.suggestionReason,
+                              ),
+                            )
+                            .toList();
+                    Navigator.pop(context, results);
+                  },
           child: const Text('确认关联'),
         ),
       ],

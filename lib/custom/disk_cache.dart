@@ -1,4 +1,3 @@
-
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -17,7 +16,7 @@ class DiskCache {
     if (cacheTime != null) {
       return {
         CacheHttpFileService.customCacheControlHeader:
-        'max-age=${cacheTime.inSeconds}'
+            'max-age=${cacheTime.inSeconds}',
       };
     } else {
       return null;
@@ -25,8 +24,12 @@ class DiskCache {
   }
 
   /// 获取文件流，缓存
-  static Stream<FileResponse> getFileStream(String url,
-      {String? key, Map<String, String>? headers, bool withProgress = false}) {
+  static Stream<FileResponse> getFileStream(
+    String url, {
+    String? key,
+    Map<String, String>? headers,
+    bool withProgress = false,
+  }) {
     return DiskCacheManager.instance.getFileStream(
       url,
       key: key,
@@ -37,9 +40,9 @@ class DiskCache {
 
   /// 下载文件，并缓存到本地, 如果已经有文件，则直接返回
   static Future<FileInfo?> downloadFileWithCache(
-      String url, {
-        Duration? cacheTime,
-      }) async {
+    String url, {
+    Duration? cacheTime,
+  }) async {
     final fileInfo = await getFileCache(url);
     if (fileInfo != null) {
       return fileInfo;
@@ -47,34 +50,44 @@ class DiskCache {
 
     Completer<FileInfo?> completer = Completer();
     Stream<FileResponse> stream = DiskCacheManager.instance.getFileStream(
-      url, withProgress: false,
+      url,
+      withProgress: false,
       headers: _getCacheHeader(cacheTime),
     );
-    stream.listen((FileResponse event) {
-      if (event is DownloadProgress) {
-        //progress?.call(event.downloaded, event.totalSize ?? 0);
-      } else if (event is FileInfo && !completer.isCompleted) {
-        completer.complete(event);
-      }
-    }, onError: (e) {
-      if (!completer.isCompleted) {
-        completer.complete(null);
-      }
-      Log.w('first download onError, url: $url, error: $e');
-    }, onDone: () {}, cancelOnError: true);
+    stream.listen(
+      (FileResponse event) {
+        if (event is DownloadProgress) {
+          //progress?.call(event.downloaded, event.totalSize ?? 0);
+        } else if (event is FileInfo && !completer.isCompleted) {
+          completer.complete(event);
+        }
+      },
+      onError: (e) {
+        if (!completer.isCompleted) {
+          completer.complete(null);
+        }
+        Log.w('first download onError, url: $url, error: $e');
+      },
+      onDone: () {},
+      cancelOnError: true,
+    );
     return await completer.future;
   }
 
   /// 强制下载缓存
   static Future<HttpCacheFileInfo> downloadFile(
-      String url, {
-        String? key,
-        bool force = false,
-        Duration? cacheTime,
-      }) async {
+    String url, {
+    String? key,
+    bool force = false,
+    Duration? cacheTime,
+  }) async {
     try {
-      final fileInfo = await DiskCacheManager.instance
-          .downloadFile(url, key: key, authHeaders: _getCacheHeader(cacheTime), force: force);
+      final fileInfo = await DiskCacheManager.instance.downloadFile(
+        url,
+        key: key,
+        authHeaders: _getCacheHeader(cacheTime),
+        force: force,
+      );
       return HttpCacheFileInfo.fromFileInfo(fileInfo, 0);
     } catch (e) {
       Log.w('downloadFileToCache, url: $url, error: $e');
@@ -109,7 +122,11 @@ class DiskCache {
 
   /// 缓存文件
   static Future<File?> putFileBytes(String key, Uint8List fileBytes) async {
-    return await DiskCacheManager.instance.putFile(key, fileBytes, maxAge: const Duration(days: 360));
+    return await DiskCacheManager.instance.putFile(
+      key,
+      fileBytes,
+      maxAge: const Duration(days: 360),
+    );
   }
 
   /// 读取缓存文件
@@ -148,7 +165,7 @@ class DiskCache {
       final bytes = Uint8List.fromList(utf8.encode(value));
       logger.d('writeCacheString, key: $key, bytes.size: ${bytes.length}');
       await putFileBytes(key, bytes);
-    } catch(e) {
+    } catch (e) {
       logger.e(e);
     }
   }
@@ -158,7 +175,6 @@ class DiskCache {
     final jsonStr = jsonEncode(map);
     await writeString(key, jsonStr);
   }
-
 }
 
 class DiskCacheManager {
@@ -174,7 +190,6 @@ class DiskCacheManager {
 }
 
 class HttpCacheFileInfo {
-
   final int httpCode;
   final String message;
   final FileInfo? _fileInfo;
@@ -182,8 +197,9 @@ class HttpCacheFileInfo {
   FileInfo get fileInfo {
     if (_fileInfo == null) {
       throw StateError(
-          'fileInfo is null, please check httpCode first,'
-              ' httpCode: $httpCode, message: $message');
+        'fileInfo is null, please check httpCode first,'
+        ' httpCode: $httpCode, message: $message',
+      );
     }
     return _fileInfo;
   }
@@ -199,22 +215,21 @@ class HttpCacheFileInfo {
   }
 
   bool get isSuccess => httpCode == 200 || httpCode == 0;
-
 }
 
-
 class CacheHttpFileService extends FileService {
-
   static const customCacheControlHeader = 'custom-cache-control';
 
   final http.Client _httpClient;
 
   CacheHttpFileService({http.Client? httpClient})
-      : _httpClient = httpClient ?? http.Client();
+    : _httpClient = httpClient ?? http.Client();
 
   @override
-  Future<FileServiceResponse> get(String url,
-      {Map<String, String>? headers}) async {
+  Future<FileServiceResponse> get(
+    String url, {
+    Map<String, String>? headers,
+  }) async {
     logger.d('CacheHttpFileService get, url: $url, headers: $headers');
     final req = http.Request('GET', Uri.parse(url));
     if (headers != null) {

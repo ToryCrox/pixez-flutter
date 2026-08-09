@@ -41,24 +41,23 @@ class _HoverScaleCardState extends State<HoverScaleCard> {
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeOutBack, // 带有微弹簧效果
         child: Card(
-          elevation: _isHovered ? 12.0 : 1.0, 
+          elevation: _isHovered ? 12.0 : 1.0,
           color: _isHovered ? hoverColor : baseColor, // 强化的悬浮颜色
           margin: widget.margin,
           clipBehavior: widget.clipBehavior,
-          shape: widget.isSelected
-              ? RoundedRectangleBorder(
-                  side: BorderSide(
-                    color: theme.colorScheme.primary,
-                    width: 3,
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                )
-              : null,
+          shape:
+              widget.isSelected
+                  ? RoundedRectangleBorder(
+                    side: BorderSide(
+                      color: theme.colorScheme.primary,
+                      width: 3,
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                  )
+                  : null,
           child: widget.child,
         ),
       ),
     );
   }
 }
-
-

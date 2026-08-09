@@ -37,8 +37,11 @@ class ResultIllustList extends StatefulWidget {
   final String word;
   final String translatedName;
 
-  const ResultIllustList({Key? key, required this.word, this.translatedName = ''})
-      : super(key: key);
+  const ResultIllustList({
+    Key? key,
+    required this.word,
+    this.translatedName = '',
+  }) : super(key: key);
 
   @override
   _ResultIllustListState createState() => _ResultIllustListState();
@@ -54,12 +57,12 @@ class _ResultIllustListState extends State<ResultIllustList> {
     "date_asc",
     "popular_desc",
     "popular_male_desc",
-    "popular_female_desc"
+    "popular_female_desc",
   ];
   static List<String> search_target = [
     "partial_match_for_tags",
     "exact_match_for_tags",
-    "title_and_caption"
+    "title_and_caption",
   ];
   String searchTarget = search_target[0];
   String selectSort = "date_desc";
@@ -158,35 +161,42 @@ class _ResultIllustListState extends State<ResultIllustList> {
               Expanded(
                 child: InkWell(
                   onTap: () {
-                    Navigator.of(context).push(MaterialPageRoute(
-                        builder: (context) => SearchSuggestionPage(
-                              preword: widget.word,
-                            )));
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder:
+                            (context) =>
+                                SearchSuggestionPage(preword: widget.word),
+                      ),
+                    );
                   },
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: Padding(
                       padding: const EdgeInsets.only(left: 16.0),
-                      child: Observer(builder: (context) {
-                        final localTag =
-                            tagManagerStore.getTagDisplayData(widget.word);
-                        String translation =
-                            localTag?.tag.displayTranslatedName ?? '';
-                        if (translation.isEmpty) {
-                          translation = widget.translatedName;
-                        }
+                      child: Observer(
+                        builder: (context) {
+                          final localTag = tagManagerStore.getTagDisplayData(
+                            widget.word,
+                          );
+                          String translation =
+                              localTag?.tag.displayTranslatedName ?? '';
+                          if (translation.isEmpty) {
+                            translation = widget.translatedName;
+                          }
 
-                        final String titleText = translation.isNotEmpty
-                            ? '${widget.word} ($translation)'
-                            : widget.word;
+                          final String titleText =
+                              translation.isNotEmpty
+                                  ? '${widget.word} ($translation)'
+                                  : widget.word;
 
-                        return Text(
-                          titleText,
-                          textAlign: TextAlign.left,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        );
-                      }),
+                          return Text(
+                            titleText,
+                            textAlign: TextAlign.left,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          );
+                        },
+                      ),
                     ),
                   ),
                 ),
@@ -194,18 +204,22 @@ class _ResultIllustListState extends State<ResultIllustList> {
               Align(
                 alignment: Alignment.centerRight,
                 child: Padding(
-                  padding:
-                      const EdgeInsets.only(top: 8.0, bottom: 8.0, right: 8.0),
+                  padding: const EdgeInsets.only(
+                    top: 8.0,
+                    bottom: 8.0,
+                    right: 8.0,
+                  ),
                   child: Row(
                     children: [
                       InkWell(
-                          child: Padding(
-                            padding: const EdgeInsets.all(4.0),
-                            child: Icon(Icons.date_range),
-                          ),
-                          onTap: () {
-                            _buildShowDateRange(context);
-                          }),
+                        child: Padding(
+                          padding: const EdgeInsets.all(4.0),
+                          child: Icon(Icons.date_range),
+                        ),
+                        onTap: () {
+                          _buildShowDateRange(context);
+                        },
+                      ),
                       if (accountStore.now?.isPremium == 1)
                         Padding(
                           padding: const EdgeInsets.all(4.0),
@@ -216,26 +230,29 @@ class _ResultIllustListState extends State<ResultIllustList> {
                         child: _buildStar(),
                       ),
                       InkWell(
-                          child: Padding(
-                            padding: const EdgeInsets.all(4.0),
-                            child: Icon(Icons.filter_alt_outlined),
-                          ),
-                          onTap: () {
-                            _buildShowBottomSheet(context);
-                          }),
+                        child: Padding(
+                          padding: const EdgeInsets.all(4.0),
+                          child: Icon(Icons.filter_alt_outlined),
+                        ),
+                        onTap: () {
+                          _buildShowBottomSheet(context);
+                        },
+                      ),
                     ],
                   ),
                 ),
-              )
+              ),
             ],
           ),
           Expanded(
-              child: !inited
-                  ? Container()
-                  : LightingList(
+            child:
+                !inited
+                    ? Container()
+                    : LightingList(
                       source: futureGet,
                       scrollController: _scrollController,
-                    ))
+                    ),
+          ),
         ],
       ),
     );
@@ -245,10 +262,11 @@ class _ResultIllustListState extends State<ResultIllustList> {
 
   Future _buildShowDateRange(BuildContext context) async {
     DateTimeRange? dateTimeRange = await showDateRangePicker(
-        context: context,
-        initialDateRange: _dateTimeRange,
-        firstDate: DateTime(2007, 8),
-        lastDate: DateTime.now());
+      context: context,
+      initialDateRange: _dateTimeRange,
+      firstDate: DateTime(2007, 8),
+      lastDate: DateTime.now(),
+    );
     if (dateTimeRange != null) {
       _dateTimeRange = dateTimeRange;
       setState(() {
@@ -258,118 +276,115 @@ class _ResultIllustListState extends State<ResultIllustList> {
   }
 
   _changeQueryParams() {
-    final searchWord = _starValue == 0
-        ? widget.word
-        : '${widget.word} ${_starValue}users入り';
-    
+    final searchWord =
+        _starValue == 0 ? widget.word : '${widget.word} ${_starValue}users入り';
+
     futureGet = ApiForceSource(
-        futureGet: (bool e) async {
-          // 1. 查询已下载的作品
-          List<Illusts> downloadedIllusts = [];
-          if (downloadStore.isInitialized) {
-            try {
-              final downloaded = await downloadStore.searchDownloaded(
-                searchWord,
-                limit: 50, // 限制已下载作品数量
-              );
-              // 转换为 Illusts 对象
-              downloadedIllusts = downloaded
-                  .map((d) => d.toIllusts())
-                  .toList();
-            } catch (e) {
-              // 如果查询失败，继续执行网络搜索
-              Log.e('查询已下载作品失败: $e');
-            }
+      futureGet: (bool e) async {
+        // 1. 查询已下载的作品
+        List<Illusts> downloadedIllusts = [];
+        if (downloadStore.isInitialized) {
+          try {
+            final downloaded = await downloadStore.searchDownloaded(
+              searchWord,
+              limit: 50, // 限制已下载作品数量
+            );
+            // 转换为 Illusts 对象
+            downloadedIllusts = downloaded.map((d) => d.toIllusts()).toList();
+          } catch (e) {
+            // 如果查询失败，继续执行网络搜索
+            Log.e('查询已下载作品失败: $e');
           }
+        }
 
-          // 2. 查询网络搜索结果
-          final networkResponse = await apiClient.getSearchIllust(
-            searchWord,
-            search_target: searchTarget,
-            sort: selectSort,
-            start_date: _dateTimeRange?.start,
-            end_date: _dateTimeRange?.end,
-            bookmark_num: _bookmarkNumList,
-            search_ai_type: searchAIType,
-          );
+        // 2. 查询网络搜索结果
+        final networkResponse = await apiClient.getSearchIllust(
+          searchWord,
+          search_target: searchTarget,
+          sort: selectSort,
+          start_date: _dateTimeRange?.start,
+          end_date: _dateTimeRange?.end,
+          bookmark_num: _bookmarkNumList,
+          search_ai_type: searchAIType,
+        );
 
-          // 3. 解析网络搜索结果
-          final networkRecommend = Recommend.fromJson(networkResponse.data);
-          final networkIllusts = networkRecommend.illusts;
+        // 3. 解析网络搜索结果
+        final networkRecommend = Recommend.fromJson(networkResponse.data);
+        final networkIllusts = networkRecommend.illusts;
 
-          // 4. 合并结果：已下载的作品放在最前面，并去重（避免重复显示）
-          final downloadedIds = downloadedIllusts.map((e) => e.id).toSet();
-          final uniqueNetworkIllusts = networkIllusts
-              .where((e) => !downloadedIds.contains(e.id))
-              .toList();
+        // 4. 合并结果：已下载的作品放在最前面，并去重（避免重复显示）
+        final downloadedIds = downloadedIllusts.map((e) => e.id).toSet();
+        final uniqueNetworkIllusts =
+            networkIllusts.where((e) => !downloadedIds.contains(e.id)).toList();
 
-          final mergedIllusts = [
-            ...downloadedIllusts,
-            ...uniqueNetworkIllusts,
-          ];
+        final mergedIllusts = [...downloadedIllusts, ...uniqueNetworkIllusts];
 
-          // 5. 创建合并后的 Recommend 对象
-          final mergedRecommend = Recommend(
-            illusts: mergedIllusts,
-            nextUrl: networkRecommend.nextUrl,
-            rankingIllusts: networkRecommend.rankingIllusts,
-            contestExists: networkRecommend.contestExists,
-            privacyPolicy: networkRecommend.privacyPolicy,
-          );
+        // 5. 创建合并后的 Recommend 对象
+        final mergedRecommend = Recommend(
+          illusts: mergedIllusts,
+          nextUrl: networkRecommend.nextUrl,
+          rankingIllusts: networkRecommend.rankingIllusts,
+          contestExists: networkRecommend.contestExists,
+          privacyPolicy: networkRecommend.privacyPolicy,
+        );
 
-          // 6. 返回 Response 对象
-          return Response(
-            data: mergedRecommend.toJson(),
-            statusCode: networkResponse.statusCode,
-            statusMessage: networkResponse.statusMessage,
-            headers: networkResponse.headers,
-            requestOptions: networkResponse.requestOptions,
-          );
-        });
+        // 6. 返回 Response 对象
+        return Response(
+          data: mergedRecommend.toJson(),
+          statusCode: networkResponse.statusCode,
+          statusMessage: networkResponse.statusMessage,
+          headers: networkResponse.headers,
+          requestOptions: networkResponse.requestOptions,
+        );
+      },
+    );
   }
 
   void _buildShowBottomSheet(BuildContext context) {
     var resultIllustSortWidget = ResultIllustSortWidget(
-        searchAIType: searchAIType,
-        selectSort: selectSort,
-        searchTarget: searchTarget,
-        onPremium: () {
-          setState(() {
-            futureGet = ApiForceSource(
-                futureGet: (bool e) =>
-                    apiClient.getPopularPreview(widget.word));
-          });
-        },
-        onApply: () {
-          setState(() {
-            _changeQueryParams();
-          });
-        },
-        onSateChange: (
-            {required bool recordRememberCurrentSelection,
-            required int searchAIType,
-            required String searchTarget,
-            required String selectSort}) {
-          setState(() {
-            this.searchAIType = searchAIType;
-            this.searchTarget = searchTarget;
-            this.selectSort = selectSort;
-            this.recordRememberCurrentSelection =
-                recordRememberCurrentSelection;
-          });
-          if (recordRememberCurrentSelection) {
-            record();
-          }
+      searchAIType: searchAIType,
+      selectSort: selectSort,
+      searchTarget: searchTarget,
+      onPremium: () {
+        setState(() {
+          futureGet = ApiForceSource(
+            futureGet: (bool e) => apiClient.getPopularPreview(widget.word),
+          );
         });
+      },
+      onApply: () {
+        setState(() {
+          _changeQueryParams();
+        });
+      },
+      onSateChange: ({
+        required bool recordRememberCurrentSelection,
+        required int searchAIType,
+        required String searchTarget,
+        required String selectSort,
+      }) {
+        setState(() {
+          this.searchAIType = searchAIType;
+          this.searchTarget = searchTarget;
+          this.selectSort = selectSort;
+          this.recordRememberCurrentSelection = recordRememberCurrentSelection;
+        });
+        if (recordRememberCurrentSelection) {
+          record();
+        }
+      },
+    );
     // showDialog(context: context, builder: (context) => resultIllustSortWidget);
     showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.vertical(top: Radius.circular(8.0))),
-        builder: (context) {
-          return resultIllustSortWidget;
-        });
+      context: context,
+      isScrollControlled: true,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(8.0)),
+      ),
+      builder: (context) {
+        return resultIllustSortWidget;
+      },
+    );
   }
 
   int _starValue = 0;
@@ -377,11 +392,10 @@ class _ResultIllustListState extends State<ResultIllustList> {
   Widget _buildPremiumStar() {
     return PopupMenuButton<List<int>>(
       initialValue: _bookmarkNumList,
-      child: Icon(
-        Icons.format_list_numbered,
-      ),
+      child: Icon(Icons.format_list_numbered),
       shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(16.0))),
+        borderRadius: BorderRadius.all(Radius.circular(16.0)),
+      ),
       itemBuilder: (context) {
         return premiumStarNum.map((List<int> value) {
           if (value.isEmpty) {
@@ -396,12 +410,14 @@ class _ResultIllustListState extends State<ResultIllustList> {
               },
             );
           } else {
-            final minStr = value.elementAtOrNull(1) == null
-                ? ">${value.elementAtOrNull(0) ?? ''}"
-                : "${value.elementAtOrNull(0) ?? ''}";
-            final maxStr = value.elementAtOrNull(1) == null
-                ? ""
-                : "〜${value.elementAtOrNull(1)}";
+            final minStr =
+                value.elementAtOrNull(1) == null
+                    ? ">${value.elementAtOrNull(0) ?? ''}"
+                    : "${value.elementAtOrNull(0) ?? ''}";
+            final maxStr =
+                value.elementAtOrNull(1) == null
+                    ? ""
+                    : "〜${value.elementAtOrNull(1)}";
 
             return PopupMenuItem(
               value: value,
@@ -422,11 +438,10 @@ class _ResultIllustListState extends State<ResultIllustList> {
   Widget _buildStar() {
     return PopupMenuButton(
       initialValue: _starValue,
-      child: Icon(
-        Icons.sort,
-      ),
+      child: Icon(Icons.sort),
       shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(16.0))),
+        borderRadius: BorderRadius.all(Radius.circular(16.0)),
+      ),
       itemBuilder: (context) {
         return starNum.map((int value) {
           if (value > 0) {
@@ -464,19 +479,22 @@ class ResultIllustSortWidget extends StatefulWidget {
   final String searchTarget;
   final Function onPremium;
   final Function onApply;
-  final Function(
-      {required String searchTarget,
-      required String selectSort,
-      required int searchAIType,
-      required bool recordRememberCurrentSelection}) onSateChange;
-  const ResultIllustSortWidget(
-      {super.key,
-      required this.searchAIType,
-      required this.selectSort,
-      required this.searchTarget,
-      required this.onPremium,
-      required this.onApply,
-      required this.onSateChange});
+  final Function({
+    required String searchTarget,
+    required String selectSort,
+    required int searchAIType,
+    required bool recordRememberCurrentSelection,
+  })
+  onSateChange;
+  const ResultIllustSortWidget({
+    super.key,
+    required this.searchAIType,
+    required this.selectSort,
+    required this.searchTarget,
+    required this.onPremium,
+    required this.onApply,
+    required this.onSateChange,
+  });
 
   @override
   State<ResultIllustSortWidget> createState() => _ResultIllustSortWidgetState();
@@ -491,12 +509,12 @@ class _ResultIllustSortWidgetState extends State<ResultIllustSortWidget> {
     "date_asc",
     "popular_desc",
     "popular_male_desc",
-    "popular_female_desc"
+    "popular_female_desc",
   ];
   static List<String> search_target = [
     "partial_match_for_tags",
     "exact_match_for_tags",
-    "title_and_caption"
+    "title_and_caption",
   ];
   bool recordRememberCurrentSelection = false;
   final rememberKey = 'illust_search_result_record_remember_current_selection';
@@ -528,99 +546,108 @@ class _ResultIllustSortWidgetState extends State<ResultIllustSortWidget> {
       if (accountStore.now != null && accountStore.now!.isPremium == 1) ...{
         3: I18n.of(context).popular_male_desc,
         4: I18n.of(context).popular_female_desc,
-      }
+      },
     };
     return SafeArea(
       child: Container(
-          width: MediaQuery.of(context).size.width,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: <Widget>[
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: <Widget>[
-                    TextButton(
-                        onPressed: () {},
-                        child: Text(I18n.of(context).filter,
-                            style: TextStyle(
-                                color:
-                                    Theme.of(context).colorScheme.secondary))),
-                    TextButton(
-                        onPressed: () {
-                          widget.onApply();
-                          Navigator.of(context).pop();
-                        },
-                        child: Text(I18n.of(context).apply,
-                            style: TextStyle(
-                                color:
-                                    Theme.of(context).colorScheme.secondary))),
+        width: MediaQuery.of(context).size.width,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: <Widget>[
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: <Widget>[
+                  TextButton(
+                    onPressed: () {},
+                    child: Text(
+                      I18n.of(context).filter,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.secondary,
+                      ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      widget.onApply();
+                      Navigator.of(context).pop();
+                    },
+                    child: Text(
+                      I18n.of(context).apply,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.secondary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.all(8.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (final (index, data) in searchTargetMap.entries.indexed)
+                      _buildTargetItem(index, data, context),
                   ],
                 ),
-                Container(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      for (final (index, data)
-                          in searchTargetMap.entries.indexed)
-                        _buildTargetItem(index, data, context),
-                    ],
-                  ),
+              ),
+              Container(
+                padding: const EdgeInsets.all(8.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (final (index, data) in selectSortMap.entries.indexed)
+                      _buildSortItem(index, context, data),
+                  ],
                 ),
-                Container(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      for (final (index, data) in selectSortMap.entries.indexed)
-                        _buildSortItem(index, context, data),
-                    ],
-                  ),
-                ),
-                SwitchListTile(
-                  value: searchAIType != 1,
-                  onChanged: (v) {
-                    setState(() {
-                      searchAIType = !v ? 1 : 0;
-                    });
-                    widget.onSateChange(
-                        searchTarget: searchTarget,
-                        selectSort: selectSort,
-                        searchAIType: searchAIType,
-                        recordRememberCurrentSelection:
-                            recordRememberCurrentSelection);
-                  },
-                  title: Text(I18n.of(context).ai_generated),
-                ),
-                SwitchListTile(
-                  value: recordRememberCurrentSelection,
-                  onChanged: (v) async {
-                    await Prefer.setBool(rememberKey, v);
-                    setState(() {
-                      recordRememberCurrentSelection = v;
-                    });
-                    widget.onSateChange(
-                        searchTarget: searchTarget,
-                        selectSort: selectSort,
-                        searchAIType: searchAIType,
-                        recordRememberCurrentSelection:
-                            recordRememberCurrentSelection);
-                  },
-                  title: Text(I18n.of(context).remember_current_selections),
-                ),
-                Container(
-                  height: 16,
-                )
-              ],
-            ),
-          )),
+              ),
+              SwitchListTile(
+                value: searchAIType != 1,
+                onChanged: (v) {
+                  setState(() {
+                    searchAIType = !v ? 1 : 0;
+                  });
+                  widget.onSateChange(
+                    searchTarget: searchTarget,
+                    selectSort: selectSort,
+                    searchAIType: searchAIType,
+                    recordRememberCurrentSelection:
+                        recordRememberCurrentSelection,
+                  );
+                },
+                title: Text(I18n.of(context).ai_generated),
+              ),
+              SwitchListTile(
+                value: recordRememberCurrentSelection,
+                onChanged: (v) async {
+                  await Prefer.setBool(rememberKey, v);
+                  setState(() {
+                    recordRememberCurrentSelection = v;
+                  });
+                  widget.onSateChange(
+                    searchTarget: searchTarget,
+                    selectSort: selectSort,
+                    searchAIType: searchAIType,
+                    recordRememberCurrentSelection:
+                        recordRememberCurrentSelection,
+                  );
+                },
+                title: Text(I18n.of(context).remember_current_selections),
+              ),
+              Container(height: 16),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
   Widget _buildSortItem(
-      int index, BuildContext context, MapEntry<int, String> data) {
+    int index,
+    BuildContext context,
+    MapEntry<int, String> data,
+  ) {
     return GestureDetector(
       onTap: () {
         if (accountStore.now != null && index == 2) {
@@ -635,53 +662,68 @@ class _ResultIllustSortWidgetState extends State<ResultIllustSortWidget> {
           selectSort = sort[index];
         });
         widget.onSateChange(
-            searchTarget: searchTarget,
-            selectSort: selectSort,
-            searchAIType: searchAIType,
-            recordRememberCurrentSelection: recordRememberCurrentSelection);
+          searchTarget: searchTarget,
+          selectSort: selectSort,
+          searchAIType: searchAIType,
+          recordRememberCurrentSelection: recordRememberCurrentSelection,
+        );
       },
       behavior: HitTestBehavior.opaque,
       child: Container(
         margin: EdgeInsets.only(bottom: 8.0),
         child: Text(data.value),
-        decoration: selectSort == sort[index]
-            ? BoxDecoration(
-                color: Theme.of(context).colorScheme.secondaryContainer,
-                borderRadius: BorderRadius.circular(8.0),
-              )
-            : null,
-        padding:
-            const EdgeInsets.only(top: 10.0, bottom: 10.0, left: 8, right: 8),
+        decoration:
+            selectSort == sort[index]
+                ? BoxDecoration(
+                  color: Theme.of(context).colorScheme.secondaryContainer,
+                  borderRadius: BorderRadius.circular(8.0),
+                )
+                : null,
+        padding: const EdgeInsets.only(
+          top: 10.0,
+          bottom: 10.0,
+          left: 8,
+          right: 8,
+        ),
         alignment: Alignment.centerLeft,
       ),
     );
   }
 
   Widget _buildTargetItem(
-      int index, MapEntry<int, String> data, BuildContext context) {
+    int index,
+    MapEntry<int, String> data,
+    BuildContext context,
+  ) {
     return GestureDetector(
       onTap: () {
         setState(() {
           searchTarget = search_target[index];
         });
         widget.onSateChange(
-            searchTarget: searchTarget,
-            selectSort: selectSort,
-            searchAIType: searchAIType,
-            recordRememberCurrentSelection: recordRememberCurrentSelection);
+          searchTarget: searchTarget,
+          selectSort: selectSort,
+          searchAIType: searchAIType,
+          recordRememberCurrentSelection: recordRememberCurrentSelection,
+        );
       },
       behavior: HitTestBehavior.opaque,
       child: Container(
         margin: EdgeInsets.only(bottom: 8.0),
         child: Text(data.value),
-        decoration: search_target.indexOf(searchTarget) == index
-            ? BoxDecoration(
-                color: Theme.of(context).colorScheme.secondaryContainer,
-                borderRadius: BorderRadius.circular(8.0),
-              )
-            : null,
-        padding:
-            const EdgeInsets.only(top: 10.0, bottom: 10.0, left: 8, right: 8),
+        decoration:
+            search_target.indexOf(searchTarget) == index
+                ? BoxDecoration(
+                  color: Theme.of(context).colorScheme.secondaryContainer,
+                  borderRadius: BorderRadius.circular(8.0),
+                )
+                : null,
+        padding: const EdgeInsets.only(
+          top: 10.0,
+          bottom: 10.0,
+          left: 8,
+          right: 8,
+        ),
         alignment: Alignment.centerLeft,
       ),
     );

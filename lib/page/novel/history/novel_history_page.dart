@@ -33,20 +33,20 @@ class _NovelHistoryState extends State<NovelHistory> {
 
   @override
   Widget build(BuildContext context) {
-    return Observer(builder: (_) {
-      return Scaffold(
-        appBar: AppBar(
-          title: Text(I18n.of(context).history),
-        ),
-        floatingActionButton: FloatingActionButton(
-          child: Icon(Icons.delete_forever),
-          onPressed: () async {
-            final result = await showDialog(
+    return Observer(
+      builder: (_) {
+        return Scaffold(
+          appBar: AppBar(title: Text(I18n.of(context).history)),
+          floatingActionButton: FloatingActionButton(
+            child: Icon(Icons.delete_forever),
+            onPressed: () async {
+              final result = await showDialog(
                 context: context,
                 builder: (context) {
                   return AlertDialog(
                     title: Text(
-                        "${I18n.of(context).delete} ${I18n.of(context).all}?"),
+                      "${I18n.of(context).delete} ${I18n.of(context).all}?",
+                    ),
                     actions: <Widget>[
                       TextButton(
                         child: Text(I18n.of(context).cancel),
@@ -62,32 +62,39 @@ class _NovelHistoryState extends State<NovelHistory> {
                       ),
                     ],
                   );
-                });
-            if (result == "OK") {
-              novelHistoryStore.deleteAll();
-            }
-          },
-        ),
-        body: novelHistoryStore.data.isNotEmpty
-            ? ListView.builder(
-                itemBuilder: (context, index) {
-                  final novel = novelHistoryStore.data[index];
-                  return ListTile(
-                    title: Text(novel.title),
-                    subtitle: Text(novel.userName),
-                    onTap: () => Leader.push(
-                        context, NovelViewerPage(id: novel.novelId)),
-                    trailing: IconButton(
-                        icon: Icon(Icons.delete),
-                        onPressed: () {
-                          novelHistoryStore.delete(novel.novelId);
-                        }),
-                  );
                 },
-                itemCount: novelHistoryStore.data.length,
-              )
-            : Container(),
-      );
-    });
+              );
+              if (result == "OK") {
+                novelHistoryStore.deleteAll();
+              }
+            },
+          ),
+          body:
+              novelHistoryStore.data.isNotEmpty
+                  ? ListView.builder(
+                    itemBuilder: (context, index) {
+                      final novel = novelHistoryStore.data[index];
+                      return ListTile(
+                        title: Text(novel.title),
+                        subtitle: Text(novel.userName),
+                        onTap:
+                            () => Leader.push(
+                              context,
+                              NovelViewerPage(id: novel.novelId),
+                            ),
+                        trailing: IconButton(
+                          icon: Icon(Icons.delete),
+                          onPressed: () {
+                            novelHistoryStore.delete(novel.novelId);
+                          },
+                        ),
+                      );
+                    },
+                    itemCount: novelHistoryStore.data.length,
+                  )
+                  : Container(),
+        );
+      },
+    );
   }
 }

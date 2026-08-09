@@ -26,14 +26,21 @@ class OnezeroClient {
   static const String URL_DNS_RESOLVER = "https://doh.dns.sb";
 
   OnezeroClient() {
-    this.httpClient = Dio(BaseOptions(
-        baseUrl: URL_DNS_RESOLVER, connectTimeout: Duration(seconds: 10)));
-      httpClient.httpClientAdapter = IOHttpClientAdapter(createHttpClient: () {
+    this.httpClient = Dio(
+      BaseOptions(
+        baseUrl: URL_DNS_RESOLVER,
+        connectTimeout: Duration(seconds: 10),
+      ),
+    );
+    httpClient.httpClientAdapter = IOHttpClientAdapter(
+      createHttpClient: () {
         HttpClient httpClient = HttpClient();
-        httpClient.badCertificateCallback = (X509Certificate cert, String host, int port) => true;
+        httpClient.badCertificateCallback =
+            (X509Certificate cert, String host, int port) => true;
         return httpClient;
-      });
-      this.httpClient.interceptors.add(NetworkLogInterceptor());
+      },
+    );
+    this.httpClient.interceptors.add(NetworkLogInterceptor());
   }
 
   //     @GET("dns-query")
@@ -45,16 +52,11 @@ class OnezeroClient {
   //         @Query("cd") cd: Boolean? = null
   // ): Observable<DnsQueryResponse>
   Future<OnezeroResponse> queryDns(String name) async {
-    Response response = await httpClient.get('/dns-query',
-        options: Options(
-          headers: {
-            'accept': 'application/dns-json',
-          },
-        ),
-        queryParameters: {
-          'name': name,
-          'type': 'A',
-        });
+    Response response = await httpClient.get(
+      '/dns-query',
+      options: Options(headers: {'accept': 'application/dns-json'}),
+      queryParameters: {'name': name, 'type': 'A'},
+    );
     var responseFromJson = OnezeroResponse.fromJson(response.data);
     // for (var value in responseFromJson.answer) {
     //   if(value.name == "app-api.pixiv.net"){

@@ -41,13 +41,16 @@ abstract class _NovelHistoryStoreBase with Store {
   @action
   insert(Novel novel) async {
     await novelPersistProvider.open();
-    await novelPersistProvider.insert(NovelPersist(
+    await novelPersistProvider.insert(
+      NovelPersist(
         time: DateTime.now().millisecondsSinceEpoch,
         userId: novel.user.id,
         title: novel.title,
         userName: novel.user.name,
         pictureUrl: novel.imageUrls.squareMedium,
-        novelId: novel.id));
+        novelId: novel.id,
+      ),
+    );
     await fetch();
   }
 
@@ -73,12 +76,13 @@ abstract class _NovelHistoryStoreBase with Store {
     maps.forEach((illust) {
       var novelMap = Map.from(illust);
       var novelPersist = NovelPersist(
-          novelId: novelMap['novel_id'],
-          userId: novelMap['user_id'],
-          pictureUrl: novelMap['picture_url'],
-          time: novelMap['time'],
-          title: novelMap['title'],
-          userName: novelMap['user_name']);
+        novelId: novelMap['novel_id'],
+        userId: novelMap['user_id'],
+        pictureUrl: novelMap['picture_url'],
+        time: novelMap['time'],
+        title: novelMap['title'],
+        userName: novelMap['user_name'],
+      );
       novelPersistProvider.insert(novelPersist);
     });
   }
@@ -90,8 +94,10 @@ abstract class _NovelHistoryStoreBase with Store {
     if (Platform.isIOS) {
       await Sharer.exportUint8List(context, uint8List, "novelpersist.json");
     } else {
-      final uriStr =
-          await SAFPlugin.createFile("novelpersist.json", "application/json");
+      final uriStr = await SAFPlugin.createFile(
+        "novelpersist.json",
+        "application/json",
+      );
       if (uriStr == null) return;
       await SAFPlugin.writeUri(uriStr, uint8List);
     }

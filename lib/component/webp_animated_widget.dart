@@ -23,13 +23,13 @@ import 'package:pixez/main.dart';
 
 /// WebP动图缩放模式
 enum WebpZoomMode {
-  original,  // 1倍图
-  double,    // 2倍图
-  fit,       // 适应窗口
+  original, // 1倍图
+  double, // 2倍图
+  fit, // 适应窗口
 }
 
 /// WebP动图显示组件
-/// 
+///
 /// 支持：
 /// - 从文件加载WebP动图
 /// - 1倍、2倍和适应宽高切换
@@ -40,6 +40,7 @@ class WebpAnimatedWidget extends StatefulWidget {
   final Size maxSize;
   final int? initialWidth;
   final int? initialHeight;
+
   /// 宽高更新回调（用于更新数据库）
   final void Function(int width, int height)? onDimensionsChanged;
 
@@ -57,7 +58,8 @@ class WebpAnimatedWidget extends StatefulWidget {
   State<WebpAnimatedWidget> createState() => _WebpAnimatedWidgetState();
 }
 
-class _WebpAnimatedWidgetState extends State<WebpAnimatedWidget> with RouteAware {
+class _WebpAnimatedWidgetState extends State<WebpAnimatedWidget>
+    with RouteAware {
   WebpZoomMode _zoomMode = WebpZoomMode.original;
   Size? _actualImageSize;
 
@@ -65,8 +67,10 @@ class _WebpAnimatedWidgetState extends State<WebpAnimatedWidget> with RouteAware
   void initState() {
     super.initState();
     // 使用初始宽高
-    if (widget.initialWidth != null && widget.initialHeight != null &&
-        widget.initialWidth! > 0 && widget.initialHeight! > 0) {
+    if (widget.initialWidth != null &&
+        widget.initialHeight != null &&
+        widget.initialWidth! > 0 &&
+        widget.initialHeight! > 0) {
       _actualImageSize = Size(
         widget.initialWidth!.toDouble(),
         widget.initialHeight!.toDouble(),
@@ -97,17 +101,20 @@ class _WebpAnimatedWidgetState extends State<WebpAnimatedWidget> with RouteAware
       // 使用downloadStore的方法获取尺寸
       final size = await downloadStore.getImageSize(widget.webpPath);
       if (size == null) return;
-      
+
       final newWidth = size.width.toInt();
       final newHeight = size.height.toInt();
 
       if (newWidth > 0 && newHeight > 0) {
         // 检查尺寸是否有变化
-        final needUpdate = widget.initialWidth != newWidth ||
+        final needUpdate =
+            widget.initialWidth != newWidth ||
             widget.initialHeight != newHeight;
 
         if (needUpdate && widget.onDimensionsChanged != null) {
-          Log.d('WebpAnimatedWidget: 尺寸变化 ${widget.initialWidth}x${widget.initialHeight} -> ${newWidth}x$newHeight');
+          Log.d(
+            'WebpAnimatedWidget: 尺寸变化 ${widget.initialWidth}x${widget.initialHeight} -> ${newWidth}x$newHeight',
+          );
           widget.onDimensionsChanged!(newWidth, newHeight);
         }
 
@@ -164,7 +171,7 @@ class _WebpAnimatedWidgetState extends State<WebpAnimatedWidget> with RouteAware
   @override
   Widget build(BuildContext context) {
     final displaySize = _calculateDisplaySize();
-    
+
     return Stack(
       children: [
         // WebP动图显示

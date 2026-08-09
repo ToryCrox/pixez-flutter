@@ -44,9 +44,7 @@ class _UserShowAISettingState extends State<UserShowAISetting> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(I18n.of(context).ai_work_display_settings),
-      ),
+      appBar: AppBar(title: Text(I18n.of(context).ai_work_display_settings)),
       body: ListView(
         children: [
           ListTile(

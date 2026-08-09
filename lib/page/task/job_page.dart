@@ -55,20 +55,27 @@ class _JobPageState extends State<JobPage> {
             onPressed: () {
               showDialog(
                 context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('确认取消'),
-                  content: const Text('确定要取消所有下载任务吗？'),
-                  actions: [
-                    TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消')),
-                    TextButton(
-                      onPressed: () {
-                        downloadStore.cancelAllDownload();
-                        Navigator.pop(context);
-                      },
-                      child: const Text('全部取消', style: TextStyle(color: Colors.red)),
+                builder:
+                    (context) => AlertDialog(
+                      title: const Text('确认取消'),
+                      content: const Text('确定要取消所有下载任务吗？'),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('取消'),
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            downloadStore.cancelAllDownload();
+                            Navigator.pop(context);
+                          },
+                          child: const Text(
+                            '全部取消',
+                            style: TextStyle(color: Colors.red),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
               );
             },
           ),
@@ -91,9 +98,20 @@ class _JobPageState extends State<JobPage> {
       builder: (_) {
         final totalSpeed = downloadStore.totalSpeed;
         final tasks = downloadStore.downloadingTasks.values.toList();
-        final runningCount = tasks.where((t) => t.status == DownloadTaskStatus.downloading).length;
-        final pendingCount = tasks.where((t) => t.status == DownloadTaskStatus.pending).length;
-        final pausedCount = tasks.where((t) => t.status == DownloadTaskStatus.paused || t.status == DownloadTaskStatus.failed).length;
+        final runningCount =
+            tasks
+                .where((t) => t.status == DownloadTaskStatus.downloading)
+                .length;
+        final pendingCount =
+            tasks.where((t) => t.status == DownloadTaskStatus.pending).length;
+        final pausedCount =
+            tasks
+                .where(
+                  (t) =>
+                      t.status == DownloadTaskStatus.paused ||
+                      t.status == DownloadTaskStatus.failed,
+                )
+                .length;
 
         return Container(
           margin: const EdgeInsets.fromLTRB(16, 12, 16, 8),
@@ -110,7 +128,9 @@ class _JobPageState extends State<JobPage> {
             borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
-                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
+                color: Theme.of(
+                  context,
+                ).colorScheme.primary.withValues(alpha: 0.3),
                 blurRadius: 15,
                 offset: const Offset(0, 8),
               ),
@@ -140,14 +160,21 @@ class _JobPageState extends State<JobPage> {
                     ],
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.white24,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
                       '队列: ${tasks.length}',
-                      style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ],
@@ -183,7 +210,12 @@ class _JobPageState extends State<JobPage> {
     );
   }
 
-  Widget _buildStatButton({required IconData icon, required String label, required VoidCallback onTap, required bool enabled}) {
+  Widget _buildStatButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    required bool enabled,
+  }) {
     return InkWell(
       onTap: enabled ? onTap : null,
       borderRadius: BorderRadius.circular(12),
@@ -200,7 +232,10 @@ class _JobPageState extends State<JobPage> {
               child: Icon(icon, color: Colors.white, size: 20),
             ),
             const SizedBox(height: 2),
-            Text(label, style: const TextStyle(color: Colors.white, fontSize: 11)),
+            Text(
+              label,
+              style: const TextStyle(color: Colors.white, fontSize: 11),
+            ),
           ],
         ),
       ),
@@ -228,27 +263,45 @@ class _JobPageState extends State<JobPage> {
   Widget _buildTaskList() {
     return Observer(
       builder: (_) {
-        List<DownloadTask> tasks = downloadStore.downloadingTasks.values.toList();
-        
+        List<DownloadTask> tasks =
+            downloadStore.downloadingTasks.values.toList();
+
         // 排序规则：正在下载 > 等待 > 暂停 > 失败 > 完成
         tasks.sort((a, b) {
           int score(DownloadTaskStatus status) {
             switch (status) {
-              case DownloadTaskStatus.downloading: return 0;
-              case DownloadTaskStatus.pending: return 1;
-              case DownloadTaskStatus.paused: return 2;
-              case DownloadTaskStatus.failed: return 3;
-              case DownloadTaskStatus.completed: return 4;
-              default: return 5;
+              case DownloadTaskStatus.downloading:
+                return 0;
+              case DownloadTaskStatus.pending:
+                return 1;
+              case DownloadTaskStatus.paused:
+                return 2;
+              case DownloadTaskStatus.failed:
+                return 3;
+              case DownloadTaskStatus.completed:
+                return 4;
+              default:
+                return 5;
             }
           }
+
           return score(a.status).compareTo(score(b.status));
         });
 
         if (currentIndex == 1) {
-          tasks = tasks.where((t) => t.status == DownloadTaskStatus.downloading || t.status == DownloadTaskStatus.pending).toList();
+          tasks =
+              tasks
+                  .where(
+                    (t) =>
+                        t.status == DownloadTaskStatus.downloading ||
+                        t.status == DownloadTaskStatus.pending,
+                  )
+                  .toList();
         } else if (currentIndex == 2) {
-          tasks = tasks.where((t) => t.status == DownloadTaskStatus.failed).toList();
+          tasks =
+              tasks
+                  .where((t) => t.status == DownloadTaskStatus.failed)
+                  .toList();
         }
 
         if (tasks.isEmpty) {
@@ -256,7 +309,11 @@ class _JobPageState extends State<JobPage> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.inbox_rounded, size: 64, color: Theme.of(context).dividerColor.withValues(alpha: 0.5)),
+                Icon(
+                  Icons.inbox_rounded,
+                  size: 64,
+                  color: Theme.of(context).dividerColor.withValues(alpha: 0.5),
+                ),
                 const SizedBox(height: 16),
                 Text(
                   '暂无下载任务',
@@ -278,7 +335,10 @@ class _JobPageState extends State<JobPage> {
               downloadStore: downloadStore,
               onDelete: () => downloadStore.cancelTask(task.taskKey),
               onRetry: () => downloadStore.retryTask(task.taskKey),
-              onResume: () => downloadStore.resumeIllustDownload(task.illusts.id), // 注意这里是恢复整个插画的任务
+              onResume:
+                  () => downloadStore.resumeIllustDownload(
+                    task.illusts.id,
+                  ), // 注意这里是恢复整个插画的任务
             );
           },
         );

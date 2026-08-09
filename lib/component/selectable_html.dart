@@ -63,8 +63,10 @@ class _SelectableHtmlState extends State<SelectableHtml> {
             Log.d(() => "html tap url: $url");
             bool result = await Leader.pushWithUri(context, Uri.parse(url));
             if (!result) {
-              await launchUrl(Uri.parse(url),
-                  mode: LaunchMode.externalNonBrowserApplication);
+              await launchUrl(
+                Uri.parse(url),
+                mode: LaunchMode.externalNonBrowserApplication,
+              );
             }
           } catch (e) {
             Share.share(url);

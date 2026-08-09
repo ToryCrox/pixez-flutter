@@ -28,10 +28,7 @@ class IllustBookmarkTagsResponse {
   @JsonKey(name: "next_url")
   String? nextUrl;
 
-  IllustBookmarkTagsResponse({
-    required this.bookmarkTags,
-    this.nextUrl,
-  });
+  IllustBookmarkTagsResponse({required this.bookmarkTags, this.nextUrl});
   factory IllustBookmarkTagsResponse.fromJson(Map<String, dynamic> json) =>
       _$IllustBookmarkTagsResponseFromJson(json);
 
@@ -43,10 +40,7 @@ class BookmarkTag {
   String name;
   int count;
 
-  BookmarkTag({
-    required this.name,
-    required this.count,
-  });
+  BookmarkTag({required this.name, required this.count});
   factory BookmarkTag.fromJson(Map<String, dynamic> json) =>
       _$BookmarkTagFromJson(json);
 

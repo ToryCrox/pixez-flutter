@@ -51,10 +51,10 @@ abstract class _UgoiraStoreBase with Store {
   void _initDownloadStatusListener() {
     _downloadStatusSubscription = downloadStore.illustDownloadStatusStream
         .listen((status) {
-      if (status.illusts.illustId == id) {
-        _onDownloadStatusChanged(status);
-      }
-    });
+          if (status.illusts.illustId == id) {
+            _onDownloadStatusChanged(status);
+          }
+        });
   }
 
   /// 处理下载状态变化
@@ -63,12 +63,12 @@ abstract class _UgoiraStoreBase with Store {
     if (status.status == DownloadTaskStatus.downloading ||
         status.status == DownloadTaskStatus.pending) {
       Log.d(() => '动图 $id 开始/正在下载');
-      
+
       // 下载开始时，清空当前帧列表，避免使用即将被删除的临时文件
       if (status.status == DownloadTaskStatus.pending) {
         drawPool = [];
       }
-      
+
       // 如果当前不是进度状态，设置为进度状态
       if (this.status != UgoiraStatus.progress) {
         this.status = UgoiraStatus.progress;
@@ -117,14 +117,10 @@ abstract class _UgoiraStoreBase with Store {
   @observable
   UgoiraMetadataResponse? ugoiraMetadataResponse;
 
-  export() async {
-
-  }
+  export() async {}
 
   @action
-  unZip() async {
-
-  }
+  unZip() async {}
 
   @action
   downloadAndUnzip() async {
@@ -148,10 +144,11 @@ abstract class _UgoiraStoreBase with Store {
   Future<void> _loadFromDownloadDirectory() async {
     try {
       // 从数据库获取已下载的插画信息
-      final downloadedIllust = await downloadStore.dbProvider.getIllustByIllustId(id);
+      final downloadedIllust = await downloadStore.dbProvider
+          .getIllustByIllustId(id);
       if (downloadedIllust == null) {
         // 数据库记录不存在，回退到下载流程
-        Log.d(() =>'动图 $id 数据库记录不存在，回退到下载流程');
+        Log.d(() => '动图 $id 数据库记录不存在，回退到下载流程');
         await _fetchAndUnzip();
         return;
       }
@@ -164,10 +161,10 @@ abstract class _UgoiraStoreBase with Store {
         try {
           final response = await ugoiraDownloader.fetchMetadata(id);
           metadata = response.ugoiraMetadata;
-          
+
           // 更新到数据库
           final metadataJson = PixivUrlUtil.compressPxUrl(
-            TypeUtil.parseJsonString(metadata.toJson())
+            TypeUtil.parseJsonString(metadata.toJson()),
           );
           await downloadStore.dbProvider.updateUgoiraMetadata(id, metadataJson);
           Log.d('动图 $id 元数据已从网络获取并更新到数据库');
@@ -199,8 +196,12 @@ abstract class _UgoiraStoreBase with Store {
       // WebP不存在，使用序列帧播放
 
       // 使用 dbProvider 的方法获取动图帧目录
-      final frameDirPath = downloadStore.dbProvider.getUgoiraFrameDirPath(downloadedIllust.relativePath);
-      Log.d('动图 $id 帧目录路径: $frameDirPath, relativePath: ${downloadedIllust.relativePath}');
+      final frameDirPath = downloadStore.dbProvider.getUgoiraFrameDirPath(
+        downloadedIllust.relativePath,
+      );
+      Log.d(
+        '动图 $id 帧目录路径: $frameDirPath, relativePath: ${downloadedIllust.relativePath}',
+      );
       final frameDir = Directory(frameDirPath);
 
       if (!await frameDir.exists()) {
@@ -217,7 +218,14 @@ abstract class _UgoiraStoreBase with Store {
       Log.d('动图 $id 扫描帧目录，找到 ${entities.length} 个文件');
 
       // 支持的图片文件扩展名
-      const supportedExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp'];
+      const supportedExtensions = [
+        '.jpg',
+        '.jpeg',
+        '.png',
+        '.webp',
+        '.gif',
+        '.bmp',
+      ];
 
       for (final entity in entities) {
         if (entity is File) {
@@ -244,7 +252,7 @@ abstract class _UgoiraStoreBase with Store {
       // 验证文件数量（仅警告，不阻塞播放）
       if (frameFiles.length != metadata.frames.length) {
         Log.d(
-          '动图 $id 帧文件数量不匹配: 期望 ${metadata.frames.length}, 实际 ${frameFiles.length}'
+          '动图 $id 帧文件数量不匹配: 期望 ${metadata.frames.length}, 实际 ${frameFiles.length}',
         );
         // 继续播放，让用户体验实际可用的帧
       }
@@ -253,7 +261,7 @@ abstract class _UgoiraStoreBase with Store {
       drawPool = frameFiles;
       status = UgoiraStatus.play;
     } catch (e) {
-      Log.d(() =>'动图 $id 加载本地动图失败: $e');
+      Log.d(() => '动图 $id 加载本地动图失败: $e');
       // 加载失败，回退到下载流程
       await _fetchAndUnzip();
     }
@@ -262,19 +270,20 @@ abstract class _UgoiraStoreBase with Store {
   /// 获取元数据并解压序列帧（用于在线播放）
   @action
   Future<void> _fetchAndUnzip() async {
-
     try {
       // 使用统一的下载方法获取元数据和帧文件
       final result = await ugoiraDownloader.fetchMetadataAndExtractFrames(
         id,
         onProgress: updateProgress,
       );
-      Log.d(() => '动图 $id 下载元数据和解压序列帧成功: ${result.metadata}, ${result.frameFiles}');
+      Log.d(
+        () => '动图 $id 下载元数据和解压序列帧成功: ${result.metadata}, ${result.frameFiles}',
+      );
       ugoiraMetadataResponse = result.metadata;
       drawPool = result.frameFiles;
       status = UgoiraStatus.play;
     } catch (e) {
-      Log.d(() =>'下载动图失败: $e');
+      Log.d(() => '下载动图失败: $e');
       // 清理临时解压目录（ZIP 由 pixivCacheManager 管理）
       await ugoiraDownloader.cleanupTempExtractDir(id);
       status = UgoiraStatus.pre;

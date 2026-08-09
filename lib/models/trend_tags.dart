@@ -22,9 +22,7 @@ part 'trend_tags.g.dart';
 class TrendingTag {
   List<TrendTags> trend_tags;
 
-  TrendingTag({
-    required this.trend_tags,
-  });
+  TrendingTag({required this.trend_tags});
 
   factory TrendingTag.fromJson(Map<String, dynamic> json) =>
       _$TrendingTagFromJson(json);
@@ -37,8 +35,11 @@ class TrendTags {
   String? translatedName;
   TrendTagsIllust illust;
 
-  TrendTags(
-      {required this.tag, required this.illust, required this.translatedName});
+  TrendTags({
+    required this.tag,
+    required this.illust,
+    required this.translatedName,
+  });
 
   factory TrendTags.fromJson(Map<String, dynamic> json) =>
       _$TrendTagsFromJson(json);

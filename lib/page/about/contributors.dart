@@ -25,26 +25,29 @@ List<Contributor> contributors = [
       if (accountStore.now == null) return;
       if (Platform.isIOS) return;
 
-      final response =
-          await apiClient.getSearchIllust("キャル(プリコネ) 10000users入り");
+      final response = await apiClient.getSearchIllust(
+        "キャル(プリコネ) 10000users入り",
+      );
       Recommend recommend = Recommend.fromJson(response.data);
       if (recommend.illusts.isEmpty) return;
-      final targetIllusts = _safeMode || userSetting.hIsNotAllow
-          ? recommend.illusts
-              .where((element) => !element.tags.any((i) => i.name == "R-18"))
-              .toList()
-          : recommend.illusts;
+      final targetIllusts =
+          _safeMode || userSetting.hIsNotAllow
+              ? recommend.illusts
+                  .where(
+                    (element) => !element.tags.any((i) => i.name == "R-18"),
+                  )
+                  .toList()
+              : recommend.illusts;
       if (targetIllusts.isEmpty) return;
-      final url = targetIllusts[Random().nextInt(targetIllusts.length)]
-          .imageUrls
-          .medium;
+      final url =
+          targetIllusts[Random().nextInt(targetIllusts.length)]
+              .imageUrls
+              .medium;
 
       _showBottomSheet(
         context: context,
         builder: (context) {
-          return SafeArea(
-            child: PixivImage(url),
-          );
+          return SafeArea(child: PixivImage(url));
         },
       );
     },
@@ -71,12 +74,11 @@ List<Contributor> contributors = [
       if (_safeMode) return;
       if (userSetting.hIsNotAllow) {
         _showBottomSheet(
-            context: context,
-            builder: (context) {
-              return SafeArea(
-                child: Image.asset(Constants.no_h),
-              );
-            });
+          context: context,
+          builder: (context) {
+            return SafeArea(child: Image.asset(Constants.no_h));
+          },
+        );
         return;
       }
       final response = await apiClient.getIllustRanking('day_r18', null);
@@ -85,9 +87,7 @@ List<Contributor> contributors = [
         context: context,
         builder: (context) {
           final url = recommend.illusts[Random().nextInt(10)].imageUrls.medium;
-          return SafeArea(
-            child: PixivImage(url),
-          );
+          return SafeArea(child: PixivImage(url));
         },
       );
     },
@@ -121,10 +121,7 @@ List<Contributor> contributors = [
           context: context,
           builder: (context) {
             return SafeArea(
-              child: Image.asset(
-                'assets/images/fish.gif',
-                fit: BoxFit.cover,
-              ),
+              child: Image.asset('assets/images/fish.gif', fit: BoxFit.cover),
             );
           },
         );
@@ -182,11 +179,5 @@ class Contributor {
   final String content;
   final Function(BuildContext context)? onPressed;
 
-  Contributor(
-    this.name,
-    this.avatar,
-    this.url,
-    this.content, {
-    this.onPressed,
-  });
+  Contributor(this.name, this.avatar, this.url, this.content, {this.onPressed});
 }

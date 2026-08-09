@@ -22,10 +22,7 @@ class UserPreviewsResponse {
   List<UserPreviews> user_previews;
   String? next_url;
 
-  UserPreviewsResponse({
-    required this.user_previews,
-    this.next_url,
-  });
+  UserPreviewsResponse({required this.user_previews, this.next_url});
   factory UserPreviewsResponse.fromJson(Map<String, dynamic> json) =>
       _$UserPreviewsResponseFromJson(json);
   Map<String, dynamic> toJson() => _$UserPreviewsResponseToJson(this);
@@ -57,7 +54,7 @@ class UserPreviewsNovel {
   String? caption;
   @JsonKey(name: 'image_urls')
   ImageUrls imageUrls;
-  
+
   UserPreviewsNovel({
     required this.id,
     required this.title,

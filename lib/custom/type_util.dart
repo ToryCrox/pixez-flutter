@@ -166,8 +166,10 @@ class TypeUtil {
   }
 
   /// value解析，确保不会报错
-  static Map<String, dynamic> parseMap(dynamic value,
-      [Map<String, dynamic> defaultValue = const {}]) {
+  static Map<String, dynamic> parseMap(
+    dynamic value, [
+    Map<String, dynamic> defaultValue = const {},
+  ]) {
     if (value == null) return defaultValue;
     if (value is Map<String, dynamic>) return value;
     if (value is Map) {
@@ -182,7 +184,6 @@ class TypeUtil {
     }
     return defaultValue;
   }
-
 
   /// 压缩map，移除空值
   static Map<K, V> shrinkMap<K, V>(Map<K, V> map, {bool copy = false}) {

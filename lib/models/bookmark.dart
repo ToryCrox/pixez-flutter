@@ -22,9 +22,7 @@ part 'bookmark.g.dart';
 class BookmarkRsp {
   Bookmark_detail bookmark_detail;
 
-  BookmarkRsp({
-    required this.bookmark_detail,
-  });
+  BookmarkRsp({required this.bookmark_detail});
 
   factory BookmarkRsp.fromJson(Map<String, dynamic> json) =>
       _$BookmarkRspFromJson(json);
@@ -58,10 +56,7 @@ class Tags {
   String name;
   bool is_registered;
 
-  Tags({
-    required this.name,
-    required this.is_registered,
-  });
+  Tags({required this.name, required this.is_registered});
 
   factory Tags.fromJson(Map<String, dynamic> json) => _$TagsFromJson(json);
   Map<String, dynamic> toJson() => _$TagsToJson(this);

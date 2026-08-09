@@ -20,7 +20,7 @@ import 'package:flutter_mana/flutter_mana.dart';
 import 'package:flutter_mana_kits/flutter_mana_kits.dart';
 
 /// Mana 调试工具管理器
-/// 
+///
 /// 用于管理 flutter_mana 插件的初始化和配置。
 /// - Debug 模式下自动启用所有插件
 /// - Release 模式下通过设置控制是否启用（仅支持的插件）

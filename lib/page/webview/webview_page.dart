@@ -41,82 +41,94 @@ class _WebViewPageState extends State<WebViewPage> {
         title: Text(""),
         actions: <Widget>[
           IconButton(
-              icon: Icon(Icons.open_in_browser),
-              onPressed: () {
-                try {
-                  CustomTabPlugin.launch(widget.url);
-                } catch (e) {
-                  BotToast.showText(text: e.toString());
-                }
-              }),
+            icon: Icon(Icons.open_in_browser),
+            onPressed: () {
+              try {
+                CustomTabPlugin.launch(widget.url);
+              } catch (e) {
+                BotToast.showText(text: e.toString());
+              }
+            },
+          ),
           IconButton(
-              icon: Icon(Icons.refresh),
-              onPressed: () => _webViewController.reload())
+            icon: Icon(Icons.refresh),
+            onPressed: () => _webViewController.reload(),
+          ),
         ],
       ),
-      body: Builder(builder: (BuildContext context) {
-        return Column(
-          children: [
-            Visibility(
-              visible: progressValue < 1.0,
-              child: LinearProgressIndicator(
-                value: progressValue,
+      body: Builder(
+        builder: (BuildContext context) {
+          return Column(
+            children: [
+              Visibility(
+                visible: progressValue < 1.0,
+                child: LinearProgressIndicator(value: progressValue),
               ),
-            ),
-            Expanded(
-              child: InAppWebView(
+              Expanded(
+                child: InAppWebView(
                   initialUrlRequest: URLRequest(url: WebUri(widget.url)),
                   initialSettings: InAppWebViewSettings(
-                      useShouldOverrideUrlLoading: true,
-                      useHybridComposition: true),
+                    useShouldOverrideUrlLoading: true,
+                    useHybridComposition: true,
+                  ),
                   onWebViewCreated: (InAppWebViewController controller) {
                     _webViewController = controller;
                   },
-                  onReceivedServerTrustAuthRequest:
-                      (controller, challenge) async {
+                  onReceivedServerTrustAuthRequest: (
+                    controller,
+                    challenge,
+                  ) async {
                     if (Platform.isIOS || _alreadyAgree) {
                       return ServerTrustAuthResponse(
-                          action: ServerTrustAuthResponseAction.PROCEED);
+                        action: ServerTrustAuthResponseAction.PROCEED,
+                      );
                     }
                     final result = await showDialog(
-                        context: context,
-                        barrierDismissible: false,
-                        builder: (context) {
-                          return AlertDialog(
-                            title: Text(
-                                "${challenge.protectionSpace.sslError?.message ?? "Ssl Cert Error"},continue?"),
-                            actions: [
-                              TextButton(
-                                onPressed: () {
-                                  Navigator.of(context).pop("cancel");
-                                },
-                                child: Text(I18n.of(context).cancel),
-                              ),
-                              TextButton(
-                                onPressed: () {
-                                  Navigator.of(context).pop("ok");
-                                },
-                                child: Text(I18n.of(context).ok),
-                              ),
-                            ],
-                          );
-                        });
+                      context: context,
+                      barrierDismissible: false,
+                      builder: (context) {
+                        return AlertDialog(
+                          title: Text(
+                            "${challenge.protectionSpace.sslError?.message ?? "Ssl Cert Error"},continue?",
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () {
+                                Navigator.of(context).pop("cancel");
+                              },
+                              child: Text(I18n.of(context).cancel),
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                Navigator.of(context).pop("ok");
+                              },
+                              child: Text(I18n.of(context).ok),
+                            ),
+                          ],
+                        );
+                      },
+                    );
                     if (result != "ok") {
                       Navigator.of(context).pop();
                     } else {
                       _alreadyAgree = true;
                     }
                     return ServerTrustAuthResponse(
-                        action: result == "ok"
-                            ? ServerTrustAuthResponseAction.PROCEED
-                            : ServerTrustAuthResponseAction.CANCEL);
+                      action:
+                          result == "ok"
+                              ? ServerTrustAuthResponseAction.PROCEED
+                              : ServerTrustAuthResponseAction.CANCEL,
+                    );
                   },
-                  onLoadStop:
-                      (InAppWebViewController controller, Uri? uri) async {
+                  onLoadStop: (
+                    InAppWebViewController controller,
+                    Uri? uri,
+                  ) async {
                     if (uri != null &&
                         !userSetting.disableBypassSni &&
                         uri.host == "accounts.pixiv.net") {
-                      controller.evaluateJavascript(source: """
+                      controller.evaluateJavascript(
+                        source: """
 javascript:(function() {
  let forms = document.getElementsByTagName('form'); 
  for (let name of forms) {
@@ -130,7 +142,8 @@ javascript:(function() {
         name.style.display = 'none';
 } 
   })()
-""");
+""",
+                      );
                     }
                   },
                   onProgressChanged: (controller, progress) {
@@ -138,8 +151,10 @@ javascript:(function() {
                       progressValue = progress / 100;
                     });
                   },
-                  shouldOverrideUrlLoading: (InAppWebViewController controller,
-                      NavigationAction navigationAction) async {
+                  shouldOverrideUrlLoading: (
+                    InAppWebViewController controller,
+                    NavigationAction navigationAction,
+                  ) async {
                     if (navigationAction.request.url == null)
                       return NavigationActionPolicy.ALLOW;
                     var uri = navigationAction.request.url!;
@@ -149,11 +164,13 @@ javascript:(function() {
                       return NavigationActionPolicy.CANCEL;
                     }
                     return NavigationActionPolicy.ALLOW;
-                  }),
-            ),
-          ],
-        );
-      }),
+                  },
+                ),
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 }

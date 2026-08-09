@@ -62,35 +62,39 @@ class BanTagProvider {
   Future open() async {
     String databasesPath = (await getDatabasesPath());
     String path = join(databasesPath, 'bantag.db');
-    db = await openDatabase(path, version: 1,
-        onCreate: (Database db, int version) async {
-      await db.execute('''
+    db = await openDatabase(
+      path,
+      version: 1,
+      onCreate: (Database db, int version) async {
+        await db.execute('''
 create table $tableBanTag ( 
   $columnId integer primary key autoincrement, 
   $columnTranslateName text not null,
   $columnName text not null
   )
 ''');
-    });
-    // 注册到数据库管理中心
-    DatabaseRegistry.instance.register(
-      '标签屏蔽数据库',
-      path,
-      () => db,
+      },
     );
+    // 注册到数据库管理中心
+    DatabaseRegistry.instance.register('标签屏蔽数据库', path, () => db);
   }
 
   Future<BanTagPersist> insert(BanTagPersist todo) async {
-    todo.id = await db.insert(tableBanTag, todo.toJson(),
-        conflictAlgorithm: ConflictAlgorithm.replace);
+    todo.id = await db.insert(
+      tableBanTag,
+      todo.toJson(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
     return todo;
   }
 
   Future<BanTagPersist?> getAccount(int id) async {
-    List<Map<String, dynamic>> maps = await db.query(tableBanTag,
-        columns: [columnId, columnTranslateName],
-        where: '$columnId = ?',
-        whereArgs: [id]);
+    List<Map<String, dynamic>> maps = await db.query(
+      tableBanTag,
+      columns: [columnId, columnTranslateName],
+      where: '$columnId = ?',
+      whereArgs: [id],
+    );
     if (maps.length > 0) {
       return BanTagPersist.fromJson(maps.first);
     }
@@ -99,8 +103,10 @@ create table $tableBanTag (
 
   Future<List<BanTagPersist>> getAllAccount() async {
     List<BanTagPersist> result = [];
-    List<Map<String, dynamic>> maps = await db.query(tableBanTag,
-        columns: [columnId, columnTranslateName, columnName]);
+    List<Map<String, dynamic>> maps = await db.query(
+      tableBanTag,
+      columns: [columnId, columnTranslateName, columnName],
+    );
 
     if (maps.length > 0) {
       maps.forEach((f) {
@@ -111,8 +117,11 @@ create table $tableBanTag (
   }
 
   Future<int> delete(int id) async {
-    return await db
-        .delete(tableBanTag, where: '$columnId = ?', whereArgs: [id]);
+    return await db.delete(
+      tableBanTag,
+      where: '$columnId = ?',
+      whereArgs: [id],
+    );
   }
 
   Future<int> deleteAll() async {
@@ -120,8 +129,12 @@ create table $tableBanTag (
   }
 
   Future<int> update(BanTagPersist todo) async {
-    return await db.update(tableBanTag, todo.toJson(),
-        where: '$columnId = ?', whereArgs: [todo.id]);
+    return await db.update(
+      tableBanTag,
+      todo.toJson(),
+      where: '$columnId = ?',
+      whereArgs: [todo.id],
+    );
   }
 
   Future close() async => db.close();
@@ -129,8 +142,11 @@ create table $tableBanTag (
   Future<List<BanTagPersist>> insertAll(List<BanTagPersist> list) async {
     await db.transaction((txn) async {
       for (var todo in list) {
-        todo.id = await txn.insert(tableBanTag, todo.toJson(),
-            conflictAlgorithm: ConflictAlgorithm.replace);
+        todo.id = await txn.insert(
+          tableBanTag,
+          todo.toJson(),
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
       }
     });
     return list;

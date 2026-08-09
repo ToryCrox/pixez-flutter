@@ -76,26 +76,29 @@ class _AccountEditPageState extends State<AccountEditPage> {
               if (_emailController.text.isNotEmpty &&
                   !_emailController.text.contains('@')) {
                 BotToast.showCustomText(
-                  toastBuilder: (_) => Align(
-                    alignment: Alignment(0, 0.8),
-                    child: Card(
-                      child: ListTile(
-                          leading: Icon(Icons.error),
-                          title: Text("Email format error")),
-                    ),
-                  ),
+                  toastBuilder:
+                      (_) => Align(
+                        alignment: Alignment(0, 0.8),
+                        child: Card(
+                          child: ListTile(
+                            leading: Icon(Icons.error),
+                            title: Text("Email format error"),
+                          ),
+                        ),
+                      ),
                 );
                 return;
               }
               bool success = await _accountEditStore.fetch(
-                  (_emailController.value.text.isEmpty
-                      ? null
-                      : _emailController.value.text)!,
-                  _passwordController.value.text.isEmpty
-                      ? null
-                      : _passwordController.value.text,
-                  _oldPasswordController.value.text,
-                  null);
+                (_emailController.value.text.isEmpty
+                    ? null
+                    : _emailController.value.text)!,
+                _passwordController.value.text.isEmpty
+                    ? null
+                    : _passwordController.value.text,
+                _oldPasswordController.value.text,
+                null,
+              );
               if (success) {
                 if (accountStore.now != null) {
                   if (_passwordController.text.isNotEmpty) {
@@ -107,21 +110,24 @@ class _AccountEditPageState extends State<AccountEditPage> {
                   accountStore.updateSingle(accountStore.now!);
                 }
               } else {
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                  content: Text('${_accountEditStore.errorString}'),
-                  backgroundColor: Colors.red,
-                ));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('${_accountEditStore.errorString}'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
               }
             },
-          )
+          ),
         ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(8.0),
         child: Theme(
           data: ThemeData(
-              primaryColor: Theme.of(context).colorScheme.secondary,
-              brightness: Theme.of(context).brightness),
+            primaryColor: Theme.of(context).colorScheme.secondary,
+            brightness: Theme.of(context).brightness,
+          ),
           child: Column(
             children: <Widget>[
               TextFormField(
@@ -140,10 +146,11 @@ class _AccountEditPageState extends State<AccountEditPage> {
                   labelText: I18n.of(context).current_password,
                   border: InputBorder.none,
                   suffixIcon: IconButton(
-                      icon: Icon(
-                        _obscureText ? Icons.visibility : Icons.visibility_off,
-                      ),
-                      onPressed: _toggle),
+                    icon: Icon(
+                      _obscureText ? Icons.visibility : Icons.visibility_off,
+                    ),
+                    onPressed: _toggle,
+                  ),
                 ),
               ),
               TextFormField(
@@ -165,7 +172,8 @@ class _AccountEditPageState extends State<AccountEditPage> {
                 InkWell(
                   onTap: () async {
                     Clipboard.setData(
-                        ClipboardData(text: accountStore.now!.refreshToken));
+                      ClipboardData(text: accountStore.now!.refreshToken),
+                    );
                     BotToast.showText(text: "Copied to clipboard");
                   },
                   child: Padding(
@@ -177,7 +185,7 @@ class _AccountEditPageState extends State<AccountEditPage> {
                           "Token export",
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
-                        Icon(Icons.arrow_forward_ios)
+                        Icon(Icons.arrow_forward_ios),
                       ],
                     ),
                   ),
@@ -185,30 +193,33 @@ class _AccountEditPageState extends State<AccountEditPage> {
               InkWell(
                 onTap: () {
                   showDialog(
-                      context: context,
-                      builder: (ctx) {
-                        return AlertDialog(
-                          title: Text("${I18n.of(ctx).account_deletion}?"),
-                          content:
-                              Text("${I18n.of(ctx).account_deletion_subtitle}"),
-                          actions: [
-                            TextButton(
-                                onPressed: () async {
-                                  Navigator.of(ctx).pop();
-                                  await accountStore.deleteAll();
-                                  await Leader.push(
-                                      context, AccountDeletionPage());
-                                  Navigator.of(context).pop();
-                                },
-                                child: Text(I18n.of(ctx).ok)),
-                            TextButton(
-                                onPressed: () {
-                                  Navigator.of(ctx).pop();
-                                },
-                                child: Text(I18n.of(ctx).cancel)),
-                          ],
-                        );
-                      });
+                    context: context,
+                    builder: (ctx) {
+                      return AlertDialog(
+                        title: Text("${I18n.of(ctx).account_deletion}?"),
+                        content: Text(
+                          "${I18n.of(ctx).account_deletion_subtitle}",
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () async {
+                              Navigator.of(ctx).pop();
+                              await accountStore.deleteAll();
+                              await Leader.push(context, AccountDeletionPage());
+                              Navigator.of(context).pop();
+                            },
+                            child: Text(I18n.of(ctx).ok),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              Navigator.of(ctx).pop();
+                            },
+                            child: Text(I18n.of(ctx).cancel),
+                          ),
+                        ],
+                      );
+                    },
+                  );
                 },
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
@@ -219,11 +230,11 @@ class _AccountEditPageState extends State<AccountEditPage> {
                         I18n.of(context).account_deletion,
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
-                      Icon(Icons.arrow_forward_ios)
+                      Icon(Icons.arrow_forward_ios),
                     ],
                   ),
                 ),
-              )
+              ),
             ],
           ),
         ),

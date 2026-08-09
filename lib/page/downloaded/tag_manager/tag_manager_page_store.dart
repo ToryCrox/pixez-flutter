@@ -40,13 +40,17 @@ abstract class _TagManagerPageStore with Store {
   @observable
   int? filterByParentId; // null表示不过滤，否则只显示该父标签的子标签
 
-  Iterable<TagDisplayData> _getFilteredTags({required bool applyCategoryFilter}) {
+  Iterable<TagDisplayData> _getFilteredTags({
+    required bool applyCategoryFilter,
+  }) {
     Iterable<TagDisplayData> result = tagManagerStore.tags;
 
     // 0. 优先处理父标签过滤
     if (filterByParentId != null) {
       // 只显示该父标签的所有子标签
-      result = tagManagerStore.getDirectChildren(filterByParentId!).map((e) => e);
+      result = tagManagerStore
+          .getDirectChildren(filterByParentId!)
+          .map((e) => e);
     }
 
     // 过滤非主标签
@@ -67,7 +71,10 @@ abstract class _TagManagerPageStore with Store {
         final isMatch =
             data.tag.name.toLowerCase().contains(lowerSearch) ||
             data.tag.translatedName.toLowerCase().contains(lowerSearch) ||
-            (data.tag.customTranslatedName?.toLowerCase().contains(lowerSearch) ?? false);
+            (data.tag.customTranslatedName?.toLowerCase().contains(
+                  lowerSearch,
+                ) ??
+                false);
 
         if (isMatch) {
           matchedSet.add(data.tag.id);
@@ -104,7 +111,9 @@ abstract class _TagManagerPageStore with Store {
 
     for (final category in TagCategory.values) {
       counts[category.value] =
-          sourceList.where((data) => data.tag.category == category.value).length;
+          sourceList
+              .where((data) => data.tag.category == category.value)
+              .length;
     }
 
     return counts;
@@ -116,7 +125,7 @@ abstract class _TagManagerPageStore with Store {
 
     // 3. Sort
     final finalResult = result.toList();
-    
+
     int compareTags(TagDisplayData a, TagDisplayData b) {
       switch (sortType) {
         case 0: // Count Desc
@@ -128,7 +137,9 @@ abstract class _TagManagerPageStore with Store {
           if (nameCompare != 0) return nameCompare;
           break;
         case 2: // Last Used Desc
-          int timeCompare = (b.tag.lastUsedTime ?? 0).compareTo(a.tag.lastUsedTime ?? 0);
+          int timeCompare = (b.tag.lastUsedTime ?? 0).compareTo(
+            a.tag.lastUsedTime ?? 0,
+          );
           if (timeCompare != 0) return timeCompare;
           break;
         case 3: // Priority / Display Order Desc
@@ -139,11 +150,11 @@ abstract class _TagManagerPageStore with Store {
           if (catCompare != 0) return catCompare;
           break;
       }
-      
+
       // Default / Secondary sort: Priority (displayOrder) DESC
       int priorityCompare = b.tag.displayOrder.compareTo(a.tag.displayOrder);
       if (priorityCompare != 0) return priorityCompare;
-      
+
       // Tertiary sort: Count DESC
       final countComapre = b.tag.count.compareTo(a.tag.count);
       if (countComapre != 0) return countComapre;

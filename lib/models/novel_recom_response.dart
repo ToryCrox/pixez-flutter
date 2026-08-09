@@ -123,10 +123,7 @@ class Series {
   int? id;
   String? title;
 
-  Series({
-    this.id,
-    this.title,
-  });
+  Series({this.id, this.title});
 
   factory Series.fromJson(Map<String, dynamic> json) => _$SeriesFromJson(json);
 }
@@ -173,9 +170,7 @@ class User {
 class ProfileImageUrls {
   String medium;
 
-  ProfileImageUrls({
-    required this.medium,
-  });
+  ProfileImageUrls({required this.medium});
 
   factory ProfileImageUrls.fromJson(Map<String, dynamic> json) =>
       _$ProfileImageUrlsFromJson(json);

@@ -49,18 +49,20 @@ class _HistoryPageState extends State<HistoryPage> {
           ),
         ),
         actions: <Widget>[
-          Observer(builder: (context) {
-            if (_textEditingController.text.isNotEmpty) {
-              return IconButton(
-                icon: Icon(Icons.close),
-                onPressed: () {
-                  _textEditingController.clear();
-                  store.search("");
-                },
-              );
-            }
-            return Container();
-          }),
+          Observer(
+            builder: (context) {
+              if (_textEditingController.text.isNotEmpty) {
+                return IconButton(
+                  icon: Icon(Icons.close),
+                  onPressed: () {
+                    _textEditingController.clear();
+                    store.search("");
+                  },
+                );
+              }
+              return Container();
+            },
+          ),
         ],
       ),
       floatingActionButton: FloatingActionButton(
@@ -69,15 +71,17 @@ class _HistoryPageState extends State<HistoryPage> {
           _cleanAll(context);
         },
       ),
-      body: Observer(builder: (context) {
-        if (store.loading && store.illusts.isEmpty) {
-          return Center(child: CircularProgressIndicator());
-        }
-        if (!store.loading && store.illusts.isEmpty) {
-          return Center(child: Text("No Data"));
-        }
-        return _buildBody();
-      }),
+      body: Observer(
+        builder: (context) {
+          if (store.loading && store.illusts.isEmpty) {
+            return Center(child: CircularProgressIndicator());
+          }
+          if (!store.loading && store.illusts.isEmpty) {
+            return Center(child: Text("No Data"));
+          }
+          return _buildBody();
+        },
+      ),
     );
   }
 
@@ -168,26 +172,27 @@ class _HistoryPageState extends State<HistoryPage> {
 
   Future<void> _cleanAll(BuildContext context) async {
     final result = await showDialog(
-        context: context,
-        builder: (context) {
-          return AlertDialog(
-            title: Text("${I18n.of(context).delete} ${I18n.of(context).all}?"),
-            actions: <Widget>[
-              TextButton(
-                child: Text(I18n.of(context).cancel),
-                onPressed: () {
-                  Navigator.of(context).pop();
-                },
-              ),
-              TextButton(
-                child: Text(I18n.of(context).ok),
-                onPressed: () {
-                  Navigator.of(context).pop("OK");
-                },
-              ),
-            ],
-          );
-        });
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text("${I18n.of(context).delete} ${I18n.of(context).all}?"),
+          actions: <Widget>[
+            TextButton(
+              child: Text(I18n.of(context).cancel),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            TextButton(
+              child: Text(I18n.of(context).ok),
+              onPressed: () {
+                Navigator.of(context).pop("OK");
+              },
+            ),
+          ],
+        );
+      },
+    );
     if (result == "OK") {
       store.deleteAll();
     }
@@ -195,26 +200,27 @@ class _HistoryPageState extends State<HistoryPage> {
 
   Future<void> _showDeleteDialog(BuildContext context, int id) async {
     final result = await showDialog(
-        context: context,
-        builder: (context) {
-          return AlertDialog(
-            title: Text("${I18n.of(context).delete}?"),
-            actions: <Widget>[
-              TextButton(
-                child: Text(I18n.of(context).cancel),
-                onPressed: () {
-                  Navigator.of(context).pop();
-                },
-              ),
-              TextButton(
-                child: Text(I18n.of(context).ok),
-                onPressed: () {
-                  Navigator.of(context).pop("OK");
-                },
-              ),
-            ],
-          );
-        });
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text("${I18n.of(context).delete}?"),
+          actions: <Widget>[
+            TextButton(
+              child: Text(I18n.of(context).cancel),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            TextButton(
+              child: Text(I18n.of(context).ok),
+              onPressed: () {
+                Navigator.of(context).pop("OK");
+              },
+            ),
+          ],
+        );
+      },
+    );
     if (result == "OK") {
       store.delete(id);
     }

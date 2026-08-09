@@ -13,11 +13,7 @@ const ImageCatHost = "i.pixiv.re";
 const ImageSHost = "s.pximg.net";
 
 /// IP来源类型
-enum IpSource {
-  defaultValue,
-  dns,
-  custom,
-}
+enum IpSource { defaultValue, dns, custom }
 
 /// 单个IP的信息（含延迟）
 class IpInfo {
@@ -121,10 +117,12 @@ class Hoster {
   // === DNS查询客户端 ===
   static Dio? _dnsClient;
   static Dio get dnsClient {
-    _dnsClient ??= Dio(BaseOptions(
-      connectTimeout: const Duration(seconds: 10),
-      receiveTimeout: const Duration(seconds: 10),
-    ));
+    _dnsClient ??= Dio(
+      BaseOptions(
+        connectTimeout: const Duration(seconds: 10),
+        receiveTimeout: const Duration(seconds: 10),
+      ),
+    );
     return _dnsClient!;
   }
 
@@ -163,7 +161,9 @@ class Hoster {
         }
         // 兼容旧数据迁移
         if (_dnsMap[host] == null || _dnsMap[host]!.isEmpty) {
-          final oldIp = Prefer.getString('h_dns_$host') ?? Prefer.getString('h_hoster_$host');
+          final oldIp =
+              Prefer.getString('h_dns_$host') ??
+              Prefer.getString('h_hoster_$host');
           if (oldIp != null && oldIp.isNotEmpty) {
             _dnsMap[host] = [oldIp];
             await Prefer.setStringList('h_dns_list_$host', [oldIp]);
@@ -184,15 +184,18 @@ class Hoster {
 
   // === 获取完整信息 ===
   static HostInfo getHostInfo(String host) {
-    final defaultIps = (_defaultMap[host] ?? [])
-        .map((ip) => IpInfo(ip, latency: _latencyMap[host]?[ip]))
-        .toList();
-    final dnsIps = (_dnsMap[host] ?? [])
-        .map((ip) => IpInfo(ip, latency: _latencyMap[host]?[ip]))
-        .toList();
-    final customIps = (_customMap[host] ?? [])
-        .map((ip) => IpInfo(ip, latency: _latencyMap[host]?[ip]))
-        .toList();
+    final defaultIps =
+        (_defaultMap[host] ?? [])
+            .map((ip) => IpInfo(ip, latency: _latencyMap[host]?[ip]))
+            .toList();
+    final dnsIps =
+        (_dnsMap[host] ?? [])
+            .map((ip) => IpInfo(ip, latency: _latencyMap[host]?[ip]))
+            .toList();
+    final customIps =
+        (_customMap[host] ?? [])
+            .map((ip) => IpInfo(ip, latency: _latencyMap[host]?[ip]))
+            .toList();
 
     var selectedSource = _selectedSourceMap[host] ?? IpSource.defaultValue;
     // 自动回退：如果选中的来源没有IP，回退到有IP的来源
@@ -237,7 +240,11 @@ class Hoster {
   }
 
   // === 选择管理 ===
-  static Future<void> setSelectedSource(String host, IpSource source, {int index = 0}) async {
+  static Future<void> setSelectedSource(
+    String host,
+    IpSource source, {
+    int index = 0,
+  }) async {
     _selectedSourceMap[host] = source;
     _selectedIndexMap[host] = index;
     await Prefer.setInt('h_selected_source_$host', source.index);
@@ -294,17 +301,19 @@ class Hoster {
         queryParameters: {'name': name, 'type': 'A'},
       );
 
-      final data = response.data is String ? jsonDecode(response.data) : response.data;
+      final data =
+          response.data is String ? jsonDecode(response.data) : response.data;
       OnezeroResponse model = OnezeroResponse.fromJson(data);
 
       if (model.answer.isEmpty) return false;
 
       // 收集所有A记录IP
-      final ips = model.answer
-          .where((a) => _isValidIpv4(a.data))
-          .map((a) => a.data)
-          .toSet()
-          .toList();
+      final ips =
+          model.answer
+              .where((a) => _isValidIpv4(a.data))
+              .map((a) => a.data)
+              .toSet()
+              .toList();
 
       if (ips.isNotEmpty) {
         _dnsMap[name] = ips;
@@ -333,7 +342,11 @@ class Hoster {
     if (ip.isEmpty) return -1;
     try {
       final stopwatch = Stopwatch()..start();
-      final socket = await Socket.connect(ip, 443, timeout: const Duration(seconds: 5));
+      final socket = await Socket.connect(
+        ip,
+        443,
+        timeout: const Duration(seconds: 5),
+      );
       stopwatch.stop();
       await socket.close();
       final latency = stopwatch.elapsedMilliseconds;
@@ -404,7 +417,9 @@ class Hoster {
         resolver: (host) async {
           if (host == 'i.pximg.net') return [iPximgNet()];
           if (host == 's.pximg.net') return [sPximgNet()];
-          return await InternetAddress.lookup(host).then((v) => v.map((e) => e.address).toList());
+          return await InternetAddress.lookup(
+            host,
+          ).then((v) => v.map((e) => e.address).toList());
         },
       ),
     );
@@ -428,9 +443,7 @@ class Hoster {
     if (userSetting.disableBypassSni) return null;
     return r.ClientSettings(
       tlsSettings: r.TlsSettings(verifyCertificates: false, sni: false),
-      dnsSettings: r.DnsSettings.dynamic(
-        resolver: (host) async => [oauth()],
-      ),
+      dnsSettings: r.DnsSettings.dynamic(resolver: (host) async => [oauth()]),
     );
   }
 

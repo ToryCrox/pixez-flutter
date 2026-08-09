@@ -13,14 +13,15 @@ class _AccountDeletionPageState extends State<AccountDeletionPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(I18n.of(context).account_deletion),
-      ),
+      appBar: AppBar(title: Text(I18n.of(context).account_deletion)),
       body: InAppWebView(
-        initialUrlRequest:
-            URLRequest(url: WebUri("https://www.pixiv.net/leave_pixiv.php")),
+        initialUrlRequest: URLRequest(
+          url: WebUri("https://www.pixiv.net/leave_pixiv.php"),
+        ),
         initialSettings: InAppWebViewSettings(
-            useShouldOverrideUrlLoading: true, useHybridComposition: true),
+          useShouldOverrideUrlLoading: true,
+          useHybridComposition: true,
+        ),
       ),
     );
   }

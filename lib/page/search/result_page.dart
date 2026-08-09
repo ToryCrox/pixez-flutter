@@ -26,7 +26,7 @@ class ResultPage extends StatefulWidget {
   final String translatedName;
 
   const ResultPage({Key? key, required this.word, this.translatedName = ''})
-      : super(key: key);
+    : super(key: key);
 
   @override
   _ResultPageState createState() => _ResultPageState();
@@ -37,7 +37,8 @@ class _ResultPageState extends State<ResultPage> {
   void initState() {
     super.initState();
     tagHistoryStore.insert(
-        TagsPersist(name: widget.word, translatedName: widget.translatedName));
+      TagsPersist(name: widget.word, translatedName: widget.translatedName),
+    );
   }
 
   int index = 0;

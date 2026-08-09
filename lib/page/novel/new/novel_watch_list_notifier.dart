@@ -38,8 +38,11 @@ class NovelWatchListStore extends _$NovelWatchListStore {
       if (nextUrl != null) {
         controller.resetFooter();
       }
-      state =
-          state.copyWith(series: data.series, model: data, isLoading: false);
+      state = state.copyWith(
+        series: data.series,
+        model: data,
+        isLoading: false,
+      );
     } catch (e) {
       controller.finishRefresh(IndicatorResult.fail);
       state = state.copyWith(errorMessage: e.toString(), isLoading: false);
@@ -58,15 +61,13 @@ class NovelWatchListStore extends _$NovelWatchListStore {
       final data = NovelWatchListModel.fromJson(response.data);
       state = state.copyWith(
         model: data,
-        series: [
-          ...state.series,
-          ...data.series,
-        ],
+        series: [...state.series, ...data.series],
         isLoading: false,
       );
       nextUrl = data.nextUrl;
       controller.finishLoad(
-          nextUrl != null ? IndicatorResult.success : IndicatorResult.noMore);
+        nextUrl != null ? IndicatorResult.success : IndicatorResult.noMore,
+      );
     } catch (e) {
       controller.finishLoad(IndicatorResult.fail);
       state = state.copyWith(errorMessage: e.toString(), isLoading: false);

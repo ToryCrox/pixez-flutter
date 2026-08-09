@@ -13,13 +13,11 @@ class SingleInstancePlugin {
   // 然后结束自己的进程
   static void initialize({Function()? callback}) {
     if (_isInitialized) throw Exception('ReInitialized');
-    platform.receiveBroadcastStream().listen(
-      (event) {
-        final args = event.toString().split('\n');
-        Log.d('Received args from another instance: $args');
-        argsParser(args, callback: callback);
-      },
-    );
+    platform.receiveBroadcastStream().listen((event) {
+      final args = event.toString().split('\n');
+      Log.d('Received args from another instance: $args');
+      argsParser(args, callback: callback);
+    });
     _isInitialized = true;
   }
 

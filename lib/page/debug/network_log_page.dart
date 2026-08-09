@@ -12,15 +12,18 @@ class NetworkLogPage extends StatefulWidget {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       constraints: const BoxConstraints(maxWidth: 900),
-      builder: (context) => Container(
-        height: MediaQuery.of(context).size.height * 0.8,
-        decoration: BoxDecoration(
-          color: Theme.of(context).scaffoldBackgroundColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-        ),
-        clipBehavior: Clip.antiAliasWithSaveLayer,
-        child: NetworkLogPage(),
-      ),
+      builder:
+          (context) => Container(
+            height: MediaQuery.of(context).size.height * 0.8,
+            decoration: BoxDecoration(
+              color: Theme.of(context).scaffoldBackgroundColor,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(16),
+              ),
+            ),
+            clipBehavior: Clip.antiAliasWithSaveLayer,
+            child: NetworkLogPage(),
+          ),
     );
   }
 
@@ -54,7 +57,10 @@ class _NetworkLogPageState extends State<NetworkLogPage> {
             decoration: InputDecoration(
               hintText: '搜索请求...',
               border: InputBorder.none,
-              hintStyle: TextStyle(color: Colors.grey.withOpacity(0.7), fontSize: 13),
+              hintStyle: TextStyle(
+                color: Colors.grey.withOpacity(0.7),
+                fontSize: 13,
+              ),
               isDense: true,
             ),
             style: const TextStyle(fontSize: 13),
@@ -69,7 +75,10 @@ class _NetworkLogPageState extends State<NetworkLogPage> {
             builder: (context, child) {
               return Row(
                 children: [
-                   const Text('采集', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                  const Text(
+                    '采集',
+                    style: TextStyle(fontSize: 11, color: Colors.grey),
+                  ),
                   Transform.scale(
                     scale: 0.7,
                     child: Switch(
@@ -97,11 +106,17 @@ class _NetworkLogPageState extends State<NetworkLogPage> {
         builder: (context, child) {
           final logs = NetworkLogStore.instance.logs;
           if (logs.isEmpty) {
-            return const Center(child: Text('暂无请求日志', style: TextStyle(color: Colors.grey, fontSize: 12)));
+            return const Center(
+              child: Text(
+                '暂无请求日志',
+                style: TextStyle(color: Colors.grey, fontSize: 12),
+              ),
+            );
           }
           return ListView.separated(
             itemCount: logs.length,
-            separatorBuilder: (context, index) => const Divider(height: 1, thickness: 0.5),
+            separatorBuilder:
+                (context, index) => const Divider(height: 1, thickness: 0.5),
             itemBuilder: (context, index) {
               final log = logs[index];
               return _buildLogItem(context, log);
@@ -171,7 +186,10 @@ class _NetworkLogPageState extends State<NetworkLogPage> {
                         style: TextStyle(fontSize: 10, color: Colors.grey),
                       ),
                       if (log.duration != null) ...[
-                        Text(' • ', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                        Text(
+                          ' • ',
+                          style: TextStyle(fontSize: 10, color: Colors.grey),
+                        ),
                         Text(
                           '${log.duration!.inMilliseconds}ms',
                           style: TextStyle(fontSize: 10, color: Colors.grey),

@@ -6,13 +6,9 @@ import 'package:logger/logger.dart';
 import 'logger_pretty_printer.dart';
 import 'log_file_output.dart';
 
-final excludePaths = [
-  'package:pixez/custom/log.dart',
-];
+final excludePaths = ['package:pixez/custom/log.dart'];
 final excludeMethods = <String>[];
-final logMemoryOut = MemoryOutput(
-  bufferSize: 500,
-);
+final logMemoryOut = MemoryOutput(bufferSize: 500);
 final logFileOutput = LogFileOutput();
 final logFilter = ProductionFilter();
 final logger = Logger(
@@ -24,23 +20,24 @@ final logger = Logger(
     logFileOutput,
   ]),
   printer: LoggerPrettyPrinter(
-      methodCount: 1,
-      printEmojis: false,
-      lineLength: 160,
-      printTime: true,
-      colors: !Platform.isIOS && kDebugMode,
-      excludePaths: [],
-      excludeFilter: (method, segment) {
-        if (excludeMethods.contains(method)) {
-          return true;
-        }
+    methodCount: 1,
+    printEmojis: false,
+    lineLength: 160,
+    printTime: true,
+    colors: !Platform.isIOS && kDebugMode,
+    excludePaths: [],
+    excludeFilter: (method, segment) {
+      if (excludeMethods.contains(method)) {
+        return true;
+      }
 
-        /// segment: package:app/src/log/log.dart:96:15
-        if (excludePaths.any((e) => segment.contains(e))) {
-          return true;
-        }
-        return false;
-      }),
+      /// segment: package:app/src/log/log.dart:96:15
+      if (excludePaths.any((e) => segment.contains(e))) {
+        return true;
+      }
+      return false;
+    },
+  ),
 );
 
 void setLoggerLevel(Level level) {

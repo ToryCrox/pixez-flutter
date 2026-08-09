@@ -20,9 +20,7 @@ part 'error_message.g.dart';
 class ErrorMessage {
   Error error;
 
-  ErrorMessage({
-    required this.error,
-  });
+  ErrorMessage({required this.error});
 
   factory ErrorMessage.fromJson(Map<String, dynamic> json) =>
       _$ErrorMessageFromJson(json);

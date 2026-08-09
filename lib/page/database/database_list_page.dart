@@ -26,9 +26,7 @@ class _DatabaseListPageState extends State<DatabaseListPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('数据库管理'),
-      ),
+      appBar: AppBar(title: const Text('数据库管理')),
       body: Observer(
         builder: (context) {
           if (_store.entries.isEmpty) {
@@ -78,7 +76,11 @@ class _DatabaseListPageState extends State<DatabaseListPage> {
                   color: Colors.blue.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(Icons.storage_rounded, color: Colors.blue, size: 20),
+                child: const Icon(
+                  Icons.storage_rounded,
+                  color: Colors.blue,
+                  size: 20,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -107,7 +109,9 @@ class _DatabaseListPageState extends State<DatabaseListPage> {
               ),
               const SizedBox(width: 8),
               IconButton(
-                onPressed: () => FileUtils.openFileOrDirectory(Path.dirname(entry.path)),
+                onPressed:
+                    () =>
+                        FileUtils.openFileOrDirectory(Path.dirname(entry.path)),
                 icon: const Icon(Icons.folder_open, size: 20),
                 tooltip: '定位文件',
                 padding: EdgeInsets.zero,

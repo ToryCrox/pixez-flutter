@@ -30,12 +30,13 @@ class Recommend {
   @JsonKey(name: 'next_url')
   String? nextUrl;
 
-  Recommend(
-      {required this.illusts,
-      this.rankingIllusts,
-      this.contestExists,
-      this.privacyPolicy,
-      this.nextUrl});
+  Recommend({
+    required this.illusts,
+    this.rankingIllusts,
+    this.contestExists,
+    this.privacyPolicy,
+    this.nextUrl,
+  });
 
   factory Recommend.fromJson(Map<String, dynamic> json) =>
       _$RecommendFromJson(json);

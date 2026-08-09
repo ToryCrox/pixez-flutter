@@ -58,7 +58,9 @@ class _UgoiraLoaderState extends State<UgoiraLoader> {
     _store = UgoiraStore(widget.id);
     // 监听 metadata 变化，同步到 IllustStore
     if (widget.illustStore != null) {
-      _metadataReaction = reaction((_) => _store.ugoiraMetadataResponse, (metadata) {
+      _metadataReaction = reaction((_) => _store.ugoiraMetadataResponse, (
+        metadata,
+      ) {
         if (metadata != null) {
           widget.illustStore!.updateUgoiraMetadata(metadata);
         }
@@ -94,8 +96,8 @@ class _UgoiraLoaderState extends State<UgoiraLoader> {
   Widget build(BuildContext context) {
     final mediaSize = MediaQuery.sizeOf(context);
     // 使用外部传入的约束尺寸，如果没有则使用媒体查询计算
-    final maxWidth = widget.constraintSize?.width ??
-        min(mediaSize.width, mediaSize.height);
+    final maxWidth =
+        widget.constraintSize?.width ?? min(mediaSize.width, mediaSize.height);
     final maxHeight = widget.constraintSize?.height ?? double.infinity;
 
     return Observer(
@@ -115,7 +117,11 @@ class _UgoiraLoaderState extends State<UgoiraLoader> {
               initialHeight: _store.webpHeight,
               onDimensionsChanged: (width, height) {
                 // 异步更新数据库中的宽高信息
-                downloadStore.dbProvider.updateWebPDimensions(widget.id, width, height);
+                downloadStore.dbProvider.updateWebPDimensions(
+                  widget.id,
+                  width,
+                  height,
+                );
               },
             );
           }
@@ -253,12 +259,16 @@ class _UgoiraLoaderState extends State<UgoiraLoader> {
                   color: Theme.of(context).colorScheme.primary.withOpacity(0.9),
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: Theme.of(context).colorScheme.onPrimary.withOpacity(0.3),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onPrimary.withOpacity(0.3),
                     width: 2,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Theme.of(context).colorScheme.primary.withOpacity(0.4),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.primary.withOpacity(0.4),
                       blurRadius: 12,
                       offset: Offset(0, 4),
                     ),

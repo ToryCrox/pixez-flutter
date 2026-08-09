@@ -66,14 +66,17 @@ class _RecomSpolightPageState extends State<RecomSpolightPage>
   void initState() {
     _scrollController = ScrollController();
     _easyRefreshController = EasyRefreshController(
-        controlFinishLoad: true, controlFinishRefresh: true);
+      controlFinishLoad: true,
+      controlFinishRefresh: true,
+    );
     _recomUserStore = RecomUserStore(_easyRefreshController);
     spotlightStore = SpotlightStore(null);
     _lightingStore = LightingStore(
       ApiForceSource(
-          futureGet: (e) => apiClient.getRecommend(),
-          glanceKey: "recom",
-          cacheKey: "recom_illust_cache"),
+        futureGet: (e) => apiClient.getRecommend(),
+        glanceKey: "recom",
+        cacheKey: "recom_illust_cache",
+      ),
     )..easyRefreshController = _easyRefreshController;
     super.initState();
     subscription = topStore.topStream.listen((event) {
@@ -103,15 +106,16 @@ class _RecomSpolightPageState extends State<RecomSpolightPage>
     return Stack(
       children: [
         NestedScrollView(
-          headerSliverBuilder: (context, innerBoxIsScrolled) => [
-            SliverAppBar(
-              elevation: 0.0,
-              titleSpacing: 0.0,
-              automaticallyImplyLeading: false,
-              // backgroundColor: Theme.of(context).canvasColor,
-              title: Text(""),
-            )
-          ],
+          headerSliverBuilder:
+              (context, innerBoxIsScrolled) => [
+                SliverAppBar(
+                  elevation: 0.0,
+                  titleSpacing: 0.0,
+                  automaticallyImplyLeading: false,
+                  // backgroundColor: Theme.of(context).canvasColor,
+                  title: Text(""),
+                ),
+              ],
           body: ListView(),
         ),
         PixezEasyRefresh.builder(
@@ -127,18 +131,25 @@ class _RecomSpolightPageState extends State<RecomSpolightPage>
           onLoad: () async {
             await _lightingStore.fetchNext();
           },
-          childBuilder: (context, physics, scrollController) => Observer(
-            builder: (context) => _buildWaterFall(context, physics, scrollController),
-          ),
+          childBuilder:
+              (context, physics, scrollController) => Observer(
+                builder:
+                    (context) =>
+                        _buildWaterFall(context, physics, scrollController),
+              ),
         ),
       ],
     );
   }
 
   Widget _buildWaterFall(
-      BuildContext context, ScrollPhysics physics, ScrollController? controller) {
-    _lightingStore.iStores
-        .removeWhere((element) => element.illusts!.hateByUser());
+    BuildContext context,
+    ScrollPhysics physics,
+    ScrollController? controller,
+  ) {
+    _lightingStore.iStores.removeWhere(
+      (element) => element.illusts!.hateByUser(),
+    );
     return NotificationListener<ScrollNotification>(
       onNotification: (ScrollNotification notification) {
         ScrollMetrics metrics = notification.metrics;
@@ -160,30 +171,29 @@ class _RecomSpolightPageState extends State<RecomSpolightPage>
           SliverToBoxAdapter(
             child: Container(height: MediaQuery.of(context).padding.top),
           ),
-          SliverToBoxAdapter(
-            child: _buildFirstRow(context),
-          ),
-          SliverToBoxAdapter(
-            child: _buidTagSpotlightRow(context),
-          ),
+          SliverToBoxAdapter(child: _buildFirstRow(context)),
+          SliverToBoxAdapter(child: _buidTagSpotlightRow(context)),
           SliverToBoxAdapter(
             child: _buildSecondRow(context, I18n.of(context).recommend_for_you),
           ),
-          _buildWaterfall(context, MediaQuery.of(context).orientation)
+          _buildWaterfall(context, MediaQuery.of(context).orientation),
         ],
       ),
     );
   }
 
   int _buildSliderValue(BuildContext context, Orientation orientation) {
-    final currentValue = (orientation == Orientation.portrait
-            ? userSetting.crossAdapterWidth
-            : userSetting.hCrossAdapterWidth)
-        .toDouble();
+    final currentValue =
+        (orientation == Orientation.portrait
+                ? userSetting.crossAdapterWidth
+                : userSetting.hCrossAdapterWidth)
+            .toDouble();
     var nowAdaptWidth = max(currentValue, 50.0);
     nowAdaptWidth = min(nowAdaptWidth, 2160);
-    return max((MediaQuery.of(context).size.width / nowAdaptWidth), 1.0)
-        .toInt();
+    return max(
+      (MediaQuery.of(context).size.width / nowAdaptWidth),
+      1.0,
+    ).toInt();
   }
 
   Widget _buildWaterfall(BuildContext context, Orientation orientation) {
@@ -191,62 +201,62 @@ class _RecomSpolightPageState extends State<RecomSpolightPage>
     if (userSetting.crossAdapt) {
       count = _buildSliderValue(context, orientation);
     } else {
-      count = (orientation == Orientation.portrait)
-          ? userSetting.crossCount
-          : userSetting.hCrossCount;
+      count =
+          (orientation == Orientation.portrait)
+              ? userSetting.crossCount
+              : userSetting.hCrossCount;
     }
     return _lightingStore.iStores.isNotEmpty
         ? SliverWaterfallFlow(
-            gridDelegate: SliverWaterfallFlowDelegateWithFixedCrossAxisCount(
-              crossAxisCount: count,
-            ),
-            delegate:
-                SliverChildBuilderDelegate((BuildContext context, int index) {
-              return IllustCard(
-                lightingStore: _lightingStore,
-                store: _lightingStore.iStores[index],
-                iStores: _lightingStore.iStores,
-              );
-            }, childCount: _lightingStore.iStores.length),
-          )
+          gridDelegate: SliverWaterfallFlowDelegateWithFixedCrossAxisCount(
+            crossAxisCount: count,
+          ),
+          delegate: SliverChildBuilderDelegate((
+            BuildContext context,
+            int index,
+          ) {
+            return IllustCard(
+              lightingStore: _lightingStore,
+              store: _lightingStore.iStores[index],
+              iStores: _lightingStore.iStores,
+            );
+          }, childCount: _lightingStore.iStores.length),
+        )
         : (_lightingStore.errorMessage?.isNotEmpty == true
             ? SliverToBoxAdapter(
-                child: Container(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.max,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: <Widget>[
-                      Container(
-                        height: 50,
+              child: Container(
+                child: Column(
+                  mainAxisSize: MainAxisSize.max,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: <Widget>[
+                    Container(height: 50),
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Text(
+                        ':(',
+                        style: Theme.of(context).textTheme.headlineMedium,
                       ),
-                      Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: Text(':(',
-                            style: Theme.of(context).textTheme.headlineMedium),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        _lightingStore.fetch(force: true);
+                      },
+                      child: Text(I18n.of(context).retry),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Text(
+                        (_lightingStore.errorMessage?.contains("400") == true
+                            ? '${I18n.of(context).error_400_hint}\n ${_lightingStore.errorMessage}'
+                            : '${_lightingStore.errorMessage}'),
                       ),
-                      TextButton(
-                          onPressed: () {
-                            _lightingStore.fetch(force: true);
-                          },
-                          child: Text(I18n.of(context).retry)),
-                      Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Text(
-                            (_lightingStore.errorMessage?.contains("400") ==
-                                    true
-                                ? '${I18n.of(context).error_400_hint}\n ${_lightingStore.errorMessage}'
-                                : '${_lightingStore.errorMessage}'),
-                          ))
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              )
-            : SliverToBoxAdapter(
-                child: Container(
-                  height: 30,
-                ),
-              ));
+              ),
+            )
+            : SliverToBoxAdapter(child: Container(height: 30)));
   }
 
   Widget _buidTagSpotlightRow(BuildContext context) {
@@ -256,88 +266,100 @@ class _RecomSpolightPageState extends State<RecomSpolightPage>
     return Container(
       height: expectCardHeight,
       padding: EdgeInsets.only(left: 0.0),
-      child: spotlightStore.articles.isNotEmpty
-          ? ListView.builder(
-              itemBuilder: (context, index) {
-                final spotlight = spotlightStore.articles[index];
-                return Card(
-                  clipBehavior: Clip.antiAlias,
-                  margin: EdgeInsets.symmetric(horizontal: 8.0),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.all(Radius.circular(8.0))),
-                  child: Hero(
-                    tag: "spotlight_image_${spotlight.hashCode}",
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: () {
-                          Navigator.of(context).push(MaterialPageRoute(
-                              builder: (BuildContext context) {
-                            return SoupPage(
-                              url: spotlight.articleUrl,
-                              spotlight: spotlight,
-                              heroTag: 'spotlight_image_${spotlight.hashCode}',
+      child:
+          spotlightStore.articles.isNotEmpty
+              ? ListView.builder(
+                itemBuilder: (context, index) {
+                  final spotlight = spotlightStore.articles[index];
+                  return Card(
+                    clipBehavior: Clip.antiAlias,
+                    margin: EdgeInsets.symmetric(horizontal: 8.0),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.all(Radius.circular(8.0)),
+                    ),
+                    child: Hero(
+                      tag: "spotlight_image_${spotlight.hashCode}",
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (BuildContext context) {
+                                  return SoupPage(
+                                    url: spotlight.articleUrl,
+                                    spotlight: spotlight,
+                                    heroTag:
+                                        'spotlight_image_${spotlight.hashCode}',
+                                  );
+                                },
+                              ),
                             );
-                          }));
-                        },
-                        child: Container(
+                          },
+                          child: Container(
                             width: expectCardWidget,
                             height: expectCardHeight,
                             decoration: BoxDecoration(
-                                image: DecorationImage(
-                                    fit: BoxFit.cover,
-                                    image: PixivProvider.url(
-                                        spotlight.thumbnail))),
+                              image: DecorationImage(
+                                fit: BoxFit.cover,
+                                image: PixivProvider.url(spotlight.thumbnail),
+                              ),
+                            ),
                             child: Container(
-                                child: Align(
-                              alignment: Alignment.bottomCenter,
-                              child: Container(
-                                decoration: BoxDecoration(
+                              child: Align(
+                                alignment: Alignment.bottomCenter,
+                                child: Container(
+                                  decoration: BoxDecoration(
                                     gradient: LinearGradient(
-                                  begin: Alignment.topCenter,
-                                  end: Alignment.bottomCenter,
-                                  colors: [
-                                    Colors.black.withValues(alpha: 0.0),
-                                    Colors.black.withValues(alpha: 0.5),
-                                  ],
-                                )),
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 8.0, vertical: 8.0),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.max,
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          "${spotlight.title}",
-                                          maxLines: 2,
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.normal,
-                                            // shadows: [
-                                            //   Shadow(
-                                            //       color: Colors.black,
-                                            //       offset: Offset(0.5, 0.5),
-                                            //       blurRadius: 1.0)
-                                            // ]
+                                      begin: Alignment.topCenter,
+                                      end: Alignment.bottomCenter,
+                                      colors: [
+                                        Colors.black.withValues(alpha: 0.0),
+                                        Colors.black.withValues(alpha: 0.5),
+                                      ],
+                                    ),
+                                  ),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8.0,
+                                      vertical: 8.0,
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.max,
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            "${spotlight.title}",
+                                            maxLines: 2,
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.normal,
+                                              // shadows: [
+                                              //   Shadow(
+                                              //       color: Colors.black,
+                                              //       offset: Offset(0.5, 0.5),
+                                              //       blurRadius: 1.0)
+                                              // ]
+                                            ),
                                           ),
                                         ),
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),
-                            ))),
+                            ),
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                );
-              },
-              itemCount: spotlightStore.articles.length,
-              scrollDirection: Axis.horizontal,
-            )
-          : Container(),
+                  );
+                },
+                itemCount: spotlightStore.articles.length,
+                scrollDirection: Axis.horizontal,
+              )
+              : Container(),
     );
   }
 
@@ -352,9 +374,10 @@ class _RecomSpolightPageState extends State<RecomSpolightPage>
               child: Text(
                 I18n.of(context).spotlight,
                 style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 24.0,
-                    color: Theme.of(context).textTheme.titleLarge!.color),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 24.0,
+                  color: Theme.of(context).textTheme.titleLarge!.color,
+                ),
               ),
               padding: EdgeInsets.only(left: 20.0, bottom: 10.0),
             ),
@@ -366,14 +389,17 @@ class _RecomSpolightPageState extends State<RecomSpolightPage>
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               onPressed: () {
-                Navigator.of(context)
-                    .push(MaterialPageRoute(builder: (BuildContext context) {
-                  return SpotLightPage();
-                }));
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (BuildContext context) {
+                      return SpotLightPage();
+                    },
+                  ),
+                );
               },
             ),
             padding: EdgeInsets.all(8.0),
-          )
+          ),
         ],
       ),
     );
@@ -394,7 +420,7 @@ class _RecomSpolightPageState extends State<RecomSpolightPage>
           ),
           padding: EdgeInsets.only(left: 20.0),
         ),
-        Expanded(child: RecomUserRoad())
+        Expanded(child: RecomUserRoad()),
       ],
     );
   }

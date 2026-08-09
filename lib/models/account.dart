@@ -53,9 +53,11 @@ class AccountProvider {
   Future open() async {
     String databasesPath = (await getDatabasesPath());
     String path = join(databasesPath, 'account.db');
-    db = await openDatabase(path, version: 1,
-        onCreate: (Database db, int version) async {
-      await db.execute('''
+    db = await openDatabase(
+      path,
+      version: 1,
+      onCreate: (Database db, int version) async {
+        await db.execute('''
 create table $tableAccount ( 
   $columnId integer primary key autoincrement, 
   $columnAccessToken text not null,
@@ -72,41 +74,43 @@ create table $tableAccount (
   $columnIsMailAuthorized integer not null
   )
 ''');
-    });
-    // 注册到数据库管理中心
-    DatabaseRegistry.instance.register(
-      '账号数据库',
-      path,
-      () => db,
+      },
     );
+    // 注册到数据库管理中心
+    DatabaseRegistry.instance.register('账号数据库', path, () => db);
   }
 
   Future<AccountPersist> insert(AccountPersist todo) async {
-    todo.id = await db.insert(tableAccount, todo.toJson(),
-        conflictAlgorithm: ConflictAlgorithm.replace);
+    todo.id = await db.insert(
+      tableAccount,
+      todo.toJson(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
     return todo;
   }
 
   Future<AccountPersist?> getAccount(int id) async {
-    List<Map<String, dynamic>> maps = await db.query(tableAccount,
-        columns: [
-          columnId,
-          columnUserImage,
-          columnAccessToken,
-          columnRefreshToken,
-          columnDeviceToken,
-          columnUserId,
-          columnName,
-          columnPassWord,
-          columnAccount,
-          columnMailAddress,
-          columnMailAddress,
-          columnIsPremium,
-          columnXRestrict,
-          columnIsMailAuthorized
-        ],
-        where: '$columnId = ?',
-        whereArgs: [id]);
+    List<Map<String, dynamic>> maps = await db.query(
+      tableAccount,
+      columns: [
+        columnId,
+        columnUserImage,
+        columnAccessToken,
+        columnRefreshToken,
+        columnDeviceToken,
+        columnUserId,
+        columnName,
+        columnPassWord,
+        columnAccount,
+        columnMailAddress,
+        columnMailAddress,
+        columnIsPremium,
+        columnXRestrict,
+        columnIsMailAuthorized,
+      ],
+      where: '$columnId = ?',
+      whereArgs: [id],
+    );
     if (maps.length > 0) {
       return AccountPersist.fromJson(maps.first);
     }
@@ -115,22 +119,25 @@ create table $tableAccount (
 
   Future<List<AccountPersist>> getAllAccount() async {
     List<AccountPersist> result = [];
-    List<Map<String, dynamic>> maps = await db.query(tableAccount, columns: [
-      columnId,
-      columnUserImage,
-      columnAccessToken,
-      columnRefreshToken,
-      columnDeviceToken,
-      columnUserId,
-      columnName,
-      columnAccount,
-      columnMailAddress,
-      columnMailAddress,
-      columnPassWord,
-      columnIsPremium,
-      columnXRestrict,
-      columnIsMailAuthorized
-    ]);
+    List<Map<String, dynamic>> maps = await db.query(
+      tableAccount,
+      columns: [
+        columnId,
+        columnUserImage,
+        columnAccessToken,
+        columnRefreshToken,
+        columnDeviceToken,
+        columnUserId,
+        columnName,
+        columnAccount,
+        columnMailAddress,
+        columnMailAddress,
+        columnPassWord,
+        columnIsPremium,
+        columnXRestrict,
+        columnIsMailAuthorized,
+      ],
+    );
 
     if (maps.length > 0) {
       maps.forEach((f) {
@@ -141,13 +148,19 @@ create table $tableAccount (
   }
 
   Future<int> delete(int id) async {
-    return await db
-        .delete(tableAccount, where: '$columnId = ?', whereArgs: [id]);
+    return await db.delete(
+      tableAccount,
+      where: '$columnId = ?',
+      whereArgs: [id],
+    );
   }
 
   Future<int> deleteByUserId(String userId) async {
-    return await db
-        .delete(tableAccount, where: '$columnUserId = ?', whereArgs: [userId]);
+    return await db.delete(
+      tableAccount,
+      where: '$columnUserId = ?',
+      whereArgs: [userId],
+    );
   }
 
   Future<int> deleteAll() async {
@@ -155,8 +168,12 @@ create table $tableAccount (
   }
 
   Future<int> update(AccountPersist todo) async {
-    return await db.update(tableAccount, todo.toJson(),
-        where: '$columnId = ?', whereArgs: [todo.id]);
+    return await db.update(
+      tableAccount,
+      todo.toJson(),
+      where: '$columnId = ?',
+      whereArgs: [todo.id],
+    );
   }
 
   Future close() async => db.close();
@@ -188,20 +205,21 @@ class AccountPersist {
   @JsonKey(name: 'is_mail_authorized')
   int isMailAuthorized;
 
-  AccountPersist(
-      {required this.userId,
-      this.id,
-      required this.userImage,
-      required this.accessToken,
-      required this.refreshToken,
-      required this.deviceToken,
-      required this.passWord,
-      required this.name,
-      required this.account,
-      required this.mailAddress,
-      required this.isPremium,
-      required this.xRestrict,
-      required this.isMailAuthorized});
+  AccountPersist({
+    required this.userId,
+    this.id,
+    required this.userImage,
+    required this.accessToken,
+    required this.refreshToken,
+    required this.deviceToken,
+    required this.passWord,
+    required this.name,
+    required this.account,
+    required this.mailAddress,
+    required this.isPremium,
+    required this.xRestrict,
+    required this.isMailAuthorized,
+  });
 
   factory AccountPersist.fromJson(Map<String, dynamic> json) =>
       _$AccountPersistFromJson(json);
@@ -238,13 +256,14 @@ class AccountResponse {
 
   Map<String, dynamic> toJson() => _$AccountResponseToJson(this);
 
-  AccountResponse(
-      {required this.accessToken,
-      required this.expiresIn,
-      required this.tokenType,
-      required this.scope,
-      required this.refreshToken,
-      required this.user});
+  AccountResponse({
+    required this.accessToken,
+    required this.expiresIn,
+    required this.tokenType,
+    required this.scope,
+    required this.refreshToken,
+    required this.user,
+  });
 }
 
 @JsonSerializable()
@@ -265,15 +284,16 @@ class User {
   @JsonKey(name: 'require_policy_agreement')
   bool? requirePolicyAgreement;
 
-  User(
-      {required this.profileImageUrls,
-      required this.id,
-      required this.name,
-      required this.account,
-      required this.mailAddress,
-      required this.isPremium,
-      required this.xRestrict,
-      required this.isMailAuthorized});
+  User({
+    required this.profileImageUrls,
+    required this.id,
+    required this.name,
+    required this.account,
+    required this.mailAddress,
+    required this.isPremium,
+    required this.xRestrict,
+    required this.isMailAuthorized,
+  });
 
   factory User.fromJson(Map<String, dynamic> json) => _$UserFromJson(json);
 
@@ -289,8 +309,11 @@ class ProfileImageUrls {
   @JsonKey(name: "px_170x170")
   String px170x170;
 
-  ProfileImageUrls(
-      {required this.px16x16, required this.px50x50, required this.px170x170});
+  ProfileImageUrls({
+    required this.px16x16,
+    required this.px50x50,
+    required this.px170x170,
+  });
 
   factory ProfileImageUrls.fromJson(Map<String, dynamic> json) =>
       _$ProfileImageUrlsFromJson(json);

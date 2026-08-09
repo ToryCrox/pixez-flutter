@@ -13,7 +13,7 @@ class ImageUtils {
     try {
       final file = File(filePath);
       if (!await file.exists()) return null;
-      
+
       final size = await ImageSizeGetter.getSizeResultAsync(
         AsyncFileInput(file),
       );
@@ -26,10 +26,10 @@ class ImageUtils {
           final bytes = await File(filePath).readAsBytes();
           final image = await compute(_decodeImage, bytes);
           if (image != null) {
-             return Size(image.width.toDouble(), image.height.toDouble());
+            return Size(image.width.toDouble(), image.height.toDouble());
           }
         } catch (e2) {
-           Log.w('图片文件可能损坏或下载不完整 (Invalid jpeg file): $filePath');
+          Log.w('图片文件可能损坏或下载不完整 (Invalid jpeg file): $filePath');
         }
       } else {
         Log.e('解析图片宽高失败: $filePath, $e');

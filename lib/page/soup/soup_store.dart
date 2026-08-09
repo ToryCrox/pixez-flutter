@@ -31,13 +31,17 @@ part 'soup_store.g.dart';
 class SoupStore = _SoupStoreBase with _$SoupStore;
 
 abstract class _SoupStoreBase with Store {
-  final dio = Dio(BaseOptions(headers: {
-    HttpHeaders.acceptLanguageHeader:
-        userSetting.languageNum < 5 ? ApiClient.Accept_Language : "en-US",
-    'user-agent':
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.26 Safari/537.36 Edg/85.0.564.13',
-    HttpHeaders.refererHeader: 'https://www.pixivision.net/zh/',
-  }));
+  final dio = Dio(
+    BaseOptions(
+      headers: {
+        HttpHeaders.acceptLanguageHeader:
+            userSetting.languageNum < 5 ? ApiClient.Accept_Language : "en-US",
+        'user-agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.26 Safari/537.36 Edg/85.0.564.13',
+        HttpHeaders.refererHeader: 'https://www.pixivision.net/zh/',
+      },
+    ),
+  );
 
   ObservableList<AmWork> amWorks = ObservableList();
 
@@ -62,12 +66,13 @@ abstract class _SoupStoreBase with Store {
     var document = parse(response.data);
     amWorks.clear();
 
-    var nodes = document
-        .getElementsByTagName("article")
-        .first
-        .getElementsByClassName('am__body')
-        .first
-        .children;
+    var nodes =
+        document
+            .getElementsByTagName("article")
+            .first
+            .getElementsByClassName('am__body')
+            .first
+            .children;
 
     Element workInfo;
     if (nodes.first.attributes['class']!.contains('_feature')) {
@@ -75,11 +80,12 @@ abstract class _SoupStoreBase with Store {
       nodes = nodes.first.children;
       description = '';
     } else {
-      workInfo = document
-          .getElementsByTagName("article")
-          .first
-          .getElementsByTagName('header')
-          .first;
+      workInfo =
+          document
+              .getElementsByTagName("article")
+              .first
+              .getElementsByTagName('header')
+              .first;
       description = workInfo.toTargetString();
     }
 
@@ -123,12 +129,13 @@ abstract class _SoupStoreBase with Store {
     var document = parse(response.data);
     amWorks.clear();
 
-    var nodes = document
-        .getElementsByTagName("article")
-        .first
-        .getElementsByClassName('am__body')
-        .first
-        .children;
+    var nodes =
+        document
+            .getElementsByTagName("article")
+            .first
+            .getElementsByClassName('am__body')
+            .first
+            .children;
 
     Element workInfo;
     if (nodes.first.attributes['class']!.contains('_feature')) {
@@ -136,11 +143,12 @@ abstract class _SoupStoreBase with Store {
       nodes = nodes.first.children;
       description = '';
     } else {
-      workInfo = document
-          .getElementsByTagName("article")
-          .first
-          .getElementsByTagName('header')
-          .first;
+      workInfo =
+          document
+              .getElementsByTagName("article")
+              .first
+              .getElementsByTagName('header')
+              .first;
       description = workInfo.toTargetString();
     }
 

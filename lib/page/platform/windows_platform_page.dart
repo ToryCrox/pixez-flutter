@@ -37,12 +37,12 @@ class _WindowsPlatformPageState extends State<WindowsPlatformPage> {
   Future<void> _initPath() async {
     // 优先从 userSetting.downloadPath 读取
     String? path = userSetting.downloadPath;
-    
+
     // 如果 downloadPath 为空，尝试从 defaults 获取
     if (path == null || path.isEmpty) {
-       path = userSetting.storePath;
+      path = userSetting.storePath;
     }
-    
+
     if (mounted && path != null && path.isNotEmpty) {
       _pathController.text = path;
       // 初始化时校验一次
@@ -53,7 +53,7 @@ class _WindowsPlatformPageState extends State<WindowsPlatformPage> {
   /// 校验路径
   Future<void> _validatePath(String path) async {
     if (!mounted) return;
-    
+
     setState(() {
       _isValidating = true;
       _pathError = null;
@@ -70,7 +70,7 @@ class _WindowsPlatformPageState extends State<WindowsPlatformPage> {
 
       final dir = Directory(path);
       final exists = await dir.exists();
-      
+
       if (!exists) {
         setState(() {
           _pathError = '目录不存在';
@@ -81,10 +81,13 @@ class _WindowsPlatformPageState extends State<WindowsPlatformPage> {
 
       // 检查访问权限 - 尝试列出目录
       try {
-        await dir.list(followLinks: false).first.timeout(
-          Duration(seconds: 2),
-          onTimeout: () => throw TimeoutException('访问超时'),
-        );
+        await dir
+            .list(followLinks: false)
+            .first
+            .timeout(
+              Duration(seconds: 2),
+              onTimeout: () => throw TimeoutException('访问超时'),
+            );
       } catch (e) {
         setState(() {
           _pathError = '无法访问该目录';
@@ -118,7 +121,7 @@ class _WindowsPlatformPageState extends State<WindowsPlatformPage> {
   Future<void> _chooseFolder() async {
     try {
       String? path = await FilePicker.platform.getDirectoryPath();
-      
+
       if (mounted && path != null && path.isNotEmpty) {
         _pathController.text = path;
         await _validatePath(path);
@@ -131,10 +134,10 @@ class _WindowsPlatformPageState extends State<WindowsPlatformPage> {
   /// 保存下载路径
   Future<void> _saveDownloadPath() async {
     final path = _pathController.text.trim();
-    
+
     // 最终校验
     await _validatePath(path);
-    
+
     if (_pathError != null) {
       BotToast.showText(text: '请先解决路径错误');
       return;
@@ -146,27 +149,28 @@ class _WindowsPlatformPageState extends State<WindowsPlatformPage> {
       // 路径发生变化，提示用户需要手动迁移数据
       final confirm = await showDialog<bool>(
         context: context,
-        builder: (context) => AlertDialog(
-          title: Text('确认修改下载路径？'),
-          content: Text(
-            '修改下载路径后，您需要手动将以下文件迁移到新路径：\n\n'
-            '1. download.db（数据库文件）\n'
-            '2. download/（下载文件夹）\n\n'
-            '从：$currentPath\n'
-            '到：$path\n\n'
-            '确认继续？',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: Text('取消'),
+        builder:
+            (context) => AlertDialog(
+              title: Text('确认修改下载路径？'),
+              content: Text(
+                '修改下载路径后，您需要手动将以下文件迁移到新路径：\n\n'
+                '1. download.db（数据库文件）\n'
+                '2. download/（下载文件夹）\n\n'
+                '从：$currentPath\n'
+                '到：$path\n\n'
+                '确认继续？',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: Text('取消'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  child: Text('确认'),
+                ),
+              ],
             ),
-            TextButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: Text('确认'),
-            ),
-          ],
-        ),
       );
 
       if (confirm != true) return;
@@ -175,13 +179,13 @@ class _WindowsPlatformPageState extends State<WindowsPlatformPage> {
     try {
       // 1. 保存到 userSetting
       await userSetting.setDownloadPath(path);
-      
+
       // 2. 更新 downloadStore 的下载路径和数据库
       await downloadStore.updateDownloadPath(path);
-      
+
       // 3. 通知用户
       BotToast.showText(text: '下载路径已更新');
-      
+
       if (mounted) {
         Navigator.of(context).pop();
       }
@@ -195,10 +199,7 @@ class _WindowsPlatformPageState extends State<WindowsPlatformPage> {
     return AlertDialog(
       title: ListTile(
         title: Text("Platform Setting"),
-        subtitle: Text(
-          "For Windows",
-          style: TextStyle(color: Colors.blue),
-        ),
+        subtitle: Text("For Windows", style: TextStyle(color: Colors.blue)),
       ),
       content: Container(
         width: 500,
@@ -207,89 +208,93 @@ class _WindowsPlatformPageState extends State<WindowsPlatformPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             SizedBox(height: 24),
-            Text(
-              '字体设置',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
+            Text('字体设置', style: Theme.of(context).textTheme.titleMedium),
             SizedBox(height: 12),
-            LayoutBuilder(builder: (context, constraints) {
-               return Autocomplete<String>(
-                initialValue: TextEditingValue(text: userSetting.fontFamily ?? ''),
-                optionsBuilder: (TextEditingValue textEditingValue) {
-                  const List<String> _kOptions = <String>[
-                    'Microsoft YaHei',
-                    'SimHei',
-                    'Segoe UI',
-                    'Consolas',
-                    'Noto Sans Mono CJK SC',
-                    'PingFang SC',
-                    'Heiti SC',
-                    'San Francisco',
-                  ];
-                  if (textEditingValue.text == '') {
-                    return const Iterable<String>.empty();
-                  }
-                  return _kOptions.where((String option) {
-                    return option.toLowerCase().contains(textEditingValue.text.toLowerCase());
-                  });
-                },
-                onSelected: (String selection) {
-                  userSetting.setFontFamily(selection);
-                },
-                fieldViewBuilder: (BuildContext context, TextEditingController textEditingController,
-                    FocusNode focusNode, VoidCallback onFieldSubmitted) {
-                  return Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: textEditingController,
-                          focusNode: focusNode,
-                          decoration: InputDecoration(
-                            hintText: '输入或选择字体名称',
-                            border: OutlineInputBorder(),
-                            suffixIcon: IconButton(
-                              icon: Icon(Icons.clear),
-                              onPressed: () {
-                                textEditingController.clear();
-                                userSetting.setFontFamily(null);
-                              },
-                              tooltip: '重置默字体',
+            LayoutBuilder(
+              builder: (context, constraints) {
+                return Autocomplete<String>(
+                  initialValue: TextEditingValue(
+                    text: userSetting.fontFamily ?? '',
+                  ),
+                  optionsBuilder: (TextEditingValue textEditingValue) {
+                    const List<String> _kOptions = <String>[
+                      'Microsoft YaHei',
+                      'SimHei',
+                      'Segoe UI',
+                      'Consolas',
+                      'Noto Sans Mono CJK SC',
+                      'PingFang SC',
+                      'Heiti SC',
+                      'San Francisco',
+                    ];
+                    if (textEditingValue.text == '') {
+                      return const Iterable<String>.empty();
+                    }
+                    return _kOptions.where((String option) {
+                      return option.toLowerCase().contains(
+                        textEditingValue.text.toLowerCase(),
+                      );
+                    });
+                  },
+                  onSelected: (String selection) {
+                    userSetting.setFontFamily(selection);
+                  },
+                  fieldViewBuilder: (
+                    BuildContext context,
+                    TextEditingController textEditingController,
+                    FocusNode focusNode,
+                    VoidCallback onFieldSubmitted,
+                  ) {
+                    return Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: textEditingController,
+                            focusNode: focusNode,
+                            decoration: InputDecoration(
+                              hintText: '输入或选择字体名称',
+                              border: OutlineInputBorder(),
+                              suffixIcon: IconButton(
+                                icon: Icon(Icons.clear),
+                                onPressed: () {
+                                  textEditingController.clear();
+                                  userSetting.setFontFamily(null);
+                                },
+                                tooltip: '重置默字体',
+                              ),
                             ),
+                            onSubmitted: (String value) {
+                              if (value.trim().isEmpty) {
+                                userSetting.setFontFamily(null);
+                              } else {
+                                userSetting.setFontFamily(value.trim());
+                              }
+                            },
                           ),
-                          onSubmitted: (String value) {
-                            if (value.trim().isEmpty) {
+                        ),
+                        SizedBox(width: 12),
+                        ElevatedButton(
+                          onPressed: () {
+                            final value = textEditingController.text.trim();
+                            if (value.isEmpty) {
                               userSetting.setFontFamily(null);
                             } else {
-                              userSetting.setFontFamily(value.trim());
+                              userSetting.setFontFamily(value);
                             }
+                            BotToast.showText(text: '字体已应用');
                           },
+                          child: Text('应用'),
                         ),
-                      ),
-                      SizedBox(width: 12),
-                      ElevatedButton(
-                        onPressed: () {
-                          final value = textEditingController.text.trim();
-                          if (value.isEmpty) {
-                            userSetting.setFontFamily(null);
-                          } else {
-                            userSetting.setFontFamily(value);
-                          }
-                          BotToast.showText(text: '字体已应用');
-                        },
-                        child: Text('应用'),
-                      ),
-                    ],
-                  );
-                },
-              );
-            }),
-            Divider(height: 32),
-            Text(
-              '下载路径',
-              style: Theme.of(context).textTheme.titleMedium,
+                      ],
+                    );
+                  },
+                );
+              },
             ),
+            Divider(height: 32),
+            Text('下载路径', style: Theme.of(context).textTheme.titleMedium),
             SizedBox(height: 12),
-            
+
             // 路径输入框
             TextField(
               controller: _pathController,
@@ -297,23 +302,24 @@ class _WindowsPlatformPageState extends State<WindowsPlatformPage> {
                 hintText: '请输入下载目录路径',
                 border: OutlineInputBorder(),
                 errorText: _pathError,
-                suffixIcon: _isValidating
-                    ? Padding(
-                        padding: EdgeInsets.all(12),
-                        child: SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      )
-                    : _pathError == null && _pathController.text.isNotEmpty
+                suffixIcon:
+                    _isValidating
+                        ? Padding(
+                          padding: EdgeInsets.all(12),
+                          child: SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        )
+                        : _pathError == null && _pathController.text.isNotEmpty
                         ? Icon(Icons.check_circle, color: Colors.green)
                         : null,
               ),
               onChanged: _onPathChanged,
             ),
             SizedBox(height: 12),
-            
+
             // 操作按钮
             Row(
               children: [
@@ -324,9 +330,10 @@ class _WindowsPlatformPageState extends State<WindowsPlatformPage> {
                 ),
                 SizedBox(width: 12),
                 ElevatedButton.icon(
-                  onPressed: _pathError == null && _pathController.text.isNotEmpty
-                      ? _saveDownloadPath
-                      : null,
+                  onPressed:
+                      _pathError == null && _pathController.text.isNotEmpty
+                          ? _saveDownloadPath
+                          : null,
                   icon: Icon(Icons.save),
                   label: Text('保存'),
                 ),

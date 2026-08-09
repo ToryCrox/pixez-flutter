@@ -1,4 +1,3 @@
-
 import 'dart:io';
 import 'package:open_file/open_file.dart';
 import 'package:pixez/custom/log.dart';
@@ -23,9 +22,12 @@ class FileUtils {
         final result = await Process.run('powershell', [
           '-NoProfile',
           '-Command',
-          "Invoke-Item -LiteralPath '$escapedPath'"
+          "Invoke-Item -LiteralPath '$escapedPath'",
         ]);
-        Log.d(() => 'openFileOrDirectory result: ${result.exitCode}, ${result.stdout}, ${result.stderr}');
+        Log.d(
+          () =>
+              'openFileOrDirectory result: ${result.exitCode}, ${result.stdout}, ${result.stderr}',
+        );
         return;
       } else {
         Log.w(() => 'openFileOrDirectory not directory: $path, type: $type');

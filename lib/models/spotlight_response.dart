@@ -28,10 +28,7 @@ class SpotlightResponse {
   @JsonKey(name: 'next_url')
   String? nextUrl;
 
-  SpotlightResponse({
-    required this.spotlightArticles,
-    this.nextUrl,
-  });
+  SpotlightResponse({required this.spotlightArticles, this.nextUrl});
   factory SpotlightResponse.fromJson(Map<String, dynamic> json) =>
       _$SpotlightResponseFromJson(json);
 

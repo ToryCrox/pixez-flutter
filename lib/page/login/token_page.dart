@@ -43,7 +43,8 @@ class _TokenPageState extends State<TokenPage> {
                 try {
                   String token = userNameController.text.toString();
                   var response1 = await oAuthClient.postRefreshAuthToken(
-                      refreshToken: token);
+                    refreshToken: token,
+                  );
                   AccountResponse accountResponse =
                       Account.fromJson(response1.data).response;
                   final user = accountResponse.user;
@@ -51,18 +52,19 @@ class _TokenPageState extends State<TokenPage> {
                   await accountProvider.open();
                   await accountProvider.deleteByUserId(user.id);
                   var accountPersist = AccountPersist(
-                      userId: user.id,
-                      userImage: user.profileImageUrls.px170x170,
-                      accessToken: accountResponse.accessToken,
-                      refreshToken: accountResponse.refreshToken,
-                      deviceToken: "",
-                      passWord: "no more",
-                      name: user.name,
-                      account: user.account,
-                      mailAddress: user.mailAddress,
-                      isPremium: user.isPremium ? 1 : 0,
-                      xRestrict: user.xRestrict,
-                      isMailAuthorized: user.isMailAuthorized ? 1 : 0);
+                    userId: user.id,
+                    userImage: user.profileImageUrls.px170x170,
+                    accessToken: accountResponse.accessToken,
+                    refreshToken: accountResponse.refreshToken,
+                    deviceToken: "",
+                    passWord: "no more",
+                    name: user.name,
+                    account: user.account,
+                    mailAddress: user.mailAddress,
+                    isPremium: user.isPremium ? 1 : 0,
+                    xRestrict: user.xRestrict,
+                    isMailAuthorized: user.isMailAuthorized ? 1 : 0,
+                  );
                   await accountProvider.insert(accountPersist);
                   await accountStore.fetch();
                   Leader.pushUntilHome(context);
@@ -77,8 +79,10 @@ class _TokenPageState extends State<TokenPage> {
             Visibility(
               visible: errorMessage.isNotEmpty,
               child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(vertical: 4.0, horizontal: 0),
+                padding: const EdgeInsets.symmetric(
+                  vertical: 4.0,
+                  horizontal: 0,
+                ),
                 child: Container(
                   decoration: BoxDecoration(
                     color: Colors.redAccent,
@@ -92,7 +96,7 @@ class _TokenPageState extends State<TokenPage> {
                   ),
                 ),
               ),
-            )
+            ),
           ],
         ),
       ),

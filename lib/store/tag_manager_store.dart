@@ -152,7 +152,6 @@ abstract class _TagManagerStore with Store {
     return null;
   }
 
-
   @action
   Future<void> batchUpdateCategory(List<int> tagIds, int category) async {
     await _dbProvider.batchUpdateTagCategory(tagIds, category);
@@ -187,18 +186,26 @@ abstract class _TagManagerStore with Store {
 
     // 如果 tags 已加载，则直接从内存中计算等价组展开
     if (tags.isNotEmpty) {
-      final rootIds = ids.map((id) {
-        final tagData = tagIdMap[id];
-        if (tagData == null) return null;
-        return tagData.tag.referencedTagId == 0 ? tagData.tag.id : tagData.tag.referencedTagId;
-      }).whereType<int>().toSet();
+      final rootIds =
+          ids
+              .map((id) {
+                final tagData = tagIdMap[id];
+                if (tagData == null) return null;
+                return tagData.tag.referencedTagId == 0
+                    ? tagData.tag.id
+                    : tagData.tag.referencedTagId;
+              })
+              .whereType<int>()
+              .toSet();
 
       if (rootIds.isNotEmpty) {
         return tags
-            .where((t) =>
-                rootIds.contains(t.tag.id) ||
-                (t.tag.referencedTagId != 0 &&
-                    rootIds.contains(t.tag.referencedTagId)))
+            .where(
+              (t) =>
+                  rootIds.contains(t.tag.id) ||
+                  (t.tag.referencedTagId != 0 &&
+                      rootIds.contains(t.tag.referencedTagId)),
+            )
             .toList();
       }
     }
@@ -212,13 +219,18 @@ abstract class _TagManagerStore with Store {
     if (tags.isNotEmpty) {
       final tagData = tagIdMap[tagId];
       if (tagData != null) {
-        final mainId = tagData.tag.referencedTagId == 0 ? tagData.tag.id : tagData.tag.referencedTagId;
+        final mainId =
+            tagData.tag.referencedTagId == 0
+                ? tagData.tag.id
+                : tagData.tag.referencedTagId;
         Log.d(() => 'getEquivalenceGroup $tagId, $mainId');
         return tags
-            .where((t) =>
-                t.tag.id == mainId || t.tag.referencedTagId == mainId)
+            .where((t) => t.tag.id == mainId || t.tag.referencedTagId == mainId)
             .map((t) {
-              Log.d(() => 'getEquivalenceGroup ${t.tag.name}, ${t.tag.referencedTagId}, ${t.tag.id}');
+              Log.d(
+                () =>
+                    'getEquivalenceGroup ${t.tag.name}, ${t.tag.referencedTagId}, ${t.tag.id}',
+              );
               return t;
             })
             .toList();
@@ -234,20 +246,30 @@ abstract class _TagManagerStore with Store {
     List<int> allTagIds, [
     List<int>? removedIds,
   ]) async {
-    Log.d(() => 'updateEquivalenceGroup $newPrimaryId, $allTagIds, $removedIds');
-    await _dbProvider.updateEquivalenceGroup(newPrimaryId, allTagIds, removedIds);
-    
+    Log.d(
+      () => 'updateEquivalenceGroup $newPrimaryId, $allTagIds, $removedIds',
+    );
+    await _dbProvider.updateEquivalenceGroup(
+      newPrimaryId,
+      allTagIds,
+      removedIds,
+    );
+
     // 直接在内存中更新受影响的标签，避免重新加载所有标签
-    final allAffectedIds = {...allTagIds, if (removedIds != null) ...removedIds};
+    final allAffectedIds = {
+      ...allTagIds,
+      if (removedIds != null) ...removedIds,
+    };
     final aliasIds = allTagIds.where((id) => id != newPrimaryId).toSet();
-    
+
     for (int i = 0; i < tags.length; i++) {
       final tagId = tags[i].tag.id;
       if (allAffectedIds.contains(tagId)) {
         final oldData = tags[i];
-        final newReferencedTagId = 
-            (removedIds?.contains(tagId) ?? false) ? 0 :
-            (tagId == newPrimaryId ? 0 : newPrimaryId);
+        final newReferencedTagId =
+            (removedIds?.contains(tagId) ?? false)
+                ? 0
+                : (tagId == newPrimaryId ? 0 : newPrimaryId);
         Log.d(() => 'updateEquivalenceGroup $tagId, $newReferencedTagId');
         final hasEquivalentTags = allTagIds.contains(tagId);
         tags[i] = oldData.copyWith(
@@ -303,42 +325,57 @@ abstract class _TagManagerStore with Store {
   }
 
   @action
-  Future<void> updateTagParent(int childId, int parentId, {String? newName}) async {
+  Future<void> updateTagParent(
+    int childId,
+    int parentId, {
+    String? newName,
+  }) async {
     final index = tags.indexWhere((t) => t.tag.id == childId);
     if (index != -1) {
       final oldData = tags[index];
-      
+
       // Reuse updateTag which persists to DB
-      await updateTag(oldData.tag.copyWith(
-        parentId: parentId,
-        customTranslatedName: newName ?? oldData.tag.customTranslatedName,
-      ));
+      await updateTag(
+        oldData.tag.copyWith(
+          parentId: parentId,
+          customTranslatedName: newName ?? oldData.tag.customTranslatedName,
+        ),
+      );
     }
   }
 
   @action
-  Future<void> batchUpdateTagParent(List<int> childIds, int parentId, {Map<int, String>? newNames}) async {
+  Future<void> batchUpdateTagParent(
+    List<int> childIds,
+    int parentId, {
+    Map<int, String>? newNames,
+  }) async {
     final affectedParentIds = <int>{};
-    
+
     for (final childId in childIds) {
       final index = tags.indexWhere((t) => t.tag.id == childId);
       if (index != -1) {
         final oldData = tags[index];
         final oldParentId = oldData.tag.parentId;
         if (oldParentId != 0) affectedParentIds.add(oldParentId);
-        
+
         final newName = newNames?[childId];
-        await updateTag(oldData.tag.copyWith(
-          parentId: parentId,
-          customTranslatedName: newName ?? oldData.tag.customTranslatedName,
-        ));
+        await updateTag(
+          oldData.tag.copyWith(
+            parentId: parentId,
+            customTranslatedName: newName ?? oldData.tag.customTranslatedName,
+          ),
+        );
       }
     }
   }
 
   /// 获取标签推荐的父级（作品）
   Future<List<DownloadedTag>> getRecommendedParents(int tagId) async {
-    final coOccurring = await _dbProvider.getCoOccurringWorkTags(tagId, limit: 5);
+    final coOccurring = await _dbProvider.getCoOccurringWorkTags(
+      tagId,
+      limit: 5,
+    );
     // Resolve to main tags and remove duplicates
     final results = <int, DownloadedTag>{};
     for (var tag in coOccurring) {
@@ -355,7 +392,7 @@ abstract class _TagManagerStore with Store {
   Future<List<TagAssociationProposal>> scanForAutoAssociations() async {
     final proposals = <TagAssociationProposal>[];
     if (tags.isEmpty) return proposals;
-    
+
     // 限制单次扫描显示的建议数量，避免 UI 过载且提升响应速度
     const int maxProposals = 30;
 
@@ -381,59 +418,70 @@ abstract class _TagManagerStore with Store {
 
       // 遵守规则：已经有关联的不再扫描，排除作品、通用、元数据
       final cat = t.tag.category;
-      if (t.tag.parentId != 0 || 
-          cat == TagCategory.work.value || 
-          cat == TagCategory.general.value || 
-          cat == TagCategory.meta.value) continue;
+      if (t.tag.parentId != 0 ||
+          cat == TagCategory.work.value ||
+          cat == TagCategory.general.value ||
+          cat == TagCategory.meta.value)
+        continue;
 
-      String nameToCheck = t.tag.displayTranslatedName.isNotEmpty 
-          ? t.tag.displayTranslatedName : t.tag.name;
+      String nameToCheck =
+          t.tag.displayTranslatedName.isNotEmpty
+              ? t.tag.displayTranslatedName
+              : t.tag.name;
 
       var match = pattern.firstMatch(nameToCheck);
       if (match != null) {
         final cleanName = match.group(1)!.trim();
         final matchedWorkName = match.group(2)!.trim();
-        
+
         var parentTag = workMap[matchedWorkName];
         if (parentTag != null) {
           // 优先使用主标签（如果存在等价标签）
           final mainTag = getMainTagByTag(parentTag) ?? parentTag;
-          proposals.add(TagAssociationProposal(
-            childTag: t.tag,
-            parentTag: mainTag,
-            newChildName: cleanName,
-            suggestionReason: '正则匹配',
-          ));
+          proposals.add(
+            TagAssociationProposal(
+              childTag: t.tag,
+              parentTag: mainTag,
+              newChildName: cleanName,
+              suggestionReason: '正则匹配',
+            ),
+          );
         }
       }
     }
 
     // 第二步：如果还没满，执行批量共现分析
     if (proposals.length < maxProposals) {
-      final potentialBatches = await _dbProvider.getGlobalCoOccurrenceProposals(limit: 100);
+      final potentialBatches = await _dbProvider.getGlobalCoOccurrenceProposals(
+        limit: 100,
+      );
       final existingChildIds = proposals.map((p) => p.childTag.id).toSet();
-      
+
       for (var batch in potentialBatches) {
         if (proposals.length >= maxProposals) break;
-        
+
         final childId = batch['child_id'] as int;
         final parentId = batch['parent_id'] as int;
-        
+
         if (existingChildIds.contains(childId)) continue;
-        
+
         final childData = tagIdMap[childId];
         final parentData = tagIdMap[parentId];
-        
+
         if (childData != null && parentData != null) {
           // 优先使用主标签（如果存在等价标签）
           final mainParent = getMainTagByTag(parentData.tag) ?? parentData.tag;
-          proposals.add(TagAssociationProposal(
-            childTag: childData.tag,
-            parentTag: mainParent,
-            newChildName: childData.tag.displayTranslatedName.isNotEmpty 
-                ? childData.tag.displayTranslatedName : childData.tag.name,
-            suggestionReason: '插画共现分析',
-          ));
+          proposals.add(
+            TagAssociationProposal(
+              childTag: childData.tag,
+              parentTag: mainParent,
+              newChildName:
+                  childData.tag.displayTranslatedName.isNotEmpty
+                      ? childData.tag.displayTranslatedName
+                      : childData.tag.name,
+              suggestionReason: '插画共现分析',
+            ),
+          );
           existingChildIds.add(childId);
         }
       }
@@ -446,7 +494,7 @@ abstract class _TagManagerStore with Store {
   DownloadedTag? getMainTagByTag(DownloadedTag tag) {
     final mainTagInfo = getMainTag(tag.name);
     if (mainTagInfo == null) return null;
-    
+
     // Find the actual DownloadedTag for the main tag name
     return tags.firstWhereOrNull((t) => t.tag.name == mainTagInfo.name)?.tag;
   }
@@ -538,18 +586,15 @@ abstract class _TagManagerStore with Store {
   /// [updates] 是解析后的 JSON updates 数组
   /// 返回每项的匹配和变更结果
   Future<List<TagImportResult>> importTagUpdates(
-      List<TagImportItem> items) async {
+    List<TagImportItem> items,
+  ) async {
     final results = <TagImportResult>[];
 
     for (final item in items) {
       // 按 name 查找本地标签
       final tagData = tagNameMap[item.name];
       if (tagData == null) {
-        results.add(TagImportResult(
-          item: item,
-          matched: false,
-          tagData: null,
-        ));
+        results.add(TagImportResult(item: item, matched: false, tagData: null));
         continue;
       }
 
@@ -559,14 +604,16 @@ abstract class _TagManagerStore with Store {
         resolvedParentName = resolveToMainTagName(resolvedParentName);
       }
 
-      results.add(TagImportResult(
-        item: item,
-        matched: true,
-        tagData: tagData,
-        editableCategory: item.category,
-        editableParentName: resolvedParentName,
-        editableTranslation: item.customTranslatedName,
-      ));
+      results.add(
+        TagImportResult(
+          item: item,
+          matched: true,
+          tagData: tagData,
+          editableCategory: item.category,
+          editableParentName: resolvedParentName,
+          editableTranslation: item.customTranslatedName,
+        ),
+      );
     }
     return results;
   }
@@ -717,9 +764,10 @@ class TagImportResult {
     if (editableTranslation != null &&
         editableTranslation!.isNotEmpty &&
         editableTranslation != tag.customTranslatedName) {
-      final old = tag.displayTranslatedName.isNotEmpty
-          ? tag.displayTranslatedName
-          : '(无)';
+      final old =
+          tag.displayTranslatedName.isNotEmpty
+              ? tag.displayTranslatedName
+              : '(无)';
       changes.add('翻译: $old → $editableTranslation');
     }
     if (editableParentName != null && editableParentName!.isNotEmpty) {
@@ -728,4 +776,3 @@ class TagImportResult {
     return changes;
   }
 }
-

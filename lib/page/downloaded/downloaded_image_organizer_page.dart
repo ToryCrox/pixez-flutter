@@ -116,8 +116,9 @@ class _DownloadedImageOrganizerPageState
   final Map<String, double> _groupScrollOffsets = {};
   final Map<String, double> _groupNavigatorItemWidths = {};
   List<_GroupScrollOffset> _orderedGroupScrollOffsets = const [];
-  final ValueNotifier<String?> _currentGroupIdNotifier =
-      ValueNotifier<String?>(null);
+  final ValueNotifier<String?> _currentGroupIdNotifier = ValueNotifier<String?>(
+    null,
+  );
 
   @override
   void initState() {
@@ -501,7 +502,9 @@ class _DownloadedImageOrganizerPageState
                     tooltip: '分组方式',
                     position: PopupMenuPosition.under,
                     onSelected:
-                        store.loading ? null : (value) => store.setGroupType(value),
+                        store.loading
+                            ? null
+                            : (value) => store.setGroupType(value),
                     itemBuilder:
                         (context) =>
                             GroupType.values
@@ -535,7 +538,9 @@ class _DownloadedImageOrganizerPageState
                     tooltip: '排序方式',
                     position: PopupMenuPosition.under,
                     onSelected:
-                        store.loading ? null : (value) => store.setSortType(value),
+                        store.loading
+                            ? null
+                            : (value) => store.setSortType(value),
                     itemBuilder:
                         (context) =>
                             SortType.values
@@ -630,7 +635,9 @@ class _DownloadedImageOrganizerPageState
                   icon: const Icon(Icons.refresh),
                   tooltip: '列表刷新',
                   onPressed:
-                      store.loading ? null : () => store.loadData(forceReload: true),
+                      store.loading
+                          ? null
+                          : () => store.loadData(forceReload: true),
                 ),
                 if (store.illustIdFilter != null && !store.isMultiSelectMode)
                   IconButton(
@@ -1000,10 +1007,9 @@ class _DownloadedImageOrganizerPageState
           Expanded(
             child: Text(
               group.title,
-              style: Theme.of(context)
-                  .textTheme
-                  .titleSmall
-                  ?.copyWith(fontWeight: FontWeight.bold),
+              style: Theme.of(
+                context,
+              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
             ),
           ),
           if (store.isMultiSelectMode)
@@ -1028,10 +1034,7 @@ class _DownloadedImageOrganizerPageState
 
   // ============ Card & drag ============
 
-  Widget _buildDraggableCard(
-    DownloadedImageDisplayItem item,
-    bool isSelected,
-  ) {
+  Widget _buildDraggableCard(DownloadedImageDisplayItem item, bool isSelected) {
     final card = _buildCard(item, isSelected);
     return DragItemWidget(
       dragItemProvider: _createDragItemProvider,
@@ -1253,10 +1256,9 @@ class _AuthorImageCard extends StatelessWidget {
                         '${item.illust.illustId} · ${item.illust.title}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context)
-                            .textTheme
-                            .bodySmall
-                            ?.copyWith(fontSize: 11),
+                        style: Theme.of(
+                          context,
+                        ).textTheme.bodySmall?.copyWith(fontSize: 11),
                       ),
                       const SizedBox(height: 2),
                       Text(

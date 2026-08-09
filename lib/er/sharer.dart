@@ -8,7 +8,10 @@ import 'package:share_plus/share_plus.dart';
 
 class Sharer {
   static Future<void> exportUint8List(
-      BuildContext context, Uint8List uint8List, String fileName) async {
+    BuildContext context,
+    Uint8List uint8List,
+    String fileName,
+  ) async {
     final tempDir = await getTemporaryDirectory();
     final file = File(p.join(tempDir.path, fileName));
     await file.writeAsBytes(uint8List);

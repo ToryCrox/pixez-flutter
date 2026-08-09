@@ -14,13 +14,13 @@ class _EmptyPageState extends State<EmptyPage> {
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: <Widget>[
-          Container(
-            height: 90,
-          ),
+          Container(height: 90),
           Padding(
             padding: const EdgeInsets.all(8.0),
-            child:
-                Text('[ ]', style: Theme.of(context).textTheme.headlineMedium),
+            child: Text(
+              '[ ]',
+              style: Theme.of(context).textTheme.headlineMedium,
+            ),
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8.0),

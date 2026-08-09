@@ -17,21 +17,19 @@ import 'package:flutter/material.dart';
 import 'package:pixez/store/download_store.dart';
 
 enum OptimizeDialogState {
-  confirm,    // 确认阶段
-  backingUp,  // 备份中
-  vacuuming,  // VACUUM 中
-  completed,  // 完成
-  error,      // 错误
+  confirm, // 确认阶段
+  backingUp, // 备份中
+  vacuuming, // VACUUM 中
+  completed, // 完成
+  error, // 错误
 }
 
 /// 合并的优化对话框（包含确认、进度、结果）
 class _OptimizeDialog extends StatefulWidget {
   final DownloadStore downloadStore;
 
-  const _OptimizeDialog({
-    Key? key,
-    required this.downloadStore,
-  }) : super(key: key);
+  const _OptimizeDialog({Key? key, required this.downloadStore})
+    : super(key: key);
 
   @override
   State<_OptimizeDialog> createState() => _OptimizeDialogState();
@@ -111,10 +109,7 @@ class _OptimizeDialogState extends State<_OptimizeDialog> {
             onPressed: () => Navigator.of(context).pop(),
             child: Text('取消'),
           ),
-          TextButton(
-            onPressed: _startOptimize,
-            child: Text('确认优化'),
-          ),
+          TextButton(onPressed: _startOptimize, child: Text('确认优化')),
         ];
         break;
 
@@ -253,7 +248,10 @@ class _OptimizeDialogState extends State<_OptimizeDialog> {
 /// 显示优化数据库存储对话框
 class OptimizeJsonDialog {
   /// 显示优化对话框并执行优化
-  static Future<void> show(BuildContext context, DownloadStore downloadStore) async {
+  static Future<void> show(
+    BuildContext context,
+    DownloadStore downloadStore,
+  ) async {
     await showDialog(
       context: context,
       barrierDismissible: false,

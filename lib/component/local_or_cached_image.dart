@@ -494,7 +494,10 @@ class _IllustDownloadButtonState extends State<IllustDownloadButton> {
                   ListTile(
                     leading: Icon(Icons.movie_creation, color: Colors.blue),
                     title: Text('转换为动图 (WebP)'),
-                    subtitle: Text('将序列帧合成为单个动图文件', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                    subtitle: Text(
+                      '将序列帧合成为单个动图文件',
+                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
                     onTap: () {
                       Navigator.pop(ctx);
                       _convertToWebP();
@@ -505,7 +508,10 @@ class _IllustDownloadButtonState extends State<IllustDownloadButton> {
                   ListTile(
                     leading: Icon(Icons.science, color: Colors.orange),
                     title: Text('测试高清ZIP下载'),
-                    subtitle: Text('方案一: 尝试下载 1920x1080 ZIP', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                    subtitle: Text(
+                      '方案一: 尝试下载 1920x1080 ZIP',
+                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
                     onTap: () {
                       Navigator.pop(ctx);
                       _testOriginalDownload();
@@ -516,7 +522,10 @@ class _IllustDownloadButtonState extends State<IllustDownloadButton> {
                   ListTile(
                     leading: Icon(Icons.burst_mode, color: Colors.purple),
                     title: Text('测试逐帧下载'),
-                    subtitle: Text('方案二: 逐帧下载原始图片', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                    subtitle: Text(
+                      '方案二: 逐帧下载原始图片',
+                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
                     onTap: () {
                       Navigator.pop(ctx);
                       _testOriginalFramesDownload();
@@ -570,7 +579,9 @@ class _IllustDownloadButtonState extends State<IllustDownloadButton> {
       return;
     }
     try {
-      final dirPath = await downloadStore.getIllustDownloadDirectory(widget.illusts);
+      final dirPath = await downloadStore.getIllustDownloadDirectory(
+        widget.illusts,
+      );
       if (dirPath != null) {
         await FileUtils.openFileOrDirectory(dirPath);
       }
@@ -596,11 +607,12 @@ class _IllustDownloadButtonState extends State<IllustDownloadButton> {
   void _showPriorityDialog() {
     showDialog(
       context: context,
-      builder: (context) => BookmarkPriorityDialog(
-        onPrioritySelected: (priority) {
-          _downloadAllPages(bookmark: priority);
-        },
-      ),
+      builder:
+          (context) => BookmarkPriorityDialog(
+            onPrioritySelected: (priority) {
+              _downloadAllPages(bookmark: priority);
+            },
+          ),
     );
   }
 
@@ -620,10 +632,7 @@ class _IllustDownloadButtonState extends State<IllustDownloadButton> {
 
       if (!mounted) return;
 
-      await UpdateIllustInfoDialog.show(
-        context,
-        illusts: [downloadedIllust],
-      );
+      await UpdateIllustInfoDialog.show(context, illusts: [downloadedIllust]);
     } catch (e) {
       Log.e('Failed to open update info dialog: $e');
       BotToast.showText(text: '打开更新信息对话框失败: $e');

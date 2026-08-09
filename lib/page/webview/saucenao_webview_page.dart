@@ -30,9 +30,10 @@ class _SauncenaoWebviewState extends State<SauncenaoWebview> {
   @override
   void initState() {
     _path = widget.path;
-    _url = _path == null
-        ? "https://saucenao.com/"
-        : "https://saucenao.com/search.php";
+    _url =
+        _path == null
+            ? "https://saucenao.com/"
+            : "https://saucenao.com/search.php";
     super.initState();
   }
 
@@ -43,35 +44,37 @@ class _SauncenaoWebviewState extends State<SauncenaoWebview> {
         title: Text(""),
         actions: <Widget>[
           IconButton(
-              icon: Icon(Icons.open_in_browser),
-              onPressed: () {
-                try {
-                  CustomTabPlugin.launch(_url);
-                } catch (e) {
-                  BotToast.showText(text: e.toString());
-                }
-              }),
+            icon: Icon(Icons.open_in_browser),
+            onPressed: () {
+              try {
+                CustomTabPlugin.launch(_url);
+              } catch (e) {
+                BotToast.showText(text: e.toString());
+              }
+            },
+          ),
           IconButton(
-              icon: Icon(Icons.refresh),
-              onPressed: () => _webViewController.reload())
+            icon: Icon(Icons.refresh),
+            onPressed: () => _webViewController.reload(),
+          ),
         ],
       ),
-      body: Builder(builder: (BuildContext context) {
-        return Column(
-          children: [
-            Visibility(
-              visible: progressValue < 1.0,
-              child: LinearProgressIndicator(
-                value: progressValue,
+      body: Builder(
+        builder: (BuildContext context) {
+          return Column(
+            children: [
+              Visibility(
+                visible: progressValue < 1.0,
+                child: LinearProgressIndicator(value: progressValue),
               ),
-            ),
-            Expanded(
-              child: InAppWebView(
+              Expanded(
+                child: InAppWebView(
                   initialUrlRequest: URLRequest(url: WebUri(_url)),
                   initialSettings: InAppWebViewSettings(
-                      useShouldOverrideUrlLoading: true,
-                      useShouldInterceptRequest: true,
-                      useHybridComposition: true),
+                    useShouldOverrideUrlLoading: true,
+                    useShouldInterceptRequest: true,
+                    useHybridComposition: true,
+                  ),
                   onWebViewCreated: (InAppWebViewController controller) {
                     _webViewController = controller;
                     // _webViewController.postUrl(url: url, postData: postData)
@@ -83,53 +86,70 @@ class _SauncenaoWebviewState extends State<SauncenaoWebview> {
                       progressValue = progress / 100;
                     });
                   },
-                  shouldInterceptRequest: _path != null
-                      ? (controller, request) async {
-                          try {
-                            if (request.url.path == "/search.php") {
-                              String host = "saucenao.com";
-                              Dio dio = Dio(BaseOptions(
-                                  baseUrl: "https://saucenao.com",
-                                  headers: {HttpHeaders.hostHeader: host}));
-                              if (userSetting.disableBypassSni) {
-                                dio.options.baseUrl = "https://$host";
-                              } else {
-                                dio.httpClientAdapter =
-                                    await ApiClient.createCompatibleClient();
-                              }
-                              if (compressedPath == null) {
-                                final tmpPath =
-                                    "${(await getTemporaryDirectory()).path}/${DateTime.now().millisecondsSinceEpoch}.jpg";
-                                await File(tmpPath).writeAsBytes(compressImage(
-                                    await File(_path!).readAsBytes()));
-                                compressedPath = tmpPath;
-                              }
-                              var formData = FormData();
-                              formData.files.addAll([
-                                MapEntry(
+                  shouldInterceptRequest:
+                      _path != null
+                          ? (controller, request) async {
+                            try {
+                              if (request.url.path == "/search.php") {
+                                String host = "saucenao.com";
+                                Dio dio = Dio(
+                                  BaseOptions(
+                                    baseUrl: "https://saucenao.com",
+                                    headers: {HttpHeaders.hostHeader: host},
+                                  ),
+                                );
+                                if (userSetting.disableBypassSni) {
+                                  dio.options.baseUrl = "https://$host";
+                                } else {
+                                  dio.httpClientAdapter =
+                                      await ApiClient.createCompatibleClient();
+                                }
+                                if (compressedPath == null) {
+                                  final tmpPath =
+                                      "${(await getTemporaryDirectory()).path}/${DateTime.now().millisecondsSinceEpoch}.jpg";
+                                  await File(tmpPath).writeAsBytes(
+                                    compressImage(
+                                      await File(_path!).readAsBytes(),
+                                    ),
+                                  );
+                                  compressedPath = tmpPath;
+                                }
+                                var formData = FormData();
+                                formData.files.addAll([
+                                  MapEntry(
                                     "file",
                                     await MultipartFile.fromFile(
-                                        compressedPath!)),
-                              ]);
+                                      compressedPath!,
+                                    ),
+                                  ),
+                                ]);
 
-                              Response response =
-                                  await dio.post('/search.php', data: formData);
-                              String html = response.data;
-                              WebResourceResponse webResourceResponse =
-                                  WebResourceResponse(
+                                Response response = await dio.post(
+                                  '/search.php',
+                                  data: formData,
+                                );
+                                String html = response.data;
+                                WebResourceResponse webResourceResponse =
+                                    WebResourceResponse(
                                       statusCode: 200,
                                       data: Uint8List.fromList(html.codeUnits),
-                                      headers: {"Content-Type": "text/html"});
-                              return webResourceResponse;
+                                      headers: {"Content-Type": "text/html"},
+                                    );
+                                return webResourceResponse;
+                              }
+                            } catch (e) {
+                              Log.e(
+                                'Failed to process SauceNAO request',
+                                error: e,
+                              );
                             }
-                          } catch (e) {
-                            Log.e('Failed to process SauceNAO request', error: e);
+                            return null;
                           }
-                          return null;
-                        }
-                      : null,
-                  shouldOverrideUrlLoading: (InAppWebViewController controller,
-                      NavigationAction navigationAction) async {
+                          : null,
+                  shouldOverrideUrlLoading: (
+                    InAppWebViewController controller,
+                    NavigationAction navigationAction,
+                  ) async {
                     if (navigationAction.request.url == null)
                       return NavigationActionPolicy.ALLOW;
                     var uri = navigationAction.request.url!;
@@ -142,11 +162,13 @@ class _SauncenaoWebviewState extends State<SauncenaoWebview> {
                       return NavigationActionPolicy.CANCEL;
                     }
                     return NavigationActionPolicy.ALLOW;
-                  }),
-            ),
-          ],
-        );
-      }),
+                  },
+                ),
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 

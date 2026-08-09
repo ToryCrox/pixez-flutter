@@ -99,8 +99,9 @@ abstract class _IllustStoreBase with Store {
   Future<void> preloadFirstImage({String? relativePath}) async {
     if (!downloadStore.isInitialized) return;
     if (localImageInfos.containsKey(0)) return;
-    
-    final firstImageInfo = await downloadStore.dbProvider.getLocalImageInfoByPart(id, 0, relativePath: relativePath);
+
+    final firstImageInfo = await downloadStore.dbProvider
+        .getLocalImageInfoByPart(id, 0, relativePath: relativePath);
     if (firstImageInfo != null) {
       localImageInfos[0] = firstImageInfo;
     }
@@ -150,14 +151,16 @@ abstract class _IllustStoreBase with Store {
         final localPath = localImageInfos[i]?.path;
         if (localPath != null) {
           final pageLocalUrl = 'file://$localPath';
-          fixedMetaPages.add(MetaPages(
-            imageUrls: MetaPagesImageUrls(
-              squareMedium: pageLocalUrl,
-              medium: pageLocalUrl,
-              large: pageLocalUrl,
-              original: pageLocalUrl,
+          fixedMetaPages.add(
+            MetaPages(
+              imageUrls: MetaPagesImageUrls(
+                squareMedium: pageLocalUrl,
+                medium: pageLocalUrl,
+                large: pageLocalUrl,
+                original: pageLocalUrl,
+              ),
             ),
-          ));
+          );
         }
       }
     }
@@ -202,12 +205,12 @@ abstract class _IllustStoreBase with Store {
       _downloadStatusSubscription?.cancel();
       _downloadStatusSubscription = null;
     }
-    _downloadStatusSubscription =
-        downloadStore.illustDownloadStatusStream.listen((status) {
-      if (status.illusts.illustId == id) {
-        _onDownloadStatusChanged(status);
-      }
-    });
+    _downloadStatusSubscription = downloadStore.illustDownloadStatusStream
+        .listen((status) {
+          if (status.illusts.illustId == id) {
+            _onDownloadStatusChanged(status);
+          }
+        });
   }
 
   @action
@@ -405,12 +408,14 @@ abstract class _IllustStoreBase with Store {
     localImageInfos.clear();
     localImageInfos.addAll(imageInfos);
     Log.d(
-        'loadLocalImageInfos time1: ${DateTime.now().difference(t1).inMilliseconds}ms, illusts.id: $id, length: ${imageInfos.length}');
+      'loadLocalImageInfos time1: ${DateTime.now().difference(t1).inMilliseconds}ms, illusts.id: $id, length: ${imageInfos.length}',
+    );
     _tryUpdateLocalImageInfo(imageInfos);
   }
 
   Future<void> _tryUpdateLocalImageInfo(
-      Map<int, LocalImageInfo> imageInfos) async {
+    Map<int, LocalImageInfo> imageInfos,
+  ) async {
     int updateCount = 0;
     final infos = <int, LocalImageInfo>{};
     for (final i in imageInfos.keys) {
@@ -423,7 +428,11 @@ abstract class _IllustStoreBase with Store {
           if ((info.width == null || info.height == null) ||
               info.fileSize != currentFileSize) {
             final updatedInfo = await downloadStore.updateAndGetLocalImageInfo(
-                id, i, info.path, currentFileSize);
+              id,
+              i,
+              info.path,
+              currentFileSize,
+            );
             if (updatedInfo != null && updatedInfo != info) {
               updateCount++;
               Log.d(() => 'updateLocalImageInfo: $updatedInfo');
@@ -464,11 +473,12 @@ abstract class _IllustStoreBase with Store {
   }
 
   @action
-  Future<bool> star(
-      {String restrict = 'public',
-      List<String>? tags,
-      int? bookmark,
-      bool force = false}) async {
+  Future<bool> star({
+    String restrict = 'public',
+    List<String>? tags,
+    int? bookmark,
+    bool force = false,
+  }) async {
     state = 1;
     if (force || !illusts!.isBookmarked) {
       try {

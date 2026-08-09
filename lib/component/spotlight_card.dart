@@ -36,10 +36,16 @@ class SpotlightCard extends StatelessWidget {
       child: HoverScaleCard(
         child: InkWell(
           onTap: () async {
-            Navigator.of(context)
-                .push(MaterialPageRoute(builder: (BuildContext context) {
-              return SoupPage(url: spotlight.articleUrl, spotlight: spotlight);
-            }));
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (BuildContext context) {
+                  return SoupPage(
+                    url: spotlight.articleUrl,
+                    spotlight: spotlight,
+                  );
+                },
+              ),
+            );
           },
           child: Container(
             height: 230,
@@ -51,21 +57,23 @@ class SpotlightCard extends StatelessWidget {
                     width: 160.0,
                     height: 90.0,
                     decoration: BoxDecoration(
-                        color: Theme.of(context).splashColor,
-                        borderRadius: BorderRadius.all(Radius.circular(8.0))),
+                      color: Theme.of(context).splashColor,
+                      borderRadius: BorderRadius.all(Radius.circular(8.0)),
+                    ),
                     child: Align(
                       alignment: AlignmentDirectional.bottomCenter,
                       child: ListTile(
-                          title: Text(
-                            spotlight.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          subtitle: Text(
-                            spotlight.pureTitle,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          )),
+                        title: Text(
+                          spotlight.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        subtitle: Text(
+                          spotlight.pureTitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -74,7 +82,8 @@ class SpotlightCard extends StatelessWidget {
                   child: Card(
                     elevation: 8.0,
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.all(Radius.circular(16.0))),
+                      borderRadius: BorderRadius.all(Radius.circular(16.0)),
+                    ),
                     child: Container(
                       child: CachedNetworkImage(
                         imageUrl: spotlight.thumbnail,

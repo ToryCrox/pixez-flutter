@@ -49,7 +49,10 @@ class _TableStructurePageState extends State<TableStructurePage> {
                 child: Column(
                   children: [
                     _buildInfoRow('预估行数', '${widget.store.totalCount}'),
-                    _buildInfoRow('估算空间占用', _formatSize(widget.store.tableBytes)),
+                    _buildInfoRow(
+                      '估算空间占用',
+                      _formatSize(widget.store.tableBytes),
+                    ),
                   ],
                 ),
               ),
@@ -57,37 +60,63 @@ class _TableStructurePageState extends State<TableStructurePage> {
               _buildInfoCard(
                 title: '字段列表',
                 child: Column(
-                  children: widget.store.tableFields.map((f) {
-                    final isPk = f['pk'] == 1;
-                    final isNotNull = f['notnull'] == 1;
-                    return ListTile(
-                      dense: true,
-                      leading: Icon(isPk ? Icons.key : Icons.reorder, size: 18, color: isPk ? Colors.orange : null),
-                      title: Text('${f['name']}'),
-                      subtitle: Text('${f['type']}'),
-                      trailing: isNotNull ? const Text('NOT NULL', style: TextStyle(fontSize: 10, color: Colors.grey)) : null,
-                    );
-                  }).toList(),
+                  children:
+                      widget.store.tableFields.map((f) {
+                        final isPk = f['pk'] == 1;
+                        final isNotNull = f['notnull'] == 1;
+                        return ListTile(
+                          dense: true,
+                          leading: Icon(
+                            isPk ? Icons.key : Icons.reorder,
+                            size: 18,
+                            color: isPk ? Colors.orange : null,
+                          ),
+                          title: Text('${f['name']}'),
+                          subtitle: Text('${f['type']}'),
+                          trailing:
+                              isNotNull
+                                  ? const Text(
+                                    'NOT NULL',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: Colors.grey,
+                                    ),
+                                  )
+                                  : null,
+                        );
+                      }).toList(),
                 ),
               ),
               const SizedBox(height: 16),
               _buildInfoCard(
                 title: '索引列表',
-                child: widget.store.tableIndexes.isEmpty 
-                  ? const Padding(
-                      padding: EdgeInsets.all(16.0),
-                      child: Text('没有索引', style: TextStyle(color: Colors.grey)),
-                    )
-                  : Column(
-                      children: widget.store.tableIndexes.map((idx) {
-                        return ListTile(
-                          dense: true,
-                          leading: const Icon(Icons.flash_on, size: 18, color: Colors.blue),
-                          title: Text('${idx['name']}'),
-                          subtitle: Text('${idx['sql'] ?? ''}', overflow: TextOverflow.ellipsis),
-                        );
-                      }).toList(),
-                    ),
+                child:
+                    widget.store.tableIndexes.isEmpty
+                        ? const Padding(
+                          padding: EdgeInsets.all(16.0),
+                          child: Text(
+                            '没有索引',
+                            style: TextStyle(color: Colors.grey),
+                          ),
+                        )
+                        : Column(
+                          children:
+                              widget.store.tableIndexes.map((idx) {
+                                return ListTile(
+                                  dense: true,
+                                  leading: const Icon(
+                                    Icons.flash_on,
+                                    size: 18,
+                                    color: Colors.blue,
+                                  ),
+                                  title: Text('${idx['name']}'),
+                                  subtitle: Text(
+                                    '${idx['sql'] ?? ''}',
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                );
+                              }).toList(),
+                        ),
               ),
             ],
           );
@@ -108,7 +137,13 @@ class _TableStructurePageState extends State<TableStructurePage> {
         children: [
           Padding(
             padding: const EdgeInsets.all(12),
-            child: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+            child: Text(
+              title,
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Colors.blue,
+              ),
+            ),
           ),
           const Divider(height: 1),
           child,

@@ -7,12 +7,13 @@ class UserFollowButton extends StatefulWidget {
   final bool followed;
   final Future<Null> Function() onPressed;
   final Function(bool follow, String restrict) onConfirm;
-  const UserFollowButton(
-      {super.key,
-      required this.id,
-      required this.followed,
-      required this.onPressed,
-      required this.onConfirm});
+  const UserFollowButton({
+    super.key,
+    required this.id,
+    required this.followed,
+    required this.onPressed,
+    required this.onConfirm,
+  });
 
   @override
   State<UserFollowButton> createState() => _UserFollowButtonState();
@@ -48,18 +49,15 @@ class _UserFollowButtonState extends State<UserFollowButton> {
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: SizedBox(
-                width: 12,
-                height: 12,
-                child: CircularProgressIndicator(
-                  strokeWidth: 1,
-                )),
+              width: 12,
+              height: 12,
+              child: CircularProgressIndicator(strokeWidth: 1),
+            ),
           ),
         ),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: Theme.of(context).colorScheme.secondary,
-          ),
+          border: Border.all(color: Theme.of(context).colorScheme.secondary),
         ),
       );
     }
@@ -67,13 +65,47 @@ class _UserFollowButtonState extends State<UserFollowButton> {
       return MouseRegion(
         cursor: SystemMouseCursors.click,
         child: GestureDetector(
-        onTap: () async {
-          setState(() {
-            _loading = true;
-            _onPressed().then((value) {
-              _loading = false;
+          onTap: () async {
+            setState(() {
+              _loading = true;
+              _onPressed().then((value) {
+                _loading = false;
+              });
             });
-          });
+          },
+          onLongPress: () {
+            _longPressAction();
+          },
+          child: Container(
+            height: 32,
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                child: Text(
+                  I18n.of(context).followed,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.secondary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+              ),
+            ),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: Theme.of(context).colorScheme.secondary,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: () {
+          _onPressed();
         },
         onLongPress: () {
           _longPressAction();
@@ -84,9 +116,9 @@ class _UserFollowButtonState extends State<UserFollowButton> {
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 14),
               child: Text(
-                I18n.of(context).followed,
+                I18n.of(context).follow,
                 style: TextStyle(
-                  color: Theme.of(context).colorScheme.secondary,
+                  color: Colors.white,
                   fontSize: 14,
                   fontWeight: FontWeight.w400,
                 ),
@@ -95,57 +127,24 @@ class _UserFollowButtonState extends State<UserFollowButton> {
           ),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: Theme.of(context).colorScheme.secondary,
-            ),
+            color: Theme.of(context).colorScheme.secondary,
           ),
         ),
       ),
-      );
-    }
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-      onTap: () {
-        _onPressed();
-      },
-      onLongPress: () {
-        _longPressAction();
-      },
-      child: Container(
-        height: 32,
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            child: Text(
-              I18n.of(context).follow,
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.w400,
-              ),
-            ),
-          ),
-        ),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          color: Theme.of(context).colorScheme.secondary,
-        ),
-      ),
-    ),
     );
   }
 
   _longPressAction() {
     showDialog(
-        context: context,
-        builder: (context) {
-          return FollowDetailAlert(
-            id: widget.id,
-            onConfirm: (follow, restrict) {
-              widget.onConfirm(follow, restrict);
-            },
-          );
-        });
+      context: context,
+      builder: (context) {
+        return FollowDetailAlert(
+          id: widget.id,
+          onConfirm: (follow, restrict) {
+            widget.onConfirm(follow, restrict);
+          },
+        );
+      },
+    );
   }
 }

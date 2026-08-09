@@ -248,7 +248,6 @@ class UpdateIllustInfoDialog extends StatefulWidget {
   State<UpdateIllustInfoDialog> createState() => _UpdateIllustInfoDialogState();
 }
 
-
 class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
   List<UpdateIllustInfo> _updateInfos = [];
   bool _isScanning = false; // 是否正在扫描
@@ -273,13 +272,16 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
 
   int _dbBatchSize = 30; // 数据库批查询大小
   // 优化相关的字段
-  DateTime _lastSetStateTime = DateTime.fromMillisecondsSinceEpoch(0); // 用于限流 UI 更新
+  DateTime _lastSetStateTime = DateTime.fromMillisecondsSinceEpoch(
+    0,
+  ); // 用于限流 UI 更新
 
   @override
   void initState() {
     super.initState();
     _concurrentCount = userSetting.updateIllustConcurrentCount;
-    _dbBatchSize = userSetting.prefs.getInt('update_illust_db_batch_size') ?? 30;
+    _dbBatchSize =
+        userSetting.prefs.getInt('update_illust_db_batch_size') ?? 30;
     _totalCount = widget.illusts.length;
     // 初始化时只创建作品列表，不扫描
     _updateInfos =
@@ -329,8 +331,6 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
     }
   }
 
-
-
   /// 扫描单张图片 (全异步版本)
   Future<ImageUpdateInfo> _scanSingleImage(
     DownloadedImage image, {
@@ -352,7 +352,8 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
       relativePath: illust.relativePath,
       isUgoira: illust.isUgoira,
       update: false,
-      checkExists: existingFileMap == null, // 如果有 map 但没找到，说明确实不存在，这里传 true 会触发后缀遍历检查
+      checkExists:
+          existingFileMap == null, // 如果有 map 但没找到，说明确实不存在，这里传 true 会触发后缀遍历检查
     );
 
     if (actualPath == null) {
@@ -456,7 +457,7 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
     // 预先获取插画所在目录的所有文件，减少后续 exists 调用
     final existingFileMap = await _getExistingFileMap(illust.relativePath);
 
-    for (int batchStart = 0; batchStart < images.length; ) {
+    for (int batchStart = 0; batchStart < images.length;) {
       if (!mounted) return;
 
       while (_isPaused && mounted) {
@@ -527,7 +528,9 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
   /// 预先获取插画所在目录的所有文件，减少后续 exists 调用
   Future<Map<String, String>?> _getExistingFileMap(String relativePath) async {
     try {
-      final illustPath = downloadStore.dbProvider.getIllustAbsolutePath(relativePath);
+      final illustPath = downloadStore.dbProvider.getIllustAbsolutePath(
+        relativePath,
+      );
       final dir = Directory(illustPath);
       if (await dir.exists()) {
         final Map<String, String> existingFileMap = {};
@@ -687,7 +690,7 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
         info.updateScanProgress(0, 0);
       }
     });
- 
+
     _stopwatch = Stopwatch()..start();
     _startTimer();
     final int dbBatchSize = _dbBatchSize; // 每批查询数据库的作品数
@@ -944,8 +947,7 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
           }
 
           // 如果有变化、删除了损坏文件、或统计不一致，都需要重新计算统计信息
-          if (hasAnyUpdateSuccess ||
-              updateInfo.hasStatsInconsistency) {
+          if (hasAnyUpdateSuccess || updateInfo.hasStatsInconsistency) {
             _hasUpdated = true;
             // 1. 先更新插画自身的数据库统计
             await downloadStore.dbProvider.batchRecalculateIllustStats([
@@ -955,7 +957,7 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
             // 2. 更新内存状态
             // 更新 imageUpdates 列表（主要是为了移除已删除的项）
             updateInfo.imageUpdates = newImageUpdates;
-            
+
             // 为了让头部统计信息显示正确的新值（New），我们需要更新 illust 对象中的统计字段
             // 但为了保留 Diff 视图（Old -> New），我们不更新 UpdateIllustInfo.totalSizeInDb
             // final actualCount =
@@ -968,7 +970,7 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
             //   downloadedImageCount: actualCount,
             //   totalFileSize: actualSize,
             // );
-            
+
             // 标记为更新成功
             updateInfo.isUpdated = true;
             updateInfo.updateError = null;
@@ -979,7 +981,11 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
             );
           }
         } catch (e, stack) {
-          Log.e('更新作品失败: ${updateInfo.illust.title}', error: e, stackTrace: stack);
+          Log.e(
+            '更新作品失败: ${updateInfo.illust.title}',
+            error: e,
+            stackTrace: stack,
+          );
           updateInfo.updateError = e.toString();
         }
 
@@ -1121,156 +1127,158 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
       },
       child: Dialog(
         child: Container(
-        width: MediaQuery.of(context).size.width * 0.9,
-        height: MediaQuery.of(context).size.height * 0.8,
-        child: Column(
-          children: [
-            _buildTitleBar(),
+          width: MediaQuery.of(context).size.width * 0.9,
+          height: MediaQuery.of(context).size.height * 0.8,
+          child: Column(
+            children: [
+              _buildTitleBar(),
 
-            _buildFilterBar(),
+              _buildFilterBar(),
 
-            // 内容区域
-            Expanded(
-              child:
-                  _filteredInfos.isEmpty
-                      ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            if (_isScanning) ...[
-                              CircularProgressIndicator(),
-                              SizedBox(height: 16),
-                              Text('正在扫描: $_scannedCount / $_totalCount'),
-                            ] else ...[
-                              Text(
-                                _filterType == null ? '没有需要更新的作品' : '没有符合条件的作品',
-                              ),
+              // 内容区域
+              Expanded(
+                child:
+                    _filteredInfos.isEmpty
+                        ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              if (_isScanning) ...[
+                                CircularProgressIndicator(),
+                                SizedBox(height: 16),
+                                Text('正在扫描: $_scannedCount / $_totalCount'),
+                              ] else ...[
+                                Text(
+                                  _filterType == null
+                                      ? '没有需要更新的作品'
+                                      : '没有符合条件的作品',
+                                ),
+                              ],
                             ],
-                          ],
-                        ),
-                      )
-                      : ListViewObserver(
-                        controller: _observerController,
-                        onObserve: (resultModel) {
-                          _displayingChildIndexList =
-                              resultModel.displayingChildIndexList;
-                        },
-                        child: ListView.builder(
-                          controller: _scrollController,
-                          itemCount: _filteredInfos.length,
-                          itemBuilder: (context, index) {
-                            final info = _filteredInfos[index];
-                            return _buildIllustItem(info);
+                          ),
+                        )
+                        : ListViewObserver(
+                          controller: _observerController,
+                          onObserve: (resultModel) {
+                            _displayingChildIndexList =
+                                resultModel.displayingChildIndexList;
                           },
+                          child: ListView.builder(
+                            controller: _scrollController,
+                            itemCount: _filteredInfos.length,
+                            itemBuilder: (context, index) {
+                              final info = _filteredInfos[index];
+                              return _buildIllustItem(info);
+                            },
+                          ),
+                        ),
+              ),
+
+              // 底部按钮栏
+              Container(
+                padding: EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  border: Border(top: BorderSide(color: Colors.grey[300]!)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    if (_errorMessage != null)
+                      Expanded(
+                        child: Text(
+                          _errorMessage!,
+                          style: TextStyle(color: Colors.red, fontSize: 12),
                         ),
                       ),
-            ),
-
-            // 底部按钮栏
-            Container(
-              padding: EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                border: Border(top: BorderSide(color: Colors.grey[300]!)),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  if (_errorMessage != null)
-                    Expanded(
-                      child: Text(
-                        _errorMessage!,
-                        style: TextStyle(color: Colors.red, fontSize: 12),
+                    if (_isUpdating) ...[
+                      // 显示更新进度
+                      Text('正在更新: $_updatingProgress / $_totalToUpdate'),
+                      SizedBox(width: 16),
+                      SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
                       ),
-                    ),
-                  if (_isUpdating) ...[
-                    // 显示更新进度
-                    Text('正在更新: $_updatingProgress / $_totalToUpdate'),
-                    SizedBox(width: 16),
-                    SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                  ] else if (_isScanning) ...[
-                    Text('扫描中: $_scannedCount / $_totalCount'),
-                    SizedBox(width: 16),
-                    if (_isPaused) ...[
-                      ElevatedButton.icon(
-                        onPressed: _isUpdating ? null : _resumeScan,
-                        icon: Icon(Icons.play_arrow),
-                        label: Text('继续'),
+                    ] else if (_isScanning) ...[
+                      Text('扫描中: $_scannedCount / $_totalCount'),
+                      SizedBox(width: 16),
+                      if (_isPaused) ...[
+                        ElevatedButton.icon(
+                          onPressed: _isUpdating ? null : _resumeScan,
+                          icon: Icon(Icons.play_arrow),
+                          label: Text('继续'),
+                        ),
+                        SizedBox(width: 8),
+                      ] else ...[
+                        ElevatedButton.icon(
+                          onPressed: _isUpdating ? null : _pauseScan,
+                          icon: Icon(Icons.pause),
+                          label: Text('暂停'),
+                        ),
+                        SizedBox(width: 8),
+                      ],
+                      SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
                       ),
                       SizedBox(width: 8),
+                      // 暂停状态下可以更新已扫描的内容
+                      ElevatedButton(
+                        onPressed:
+                            _isUpdating ||
+                                    _updateInfos.every(
+                                      (e) =>
+                                          e.isScanning ||
+                                          (!e.hasChanges &&
+                                              !e.hasBroken &&
+                                              !e.hasStatsInconsistency),
+                                    )
+                                ? null
+                                : _performUpdate,
+                        child: Text('更新已扫描'),
+                      ),
                     ] else ...[
                       ElevatedButton.icon(
-                        onPressed: _isUpdating ? null : _pauseScan,
-                        icon: Icon(Icons.pause),
-                        label: Text('暂停'),
+                        onPressed: _isUpdating ? null : _loadAllIllusts,
+                        icon: Icon(Icons.cloud_download),
+                        label: Text('加载所有插画'),
                       ),
                       SizedBox(width: 8),
+                      ElevatedButton.icon(
+                        onPressed: _isUpdating ? null : _loadNonWebPIllusts,
+                        icon: Icon(Icons.image_not_supported),
+                        label: Text('非WebP'),
+                      ),
+                      SizedBox(width: 8),
+                      ElevatedButton.icon(
+                        onPressed: _isUpdating ? null : _scanIllusts,
+                        icon: Icon(Icons.search),
+                        label: Text(_scannedCount == 0 ? '开始扫描' : '重新扫描'),
+                      ),
+                      SizedBox(width: 8),
+                      ElevatedButton(
+                        onPressed:
+                            _isUpdating ||
+                                    _scannedCount == 0 ||
+                                    _updateInfos.every(
+                                      (e) =>
+                                          !e.hasChanges &&
+                                          !e.hasBroken &&
+                                          !e.hasStatsInconsistency,
+                                    )
+                                ? null
+                                : _performUpdate,
+                        child: Text('确认更新'),
+                      ),
                     ],
-                    SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                    SizedBox(width: 8),
-                    // 暂停状态下可以更新已扫描的内容
-                    ElevatedButton(
-                      onPressed:
-                          _isUpdating ||
-                                  _updateInfos.every(
-                                    (e) =>
-                                        e.isScanning ||
-                                        (!e.hasChanges &&
-                                            !e.hasBroken &&
-                                            !e.hasStatsInconsistency),
-                                  )
-                              ? null
-                              : _performUpdate,
-                      child: Text('更新已扫描'),
-                    ),
-                  ] else ...[
-                    ElevatedButton.icon(
-                      onPressed: _isUpdating ? null : _loadAllIllusts,
-                      icon: Icon(Icons.cloud_download),
-                      label: Text('加载所有插画'),
-                    ),
-                    SizedBox(width: 8),
-                    ElevatedButton.icon(
-                      onPressed: _isUpdating ? null : _loadNonWebPIllusts,
-                      icon: Icon(Icons.image_not_supported),
-                      label: Text('非WebP'),
-                    ),
-                    SizedBox(width: 8),
-                    ElevatedButton.icon(
-                      onPressed: _isUpdating ? null : _scanIllusts,
-                      icon: Icon(Icons.search),
-                      label: Text(_scannedCount == 0 ? '开始扫描' : '重新扫描'),
-                    ),
-                    SizedBox(width: 8),
-                    ElevatedButton(
-                      onPressed:
-                          _isUpdating ||
-                                  _scannedCount == 0 ||
-                                  _updateInfos.every(
-                                    (e) =>
-                                        !e.hasChanges &&
-                                        !e.hasBroken &&
-                                        !e.hasStatsInconsistency,
-                                  )
-                              ? null
-                              : _performUpdate,
-                      child: Text('确认更新'),
-                    ),
                   ],
-                ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
-    ),
     );
   }
 
@@ -1304,15 +1312,9 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
     final isScanning = _isScanning && info.isScanning && !_isPaused;
     final isPaused = _isPaused && info.isScanning;
     final isWaiting =
-        _isScanning &&
-        !info.isScanning &&
-        !info.isScanned &&
-        !isPaused;
+        _isScanning && !info.isScanning && !info.isScanned && !isPaused;
     final isNotScanned =
-        !_isScanning &&
-        !isScanning &&
-        !info.isScanned &&
-        _scannedCount == 0;
+        !_isScanning && !isScanning && !info.isScanned && _scannedCount == 0;
 
     return (
       isScanning: isScanning,
@@ -1992,8 +1994,6 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
   }
 }
 
-
-
 class _ConcurrentCountSelector extends StatelessWidget {
   final int value;
   final bool enabled;
@@ -2022,9 +2022,10 @@ class _ConcurrentCountSelector extends StatelessWidget {
             value: value,
             underline: const SizedBox(),
             isDense: true,
-            items: List.generate(10, (index) => index + 1)
-                .map((v) => DropdownMenuItem(value: v, child: Text('$v')))
-                .toList(),
+            items:
+                List.generate(10, (index) => index + 1)
+                    .map((v) => DropdownMenuItem(value: v, child: Text('$v')))
+                    .toList(),
             onChanged: enabled ? (v) => v != null ? onChanged(v) : null : null,
           ),
         ),
@@ -2061,9 +2062,10 @@ class _DbBatchSizeSelector extends StatelessWidget {
             value: value,
             underline: const SizedBox(),
             isDense: true,
-            items: [10, 20, 30, 40, 50]
-                .map((v) => DropdownMenuItem(value: v, child: Text('$v')))
-                .toList(),
+            items:
+                [10, 20, 30, 40, 50]
+                    .map((v) => DropdownMenuItem(value: v, child: Text('$v')))
+                    .toList(),
             onChanged: enabled ? (v) => v != null ? onChanged(v) : null : null,
           ),
         ),

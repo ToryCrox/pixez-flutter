@@ -8,14 +8,16 @@ class SaveEffectTrailing extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Observer(builder: (_) {
-      return FilterChip(
-        label: Text(I18n.of(context).save_effect),
-        selected: userSetting.saveEffectEnable,
-        onSelected: (bool value) {
-          userSetting.saveEffectEnable = value;
-        },
-      );
-    });
+    return Observer(
+      builder: (_) {
+        return FilterChip(
+          label: Text(I18n.of(context).save_effect),
+          selected: userSetting.saveEffectEnable,
+          onSelected: (bool value) {
+            userSetting.saveEffectEnable = value;
+          },
+        );
+      },
+    );
   }
 }

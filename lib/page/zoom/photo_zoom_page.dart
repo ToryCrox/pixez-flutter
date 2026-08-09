@@ -21,12 +21,12 @@ class PhotoZoomPage extends StatefulWidget {
   final Illusts illusts;
   final IllustStore illustStore;
 
-  const PhotoZoomPage(
-      {Key? key,
-      required this.index,
-      required this.illusts,
-      required this.illustStore})
-      : super(key: key);
+  const PhotoZoomPage({
+    Key? key,
+    required this.index,
+    required this.illusts,
+    required this.illustStore,
+  }) : super(key: key);
 
   @override
   _PhotoZoomPageState createState() => _PhotoZoomPageState();
@@ -42,13 +42,14 @@ class _PhotoZoomPageState extends State<PhotoZoomPage> {
     _loadSource = userSetting.zoomQuality == 1;
     _illusts = widget.illusts;
     _index = widget.index;
-    nowUrl = _illusts.pageCount == 1
-        ? (_loadSource
-            ? _illusts.metaSinglePage!.originalImageUrl!
-            : _illusts.imageUrls.large)
-        : (_loadSource
-            ? _illusts.metaPages[_index].imageUrls!.original
-            : _illusts.metaPages[_index].imageUrls!.large);
+    nowUrl =
+        _illusts.pageCount == 1
+            ? (_loadSource
+                ? _illusts.metaSinglePage!.originalImageUrl!
+                : _illusts.imageUrls.large)
+            : (_loadSource
+                ? _illusts.metaPages[_index].imageUrls!.original
+                : _illusts.metaPages[_index].imageUrls!.large);
 
     super.initState();
     initCache();
@@ -88,8 +89,10 @@ class _PhotoZoomPageState extends State<PhotoZoomPage> {
   @override
   void dispose() {
     if (_fullScreen)
-      SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual,
-          overlays: SystemUiOverlay.values);
+      SystemChrome.setEnabledSystemUIMode(
+        SystemUiMode.manual,
+        overlays: SystemUiOverlay.values,
+      );
     super.dispose();
   }
 
@@ -103,145 +106,152 @@ class _PhotoZoomPageState extends State<PhotoZoomPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Builder(builder: (context) {
-      if (_illusts.pageCount == 1) {
-        final url = _loadSource
-            ? _illusts.metaSinglePage!.originalImageUrl!
-            : _illusts.imageUrls.large;
-        return Scaffold(
-          extendBody: true,
-          extendBodyBehindAppBar: true,
-          backgroundColor: Colors.black,
-          bottomNavigationBar: _buildBottom(context),
-          body: Stack(
-            children: [
-              PhotoView(
-                filterQuality: FilterQuality.high,
-                initialScale: PhotoViewComputedScale.contained,
-                heroAttributes: PhotoViewHeroAttributes(tag: url),
-                imageProvider: _getImageProvider(0, url),
-                loadingBuilder: (context, event) => _buildLoading(event),
-                backgroundDecoration: BoxDecoration(color: Colors.black),
-                onTapUp: (context, details, controllerValue) {
-                  // 点击图片区域时关闭页面
-                  // 如果图片未缩放或缩放比例很小，点击时关闭
-                  if (controllerValue.scale != null && controllerValue.scale! <= 1.0) {
-                    Navigator.of(context).pop();
-                  }
-                },
-              ),
-              // 左上角关闭按钮
-              Positioned(
-                top: MediaQuery.of(context).padding.top + 8,
-                left: 8,
-                child: SafeArea(
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: () {
-                        Navigator.of(context).pop();
-                      },
-                      borderRadius: BorderRadius.circular(20),
-                      child: Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.5),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          Icons.close,
-                          color: Colors.white,
-                          size: 24,
+    return Builder(
+      builder: (context) {
+        if (_illusts.pageCount == 1) {
+          final url =
+              _loadSource
+                  ? _illusts.metaSinglePage!.originalImageUrl!
+                  : _illusts.imageUrls.large;
+          return Scaffold(
+            extendBody: true,
+            extendBodyBehindAppBar: true,
+            backgroundColor: Colors.black,
+            bottomNavigationBar: _buildBottom(context),
+            body: Stack(
+              children: [
+                PhotoView(
+                  filterQuality: FilterQuality.high,
+                  initialScale: PhotoViewComputedScale.contained,
+                  heroAttributes: PhotoViewHeroAttributes(tag: url),
+                  imageProvider: _getImageProvider(0, url),
+                  loadingBuilder: (context, event) => _buildLoading(event),
+                  backgroundDecoration: BoxDecoration(color: Colors.black),
+                  onTapUp: (context, details, controllerValue) {
+                    // 点击图片区域时关闭页面
+                    // 如果图片未缩放或缩放比例很小，点击时关闭
+                    if (controllerValue.scale != null &&
+                        controllerValue.scale! <= 1.0) {
+                      Navigator.of(context).pop();
+                    }
+                  },
+                ),
+                // 左上角关闭按钮
+                Positioned(
+                  top: MediaQuery.of(context).padding.top + 8,
+                  left: 8,
+                  child: SafeArea(
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: () {
+                          Navigator.of(context).pop();
+                        },
+                        borderRadius: BorderRadius.circular(20),
+                        child: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.5),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.close,
+                            color: Colors.white,
+                            size: 24,
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ),
-              ),
-            ],
-          ),
-        );
-      } else {
-        return Scaffold(
-          extendBody: true,
-          bottomNavigationBar: _buildBottom(context),
-          extendBodyBehindAppBar: true,
-          backgroundColor: Colors.black,
-          body: Stack(
-            children: [
-              PhotoViewGallery.builder(
-                scrollPhysics: const BouncingScrollPhysics(),
-                pageController: PageController(initialPage: _index),
-                builder: (BuildContext context, int index) {
-                  final url = _loadSource
-                      ? _illusts.metaPages[index].imageUrls!.original
-                      : _illusts.metaPages[index].imageUrls!.large;
-                  return PhotoViewGalleryPageOptions(
-                    imageProvider: _getImageProvider(index, url),
-                    initialScale: PhotoViewComputedScale.contained,
-                    heroAttributes: PhotoViewHeroAttributes(tag: url),
-                    filterQuality: FilterQuality.high,
-                    onTapUp: (context, details, controllerValue) {
-                      // 点击图片区域时关闭页面
-                      // 如果图片未缩放或缩放比例很小，点击时关闭
-                      if (controllerValue.scale != null && controllerValue.scale! <= 1.0) {
-                        Navigator.of(context).pop();
-                      }
-                    },
-                  );
-                },
-                itemCount: _illusts.metaPages.length,
-                onPageChanged: (index) async {
-                  nowUrl = _loadSource
-                      ? _illusts.metaPages[index].imageUrls!.original
-                      : _illusts.metaPages[index].imageUrls!.large;
-                  setState(() {
-                    _index = index;
-                    shareShow = false;
-                  });
-                  var file = await pixivCacheManager.getFileFromCache(nowUrl);
-                  if (file != null && mounted)
+              ],
+            ),
+          );
+        } else {
+          return Scaffold(
+            extendBody: true,
+            bottomNavigationBar: _buildBottom(context),
+            extendBodyBehindAppBar: true,
+            backgroundColor: Colors.black,
+            body: Stack(
+              children: [
+                PhotoViewGallery.builder(
+                  scrollPhysics: const BouncingScrollPhysics(),
+                  pageController: PageController(initialPage: _index),
+                  builder: (BuildContext context, int index) {
+                    final url =
+                        _loadSource
+                            ? _illusts.metaPages[index].imageUrls!.original
+                            : _illusts.metaPages[index].imageUrls!.large;
+                    return PhotoViewGalleryPageOptions(
+                      imageProvider: _getImageProvider(index, url),
+                      initialScale: PhotoViewComputedScale.contained,
+                      heroAttributes: PhotoViewHeroAttributes(tag: url),
+                      filterQuality: FilterQuality.high,
+                      onTapUp: (context, details, controllerValue) {
+                        // 点击图片区域时关闭页面
+                        // 如果图片未缩放或缩放比例很小，点击时关闭
+                        if (controllerValue.scale != null &&
+                            controllerValue.scale! <= 1.0) {
+                          Navigator.of(context).pop();
+                        }
+                      },
+                    );
+                  },
+                  itemCount: _illusts.metaPages.length,
+                  onPageChanged: (index) async {
+                    nowUrl =
+                        _loadSource
+                            ? _illusts.metaPages[index].imageUrls!.original
+                            : _illusts.metaPages[index].imageUrls!.large;
                     setState(() {
-                      shareShow = true;
+                      _index = index;
+                      shareShow = false;
                     });
-                },
-                loadingBuilder: (context, event) => _buildLoading(event),
-              ),
-              // 左上角关闭按钮
-              Positioned(
-                top: MediaQuery.of(context).padding.top + 8,
-                left: 8,
-                child: SafeArea(
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: () {
-                        Navigator.of(context).pop();
-                      },
-                      borderRadius: BorderRadius.circular(20),
-                      child: Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.5),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          Icons.close,
-                          color: Colors.white,
-                          size: 24,
+                    var file = await pixivCacheManager.getFileFromCache(nowUrl);
+                    if (file != null && mounted)
+                      setState(() {
+                        shareShow = true;
+                      });
+                  },
+                  loadingBuilder: (context, event) => _buildLoading(event),
+                ),
+                // 左上角关闭按钮
+                Positioned(
+                  top: MediaQuery.of(context).padding.top + 8,
+                  left: 8,
+                  child: SafeArea(
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: () {
+                          Navigator.of(context).pop();
+                        },
+                        borderRadius: BorderRadius.circular(20),
+                        child: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.5),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.close,
+                            color: Colors.white,
+                            size: 24,
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ),
-              ),
-            ],
-          ),
-        );
-      }
-    });
+              ],
+            ),
+          );
+        }
+      },
+    );
   }
 
   String nowUrl = "";
@@ -258,17 +268,20 @@ class _PhotoZoomPageState extends State<PhotoZoomPage> {
         child: Row(
           children: [
             IconButton(
-                onPressed: () {
-                  setState(() {
-                    _fullScreen = false;
-                  });
-                  SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual,
-                      overlays: SystemUiOverlay.values);
-                },
-                icon: Icon(
-                  Icons.fullscreen_exit,
-                  color: Colors.white.withValues(alpha: 0.5),
-                ))
+              onPressed: () {
+                setState(() {
+                  _fullScreen = false;
+                });
+                SystemChrome.setEnabledSystemUIMode(
+                  SystemUiMode.manual,
+                  overlays: SystemUiOverlay.values,
+                );
+              },
+              icon: Icon(
+                Icons.fullscreen_exit,
+                color: Colors.white.withValues(alpha: 0.5),
+              ),
+            ),
           ],
         ),
       );
@@ -285,18 +298,14 @@ class _PhotoZoomPageState extends State<PhotoZoomPage> {
               children: [
                 IconButton(
                   iconSize: 16,
-                  icon: Icon(
-                    Icons.photo_library_outlined,
-                    color: Colors.white,
-                  ),
+                  icon: Icon(Icons.photo_library_outlined, color: Colors.white),
                   onPressed: () {},
                 ),
                 Text(
                   "${_index + 1}/${widget.illusts.pageCount}",
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodyLarge!
-                      .copyWith(color: Colors.white),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyLarge!.copyWith(color: Colors.white),
                 ),
               ],
             ),
@@ -304,29 +313,26 @@ class _PhotoZoomPageState extends State<PhotoZoomPage> {
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 IconButton(
-                    icon: Icon(
-                      Icons.arrow_back,
-                      color: Colors.white,
-                    ),
-                    onPressed: () async {
-                      Navigator.of(context).pop();
-                    }),
+                  icon: Icon(Icons.arrow_back, color: Colors.white),
+                  onPressed: () async {
+                    Navigator.of(context).pop();
+                  },
+                ),
                 IconButton(
                   icon: Icon(Icons.fullscreen, color: Colors.white),
                   onPressed: () {
                     setState(() {
                       _fullScreen = true;
                     });
-                    SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual,
-                        overlays: []);
+                    SystemChrome.setEnabledSystemUIMode(
+                      SystemUiMode.manual,
+                      overlays: [],
+                    );
                   },
                 ),
                 if (ClipboardPlugin.supported)
                   IconButton(
-                    icon: Icon(
-                      Icons.copy,
-                      color: Colors.white,
-                    ),
+                    icon: Icon(Icons.copy, color: Colors.white),
                     onPressed: () async {
                       final url = ClipboardPlugin.getImageUrl(_illusts, _index);
                       if (url == null) return;
@@ -338,52 +344,55 @@ class _PhotoZoomPageState extends State<PhotoZoomPage> {
                     },
                   ),
                 GestureDetector(
-                    child: IconButton(
-                        icon: Icon(
-                          Icons.save_alt,
-                          color: Colors.white,
-                        ),
-                        onPressed: () {
-                          if (_illusts.metaPages.isNotEmpty)
-                            downloadStore.downloadIllust(widget.illusts,
-                                part: _index);
-                          else
-                            downloadStore.downloadIllust(widget.illusts);
-                          if (userSetting.starAfterSave &&
-                              (widget.illustStore.state == 0)) {
-                            widget.illustStore.star(
-                                restrict: userSetting.defaultPrivateLike
-                                    ? "private"
-                                    : "public");
-                          }
-                        }),
-                    onLongPress: () async {
+                  child: IconButton(
+                    icon: Icon(Icons.save_alt, color: Colors.white),
+                    onPressed: () {
                       if (_illusts.metaPages.isNotEmpty)
-                        downloadStore.downloadIllust(widget.illusts,
-                            part: _index);
+                        downloadStore.downloadIllust(
+                          widget.illusts,
+                          part: _index,
+                        );
                       else
                         downloadStore.downloadIllust(widget.illusts);
-                    }),
+                      if (userSetting.starAfterSave &&
+                          (widget.illustStore.state == 0)) {
+                        widget.illustStore.star(
+                          restrict:
+                              userSetting.defaultPrivateLike
+                                  ? "private"
+                                  : "public",
+                        );
+                      }
+                    },
+                  ),
+                  onLongPress: () async {
+                    if (_illusts.metaPages.isNotEmpty)
+                      downloadStore.downloadIllust(
+                        widget.illusts,
+                        part: _index,
+                      );
+                    else
+                      downloadStore.downloadIllust(widget.illusts);
+                  },
+                ),
                 AnimatedOpacity(
                   opacity: shareShow ? 1 : 0.5,
                   duration: Duration(milliseconds: 500),
-                  child: Builder(builder: (context) {
-                    return IconButton(
-                        icon: Icon(
-                          Icons.share,
-                          color: Colors.white,
-                        ),
+                  child: Builder(
+                    builder: (context) {
+                      return IconButton(
+                        icon: Icon(Icons.share, color: Colors.white),
                         onPressed: () async {
-                          var file =
-                              await pixivCacheManager.getFileFromCache(nowUrl);
+                          var file = await pixivCacheManager.getFileFromCache(
+                            nowUrl,
+                          );
                           if (file != null) {
                             String targetPath = p.join(
-                                (await getTemporaryDirectory()).path,
-                                "share_cache",
-                                p.basenameWithoutExtension(file.file.path) +
-                                    (nowUrl.endsWith(".png")
-                                        ? ".png"
-                                        : ".jpg"));
+                              (await getTemporaryDirectory()).path,
+                              "share_cache",
+                              p.basenameWithoutExtension(file.file.path) +
+                                  (nowUrl.endsWith(".png") ? ".png" : ".jpg"),
+                            );
                             File targetFile = new File(targetPath);
                             if (!targetFile.existsSync()) {
                               targetFile.createSync(recursive: true);
@@ -391,25 +400,30 @@ class _PhotoZoomPageState extends State<PhotoZoomPage> {
                             file.file.copySync(targetPath);
                             final box =
                                 context.findRenderObject() as RenderBox?;
-                            Share.shareXFiles([XFile(targetPath)],
-                                sharePositionOrigin:
-                                    box!.localToGlobal(Offset.zero) & box.size);
+                            Share.shareXFiles(
+                              [XFile(targetPath)],
+                              sharePositionOrigin:
+                                  box!.localToGlobal(Offset.zero) & box.size,
+                            );
                           } else {
                             BotToast.showText(text: "can not find image cache");
                           }
-                        });
-                  }),
+                        },
+                      );
+                    },
+                  ),
                 ),
                 IconButton(
-                    icon: Icon(
-                      !_loadSource ? Icons.hd_outlined : Icons.hd,
-                      color: Colors.white,
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        _loadSource = !_loadSource;
-                      });
-                    }),
+                  icon: Icon(
+                    !_loadSource ? Icons.hd_outlined : Icons.hd,
+                    color: Colors.white,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      _loadSource = !_loadSource;
+                    });
+                  },
+                ),
               ],
             ),
           ],
@@ -419,9 +433,10 @@ class _PhotoZoomPageState extends State<PhotoZoomPage> {
   }
 
   Center _buildLoading(ImageChunkEvent? event) {
-    double value = event == null || event.expectedTotalBytes == null
-        ? 0
-        : event.cumulativeBytesLoaded / event.expectedTotalBytes!;
+    double value =
+        event == null || event.expectedTotalBytes == null
+            ? 0
+            : event.cumulativeBytesLoaded / event.expectedTotalBytes!;
     if (value == 1.0) {
       Future.delayed(Duration(milliseconds: 500), () {
         if (mounted) {
@@ -435,9 +450,7 @@ class _PhotoZoomPageState extends State<PhotoZoomPage> {
       child: Container(
         width: 20.0,
         height: 20.0,
-        child: CircularProgressIndicator(
-          value: value,
-        ),
+        child: CircularProgressIndicator(value: value),
       ),
     );
   }

@@ -34,14 +34,15 @@ class NovelPersist {
   @JsonKey(name: 'user_name')
   String userName;
 
-  NovelPersist(
-      {this.id,
-      required this.novelId,
-      required this.userId,
-      required this.pictureUrl,
-      required this.time,
-      required this.title,
-      required this.userName});
+  NovelPersist({
+    this.id,
+    required this.novelId,
+    required this.userId,
+    required this.pictureUrl,
+    required this.time,
+    required this.title,
+    required this.userName,
+  });
 
   factory NovelPersist.fromJson(Map<String, dynamic> json) =>
       _$NovelPersistFromJson(json);
@@ -64,9 +65,11 @@ class NovelPersistProvider {
   Future open() async {
     String databasesPath = (await getDatabasesPath());
     String path = join(databasesPath, 'Novelpersist.db');
-    db = await openDatabase(path, version: 1,
-        onCreate: (Database db, int version) async {
-      await db.execute('''
+    db = await openDatabase(
+      path,
+      version: 1,
+      onCreate: (Database db, int version) async {
+        await db.execute('''
 create table $tableNovelPersist ( 
   $cid integer primary key autoincrement, 
   $cNovel_id integer not null,
@@ -77,13 +80,10 @@ create table $tableNovelPersist (
   $ctime integer not null
   )
 ''');
-    });
-    // 注册到数据库管理中心
-    DatabaseRegistry.instance.register(
-      '小说收藏数据库',
-      path,
-      () => db,
+      },
     );
+    // 注册到数据库管理中心
+    DatabaseRegistry.instance.register('小说收藏数据库', path, () => db);
   }
 
   Future<NovelPersist> insert(NovelPersist todo) async {
@@ -91,24 +91,29 @@ create table $tableNovelPersist (
     if (result != null) {
       todo.id = result.id;
     }
-    todo.id = await db.insert(tableNovelPersist, todo.toJson(),
-        conflictAlgorithm: ConflictAlgorithm.replace);
+    todo.id = await db.insert(
+      tableNovelPersist,
+      todo.toJson(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
     return todo;
   }
 
   Future<NovelPersist?> getAccount(int Novel_id) async {
-    List<Map<String, dynamic>> maps = await db.query(tableNovelPersist,
-        columns: [
-          cid,
-          cNovel_id,
-          cuser_id,
-          cpicture_url,
-          ctime,
-          ctitle,
-          cuserName
-        ],
-        where: '$cNovel_id = ?',
-        whereArgs: [Novel_id]);
+    List<Map<String, dynamic>> maps = await db.query(
+      tableNovelPersist,
+      columns: [
+        cid,
+        cNovel_id,
+        cuser_id,
+        cpicture_url,
+        ctime,
+        ctitle,
+        cuserName,
+      ],
+      where: '$cNovel_id = ?',
+      whereArgs: [Novel_id],
+    );
     if (maps.length > 0) {
       return NovelPersist.fromJson(maps.first);
     }
@@ -117,17 +122,19 @@ create table $tableNovelPersist (
 
   Future<List<NovelPersist>> getAllAccount() async {
     List<NovelPersist> result = [];
-    List<Map<String, dynamic>> maps = await db.query(tableNovelPersist,
-        columns: [
-          cid,
-          cNovel_id,
-          cuser_id,
-          cpicture_url,
-          ctime,
-          ctitle,
-          cuserName
-        ],
-        orderBy: "$ctime DESC");
+    List<Map<String, dynamic>> maps = await db.query(
+      tableNovelPersist,
+      columns: [
+        cid,
+        cNovel_id,
+        cuser_id,
+        cpicture_url,
+        ctime,
+        ctitle,
+        cuserName,
+      ],
+      orderBy: "$ctime DESC",
+    );
 
     if (maps.length > 0) {
       maps.forEach((f) {
@@ -138,13 +145,20 @@ create table $tableNovelPersist (
   }
 
   Future<int> delete(int id) async {
-    return await db
-        .delete(tableNovelPersist, where: '$cNovel_id = ?', whereArgs: [id]);
+    return await db.delete(
+      tableNovelPersist,
+      where: '$cNovel_id = ?',
+      whereArgs: [id],
+    );
   }
 
   Future<int> update(NovelPersist todo) async {
-    return await db.update(tableNovelPersist, todo.toJson(),
-        where: '$cid = ?', whereArgs: [todo.id]);
+    return await db.update(
+      tableNovelPersist,
+      todo.toJson(),
+      where: '$cid = ?',
+      whereArgs: [todo.id],
+    );
   }
 
   Future close() async => db.close();
