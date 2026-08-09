@@ -344,5 +344,12 @@
   "log_filter_info": "Info",
   "log_filter_warning": "Warning",
   "log_filter_error": "Error",
-  "log_empty": "No logs yet"
+  "log_empty": "No logs yet",
+  "novel_translation_loading": "翻譯中…",
+  "show_novel_translation": "顯示譯文",
+  "hide_novel_translation": "隱藏譯文",
+  "novel_translation_failed": "翻譯失敗",
+  "retry_novel_translation": "重試翻譯",
+  "ai_translation_not_configured": "尚未設定 AI 翻譯服務",
+  "go_to_ai_settings": "前往 AI 設定"
 }

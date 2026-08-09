@@ -26,6 +26,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:pixez/component/painter_avatar.dart';
 import 'package:pixez/component/pixiv_image.dart';
 import 'package:pixez/component/selectable_html.dart';
+import 'package:pixez/ai/ai_models.dart';
 import 'package:pixez/er/leader.dart';
 import 'package:pixez/custom/log.dart';
 import 'package:pixez/exts.dart';
@@ -41,6 +42,7 @@ import 'package:pixez/page/novel/series/novel_series_page.dart';
 import 'package:pixez/page/novel/user/novel_users_page.dart';
 import 'package:pixez/page/novel/viewer/image_text.dart';
 import 'package:pixez/page/novel/viewer/novel_store.dart';
+import 'package:pixez/page/hello/setting/ai_settings_page.dart';
 import 'package:pixez/saf_plugin.dart';
 import 'package:pixez/supportor_plugin.dart';
 import 'package:share_plus/share_plus.dart';
@@ -191,6 +193,7 @@ class _NovelViewerPageState extends State<NovelViewerPage> {
                     color: Theme.of(context).textTheme.bodyLarge!.color!
                         .withAlpha(_novelStore.positionBooked ? 225 : 120),
                   ),
+                  _buildTranslationButton(context),
                   Builder(
                     builder: (context) {
                       return IconButton(
@@ -213,7 +216,7 @@ class _NovelViewerPageState extends State<NovelViewerPage> {
                 itemBuilder: (context, index) {
                   if (index == 0) {
                     return _buildHeader(context);
-                  } else if (index == _novelStore.spans.length + 1) {
+                  } else if (index == _novelStore.contentBlocks.length + 1) {
                     return Container(
                       height: 10 + MediaQuery.of(context).padding.bottom,
                     );
@@ -221,11 +224,11 @@ class _NovelViewerPageState extends State<NovelViewerPage> {
                     return _buildSpanText(
                       context,
                       index - 1,
-                      _novelStore.spans,
+                      _novelStore.contentBlocks,
                     );
                   }
                 },
-                itemCount: 2 + _novelStore.spans.length,
+                itemCount: 2 + _novelStore.contentBlocks.length,
               ),
             ),
           );
@@ -241,27 +244,219 @@ class _NovelViewerPageState extends State<NovelViewerPage> {
   Widget _buildSpanText(
     BuildContext context,
     int index,
-    List<NovelSpansData> spanDatas,
+    List<NovelContentBlock> blocks,
   ) {
+    final block = blocks[index];
+    final translation = _translationForCurrentLocale(
+      context,
+      'body:${block.id}',
+    );
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
-      child: SelectionArea(
-        onSelectionChanged: (value) {
-          _selectedText = value?.plainText ?? "";
-        },
-        contextMenuBuilder: (context, editableTextState) {
-          return _buildSelectionMenu(editableTextState, context);
-        },
-        child: Text.rich(
-          novelSpansGenerator.novelSpansDatatoInlineSpan(
-            context,
-            spanDatas[index],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SelectionArea(
+            onSelectionChanged: (value) {
+              _selectedText = value?.plainText ?? "";
+            },
+            contextMenuBuilder: (context, editableTextState) {
+              return _buildSelectionMenu(editableTextState, context);
+            },
+            child: Text.rich(
+              TextSpan(
+                children: [
+                  ...block.spans.map(
+                    (span) => novelSpansGenerator.novelSpansDatatoInlineSpan(
+                      context,
+                      span,
+                    ),
+                  ),
+                  if (translation?.status == NovelTranslationStatus.success)
+                    TextSpan(
+                      text: '  ${translation!.translatedText}',
+                      style: _translationTextStyle(context),
+                    ),
+                ],
+              ),
+              style: _textStyle,
+              textHeightBehavior: TextHeightBehavior(
+                applyHeightToLastDescent: true,
+              ),
+            ),
           ),
-          style: _textStyle,
-          textHeightBehavior: TextHeightBehavior(
-            applyHeightToLastDescent: true,
+          if (block.isTranslatable &&
+              translation?.status != NovelTranslationStatus.success)
+            _buildTranslationContent(
+              context,
+              translation,
+              onRetry:
+                  () => _novelStore.retryBlock(block, _targetLanguage(context)),
+            ),
+        ],
+      ),
+    );
+  }
+
+  TextStyle _translationTextStyle(BuildContext context) {
+    final baseStyle = _textStyle ?? Theme.of(context).textTheme.bodyLarge!;
+    return baseStyle.copyWith(
+      color: Theme.of(
+        context,
+      ).colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
+      fontSize: (baseStyle.fontSize ?? fontSize) * 0.92,
+    );
+  }
+
+  String _targetLanguage(BuildContext context) =>
+      Localizations.localeOf(context).toLanguageTag();
+
+  NovelTranslationEntry? _translationForCurrentLocale(
+    BuildContext context,
+    String key,
+  ) {
+    if (_novelStore.translationLocale != _targetLanguage(context) ||
+        !_novelStore.translationVisible) {
+      return null;
+    }
+    return _novelStore.translationFor(key);
+  }
+
+  Widget _buildTranslationButton(BuildContext context) {
+    final currentLocale = _targetLanguage(context);
+    final hasCurrentTranslation =
+        _novelStore.translationLocale == currentLocale &&
+        _novelStore.hasTranslation;
+    if (_novelStore.isTranslating) {
+      return const Padding(
+        padding: EdgeInsets.all(12),
+        child: SizedBox.square(
+          dimension: 20,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      );
+    }
+    if (hasCurrentTranslation) {
+      return IconButton(
+        tooltip:
+            _novelStore.translationVisible
+                ? I18n.of(context).hide_novel_translation
+                : I18n.of(context).show_novel_translation,
+        icon: Icon(
+          _novelStore.translationVisible
+              ? Icons.translate_outlined
+              : Icons.translate,
+          color: Theme.of(context).textTheme.bodyLarge!.color,
+        ),
+        onPressed: _novelStore.toggleTranslationVisibility,
+      );
+    }
+    return IconButton(
+      tooltip: I18n.of(context).translate,
+      icon: Icon(
+        Icons.translate,
+        color: Theme.of(context).textTheme.bodyLarge!.color,
+      ),
+      onPressed: () => _startTranslation(context),
+    );
+  }
+
+  Future<void> _startTranslation(BuildContext context) async {
+    try {
+      await _novelStore.translateAll(_targetLanguage(context));
+    } catch (error) {
+      if (!mounted) return;
+      final message = error.toString();
+      if (error is AiConfigurationException ||
+          message.contains('AI 服务') ||
+          message.contains('AI 提示词')) {
+        await showDialog<void>(
+          context: context,
+          builder:
+              (dialogContext) => AlertDialog(
+                title: Text(I18n.of(context).ai_translation_not_configured),
+                content: Text(message),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(dialogContext),
+                    child: Text(I18n.of(context).cancel),
+                  ),
+                  FilledButton(
+                    onPressed: () {
+                      Navigator.pop(dialogContext);
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const AiSettingsPage(),
+                        ),
+                      );
+                    },
+                    child: Text(I18n.of(context).go_to_ai_settings),
+                  ),
+                ],
+              ),
+        );
+      } else {
+        BotToast.showText(text: message);
+      }
+    }
+  }
+
+  Widget _buildTranslationContent(
+    BuildContext context,
+    NovelTranslationEntry? entry, {
+    required VoidCallback onRetry,
+    bool html = false,
+  }) {
+    if (entry == null) return const SizedBox.shrink();
+    if (entry.status == NovelTranslationStatus.loading) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 6),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox.square(
+              dimension: 14,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            const SizedBox(width: 8),
+            Text(I18n.of(context).novel_translation_loading),
+          ],
+        ),
+      );
+    }
+    if (entry.status == NovelTranslationStatus.failed) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 4),
+        child: TextButton.icon(
+          onPressed: onRetry,
+          icon: const Icon(Icons.refresh, size: 16),
+          label: Text(
+            '${I18n.of(context).novel_translation_failed} · '
+            '${I18n.of(context).retry_novel_translation}',
           ),
         ),
+      );
+    }
+    if (entry.status != NovelTranslationStatus.success ||
+        entry.translatedText == null) {
+      return const SizedBox.shrink();
+    }
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Opacity(
+        opacity: 0.72,
+        child:
+            html
+                ? DefaultTextStyle.merge(
+                  style: _translationTextStyle(context),
+                  child: SelectableHtml(data: entry.translatedText!),
+                )
+                : SelectionArea(
+                  child: Text(
+                    entry.translatedText!,
+                    style: _translationTextStyle(context),
+                  ),
+                ),
       ),
     );
   }
@@ -285,11 +480,33 @@ class _NovelViewerPageState extends State<NovelViewerPage> {
               top: 12.0,
               bottom: 8.0,
             ),
-            child: Text(
-              "${_novelStore.novel!.title}",
-              style: Theme.of(context).textTheme.titleMedium,
+            child: Text.rich(
+              TextSpan(
+                text: _novelStore.novel!.title,
+                style: Theme.of(context).textTheme.titleMedium,
+                children: [
+                  if (_translationForCurrentLocale(context, 'title')?.status ==
+                      NovelTranslationStatus.success)
+                    TextSpan(
+                      text:
+                          '  ${_translationForCurrentLocale(context, 'title')!.translatedText}',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
+          if (_translationForCurrentLocale(context, 'title')?.status !=
+              NovelTranslationStatus.success)
+            _buildTranslationContent(
+              context,
+              _translationForCurrentLocale(context, 'title'),
+              onRetry: () => _novelStore.retryTitle(_targetLanguage(context)),
+            ),
           if (_novelStore.novel?.series.id != null)
             Padding(
               padding: const EdgeInsets.only(
@@ -353,7 +570,21 @@ class _NovelViewerPageState extends State<NovelViewerPage> {
                   contextMenuBuilder: (context, editableTextState) {
                     return _buildSelectionMenu(editableTextState, context);
                   },
-                  child: SelectableHtml(data: _novelStore.novel?.caption ?? ""),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SelectableHtml(data: _novelStore.novel?.caption ?? ""),
+                      _buildTranslationContent(
+                        context,
+                        _translationForCurrentLocale(context, 'caption'),
+                        onRetry:
+                            () => _novelStore.retryCaption(
+                              _targetLanguage(context),
+                            ),
+                        html: true,
+                      ),
+                    ],
+                  ),
                 ),
               ),
               shape: RoundedRectangleBorder(
@@ -394,7 +625,9 @@ class _NovelViewerPageState extends State<NovelViewerPage> {
                   box != null
                       ? box.localToGlobal(Offset.zero) & box.size
                       : null;
-              Share.share(selectionText, sharePositionOrigin: pos);
+              SharePlus.instance.share(
+                ShareParams(text: selectionText, sharePositionOrigin: pos),
+              );
               return;
             }
             await SupportorPlugin.start(selectionText);
@@ -635,8 +868,11 @@ class _NovelViewerPageState extends State<NovelViewerPage> {
                 leading: Icon(Icons.share),
                 onTap: () {
                   Navigator.of(context).pop();
-                  Share.share(
-                    "https://www.pixiv.net/novel/show.php?id=${widget.id}",
+                  SharePlus.instance.share(
+                    ShareParams(
+                      text:
+                          "https://www.pixiv.net/novel/show.php?id=${widget.id}",
+                    ),
                   );
                 },
               ),

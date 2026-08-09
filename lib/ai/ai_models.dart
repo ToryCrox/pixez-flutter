@@ -141,12 +141,14 @@ class AiPromptScenes {
   static const illustCaption = 'illust_caption';
   static const tagTranslation = 'tag_translation';
   static const commentTranslation = 'comment_translation';
+  static const novelTranslation = 'novel_translation';
 
   static const labels = <String, String>{
     illustTitle: '插画标题',
     illustCaption: '插画介绍',
     tagTranslation: '标签翻译',
     commentTranslation: '用户评论翻译',
+    novelTranslation: '小说翻译',
   };
 
   static const requiredVariables = <String, Set<String>>{
@@ -154,6 +156,7 @@ class AiPromptScenes {
     illustCaption: {'text'},
     tagTranslation: {'tag_name', 'official_translation'},
     commentTranslation: {'text'},
+    novelTranslation: {'text', 'content_type', 'target_language'},
   };
 }
 
@@ -236,6 +239,16 @@ class AiDefaultPrompts {
       systemPrompt:
           '你是 Pixiv 用户评论翻译助手。请判断原文语言并将评论准确、自然地翻译为简体中文；保留用户名、作品名、角色名、网络用语、颜文字、Emoji、换行和原有语气；对于俚语、省略和口语表达，优先传达其真实含义。不要补充、删减、审查或解释内容。若原文已经是简体中文，请原样输出。不要加引号，只输出译文。',
       userTemplate: '请翻译以下用户评论：\n\n{{text}}',
+    ),
+    AiPromptPreset(
+      id: 'builtin_novel_translation',
+      name: '小说翻译（跟随应用语言）',
+      sceneId: AiPromptScenes.novelTranslation,
+      providerId: '',
+      isActive: true,
+      systemPrompt:
+          '你是 Pixiv 小说翻译助手。请将{{content_type}}准确、自然地翻译为 {{target_language}}；保留人名、作品名、术语、Emoji、颜文字、换行、URL 和原有语气。不要补充、删减、审查或解释内容，不要加引号，只输出译文。',
+      userTemplate: '请翻译以下{{content_type}}：\n\n{{text}}',
     ),
   ];
 }

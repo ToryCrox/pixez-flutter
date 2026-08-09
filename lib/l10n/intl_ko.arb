@@ -344,5 +344,12 @@
   "log_filter_info": "Info",
   "log_filter_warning": "Warning",
   "log_filter_error": "Error",
-  "log_empty": "No logs yet"
+  "log_empty": "No logs yet",
+  "novel_translation_loading": "번역 중…",
+  "show_novel_translation": "번역 표시",
+  "hide_novel_translation": "번역 숨기기",
+  "novel_translation_failed": "번역에 실패했습니다",
+  "retry_novel_translation": "번역 다시 시도",
+  "ai_translation_not_configured": "AI 번역 서비스가 설정되지 않았습니다",
+  "go_to_ai_settings": "AI 설정으로"
 }

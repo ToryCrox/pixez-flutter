@@ -344,5 +344,12 @@
   "log_filter_info": "情報",
   "log_filter_warning": "警告",
   "log_filter_error": "エラー",
-  "log_empty": "ログがありません"
+  "log_empty": "ログがありません",
+  "novel_translation_loading": "翻訳中…",
+  "show_novel_translation": "翻訳を表示",
+  "hide_novel_translation": "翻訳を隠す",
+  "novel_translation_failed": "翻訳に失敗しました",
+  "retry_novel_translation": "翻訳を再試行",
+  "ai_translation_not_configured": "AI 翻訳サービスが設定されていません",
+  "go_to_ai_settings": "AI 設定へ"
 }

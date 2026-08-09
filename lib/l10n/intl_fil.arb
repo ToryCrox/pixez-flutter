@@ -336,5 +336,12 @@
   "network_speed_ball": "Network speed ball",
   "network_speed_ball_subtitle": "Show real-time network upload/download speed",
   "enable_mana": "Enable Developer Tools",
-  "enable_mana_subtitle": "Enable Mana debugging tools (requires restart)"
+  "enable_mana_subtitle": "Enable Mana debugging tools (requires restart)",
+  "novel_translation_loading": "Nagsasalin…",
+  "show_novel_translation": "Ipakita ang salin",
+  "hide_novel_translation": "Itago ang salin",
+  "novel_translation_failed": "Nabigo ang pagsasalin",
+  "retry_novel_translation": "Subukang muli ang pagsasalin",
+  "ai_translation_not_configured": "Hindi naka-set up ang AI translation service",
+  "go_to_ai_settings": "Mga setting ng AI"
 }

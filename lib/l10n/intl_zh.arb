@@ -339,5 +339,12 @@
   "network_speed_ball": "网速悬浮球",
   "network_speed_ball_subtitle": "实时显示网络上传/下载速度",
   "enable_mana": "启用开发者工具",
-  "enable_mana_subtitle": "启用 Mana 调试工具（需要重启应用）"
+  "enable_mana_subtitle": "启用 Mana 调试工具（需要重启应用）",
+  "novel_translation_loading": "翻译中…",
+  "show_novel_translation": "显示译文",
+  "hide_novel_translation": "隐藏译文",
+  "novel_translation_failed": "翻译失败",
+  "retry_novel_translation": "重试翻译",
+  "ai_translation_not_configured": "尚未配置 AI 翻译服务",
+  "go_to_ai_settings": "前往 AI 设置"
 }

@@ -344,5 +344,12 @@
   "log_filter_info": "Info",
   "log_filter_warning": "Warning",
   "log_filter_error": "Error",
-  "log_empty": "No logs yet"
+  "log_empty": "No logs yet",
+  "novel_translation_loading": "Çevriliyor…",
+  "show_novel_translation": "Çeviriyi göster",
+  "hide_novel_translation": "Çeviriyi gizle",
+  "novel_translation_failed": "Çeviri başarısız",
+  "retry_novel_translation": "Çeviriyi yeniden dene",
+  "ai_translation_not_configured": "Yapay zekâ çeviri hizmeti yapılandırılmadı",
+  "go_to_ai_settings": "Yapay zekâ ayarları"
 }

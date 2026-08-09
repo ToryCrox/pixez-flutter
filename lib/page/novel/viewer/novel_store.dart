@@ -21,6 +21,7 @@ import 'package:html/parser.dart';
 import 'package:dio/dio.dart';
 import 'package:mobx/mobx.dart';
 import 'package:pixez/custom/log.dart';
+import 'package:pixez/ai/ai_models.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/models/novel_recom_response.dart';
 import 'package:pixez/models/novel_viewer_persist.dart';
@@ -30,6 +31,37 @@ import 'package:pixez/page/novel/viewer/image_text.dart';
 import 'package:flutter/widgets.dart';
 
 part 'novel_store.g.dart';
+
+enum NovelTranslationStatus { idle, loading, success, failed }
+
+class NovelTranslationEntry {
+  final NovelTranslationStatus status;
+  final String sourceText;
+  final String? translatedText;
+  final String? errorMessage;
+
+  const NovelTranslationEntry({
+    required this.status,
+    required this.sourceText,
+    this.translatedText,
+    this.errorMessage,
+  });
+
+  const NovelTranslationEntry.idle(String sourceText)
+    : this(status: NovelTranslationStatus.idle, sourceText: sourceText);
+
+  NovelTranslationEntry copyWith({
+    NovelTranslationStatus? status,
+    String? translatedText,
+    String? errorMessage,
+    bool clearError = false,
+  }) => NovelTranslationEntry(
+    status: status ?? this.status,
+    sourceText: sourceText,
+    translatedText: translatedText ?? this.translatedText,
+    errorMessage: clearError ? null : errorMessage ?? this.errorMessage,
+  );
+}
 
 class NovelStore = _NovelStoreBase with _$NovelStore;
 
@@ -51,6 +83,16 @@ abstract class _NovelStoreBase with Store {
   double bookedOffset = 0.0;
   @observable
   List<NovelSpansData> spans = [];
+  @observable
+  List<NovelContentBlock> contentBlocks = [];
+  @observable
+  String? translationLocale;
+  @observable
+  bool translationVisible = true;
+  @observable
+  ObservableMap<String, NovelTranslationEntry> translations = ObservableMap();
+
+  Future<void>? _translationFuture;
 
   NovelViewerPersistProvider _novelViewerPersistProvider =
       NovelViewerPersistProvider();
@@ -82,6 +124,9 @@ abstract class _NovelStoreBase with Store {
       String json = _parseHtml(response.data)!;
       novelTextResponse = NovelWebResponse.fromJson(jsonDecode(json));
       spans = await compute(buildSpans, novelTextResponse!);
+      contentBlocks = NovelSpansGenerator().buildContentBlocks(
+        novelTextResponse!,
+      );
       if (novel == null) {
         Response response = await apiClient.getNovelDetail(id);
         novel = Novel.fromJson(response.data['novel']);
@@ -118,6 +163,170 @@ abstract class _NovelStoreBase with Store {
         bookedOffset = result.offset;
       }
     } catch (e) {}
+  }
+
+  bool get isTranslating => translations.values.any(
+    (entry) => entry.status == NovelTranslationStatus.loading,
+  );
+
+  bool get hasTranslation => translations.values.any(
+    (entry) => entry.status == NovelTranslationStatus.success,
+  );
+
+  NovelTranslationEntry? translationFor(String key) => translations[key];
+
+  @action
+  void toggleTranslationVisibility() {
+    if (hasTranslation) translationVisible = !translationVisible;
+  }
+
+  @action
+  Future<void> translateAll(String targetLanguage) async {
+    final current = _translationFuture;
+    if (current != null) return current;
+    _translationFuture = _translateAll(targetLanguage);
+    try {
+      await _translationFuture;
+    } finally {
+      _translationFuture = null;
+    }
+  }
+
+  Future<void> _translateAll(String targetLanguage) async {
+    if (translationLocale != targetLanguage) {
+      translationLocale = targetLanguage;
+      translationVisible = true;
+      translations = ObservableMap();
+    }
+    await aiTranslationService.ensureSceneReady(
+      AiPromptScenes.novelTranslation,
+    );
+    final tasks = <Future<void> Function()>[];
+    final currentNovel = novel;
+    if (currentNovel != null && currentNovel.title.trim().isNotEmpty) {
+      tasks.add(
+        () => _translatePart(
+          key: 'title',
+          sourceText: currentNovel.title,
+          contentType: '小说标题',
+          targetLanguage: targetLanguage,
+        ),
+      );
+    }
+    if (currentNovel != null && currentNovel.caption.trim().isNotEmpty) {
+      tasks.add(
+        () => _translatePart(
+          key: 'caption',
+          sourceText: currentNovel.caption,
+          contentType: '小说简介',
+          targetLanguage: targetLanguage,
+          preserveHtml: true,
+        ),
+      );
+    }
+    for (final block in contentBlocks.where((item) => item.isTranslatable)) {
+      tasks.add(
+        () => _translatePart(
+          key: 'body:${block.id}',
+          sourceText: block.translationSource,
+          contentType: '小说正文',
+          targetLanguage: targetLanguage,
+        ),
+      );
+    }
+    await _runWithConcurrency(tasks, maxConcurrent: 3);
+  }
+
+  @action
+  Future<void> retryTitle(String targetLanguage) => _translatePart(
+    key: 'title',
+    sourceText: novel?.title ?? '',
+    contentType: '小说标题',
+    targetLanguage: targetLanguage,
+  );
+
+  @action
+  Future<void> retryCaption(String targetLanguage) => _translatePart(
+    key: 'caption',
+    sourceText: novel?.caption ?? '',
+    contentType: '小说简介',
+    targetLanguage: targetLanguage,
+    preserveHtml: true,
+  );
+
+  @action
+  Future<void> retryBlock(NovelContentBlock block, String targetLanguage) =>
+      _translatePart(
+        key: 'body:${block.id}',
+        sourceText: block.translationSource,
+        contentType: '小说正文',
+        targetLanguage: targetLanguage,
+      );
+
+  Future<void> _translatePart({
+    required String key,
+    required String sourceText,
+    required String contentType,
+    required String targetLanguage,
+    bool preserveHtml = false,
+  }) async {
+    if (sourceText.trim().isEmpty || translationLocale != targetLanguage)
+      return;
+    final existing = translations[key];
+    if (existing?.status == NovelTranslationStatus.loading ||
+        existing?.status == NovelTranslationStatus.success) {
+      return;
+    }
+    translations[key] = NovelTranslationEntry(
+      status: NovelTranslationStatus.loading,
+      sourceText: sourceText,
+    );
+    try {
+      final translated = await aiTranslationService.translateNovelPart(
+        novelId: id,
+        partKey: key,
+        contentType: contentType,
+        targetLanguage: targetLanguage,
+        sourceText: sourceText,
+        preserveHtml: preserveHtml,
+      );
+      if (translationLocale == targetLanguage) {
+        translations[key] = NovelTranslationEntry(
+          status: NovelTranslationStatus.success,
+          sourceText: sourceText,
+          translatedText: translated,
+        );
+      }
+    } catch (error, stackTrace) {
+      Log.w('小说翻译失败: $key', error: error, stackTrace: stackTrace);
+      if (translationLocale == targetLanguage) {
+        translations[key] = NovelTranslationEntry(
+          status: NovelTranslationStatus.failed,
+          sourceText: sourceText,
+          errorMessage: error.toString(),
+        );
+      }
+    }
+  }
+
+  Future<void> _runWithConcurrency(
+    List<Future<void> Function()> tasks, {
+    required int maxConcurrent,
+  }) async {
+    var index = 0;
+    Future<void> worker() async {
+      while (index < tasks.length) {
+        final task = tasks[index++];
+        await task();
+      }
+    }
+
+    await Future.wait(
+      List.generate(
+        tasks.length < maxConcurrent ? tasks.length : maxConcurrent,
+        (_) => worker(),
+      ),
+    );
   }
 }
 

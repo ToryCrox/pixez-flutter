@@ -335,5 +335,12 @@
   "log_filter_info": "Info",
   "log_filter_warning": "Warning",
   "log_filter_error": "Error",
-  "log_empty": "No logs yet"
+  "log_empty": "No logs yet",
+  "novel_translation_loading": "Traduciendo…",
+  "show_novel_translation": "Mostrar traducción",
+  "hide_novel_translation": "Ocultar traducción",
+  "novel_translation_failed": "Error de traducción",
+  "retry_novel_translation": "Reintentar traducción",
+  "ai_translation_not_configured": "El servicio de traducción con IA no está configurado",
+  "go_to_ai_settings": "Ajustes de IA"
 }

@@ -344,5 +344,12 @@
   "log_filter_info": "Info",
   "log_filter_warning": "Warning",
   "log_filter_error": "Error",
-  "log_empty": "No logs yet"
+  "log_empty": "No logs yet",
+  "novel_translation_loading": "Перевод…",
+  "show_novel_translation": "Показать перевод",
+  "hide_novel_translation": "Скрыть перевод",
+  "novel_translation_failed": "Ошибка перевода",
+  "retry_novel_translation": "Повторить перевод",
+  "ai_translation_not_configured": "Служба ИИ-перевода не настроена",
+  "go_to_ai_settings": "Настройки ИИ"
 }

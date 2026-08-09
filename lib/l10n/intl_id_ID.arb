@@ -336,5 +336,12 @@
   "network_speed_ball": "Bola kecepatan jaringan",
   "network_speed_ball_subtitle": "Tampilkan kecepatan unggah/unduh jaringan secara real-time",
   "enable_mana": "Aktifkan Alat Pengembang",
-  "enable_mana_subtitle": "Aktifkan alat debugging Mana (memerlukan restart)"
+  "enable_mana_subtitle": "Aktifkan alat debugging Mana (memerlukan restart)",
+  "novel_translation_loading": "Menerjemahkan…",
+  "show_novel_translation": "Tampilkan terjemahan",
+  "hide_novel_translation": "Sembunyikan terjemahan",
+  "novel_translation_failed": "Terjemahan gagal",
+  "retry_novel_translation": "Coba terjemahkan lagi",
+  "ai_translation_not_configured": "Layanan terjemahan AI belum dikonfigurasi",
+  "go_to_ai_settings": "Pengaturan AI"
 }

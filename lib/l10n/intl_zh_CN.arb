@@ -346,5 +346,12 @@
   "log_filter_info": "信息",
   "log_filter_warning": "警告",
   "log_filter_error": "错误",
-  "log_empty": "暂无日志"
+  "log_empty": "暂无日志",
+  "novel_translation_loading": "翻译中…",
+  "show_novel_translation": "显示译文",
+  "hide_novel_translation": "隐藏译文",
+  "novel_translation_failed": "翻译失败",
+  "retry_novel_translation": "重试翻译",
+  "ai_translation_not_configured": "尚未配置 AI 翻译服务",
+  "go_to_ai_settings": "前往 AI 设置"
 }

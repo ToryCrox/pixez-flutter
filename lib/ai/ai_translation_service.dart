@@ -23,6 +23,7 @@ class AiTranslationService {
   final AiClient client;
   final AiResultCache cache;
   final Map<int, IllustTranslation> _illustTranslations = {};
+  final Map<String, Future<String>> _inFlightCachedTranslations = {};
 
   AiTranslationService({
     required this.settings,
@@ -99,6 +100,49 @@ class AiTranslationService {
     forceRefresh: forceRefresh,
   );
 
+  Future<void> ensureSceneReady(String sceneId) async {
+    if (!settings.initialized) await settings.init();
+    settings.requireActivePrompt(sceneId);
+  }
+
+  Future<String> translateNovelPart({
+    required int novelId,
+    required String partKey,
+    required String contentType,
+    required String targetLanguage,
+    required String sourceText,
+    bool preserveHtml = false,
+  }) async {
+    final resourceKey = 'novel:$novelId:$targetLanguage:$partKey';
+    if (!preserveHtml) {
+      return translateCached(
+        sceneId: AiPromptScenes.novelTranslation,
+        resourceKey: resourceKey,
+        sourceText: sourceText,
+        variables: {
+          'text': sourceText,
+          'content_type': contentType,
+          'target_language': targetLanguage,
+        },
+      );
+    }
+
+    final protection = HtmlTagProtection.protect(sourceText);
+    final translated = await translateCached(
+      sceneId: AiPromptScenes.novelTranslation,
+      resourceKey: resourceKey,
+      sourceText: sourceText,
+      variables: {
+        'text': protection.protectedText,
+        'content_type': contentType,
+        'target_language': targetLanguage,
+      },
+      systemSuffix:
+          '\n\n输入中形如 ⟪PXEZ_HTML_TAG_0000⟫ 的文本是不可变 HTML 标签占位符。必须让每个占位符恰好出现一次、字符完全一致且顺序不变；只翻译占位符之外的可见文本。不要输出 Markdown 代码块。',
+    );
+    return protection.restore(_stripCodeFence(translated));
+  }
+
   Future<String?> cachedComment({
     required String resourceKey,
     required String text,
@@ -125,6 +169,34 @@ class AiTranslationService {
       if (cached != null) return cached;
     }
 
+    final inFlightKey =
+        '$sceneId|$resourceKey|${AiResultCache.hashSource(sourceText)}';
+    final inFlight = _inFlightCachedTranslations[inFlightKey];
+    if (inFlight != null) return inFlight;
+
+    late final Future<String> request;
+    request = _completeAndCache(
+      sceneId: sceneId,
+      resourceKey: resourceKey,
+      sourceText: sourceText,
+      variables: variables,
+      systemSuffix: systemSuffix,
+    ).whenComplete(() {
+      if (identical(_inFlightCachedTranslations[inFlightKey], request)) {
+        _inFlightCachedTranslations.remove(inFlightKey);
+      }
+    });
+    _inFlightCachedTranslations[inFlightKey] = request;
+    return request;
+  }
+
+  Future<String> _completeAndCache({
+    required String sceneId,
+    required String resourceKey,
+    required String sourceText,
+    required Map<String, String> variables,
+    required String systemSuffix,
+  }) async {
     if (!settings.initialized) await settings.init();
     final resolved = settings.requireActivePrompt(sceneId);
     final result = await _complete(
