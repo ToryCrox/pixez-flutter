@@ -53,9 +53,12 @@ class _NovelNewPageState extends State<NovelNewPage>
       child: Column(
         children: [
           AppBar(
+            automaticallyImplyLeading: false,
+            titleSpacing: 0,
             title: TabBar(
               controller: _tabController,
               isScrollable: true,
+              tabAlignment: TabAlignment.start,
               tabs: [
                 Tab(text: I18n.of(context).news),
                 Tab(text: I18n.of(context).bookmark),

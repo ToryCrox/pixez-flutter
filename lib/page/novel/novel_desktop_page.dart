@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:pixez/component/keep_alive_wrapper.dart';
 import 'package:pixez/i18n.dart';
 import 'package:pixez/page/novel/new/novel_new_page.dart';
@@ -20,6 +21,7 @@ class NovelDesktopPage extends StatefulWidget {
 class _NovelDesktopPageState extends State<NovelDesktopPage>
     with TickerProviderStateMixin, AutomaticKeepAliveClientMixin {
   late final TabController _tabController;
+  bool _showPrimaryTabs = true;
 
   @override
   void initState() {
@@ -40,34 +42,59 @@ class _NovelDesktopPageState extends State<NovelDesktopPage>
       bottom: false,
       child: Column(
         children: [
-          Material(
-            color: Theme.of(context).colorScheme.surface,
-            child: TabBar(
-              controller: _tabController,
-              isScrollable: true,
-              tabAlignment: TabAlignment.start,
-              tabs: [
-                Tab(text: I18n.of(context).recommend),
-                Tab(text: I18n.of(context).rank),
-                Tab(text: I18n.of(context).news),
-                Tab(text: I18n.of(context).search),
-              ],
+          ClipRect(
+            child: AnimatedAlign(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOutCubic,
+              alignment: Alignment.topCenter,
+              heightFactor: _showPrimaryTabs ? 1 : 0,
+              child: Material(
+                color: Theme.of(context).colorScheme.surface,
+                child: TabBar(
+                  controller: _tabController,
+                  isScrollable: true,
+                  tabAlignment: TabAlignment.start,
+                  tabs: [
+                    Tab(text: I18n.of(context).recommend),
+                    Tab(text: I18n.of(context).rank),
+                    Tab(text: I18n.of(context).news),
+                    Tab(text: I18n.of(context).search),
+                  ],
+                ),
+              ),
             ),
           ),
           Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                KeepAliveWrapper(child: NovelRecomPage()),
-                KeepAliveWrapper(child: NovelRankPage()),
-                KeepAliveWrapper(child: NovelNewPage()),
-                KeepAliveWrapper(child: NovelSearchPage()),
-              ],
+            child: NotificationListener<UserScrollNotification>(
+              onNotification: _handleScrollNotification,
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  KeepAliveWrapper(child: NovelRecomPage()),
+                  KeepAliveWrapper(child: NovelRankPage()),
+                  KeepAliveWrapper(child: NovelNewPage()),
+                  KeepAliveWrapper(child: NovelSearchPage()),
+                ],
+              ),
             ),
           ),
         ],
       ),
     );
+  }
+
+  bool _handleScrollNotification(UserScrollNotification notification) {
+    if (notification.metrics.axis != Axis.vertical) return false;
+
+    final showTabs = switch (notification.direction) {
+      ScrollDirection.forward => true,
+      ScrollDirection.reverse => false,
+      ScrollDirection.idle => _showPrimaryTabs,
+    };
+    if (showTabs != _showPrimaryTabs) {
+      setState(() => _showPrimaryTabs = showTabs);
+    }
+    return false;
   }
 
   @override

@@ -48,9 +48,12 @@ class _NovelRankPageState extends State<NovelRankPage>
       length: modeList.length,
       child: Scaffold(
         appBar: AppBar(
+          automaticallyImplyLeading: false,
+          titleSpacing: 0,
           title: TabBar(
             indicatorSize: TabBarIndicatorSize.label,
             isScrollable: true,
+            tabAlignment: TabAlignment.start,
             tabs: [for (var i in w) Tab(text: i)],
           ),
           actions: [
