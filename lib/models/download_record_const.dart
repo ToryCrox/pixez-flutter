@@ -5,7 +5,7 @@ const kImageExtensions = ['.webp', '.jpg', '.png', '.gif', '.jpeg'];
 
 /// Tag变更类型
 enum TagChangeType {
-  illustAdded,   // 插画被添加到此tag的关联
+  illustAdded, // 插画被添加到此tag的关联
   illustRemoved, // 插画从此tag的关联中移除
 }
 
@@ -36,7 +36,6 @@ class TagChangeEvent {
 
 // 下载的插画记录
 class DownloadedIllust {
-
   final int illustId;
   final int userId;
   final String userName;
@@ -61,6 +60,8 @@ class DownloadedIllust {
   final int downloadedImageCount; // 已下载图片数量
   final int totalFileSize; // 总文件大小（字节）
   final int bookmark;
+  final String translatedTitle;
+  final String translatedCaption;
 
   // Getter 用于数据库序列化
   String get illustJson => _illustJson;
@@ -92,6 +93,8 @@ class DownloadedIllust {
     this.downloadedImageCount = 0,
     this.totalFileSize = 0,
     this.bookmark = 0,
+    this.translatedTitle = '',
+    this.translatedCaption = '',
   }) : _illustJson = illustJson;
 
   /// 从 imageUrlsJson 解析 ImageUrls 对象
@@ -100,14 +103,17 @@ class DownloadedIllust {
       return const ImageUrls();
     }
     return ImageUrls.fromJson(
-        TypeUtil.parseMap(PixivUrlUtil.decompressPxUrl(imageUrlsJson)));
+      TypeUtil.parseMap(PixivUrlUtil.decompressPxUrl(imageUrlsJson)),
+    );
   }
 
   /// 解析 UgoiraMetadata
   UgoiraMetadata? getUgoiraMetadata() {
     if (!isUgoira || ugoiraMetadataJson.isEmpty) return null;
     try {
-      final json = TypeUtil.parseMap(PixivUrlUtil.decompressPxUrl(ugoiraMetadataJson));
+      final json = TypeUtil.parseMap(
+        PixivUrlUtil.decompressPxUrl(ugoiraMetadataJson),
+      );
       return UgoiraMetadata.fromJson(json);
     } catch (e) {
       Log.e('解析 UgoiraMetadata 失败: $e');
@@ -128,6 +134,8 @@ class DownloadedIllust {
     int? downloadedImageCount,
     int? totalFileSize,
     int? bookmark,
+    String? translatedTitle,
+    String? translatedCaption,
   }) {
     // 使用 copyWith 将需要移除的字段设置为空/默认值
     final optimizedIllusts = illusts.copyWith(
@@ -145,10 +153,7 @@ class DownloadedIllust {
       totalBookmarks: 0,
       tags: [],
       imageUrls: const ImageUrls(), // 将 imageUrls 设为空，从 illustJson 中移除
-      user: illusts.user.copyWith(
-        id: 0,
-        name: '',
-      ),
+      user: illusts.user.copyWith(id: 0, name: ''),
     );
 
     // 转换成 Map
@@ -173,17 +178,23 @@ class DownloadedIllust {
       totalView: illusts.totalView,
       totalBookmarks: illusts.totalBookmarks,
       tags: TypeUtil.parseJsonString(
-          illusts.tags.map((t) => TypeUtil.shrinkMap(t.toJson())).toList()),
+        illusts.tags.map((t) => TypeUtil.shrinkMap(t.toJson())).toList(),
+      ),
       relativePath: relativePath,
       downloadTime: downloadTime ?? DateTime.now().millisecondsSinceEpoch,
-      illustJson: PixivUrlUtil.compressPxUrl(TypeUtil.parseJsonString(shrunkJson)),
+      illustJson: PixivUrlUtil.compressPxUrl(
+        TypeUtil.parseJsonString(shrunkJson),
+      ),
       imageUrlsJson: PixivUrlUtil.compressPxUrl(
-          TypeUtil.parseJsonString(illusts.imageUrls.toJson())),
+        TypeUtil.parseJsonString(illusts.imageUrls.toJson()),
+      ),
       ugoiraMetadataJson: ugoiraMetadataJson ?? '',
       // 如果传入了统计信息则使用，否则默认为 0
       downloadedImageCount: downloadedImageCount ?? 0,
       totalFileSize: totalFileSize ?? 0,
       bookmark: bookmark ?? 0,
+      translatedTitle: translatedTitle ?? '',
+      translatedCaption: translatedCaption ?? '',
     );
   }
 
@@ -191,6 +202,8 @@ class DownloadedIllust {
     int? downloadedImageCount,
     int? totalFileSize,
     int? bookmark,
+    String? translatedTitle,
+    String? translatedCaption,
   }) {
     return DownloadedIllust(
       illustId: illustId,
@@ -216,6 +229,8 @@ class DownloadedIllust {
       downloadedImageCount: downloadedImageCount ?? this.downloadedImageCount,
       totalFileSize: totalFileSize ?? this.totalFileSize,
       bookmark: bookmark ?? this.bookmark,
+      translatedTitle: translatedTitle ?? this.translatedTitle,
+      translatedCaption: translatedCaption ?? this.translatedCaption,
     );
   }
 
@@ -227,29 +242,47 @@ class DownloadedIllust {
       title: TypeUtil.parseString(json[DownloadedIllustColumns.title]),
       type: TypeUtil.parseString(json[DownloadedIllustColumns.type]),
       caption: TypeUtil.parseString(json[DownloadedIllustColumns.caption]),
-      createDate: TypeUtil.parseString(json[DownloadedIllustColumns.createDate]),
+      createDate: TypeUtil.parseString(
+        json[DownloadedIllustColumns.createDate],
+      ),
       pageCount: TypeUtil.parseInt(json[DownloadedIllustColumns.pageCount]),
       width: TypeUtil.parseInt(json[DownloadedIllustColumns.width]),
       height: TypeUtil.parseInt(json[DownloadedIllustColumns.height]),
       sanityLevel: TypeUtil.parseInt(json[DownloadedIllustColumns.sanityLevel]),
       xRestrict: TypeUtil.parseInt(json[DownloadedIllustColumns.xRestrict]),
       totalView: TypeUtil.parseInt(json[DownloadedIllustColumns.totalView]),
-      totalBookmarks:
-          TypeUtil.parseInt(json[DownloadedIllustColumns.totalBookmarks]),
+      totalBookmarks: TypeUtil.parseInt(
+        json[DownloadedIllustColumns.totalBookmarks],
+      ),
       tags: TypeUtil.parseString(json[DownloadedIllustColumns.tags]),
-      relativePath:
-          TypeUtil.parseString(json[DownloadedIllustColumns.relativePath]),
-      downloadTime:
-          TypeUtil.parseInt(json[DownloadedIllustColumns.downloadTime]),
+      relativePath: TypeUtil.parseString(
+        json[DownloadedIllustColumns.relativePath],
+      ),
+      downloadTime: TypeUtil.parseInt(
+        json[DownloadedIllustColumns.downloadTime],
+      ),
       illustJson: TypeUtil.gzipDecodeString(
-          TypeUtil.parseString(json[DownloadedIllustColumns.illustJson])),
+        TypeUtil.parseString(json[DownloadedIllustColumns.illustJson]),
+      ),
       imageUrlsJson: TypeUtil.parseString(
-          json[DownloadedIllustColumns.imageUrlsJson]), // 兼容旧数据
+        json[DownloadedIllustColumns.imageUrlsJson],
+      ), // 兼容旧数据
       ugoiraMetadataJson: TypeUtil.parseString(
-          json[DownloadedIllustColumns.ugoiraMetadataJson]), // 兼容旧数据
-      downloadedImageCount: TypeUtil.parseInt(json[DownloadedIllustColumns.downloadedImageCount]),
-      totalFileSize: TypeUtil.parseInt(json[DownloadedIllustColumns.totalFileSize]),
+        json[DownloadedIllustColumns.ugoiraMetadataJson],
+      ), // 兼容旧数据
+      downloadedImageCount: TypeUtil.parseInt(
+        json[DownloadedIllustColumns.downloadedImageCount],
+      ),
+      totalFileSize: TypeUtil.parseInt(
+        json[DownloadedIllustColumns.totalFileSize],
+      ),
       bookmark: TypeUtil.parseInt(json[DownloadedIllustColumns.bookmark]),
+      translatedTitle: TypeUtil.parseString(
+        json[DownloadedIllustColumns.translatedTitle],
+      ),
+      translatedCaption: TypeUtil.parseString(
+        json[DownloadedIllustColumns.translatedCaption],
+      ),
     );
   }
 
@@ -272,13 +305,16 @@ class DownloadedIllust {
     data[DownloadedIllustColumns.tags] = tags;
     data[DownloadedIllustColumns.relativePath] = relativePath;
     data[DownloadedIllustColumns.downloadTime] = downloadTime;
-    data[DownloadedIllustColumns.illustJson] =
-        TypeUtil.gzipEncodeString(illustJson);
+    data[DownloadedIllustColumns.illustJson] = TypeUtil.gzipEncodeString(
+      illustJson,
+    );
     data[DownloadedIllustColumns.imageUrlsJson] = imageUrlsJson;
     data[DownloadedIllustColumns.ugoiraMetadataJson] = ugoiraMetadataJson;
     data[DownloadedIllustColumns.downloadedImageCount] = downloadedImageCount;
     data[DownloadedIllustColumns.totalFileSize] = totalFileSize;
     data[DownloadedIllustColumns.bookmark] = bookmark;
+    data[DownloadedIllustColumns.translatedTitle] = translatedTitle;
+    data[DownloadedIllustColumns.translatedCaption] = translatedCaption;
     return data;
   }
 
@@ -298,7 +334,8 @@ class DownloadedIllust {
     ImageUrls imageUrls;
     if (imageUrlsJson.isNotEmpty) {
       imageUrls = ImageUrls.fromJson(
-          TypeUtil.parseMap(PixivUrlUtil.decompressPxUrl(imageUrlsJson)));
+        TypeUtil.parseMap(PixivUrlUtil.decompressPxUrl(imageUrlsJson)),
+      );
     } else {
       // 兼容旧数据：从 illustJson 中读取
       imageUrls = baseIllusts.imageUrls;
@@ -321,11 +358,8 @@ class DownloadedIllust {
       totalBookmarks: totalBookmarks,
       tags: getTagsList(),
       imageUrls: imageUrls,
-      user: baseIllusts.user.copyWith(
-        id: userId,
-        name: userName,
-      ),
-      isBookmarked: bookmark > 0, 
+      user: baseIllusts.user.copyWith(id: userId, name: userName),
+      isBookmarked: bookmark > 0,
     );
     return _illustsCache!;
   }
@@ -342,12 +376,7 @@ class LocalImageInfo {
   final int? height;
   final int? fileSize;
 
-  LocalImageInfo({
-    required this.path,
-    this.width,
-    this.height,
-    this.fileSize,
-  });
+  LocalImageInfo({required this.path, this.width, this.height, this.fileSize});
 
   /// 获取宽高比（width / height），如果宽高未知则返回 null
   double? get aspectRatio {
@@ -403,8 +432,9 @@ class DownloadedImage {
 
   factory DownloadedImage.fromJson(Map<String, dynamic> json) {
     // 从数据库读取时解压 URL
-    final compressedUrl =
-        TypeUtil.parseString(json[DownloadedImageColumns.originalUrl]);
+    final compressedUrl = TypeUtil.parseString(
+      json[DownloadedImageColumns.originalUrl],
+    );
     return DownloadedImage(
       illustId: TypeUtil.parseInt(json[DownloadedImageColumns.illustId]),
       part: TypeUtil.parseInt(json[DownloadedImageColumns.part]),
@@ -425,8 +455,9 @@ class DownloadedImage {
     data[DownloadedImageColumns.extension] = extension;
     data[DownloadedImageColumns.fileSize] = fileSize;
     // 写入数据库时压缩 URL
-    data[DownloadedImageColumns.originalUrl] =
-        PixivUrlUtil.compressOriginalUrl(originalUrl);
+    data[DownloadedImageColumns.originalUrl] = PixivUrlUtil.compressOriginalUrl(
+      originalUrl,
+    );
     data[DownloadedImageColumns.width] = width;
     data[DownloadedImageColumns.height] = height;
     return data;
@@ -493,6 +524,8 @@ class DownloadedIllustColumns {
   static const String downloadedImageCount = 'downloaded_image_count';
   static const String totalFileSize = 'total_file_size';
   static const String bookmark = 'bookmark';
+  static const String translatedTitle = 'translated_title';
+  static const String translatedCaption = 'translated_caption';
 }
 
 class DownloadedImageColumns {
@@ -582,7 +615,10 @@ class PendingDownload {
       url: TypeUtil.parseString(json[PendingDownloadColumns.url]),
       illustJson: TypeUtil.parseString(json[PendingDownloadColumns.illustJson]),
       createTime: TypeUtil.parseInt(json[PendingDownloadColumns.createTime]),
-      status: TypeUtil.parseString(json[PendingDownloadColumns.status], 'pending'),
+      status: TypeUtil.parseString(
+        json[PendingDownloadColumns.status],
+        'pending',
+      ),
       bookmark: TypeUtil.parseInt(json[PendingDownloadColumns.bookmark]),
     );
   }
@@ -629,17 +665,21 @@ class DownloadedAuthor {
       userId: TypeUtil.parseInt(json[DownloadedAuthorColumns.userId]),
       userName: TypeUtil.parseString(json[DownloadedAuthorColumns.userName]),
       profileImageUrl: PixivUrlUtil.decompressPxUrl(
-          TypeUtil.parseString(json[DownloadedAuthorColumns.profileImageUrl])),
-      illustCount:
-          TypeUtil.parseInt(json[DownloadedAuthorColumns.illustCount]),
-      totalImageCount:
-          TypeUtil.parseInt(json[DownloadedAuthorColumns.totalImageCount]),
-      totalFileSize:
-          TypeUtil.parseInt(json[DownloadedAuthorColumns.totalFileSize]),
-      lastDownloadTime:
-          TypeUtil.parseInt(json[DownloadedAuthorColumns.lastDownloadTime]),
-      lastUpdateTime:
-          TypeUtil.parseInt(json[DownloadedAuthorColumns.lastUpdateTime]),
+        TypeUtil.parseString(json[DownloadedAuthorColumns.profileImageUrl]),
+      ),
+      illustCount: TypeUtil.parseInt(json[DownloadedAuthorColumns.illustCount]),
+      totalImageCount: TypeUtil.parseInt(
+        json[DownloadedAuthorColumns.totalImageCount],
+      ),
+      totalFileSize: TypeUtil.parseInt(
+        json[DownloadedAuthorColumns.totalFileSize],
+      ),
+      lastDownloadTime: TypeUtil.parseInt(
+        json[DownloadedAuthorColumns.lastDownloadTime],
+      ),
+      lastUpdateTime: TypeUtil.parseInt(
+        json[DownloadedAuthorColumns.lastUpdateTime],
+      ),
       bookmark: TypeUtil.parseInt(json[DownloadedAuthorColumns.bookmark]),
     );
   }
@@ -649,8 +689,8 @@ class DownloadedAuthor {
     data[DownloadedAuthorColumns.userId] = userId;
     data[DownloadedAuthorColumns.userName] = userName;
     if (profileImageUrl != null) {
-      data[DownloadedAuthorColumns.profileImageUrl] =
-          PixivUrlUtil.compressPxUrl(profileImageUrl!);
+      data[DownloadedAuthorColumns
+          .profileImageUrl] = PixivUrlUtil.compressPxUrl(profileImageUrl!);
     }
     data[DownloadedAuthorColumns.illustCount] = illustCount;
     data[DownloadedAuthorColumns.totalImageCount] = totalImageCount;
@@ -713,37 +753,41 @@ class DownloadedTag {
     this.parentId = 0,
   });
 
-
   String get displayName =>
       (customTranslatedName != null && customTranslatedName!.isNotEmpty)
           ? customTranslatedName!
           : (translatedName.isNotEmpty)
-              ? translatedName
-              : name;
+          ? translatedName
+          : name;
 
   /// 翻译的名字
   String get displayTranslatedName =>
       (customTranslatedName != null && customTranslatedName!.isNotEmpty)
           ? customTranslatedName!
           : (translatedName.isNotEmpty)
-              ? translatedName
-              : '';
+          ? translatedName
+          : '';
 
   bool get isCustomTranslatedName => customTranslatedName?.isNotEmpty == true;
 
   TagCategory get categoryEnum => TagCategory.fromValue(category);
-  
+
   List<int> get exampleIllustIds {
     if (exampleIllusts.isEmpty) return [];
-    return exampleIllusts.split(',').map((e) => int.tryParse(e)).whereType<int>().toList();
+    return exampleIllusts
+        .split(',')
+        .map((e) => int.tryParse(e))
+        .whereType<int>()
+        .toList();
   }
-  
+
   factory DownloadedTag.fromJson(Map<String, dynamic> json) {
     return DownloadedTag(
       id: TypeUtil.parseInt(json[DownloadedTagsColumns.id]),
       name: TypeUtil.parseString(json[DownloadedTagsColumns.name]),
-      translatedName:
-          TypeUtil.parseString(json[DownloadedTagsColumns.translatedName]),
+      translatedName: TypeUtil.parseString(
+        json[DownloadedTagsColumns.translatedName],
+      ),
       customTranslatedName:
           json[DownloadedTagsColumns.customTranslatedName] as String?,
       category: TypeUtil.parseInt(json[DownloadedTagsColumns.category]),
@@ -752,8 +796,12 @@ class DownloadedTag {
       displayOrder: TypeUtil.parseInt(json[DownloadedTagsColumns.displayOrder]),
       lastUsedTime: json[DownloadedTagsColumns.lastUsedTime] as int?,
       count: TypeUtil.parseInt(json[DownloadedTagsColumns.count]),
-      exampleIllusts: TypeUtil.parseString(json[DownloadedTagsColumns.exampleIllusts]),
-      referencedTagId: TypeUtil.parseInt(json[DownloadedTagsColumns.referencedTagId]),
+      exampleIllusts: TypeUtil.parseString(
+        json[DownloadedTagsColumns.exampleIllusts],
+      ),
+      referencedTagId: TypeUtil.parseInt(
+        json[DownloadedTagsColumns.referencedTagId],
+      ),
       parentId: TypeUtil.parseInt(json[DownloadedTagsColumns.parentId]),
     );
   }
@@ -770,7 +818,8 @@ class DownloadedTag {
       DownloadedTagsColumns.displayOrder: displayOrder,
       DownloadedTagsColumns.lastUsedTime: lastUsedTime,
       DownloadedTagsColumns.exampleIllusts: exampleIllusts,
-      DownloadedTagsColumns.referencedTagId: referencedTagId == 0 ? null : referencedTagId,
+      DownloadedTagsColumns.referencedTagId:
+          referencedTagId == 0 ? null : referencedTagId,
       DownloadedTagsColumns.parentId: parentId == 0 ? null : parentId,
     };
   }
@@ -810,34 +859,37 @@ class IllustPreviewData {
   final int illustId;
   final String squareMediumUrl;
 
-  const IllustPreviewData({required this.illustId, required this.squareMediumUrl});
+  const IllustPreviewData({
+    required this.illustId,
+    required this.squareMediumUrl,
+  });
 }
 
 class TagDisplayData {
-    final DownloadedTag tag;
-    final List<IllustPreviewData> previewIllusts;
-    final bool hasEquivalentTags;
-    
-    TagDisplayData({
-      required this.tag, 
-      required this.previewIllusts, 
-      this.hasEquivalentTags = false,
-      this.indentLevel = 0,
-    });
-    
-    final int indentLevel;
+  final DownloadedTag tag;
+  final List<IllustPreviewData> previewIllusts;
+  final bool hasEquivalentTags;
 
-    TagDisplayData copyWith({
-      DownloadedTag? tag,
-      List<IllustPreviewData>? previewIllusts,
-      bool? hasEquivalentTags,
-      int? indentLevel,
-    }) {
-      return TagDisplayData(
-        tag: tag ?? this.tag,
-        previewIllusts: previewIllusts ?? this.previewIllusts,
-        hasEquivalentTags: hasEquivalentTags ?? this.hasEquivalentTags,
-        indentLevel: indentLevel ?? this.indentLevel,
-      );
-    }
+  TagDisplayData({
+    required this.tag,
+    required this.previewIllusts,
+    this.hasEquivalentTags = false,
+    this.indentLevel = 0,
+  });
+
+  final int indentLevel;
+
+  TagDisplayData copyWith({
+    DownloadedTag? tag,
+    List<IllustPreviewData>? previewIllusts,
+    bool? hasEquivalentTags,
+    int? indentLevel,
+  }) {
+    return TagDisplayData(
+      tag: tag ?? this.tag,
+      previewIllusts: previewIllusts ?? this.previewIllusts,
+      hasEquivalentTags: hasEquivalentTags ?? this.hasEquivalentTags,
+      indentLevel: indentLevel ?? this.indentLevel,
+    );
+  }
 }

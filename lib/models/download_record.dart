@@ -34,6 +34,7 @@ part 'download_record_const.dart';
 // 数据库Provider
 class DownloadDatabaseProvider {
   late Database db;
+
   /// 下载目录
   String? _downloadPath;
   String? _basePath;
@@ -43,7 +44,8 @@ class DownloadDatabaseProvider {
   String? _dbPath;
 
   /// Tag变更事件流
-  final _tagChangesController = StreamController<List<TagChangeEvent>>.broadcast();
+  final _tagChangesController =
+      StreamController<List<TagChangeEvent>>.broadcast();
 
   // 缓存：作品 ID -> 相对路径
   final Map<int, String> _illustRelPathCache = {};
@@ -74,20 +76,27 @@ class DownloadDatabaseProvider {
 
     try {
       // macOS: 检查并请求外部存储访问权限
-      if (Platform.isMacOS && MacOSFileAccessManager.isExternalVolume(downloadPath)) {
+      if (Platform.isMacOS &&
+          MacOSFileAccessManager.isExternalVolume(downloadPath)) {
         Log.d(() => '🔐 检测到外部存储卷: $downloadPath');
         Log.d(() => '正在检查访问权限...');
 
         // 检查是否已有 bookmark（支持下载路径本身或其任意父目录）
-        bool hasBookmark = await MacOSFileAccessManager.hasBookmark(downloadPath);
+        bool hasBookmark = await MacOSFileAccessManager.hasBookmark(
+          downloadPath,
+        );
 
         if (!hasBookmark) {
           Log.w(() => '⚠️  未找到访问权限，需要用户授权');
           Log.i(() => '提示: 请在文件选择器中选择下载目录或其父目录');
           Log.i(() => '     例如选择: $downloadPath');
-          Log.i(() => '     或选择: ${MacOSFileAccessManager.getRootPath(downloadPath)}');
+          Log.i(
+            () =>
+                '     或选择: ${MacOSFileAccessManager.getRootPath(downloadPath)}',
+          );
 
-          final (success, selectedPath) = await MacOSFileAccessManager.requestDirectoryAccess();
+          final (success, selectedPath) =
+              await MacOSFileAccessManager.requestDirectoryAccess();
           if (!success || selectedPath == null) {
             throw Exception('用户取消授权或授权失败');
           }
@@ -101,14 +110,16 @@ class DownloadDatabaseProvider {
         }
 
         // 开始访问外部存储（Swift 端会自动查找最匹配的父目录 bookmark）
-        final accessGranted = await MacOSFileAccessManager.startAccessingPath(downloadPath);
+        final accessGranted = await MacOSFileAccessManager.startAccessingPath(
+          downloadPath,
+        );
         if (!accessGranted) {
           throw Exception('无法获取外部存储访问权限，请重新授权');
         }
 
         Log.i(() => '✅ 已获取外部存储访问权限');
       }
-      
+
       // 确保目录存在
       final dir = Directory(downloadPath);
       if (!await dir.exists()) {
@@ -130,7 +141,8 @@ class DownloadDatabaseProvider {
         } catch (e) {
           Log.e(() => 'ERROR: 无法访问数据库文件 $dbPath', error: e);
 
-          if (Platform.isMacOS && MacOSFileAccessManager.isExternalVolume(downloadPath)) {
+          if (Platform.isMacOS &&
+              MacOSFileAccessManager.isExternalVolume(downloadPath)) {
             Log.e(() => '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
             Log.e(() => '⚠️  外部存储访问失败');
             Log.e(() => '可能的原因:');
@@ -148,10 +160,9 @@ class DownloadDatabaseProvider {
         }
       }
 
-
       db = await openDatabase(
         dbPath,
-        version: 17,
+        version: 18,
         onCreate: (Database db, int version) async {
           await db.execute('''
           CREATE TABLE ${DownloadedIllustColumns.tableName} (
@@ -178,11 +189,13 @@ class DownloadDatabaseProvider {
             ${DownloadedIllustColumns.ugoiraMetadataJson} TEXT NOT NULL DEFAULT '',
             ${DownloadedIllustColumns.downloadedImageCount} INTEGER DEFAULT 0,
             ${DownloadedIllustColumns.totalFileSize} INTEGER DEFAULT 0,
-            ${DownloadedIllustColumns.bookmark} INTEGER DEFAULT 0
+            ${DownloadedIllustColumns.bookmark} INTEGER DEFAULT 0,
+            ${DownloadedIllustColumns.translatedTitle} TEXT NOT NULL DEFAULT '',
+            ${DownloadedIllustColumns.translatedCaption} TEXT NOT NULL DEFAULT ''
           )
         ''');
 
-        await db.execute('''
+          await db.execute('''
           CREATE TABLE ${DownloadedImageColumns.tableName} (
             ${DownloadedImageColumns.id} INTEGER PRIMARY KEY AUTOINCREMENT,
             ${DownloadedImageColumns.illustId} INTEGER NOT NULL,
@@ -197,8 +210,8 @@ class DownloadDatabaseProvider {
           )
         ''');
 
-        // 创建待下载任务表
-        await db.execute('''
+          // 创建待下载任务表
+          await db.execute('''
           CREATE TABLE ${PendingDownloadColumns.tableName} (
             ${PendingDownloadColumns.id} TEXT PRIMARY KEY,
             ${PendingDownloadColumns.part} INTEGER NOT NULL,
@@ -210,8 +223,8 @@ class DownloadDatabaseProvider {
           )
         ''');
 
-        // 创建作者表
-        await db.execute('''
+          // 创建作者表
+          await db.execute('''
           CREATE TABLE ${DownloadedAuthorColumns.tableName} (
             ${DownloadedAuthorColumns.userId} INTEGER PRIMARY KEY,
             ${DownloadedAuthorColumns.userName} TEXT NOT NULL,
@@ -225,8 +238,8 @@ class DownloadDatabaseProvider {
           )
         ''');
 
-        // 创建标签管理表
-        await db.execute('''
+          // 创建标签管理表
+          await db.execute('''
           CREATE TABLE ${DownloadedTagsColumns.tableName} (
              ${DownloadedTagsColumns.id} INTEGER PRIMARY KEY AUTOINCREMENT,
              ${DownloadedTagsColumns.name} TEXT NOT NULL UNIQUE,
@@ -243,8 +256,8 @@ class DownloadDatabaseProvider {
           )
         ''');
 
-        // 创建标签-作品关联表
-        await db.execute('''
+          // 创建标签-作品关联表
+          await db.execute('''
           CREATE TABLE ${DownloadedIllustTagsColumns.tableName} (
              ${DownloadedIllustTagsColumns.illustId} INTEGER NOT NULL,
              ${DownloadedIllustTagsColumns.tagId} INTEGER NOT NULL,
@@ -253,96 +266,106 @@ class DownloadDatabaseProvider {
           )
         ''');
 
-        // 创建索引
-        await db.execute('''
+          // 创建索引
+          await db.execute('''
           CREATE INDEX idx_illust_user ON ${DownloadedIllustColumns.tableName}(${DownloadedIllustColumns.userId})
         ''');
-        await db.execute('''
+          await db.execute('''
           CREATE INDEX idx_image_illust ON ${DownloadedImageColumns.tableName}(${DownloadedImageColumns.illustId})
         ''');
-        // 非 webp 图片查询专用 partial index
-        await db.execute('''
+          // 非 webp 图片查询专用 partial index
+          await db.execute('''
           CREATE INDEX idx_dim_illust_non_webp ON ${DownloadedImageColumns.tableName}(${DownloadedImageColumns.illustId})
           WHERE ${DownloadedImageColumns.extension} != '.webp'
         ''');
-        // 排序字段索引
-        await db.execute('''
+          // 排序字段索引
+          await db.execute('''
           CREATE INDEX idx_illust_download_time ON ${DownloadedIllustColumns.tableName}(${DownloadedIllustColumns.downloadTime})
         ''');
-        await db.execute('''
+          await db.execute('''
           CREATE INDEX idx_illust_create_date ON ${DownloadedIllustColumns.tableName}(${DownloadedIllustColumns.createDate})
         ''');
-        // 作者表排序字段索引
-        await db.execute('''
+          // 作者表排序字段索引
+          await db.execute('''
           CREATE INDEX idx_author_last_download_time ON ${DownloadedAuthorColumns.tableName}(${DownloadedAuthorColumns.lastDownloadTime})
         ''');
-        await db.execute('''
+          await db.execute('''
           CREATE INDEX idx_author_user_name ON ${DownloadedAuthorColumns.tableName}(${DownloadedAuthorColumns.userName})
         ''');
-        await db.execute('''
+          await db.execute('''
           CREATE INDEX idx_author_illust_count ON ${DownloadedAuthorColumns.tableName}(${DownloadedAuthorColumns.illustCount})
         ''');
-        await db.execute('''
+          await db.execute('''
           CREATE INDEX idx_author_total_image_count ON ${DownloadedAuthorColumns.tableName}(${DownloadedAuthorColumns.totalImageCount})
         ''');
-        await db.execute('''
+          await db.execute('''
           CREATE INDEX idx_author_total_file_size ON ${DownloadedAuthorColumns.tableName}(${DownloadedAuthorColumns.totalFileSize})
         ''');
-        // 收藏字段索引
-        await db.execute('''
+          // 收藏字段索引
+          await db.execute('''
           CREATE INDEX idx_author_bookmark ON ${DownloadedAuthorColumns.tableName}(${DownloadedAuthorColumns.bookmark})
         ''');
-        await db.execute('''
+          await db.execute('''
           CREATE INDEX idx_illust_bookmark ON ${DownloadedIllustColumns.tableName}(${DownloadedIllustColumns.bookmark})
         ''');
-        // 标签表索引
-        await db.execute('''
+          // 标签表索引
+          await db.execute('''
           CREATE INDEX idx_tags_category ON ${DownloadedTagsColumns.tableName}(${DownloadedTagsColumns.category})
         ''');
-        await db.execute('''
+          await db.execute('''
           CREATE INDEX idx_tags_display_order ON ${DownloadedTagsColumns.tableName}(${DownloadedTagsColumns.displayOrder})
         ''');
-        await db.execute('''
+          await db.execute('''
           CREATE INDEX idx_tags_referenced_tag ON ${DownloadedTagsColumns.tableName}(${DownloadedTagsColumns.referencedTagId})
         ''');
-        await db.execute('''
+          await db.execute('''
           CREATE INDEX idx_tags_parent ON ${DownloadedTagsColumns.tableName}(${DownloadedTagsColumns.parentId})
         ''');
-        // 关联表索引
-        await db.execute('''
+          // 关联表索引
+          await db.execute('''
           CREATE INDEX idx_illust_tags_tag ON ${DownloadedIllustTagsColumns.tableName}(${DownloadedIllustTagsColumns.tagId})
         ''');
-        await db.execute('''
+          await db.execute('''
           CREATE INDEX idx_illust_tags_illust ON ${DownloadedIllustTagsColumns.tableName}(${DownloadedIllustTagsColumns.illustId})
         ''');
-        // 统计字段索引
-        await db.execute('''
+          // 统计字段索引
+          await db.execute('''
           CREATE INDEX idx_illust_total_file_size ON ${DownloadedIllustColumns.tableName}(${DownloadedIllustColumns.totalFileSize})
         ''');
-        await db.execute('''
+          await db.execute('''
           CREATE INDEX idx_illust_downloaded_count ON ${DownloadedIllustColumns.tableName}(${DownloadedIllustColumns.downloadedImageCount})
         ''');
+        },
+        onUpgrade: (Database db, int oldVersion, int newVersion) async {
+          Log.i(() => '升级数据库 $oldVersion -> $newVersion');
 
-      },
-      onUpgrade: (Database db, int oldVersion, int newVersion) async {
-        Log.i(() => '升级数据库 $oldVersion -> $newVersion');
-
-        // v15 -> v16: 添加 bookmark 字段到 pending_downloads
-        if (oldVersion < 16) {
-          Log.i(() => '添加 bookmark 字段到 pending_downloads 表');
-          await db.execute('ALTER TABLE ${PendingDownloadColumns.tableName} ADD COLUMN ${PendingDownloadColumns.bookmark} INTEGER DEFAULT 0');
-        }
-        // v16 -> v17: 添加非 webp 查询 partial index
-        if (oldVersion < 17) {
-          Log.i(() => '添加 downloaded_images 非 webp partial index');
-          await db.execute('''
+          // v15 -> v16: 添加 bookmark 字段到 pending_downloads
+          if (oldVersion < 16) {
+            Log.i(() => '添加 bookmark 字段到 pending_downloads 表');
+            await db.execute(
+              'ALTER TABLE ${PendingDownloadColumns.tableName} ADD COLUMN ${PendingDownloadColumns.bookmark} INTEGER DEFAULT 0',
+            );
+          }
+          // v16 -> v17: 添加非 webp 查询 partial index
+          if (oldVersion < 17) {
+            Log.i(() => '添加 downloaded_images 非 webp partial index');
+            await db.execute('''
             CREATE INDEX IF NOT EXISTS idx_dim_illust_non_webp
             ON ${DownloadedImageColumns.tableName}(${DownloadedImageColumns.illustId})
             WHERE ${DownloadedImageColumns.extension} != '.webp'
           ''');
-        }
-      }
-    );
+          }
+          // v17 -> v18: 添加 AI 翻译字段
+          if (oldVersion < 18) {
+            await db.execute(
+              "ALTER TABLE ${DownloadedIllustColumns.tableName} ADD COLUMN ${DownloadedIllustColumns.translatedTitle} TEXT NOT NULL DEFAULT ''",
+            );
+            await db.execute(
+              "ALTER TABLE ${DownloadedIllustColumns.tableName} ADD COLUMN ${DownloadedIllustColumns.translatedCaption} TEXT NOT NULL DEFAULT ''",
+            );
+          }
+        },
+      );
     } catch (e, stackTrace) {
       Log.e(() => '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       Log.e(() => '数据库打开失败');
@@ -389,7 +412,9 @@ class DownloadDatabaseProvider {
     return null;
   }
 
-  Future<List<DownloadedIllust>> getIllustsByIllustIds(List<int> illustIds) async {
+  Future<List<DownloadedIllust>> getIllustsByIllustIds(
+    List<int> illustIds,
+  ) async {
     if (illustIds.isEmpty) return [];
 
     final placeholders = List.filled(illustIds.length, '?').join(',');
@@ -424,8 +449,28 @@ class DownloadDatabaseProvider {
     );
   }
 
+  /// 仅更新 AI 译文；传入 null 表示保留原字段，空字符串表示清除。
+  Future<void> updateIllustTranslations(
+    int illustId, {
+    String? translatedTitle,
+    String? translatedCaption,
+  }) async {
+    final values = <String, Object?>{};
+    if (translatedTitle != null) {
+      values[DownloadedIllustColumns.translatedTitle] = translatedTitle;
+    }
+    if (translatedCaption != null) {
+      values[DownloadedIllustColumns.translatedCaption] = translatedCaption;
+    }
+    if (values.isEmpty) return;
+    await db.update(
+      DownloadedIllustColumns.tableName,
+      values,
+      where: '${DownloadedIllustColumns.illustId} = ?',
+      whereArgs: [illustId],
+    );
+  }
 
-  
   /// 更新插画的标签关联信息
   Future<void> updateTagsRelations(DownloadedIllust illust) async {
     try {
@@ -433,24 +478,27 @@ class DownloadDatabaseProvider {
       final illustId = illust.illustId;
       final newTags = illustsObj.tags;
       final squareMediumUrl = illustsObj.imageUrls.squareMedium;
-      
+
       final events = <TagChangeEvent>[];
-      
+
       await db.transaction((txn) async {
         // 1. 获取现有tag关联
         final existingTagIds = await _getExistingTagIds(txn, illustId);
-        
+
         // 2. 确保新tags存在于数据库
         await _ensureTagsExist(txn, newTags);
-        
+
         // 3. 获取新tags的ID
-        final newTagsData = await _queryTagsByNames(txn, newTags.map((t) => t.name).toList());
+        final newTagsData = await _queryTagsByNames(
+          txn,
+          newTags.map((t) => t.name).toList(),
+        );
         final newTagIds = newTagsData.keys.toSet();
-        
+
         // 4. 计算需要新增和删除的tag
         final toAdd = newTagIds.difference(existingTagIds);
         final toRemove = existingTagIds.difference(newTagIds);
-        
+
         // 5. 处理新增
         for (final tagId in toAdd) {
           final tag = newTagsData[tagId]!;
@@ -465,7 +513,7 @@ class DownloadDatabaseProvider {
           );
           events.add(event);
         }
-        
+
         // 6. 处理删除
         if (toRemove.isNotEmpty) {
           final removeTagsData = await _queryTagsByIds(txn, toRemove.toList());
@@ -483,7 +531,7 @@ class DownloadDatabaseProvider {
           }
         }
       });
-      
+
       // 7. 发送事件通知
       if (events.isNotEmpty) {
         _tagChangesController.add(events);
@@ -498,10 +546,13 @@ class DownloadDatabaseProvider {
     final relations = await txn.query(
       DownloadedIllustTagsColumns.tableName,
       columns: [DownloadedIllustTagsColumns.tagId],
-      where: '${DownloadedIllustTagsColumns.illustId} = ? AND ${DownloadedIllustTagsColumns.source} = ?',
+      where:
+          '${DownloadedIllustTagsColumns.illustId} = ? AND ${DownloadedIllustTagsColumns.source} = ?',
       whereArgs: [illustId, 0],
     );
-    return relations.map((r) => TypeUtil.parseInt(r[DownloadedIllustTagsColumns.tagId])).toSet();
+    return relations
+        .map((r) => TypeUtil.parseInt(r[DownloadedIllustTagsColumns.tagId]))
+        .toSet();
   }
 
   /// 确保tags存在于数据库中
@@ -519,35 +570,54 @@ class DownloadDatabaseProvider {
   }
 
   /// 根据tag名称批量查询tag数据
-  Future<Map<int, DownloadedTag>> _queryTagsByNames(Transaction txn, List<String> names) async {
+  Future<Map<int, DownloadedTag>> _queryTagsByNames(
+    Transaction txn,
+    List<String> names,
+  ) async {
     if (names.isEmpty) return {};
-    
+
     final placeholders = List.filled(names.length, '?').join(',');
     final rows = await txn.query(
       DownloadedTagsColumns.tableName,
       where: '${DownloadedTagsColumns.name} IN ($placeholders)',
       whereArgs: names,
     );
-    
-    return {for (var row in rows) TypeUtil.parseInt(row[DownloadedTagsColumns.id]): DownloadedTag.fromJson(row)};
+
+    return {
+      for (var row in rows)
+        TypeUtil.parseInt(
+          row[DownloadedTagsColumns.id],
+        ): DownloadedTag.fromJson(row),
+    };
   }
 
   /// 根据tag ID批量查询tag数据
-  Future<Map<int, DownloadedTag>> _queryTagsByIds(Transaction txn, List<int> ids) async {
+  Future<Map<int, DownloadedTag>> _queryTagsByIds(
+    Transaction txn,
+    List<int> ids,
+  ) async {
     if (ids.isEmpty) return {};
-    
+
     final placeholders = List.filled(ids.length, '?').join(',');
     final rows = await txn.query(
       DownloadedTagsColumns.tableName,
       where: '${DownloadedTagsColumns.id} IN ($placeholders)',
       whereArgs: ids,
     );
-    
-    return {for (var row in rows) TypeUtil.parseInt(row[DownloadedTagsColumns.id]): DownloadedTag.fromJson(row)};
+
+    return {
+      for (var row in rows)
+        TypeUtil.parseInt(
+          row[DownloadedTagsColumns.id],
+        ): DownloadedTag.fromJson(row),
+    };
   }
 
   /// 查询插画的 square_medium 预览图链接（用于 tag 预览事件）
-  Future<String?> _queryIllustSquareMediumUrl(Transaction txn, int illustId) async {
+  Future<String?> _queryIllustSquareMediumUrl(
+    Transaction txn,
+    int illustId,
+  ) async {
     final rows = await txn.query(
       DownloadedIllustColumns.tableName,
       columns: [DownloadedIllustColumns.imageUrlsJson],
@@ -557,12 +627,15 @@ class DownloadDatabaseProvider {
     );
     if (rows.isEmpty) return null;
 
-    final imageUrlsJson =
-        TypeUtil.parseString(rows.first[DownloadedIllustColumns.imageUrlsJson]);
+    final imageUrlsJson = TypeUtil.parseString(
+      rows.first[DownloadedIllustColumns.imageUrlsJson],
+    );
     if (imageUrlsJson.isEmpty) return null;
 
     try {
-      final map = TypeUtil.parseMap(PixivUrlUtil.decompressPxUrl(imageUrlsJson));
+      final map = TypeUtil.parseMap(
+        PixivUrlUtil.decompressPxUrl(imageUrlsJson),
+      );
       final squareMedium = TypeUtil.parseString(map['square_medium']);
       return squareMedium.isEmpty ? null : squareMedium;
     } catch (_) {
@@ -584,10 +657,15 @@ class DownloadDatabaseProvider {
   }
 
   /// 删除tag关联
-  Future<void> _removeTagRelation(Transaction txn, int illustId, int tagId) async {
+  Future<void> _removeTagRelation(
+    Transaction txn,
+    int illustId,
+    int tagId,
+  ) async {
     await txn.delete(
       DownloadedIllustTagsColumns.tableName,
-      where: '${DownloadedIllustTagsColumns.illustId} = ? AND ${DownloadedIllustTagsColumns.tagId} = ?',
+      where:
+          '${DownloadedIllustTagsColumns.illustId} = ? AND ${DownloadedIllustTagsColumns.tagId} = ?',
       whereArgs: [illustId, tagId],
     );
   }
@@ -603,11 +681,11 @@ class DownloadDatabaseProvider {
   }) async {
     final tagName = tag.name;
     final examplesStr = tag.exampleIllusts;
-    
+
     // 更新示例插画列表
     final examples = examplesStr.isEmpty ? <String>[] : examplesStr.split(',');
     final illustIdStr = illustId.toString();
-    
+
     // 根据变更类型更新 examples
     if (changeType == TagChangeType.illustAdded) {
       if (examples.length < 3 && !examples.contains(illustIdStr)) {
@@ -623,25 +701,26 @@ class DownloadDatabaseProvider {
       [tagId],
     );
     final int newCount = countResult.first['count'] as int? ?? 0;
-    
+
     // 更新数据库
     final updateData = {
       DownloadedTagsColumns.count: newCount,
       DownloadedTagsColumns.exampleIllusts: examples.join(','),
     };
-    
+
     // 仅在新增时更新 lastUsedTime
     if (changeType == TagChangeType.illustAdded) {
-      updateData[DownloadedTagsColumns.lastUsedTime] = DateTime.now().millisecondsSinceEpoch;
+      updateData[DownloadedTagsColumns.lastUsedTime] =
+          DateTime.now().millisecondsSinceEpoch;
     }
-    
+
     await txn.update(
       DownloadedTagsColumns.tableName,
       updateData,
       where: '${DownloadedTagsColumns.id} = ?',
       whereArgs: [tagId],
     );
-    
+
     return TagChangeEvent(
       tagId: tagId,
       tagName: tagName,
@@ -654,7 +733,10 @@ class DownloadDatabaseProvider {
   }
 
   /// 更新动图元数据（用于修复损坏或丢失的元数据）
-  Future<int> updateUgoiraMetadata(int illustId, String ugoiraMetadataJson) async {
+  Future<int> updateUgoiraMetadata(
+    int illustId,
+    String ugoiraMetadataJson,
+  ) async {
     return await db.update(
       DownloadedIllustColumns.tableName,
       {DownloadedIllustColumns.ugoiraMetadataJson: ugoiraMetadataJson},
@@ -692,10 +774,12 @@ class DownloadDatabaseProvider {
     String? typeFilter,
   }) async {
     // total_file_size 已物化到表中，无需 JOIN 查询
-    String orderByClause = orderBy ??
+    String orderByClause =
+        orderBy ??
         '${DownloadedIllustColumns.downloadTime} ${desc ? 'DESC' : 'ASC'}';
     if (filterBookmarks) {
-      orderByClause = '${DownloadedIllustColumns.bookmark} DESC, $orderByClause';
+      orderByClause =
+          '${DownloadedIllustColumns.bookmark} DESC, $orderByClause';
     }
 
     final whereConditions = <String>[];
@@ -703,12 +787,17 @@ class DownloadDatabaseProvider {
       whereConditions.add('${DownloadedIllustColumns.bookmark} > 0');
     }
     if (typeFilter == Constants.filterNoUgoira) {
-      whereConditions.add("${DownloadedIllustColumns.type} != '${Constants.ugoira}'");
+      whereConditions.add(
+        "${DownloadedIllustColumns.type} != '${Constants.ugoira}'",
+      );
     } else if (typeFilter == Constants.filterOnlyUgoira) {
-      whereConditions.add("${DownloadedIllustColumns.type} = '${Constants.ugoira}'");
+      whereConditions.add(
+        "${DownloadedIllustColumns.type} = '${Constants.ugoira}'",
+      );
     }
 
-    final String? where = whereConditions.isNotEmpty ? whereConditions.join(' AND ') : null;
+    final String? where =
+        whereConditions.isNotEmpty ? whereConditions.join(' AND ') : null;
 
     List<Map<String, dynamic>> maps = await db.query(
       DownloadedIllustColumns.tableName,
@@ -728,17 +817,20 @@ class DownloadDatabaseProvider {
     String? orderBy,
     bool filterBookmarks = false,
   }) async {
-    String orderByClause = orderBy ??
-        'di.${DownloadedIllustColumns.downloadTime} DESC';
+    String orderByClause =
+        orderBy ?? 'di.${DownloadedIllustColumns.downloadTime} DESC';
     if (filterBookmarks) {
-      orderByClause = 'di.${DownloadedIllustColumns.bookmark} DESC, $orderByClause';
+      orderByClause =
+          'di.${DownloadedIllustColumns.bookmark} DESC, $orderByClause';
     }
 
     final conditions = <String>[];
     final args = <dynamic>[];
 
-    conditions.add("di.${DownloadedIllustColumns.type} != '${Constants.ugoira}'");
-    
+    conditions.add(
+      "di.${DownloadedIllustColumns.type} != '${Constants.ugoira}'",
+    );
+
     if (userId != null) {
       conditions.add('di.${DownloadedIllustColumns.userId} = ?');
       args.add(userId);
@@ -770,10 +862,10 @@ class DownloadDatabaseProvider {
       args.add(limit);
     }
     if (offset != null) {
-       query += ' OFFSET ?';
-       args.add(offset);
+      query += ' OFFSET ?';
+      args.add(offset);
     }
-    
+
     final maps = await db.rawQuery(query, args);
     return maps.map((e) => DownloadedIllust.fromJson(e)).toList();
   }
@@ -790,7 +882,8 @@ class DownloadDatabaseProvider {
     String orderByClause =
         orderBy ?? '${DownloadedIllustColumns.downloadTime} DESC';
     if (filterBookmarks) {
-      orderByClause = '${DownloadedIllustColumns.bookmark} DESC, $orderByClause';
+      orderByClause =
+          '${DownloadedIllustColumns.bookmark} DESC, $orderByClause';
     }
 
     final whereConditions = ['${DownloadedIllustColumns.userId} = ?'];
@@ -798,9 +891,13 @@ class DownloadDatabaseProvider {
       whereConditions.add('${DownloadedIllustColumns.bookmark} > 0');
     }
     if (typeFilter == Constants.filterNoUgoira) {
-      whereConditions.add("${DownloadedIllustColumns.type} != '${Constants.ugoira}'");
+      whereConditions.add(
+        "${DownloadedIllustColumns.type} != '${Constants.ugoira}'",
+      );
     } else if (typeFilter == Constants.filterOnlyUgoira) {
-      whereConditions.add("${DownloadedIllustColumns.type} = '${Constants.ugoira}'");
+      whereConditions.add(
+        "${DownloadedIllustColumns.type} = '${Constants.ugoira}'",
+      );
     }
 
     List<Map<String, dynamic>> maps = await db.query(
@@ -829,16 +926,18 @@ class DownloadDatabaseProvider {
       where: '${DownloadedTagsColumns.name} = ?',
       whereArgs: [tag],
     );
-    
+
     if (tagResults.isEmpty) return [];
-    
+
     final tagId = tagResults.first[DownloadedTagsColumns.id] as int;
-    return await searchIllustsByTagId(tagId,
-        limit: limit,
-        offset: offset,
-        orderBy: orderBy,
-        filterBookmarks: filterBookmarks,
-        typeFilter: typeFilter);
+    return await searchIllustsByTagId(
+      tagId,
+      limit: limit,
+      offset: offset,
+      orderBy: orderBy,
+      filterBookmarks: filterBookmarks,
+      typeFilter: typeFilter,
+    );
   }
 
   Future<List<DownloadedIllust>> searchIllustsByTagId(
@@ -850,19 +949,21 @@ class DownloadDatabaseProvider {
     bool filterBookmarks = false,
     String? typeFilter,
   }) async {
-    final exampleCase = (exampleIllustIds != null && exampleIllustIds.isNotEmpty)
-        ? 'CASE WHEN di.${DownloadedIllustColumns.illustId} IN (${exampleIllustIds.join(',')}) THEN 0 ELSE 1 END ASC,'
-        : '';
+    final exampleCase =
+        (exampleIllustIds != null && exampleIllustIds.isNotEmpty)
+            ? 'CASE WHEN di.${DownloadedIllustColumns.illustId} IN (${exampleIllustIds.join(',')}) THEN 0 ELSE 1 END ASC,'
+            : '';
 
     // 等价类查询逻辑：
     // 1. 找到该标签关联的主标签ID (可能是它自己，也可能是它引用的 referencedTagId)
     // 2. 找到所有引用该主标签的标签ID (包括主标签本身)
     // 3. 查询这些标签关联的作品，并按插画 ID 分组去重
-    
+
     String orderByClause =
         orderBy ?? 'di.${DownloadedIllustColumns.downloadTime} DESC';
     if (filterBookmarks) {
-      orderByClause = 'di.${DownloadedIllustColumns.bookmark} DESC, $orderByClause';
+      orderByClause =
+          'di.${DownloadedIllustColumns.bookmark} DESC, $orderByClause';
     }
 
     final whereConditions = <String>[];
@@ -870,11 +971,18 @@ class DownloadDatabaseProvider {
       whereConditions.add('di.${DownloadedIllustColumns.bookmark} > 0');
     }
     if (typeFilter == Constants.filterNoUgoira) {
-      whereConditions.add("di.${DownloadedIllustColumns.type} != '${Constants.ugoira}'");
+      whereConditions.add(
+        "di.${DownloadedIllustColumns.type} != '${Constants.ugoira}'",
+      );
     } else if (typeFilter == Constants.filterOnlyUgoira) {
-      whereConditions.add("di.${DownloadedIllustColumns.type} = '${Constants.ugoira}'");
+      whereConditions.add(
+        "di.${DownloadedIllustColumns.type} = '${Constants.ugoira}'",
+      );
     }
-    final String whereClause = whereConditions.isNotEmpty ? 'WHERE ${whereConditions.join(' AND ')}' : '';
+    final String whereClause =
+        whereConditions.isNotEmpty
+            ? 'WHERE ${whereConditions.join(' AND ')}'
+            : '';
 
     var query = '''
       WITH TargetGroup AS (
@@ -899,23 +1007,26 @@ class DownloadDatabaseProvider {
       $whereClause
       ORDER BY $exampleCase $orderByClause
     ''';
-    
+
     final args = <dynamic>[tagId];
     if (limit != null) {
       query += ' LIMIT ?';
       args.add(limit);
     }
     if (offset != null) {
-       query += ' OFFSET ?';
-       args.add(offset);
+      query += ' OFFSET ?';
+      args.add(offset);
     }
-    
+
     final maps = await db.rawQuery(query, args);
     return maps.map((e) => DownloadedIllust.fromJson(e)).toList();
   }
 
   /// 查找与指定标签共同出现频率最高的“作品”标签
-  Future<List<DownloadedTag>> getCoOccurringWorkTags(int tagId, {int limit = 5}) async {
+  Future<List<DownloadedTag>> getCoOccurringWorkTags(
+    int tagId, {
+    int limit = 5,
+  }) async {
     // 使用 CTE 确保能够找全关联作品（包含等价标签的情况）
     final query = '''
       WITH TargetGroup AS (
@@ -940,14 +1051,16 @@ class DownloadDatabaseProvider {
       ORDER BY co_count DESC
       LIMIT ?
     ''';
-    
+
     final maps = await db.rawQuery(query, [tagId, limit]);
     return maps.map((e) => DownloadedTag.fromJson(e)).toList();
   }
 
   /// 批量获取所有潜在的标签共现关联建议
   /// 仅针对当前没有父标签且类别为 角色/未分类/特点 的标签
-  Future<List<Map<String, dynamic>>> getGlobalCoOccurrenceProposals({int limit = 100}) async {
+  Future<List<Map<String, dynamic>>> getGlobalCoOccurrenceProposals({
+    int limit = 100,
+  }) async {
     final query = '''
       SELECT 
         dit_child.${DownloadedIllustTagsColumns.tagId} AS child_id, 
@@ -973,7 +1086,7 @@ class DownloadDatabaseProvider {
       ORDER BY co_count DESC
       LIMIT ?
     ''';
-    
+
     return await db.rawQuery(query, [limit]);
   }
 
@@ -987,10 +1100,10 @@ class DownloadDatabaseProvider {
     );
   }
 
-
   /// 获取包含该标签在内的完整等价组
   Future<List<DownloadedTag>> getEquivalenceGroup(int tagId) async {
-    final List<Map<String, dynamic>> maps = await db.rawQuery('''
+    final List<Map<String, dynamic>> maps = await db.rawQuery(
+      '''
       WITH TargetGroup AS (
         SELECT id, COALESCE(referenced_tag_id, id) as main_id 
         FROM ${DownloadedTagsColumns.tableName} 
@@ -999,10 +1112,11 @@ class DownloadDatabaseProvider {
       SELECT * FROM ${DownloadedTagsColumns.tableName}
       WHERE id = (SELECT main_id FROM TargetGroup)
       OR referenced_tag_id = (SELECT main_id FROM TargetGroup)
-    ''', [tagId]);
+    ''',
+      [tagId],
+    );
     return maps.map((e) => DownloadedTag.fromJson(e)).toList();
   }
-
 
   /// 更新等价组内的主标签及成员关系
   Future<void> updateEquivalenceGroup(
@@ -1013,7 +1127,10 @@ class DownloadDatabaseProvider {
     await db.transaction((txn) async {
       // 0. 如果有被移除的标签,先清除它们的引用关系
       if (removedIds != null && removedIds.isNotEmpty) {
-        final removedPlaceholders = List.filled(removedIds.length, '?').join(',');
+        final removedPlaceholders = List.filled(
+          removedIds.length,
+          '?',
+        ).join(',');
         await txn.update(
           DownloadedTagsColumns.tableName,
           {DownloadedTagsColumns.referencedTagId: null},
@@ -1078,19 +1195,24 @@ class DownloadDatabaseProvider {
     String orderByClause =
         orderBy ?? '${DownloadedIllustColumns.downloadTime} DESC';
     if (filterBookmarks) {
-      orderByClause = '${DownloadedIllustColumns.bookmark} DESC, $orderByClause';
+      orderByClause =
+          '${DownloadedIllustColumns.bookmark} DESC, $orderByClause';
     }
 
     final whereConditions = [
-      '(${DownloadedIllustColumns.title} LIKE ? OR ${DownloadedIllustColumns.userName} LIKE ? OR ${DownloadedIllustColumns.tags} LIKE ?)'
+      '(${DownloadedIllustColumns.title} LIKE ? OR ${DownloadedIllustColumns.userName} LIKE ? OR ${DownloadedIllustColumns.tags} LIKE ?)',
     ];
     if (filterBookmarks) {
       whereConditions.add('${DownloadedIllustColumns.bookmark} > 0');
     }
     if (typeFilter == Constants.filterNoUgoira) {
-      whereConditions.add("${DownloadedIllustColumns.type} != '${Constants.ugoira}'");
+      whereConditions.add(
+        "${DownloadedIllustColumns.type} != '${Constants.ugoira}'",
+      );
     } else if (typeFilter == Constants.filterOnlyUgoira) {
-      whereConditions.add("${DownloadedIllustColumns.type} = '${Constants.ugoira}'");
+      whereConditions.add(
+        "${DownloadedIllustColumns.type} = '${Constants.ugoira}'",
+      );
     }
 
     List<Map<String, dynamic>> maps = await db.query(
@@ -1114,21 +1236,27 @@ class DownloadDatabaseProvider {
     String? typeFilter,
   }) async {
     // 使用物化字段 downloaded_image_count 直接过滤
-    String orderByClause = orderBy ?? '${DownloadedIllustColumns.downloadTime} DESC';
+    String orderByClause =
+        orderBy ?? '${DownloadedIllustColumns.downloadTime} DESC';
     if (filterBookmarks) {
-      orderByClause = '${DownloadedIllustColumns.bookmark} DESC, $orderByClause';
+      orderByClause =
+          '${DownloadedIllustColumns.bookmark} DESC, $orderByClause';
     }
 
     final whereConditions = [
-      '${DownloadedIllustColumns.downloadedImageCount} < ${DownloadedIllustColumns.pageCount}'
+      '${DownloadedIllustColumns.downloadedImageCount} < ${DownloadedIllustColumns.pageCount}',
     ];
     if (filterBookmarks) {
       whereConditions.add('${DownloadedIllustColumns.bookmark} > 0');
     }
     if (typeFilter == Constants.filterNoUgoira) {
-      whereConditions.add("${DownloadedIllustColumns.type} != '${Constants.ugoira}'");
+      whereConditions.add(
+        "${DownloadedIllustColumns.type} != '${Constants.ugoira}'",
+      );
     } else if (typeFilter == Constants.filterOnlyUgoira) {
-      whereConditions.add("${DownloadedIllustColumns.type} = '${Constants.ugoira}'");
+      whereConditions.add(
+        "${DownloadedIllustColumns.type} = '${Constants.ugoira}'",
+      );
     }
 
     var query = '''
@@ -1164,9 +1292,12 @@ class DownloadDatabaseProvider {
         where: '${DownloadedIllustTagsColumns.illustId} = ?',
         whereArgs: [illustId],
       );
-      final affectedTagIds = tagRelations
-          .map((r) => TypeUtil.parseInt(r[DownloadedIllustTagsColumns.tagId]))
-          .toList();
+      final affectedTagIds =
+          tagRelations
+              .map(
+                (r) => TypeUtil.parseInt(r[DownloadedIllustTagsColumns.tagId]),
+              )
+              .toList();
 
       // 2. 先删除关联的图片记录
       await txn.delete(
@@ -1238,21 +1369,22 @@ class DownloadDatabaseProvider {
   /// 通过查询 downloaded_images 表来确保数据一致性
   Future<void> recalculateIllustStats(int illustId, {Transaction? txn}) async {
     final database = txn ?? db;
-    
+
     // 查询该插画的所有图片记录
     final images = await database.query(
       DownloadedImageColumns.tableName,
       where: '${DownloadedImageColumns.illustId} = ?',
       whereArgs: [illustId],
     );
-    
+
     // 计算统计信息
     final imageCount = images.length;
     final totalSize = images.fold<int>(
       0,
-      (sum, img) => sum + (TypeUtil.parseInt(img[DownloadedImageColumns.fileSize])),
+      (sum, img) =>
+          sum + (TypeUtil.parseInt(img[DownloadedImageColumns.fileSize])),
     );
-    
+
     // 更新插画表
     await database.update(
       DownloadedIllustColumns.tableName,
@@ -1293,7 +1425,8 @@ class DownloadDatabaseProvider {
     await db.transaction((txn) async {
       await txn.delete(
         DownloadedImageColumns.tableName,
-        where: '${DownloadedImageColumns.illustId} = ? AND ${DownloadedImageColumns.part} = ?',
+        where:
+            '${DownloadedImageColumns.illustId} = ? AND ${DownloadedImageColumns.part} = ?',
         whereArgs: [illustId, part],
       );
       // 重新计算统计信息（确保数据一致）
@@ -1306,7 +1439,8 @@ class DownloadDatabaseProvider {
   Future<void> deleteImageWithoutStats(int illustId, int part) async {
     await db.delete(
       DownloadedImageColumns.tableName,
-      where: '${DownloadedImageColumns.illustId} = ? AND ${DownloadedImageColumns.part} = ?',
+      where:
+          '${DownloadedImageColumns.illustId} = ? AND ${DownloadedImageColumns.part} = ?',
       whereArgs: [illustId, part],
     );
   }
@@ -1331,7 +1465,8 @@ class DownloadDatabaseProvider {
   /// 批量检查图片是否已下载
   /// 返回一个 Set，包含已下载的 (illustId, part) 组合的 Map
   Future<Set<Map<String, int>>> batchCheckImageDownloaded(
-      List<Map<String, int>> illustParts) async {
+    List<Map<String, int>> illustParts,
+  ) async {
     if (illustParts.isEmpty) return {};
 
     final result = <Map<String, int>>{};
@@ -1369,7 +1504,7 @@ class DownloadDatabaseProvider {
             DownloadedImageColumns.tableName,
             columns: [
               DownloadedImageColumns.illustId,
-              DownloadedImageColumns.part
+              DownloadedImageColumns.part,
             ],
             where:
                 '${DownloadedImageColumns.illustId} = ? AND ${DownloadedImageColumns.part} IN ($placeholders)',
@@ -1377,10 +1512,12 @@ class DownloadDatabaseProvider {
           );
 
           result.addAll(
-            maps.map((e) => {
-                  'illustId': e[DownloadedImageColumns.illustId] as int,
-                  'part': e[DownloadedImageColumns.part] as int,
-                }),
+            maps.map(
+              (e) => {
+                'illustId': e[DownloadedImageColumns.illustId] as int,
+                'part': e[DownloadedImageColumns.part] as int,
+              },
+            ),
           );
         }
       }
@@ -1437,7 +1574,6 @@ class DownloadDatabaseProvider {
     return result;
   }
 
-
   /// 批量获取插画的所有图片信息及其完整路径（自动检测后缀名）
   /// 返回 Map<part, LocalImageInfo>
   ///
@@ -1457,28 +1593,36 @@ class DownloadDatabaseProvider {
 
     // 对于动图，默认只处理预览图(part=0)，过滤掉所有帧文件(part>=1)
     // 如果 includeUgoiraFrames 为 true，则包含所有帧文件
-    final filteredImages = (isUgoira == true && !includeUgoiraFrames)
-        ? images.where((img) => img.part == 0).toList()
-        : images;
+    final filteredImages =
+        (isUgoira == true && !includeUgoiraFrames)
+            ? images.where((img) => img.part == 0).toList()
+            : images;
 
     Log.d(
-        'getLocalImageInfosByIllustId: ${images.length} total images, ${filteredImages.length} filtered (isUgoira: $isUgoira, includeUgoiraFrames: $includeUgoiraFrames), ${DateTime.now().difference(t1).inMilliseconds}ms');
+      'getLocalImageInfosByIllustId: ${images.length} total images, ${filteredImages.length} filtered (isUgoira: $isUgoira, includeUgoiraFrames: $includeUgoiraFrames), ${DateTime.now().difference(t1).inMilliseconds}ms',
+    );
 
     // 并行处理所有图片，大幅提升性能
     final futures = filteredImages.map((image) async {
-      final foundPath = await findImagePathForImage(image,
-          relativePath: relPath, isUgoira: isUgoira ?? false);
+      final foundPath = await findImagePathForImage(
+        image,
+        relativePath: relPath,
+        isUgoira: isUgoira ?? false,
+      );
       if (foundPath != null) {
         return MapEntry(
-            image.part,
-            LocalImageInfo(
-              path: foundPath,
-              width: image.width,
-              height: image.height,
-              fileSize: image.fileSize,
-            ));
+          image.part,
+          LocalImageInfo(
+            path: foundPath,
+            width: image.width,
+            height: image.height,
+            fileSize: image.fileSize,
+          ),
+        );
       } else {
-        Log.w('未找到图片: ${image.illustId}-${image.part}, $_downloadPath, $relPath, ${image.fileName}');
+        Log.w(
+          '未找到图片: ${image.illustId}-${image.part}, $_downloadPath, $relPath, ${image.fileName}',
+        );
       }
       return null;
     });
@@ -1523,14 +1667,13 @@ class DownloadDatabaseProvider {
     }
 
     // 确定实际的搜索目录
-    String searchRelPath = (isUgoira && image.part > 0)
-        ? getUgoiraFrameDirPath(relPath)
-        : relPath;
+    String searchRelPath =
+        (isUgoira && image.part > 0) ? getUgoiraFrameDirPath(relPath) : relPath;
 
     // 使用标准的相对路径和文件名构建路径
     final basePath = getAbsolutePath(
       searchRelPath.replaceAll('\\', '/'),
-      image.fileName
+      image.fileName,
     );
 
     // 首先尝试数据库中记录的后缀（最常见的情况）
@@ -1558,8 +1701,11 @@ class DownloadDatabaseProvider {
       if (result != null) {
         if (update) {
           // 更新数据库中的后缀名（异步执行，不阻塞返回）
-          updateImageExtension(image.illustId, image.part, result.ext)
-              .catchError((e) {
+          updateImageExtension(
+            image.illustId,
+            image.part,
+            result.ext,
+          ).catchError((e) {
             Log.e('Failed to update image extension: $e');
             return 0; // 返回默认值以满足 catchError 的要求
           });
@@ -1645,12 +1791,7 @@ class DownloadDatabaseProvider {
   /// 获取插画已下载的图片数量
   /// @deprecated 使用物化字段 DownloadedIllust.downloadedImageCount 替代
   @Deprecated('使用物化字段 DownloadedIllust.downloadedImageCount 替代')
-
-
-
   // ============ 路径工具 ============
-
-
   /// 生成作者目录名
   static String _buildUserDirName(String userName, int userId) {
     return '[${userName.toLegal()}][$userId]';
@@ -1665,7 +1806,6 @@ class DownloadDatabaseProvider {
   static String buildFileName(int illustId, int part) {
     return '${illustId}_p$part';
   }
-
 
   /// 智能解析相对路径（处理改名情况）
   /// 优先使用数据库或磁盘中已存在的路径
@@ -1687,7 +1827,10 @@ class DownloadDatabaseProvider {
     }
 
     // 3. 获取作者目录（复用逻辑）
-    final authorDir = await resolveAuthorDirectoryPath(userId, illusts.user.name);
+    final authorDir = await resolveAuthorDirectoryPath(
+      userId,
+      illusts.user.name,
+    );
 
     // 4. 在作者目录下查找作品目录（处理作品改标题情况）
     // 只有当作者目录确实存在（无论是找到的还是新建的，但如果是新建的肯定没有子目录，所以只需在找到各种情况下搜索）
@@ -1713,9 +1856,10 @@ class DownloadDatabaseProvider {
       }
     }
 
-    final illustDir = foundIllustDirName ?? _buildIllustDirName(illustId, illusts.title);
+    final illustDir =
+        foundIllustDirName ?? _buildIllustDirName(illustId, illusts.title);
     final relativePath = path.join(authorDir, illustDir);
-    
+
     // 写入缓存
     _illustRelPathCache[illustId] = relativePath;
     return relativePath;
@@ -1740,7 +1884,9 @@ class DownloadDatabaseProvider {
     String? foundAuthorDirName;
 
     if (sameAuthorIllusts.isNotEmpty) {
-      final relativePath = sameAuthorIllusts.first[DownloadedIllustColumns.relativePath] as String;
+      final relativePath =
+          sameAuthorIllusts.first[DownloadedIllustColumns.relativePath]
+              as String;
       // relativePath 格式通常为: AuthorDir/IllustDir 或 AuthorDir\IllustDir
       // 使用正则同时匹配 / 和 \ 以兼容跨平台数据库
       final parts = relativePath.split(RegExp(r'[/\\]'));
@@ -1779,7 +1925,6 @@ class DownloadDatabaseProvider {
     return authorDir;
   }
 
-
   /// 根据相对路径获取插画目录的绝对路径
   String getIllustAbsolutePath(String relativePath) {
     return path.join(_downloadPath!, relativePath);
@@ -1799,7 +1944,6 @@ class DownloadDatabaseProvider {
   String getUgoiraFrameDirPath(String relativePath) {
     return getAbsolutePath(relativePath, 'ugoira');
   }
-
 
   /// 尝试找到图片文件（自动检测后缀名）
   Future<String?> findImagePath(
@@ -1829,7 +1973,12 @@ class DownloadDatabaseProvider {
   }) async {
     final image = await getImage(illustId, part);
     if (image == null) return null;
-    final imagePath = await findImagePathForImage(image, relativePath: relativePath, isUgoira: isUgoira, update: update);
+    final imagePath = await findImagePathForImage(
+      image,
+      relativePath: relativePath,
+      isUgoira: isUgoira,
+      update: update,
+    );
     if (imagePath == null) return null;
     return LocalImageInfo(
       path: imagePath,
@@ -1839,12 +1988,19 @@ class DownloadDatabaseProvider {
     );
   }
 
-  Future<LocalImageInfo?> getLocalImageInfoByUrl(String url, {String? relativePath}) async {
+  Future<LocalImageInfo?> getLocalImageInfoByUrl(
+    String url, {
+    String? relativePath,
+  }) async {
     final image = await getImageByOriginalUrl(url);
     if (image == null) return null;
     final illust = await getIllustByIllustId(image.illustId);
     final isUgoira = illust?.isUgoira ?? false;
-    final imagePath = await findImagePathForImage(image, relativePath: relativePath, isUgoira: isUgoira);
+    final imagePath = await findImagePathForImage(
+      image,
+      relativePath: relativePath,
+      isUgoira: isUgoira,
+    );
     if (imagePath == null) return null;
     return LocalImageInfo(
       path: imagePath,
@@ -1874,7 +2030,8 @@ class DownloadDatabaseProvider {
         whereArgs: [userId],
       );
       if (existing.isNotEmpty) {
-        bookmark = existing.first[DownloadedAuthorColumns.bookmark] as int? ?? 0;
+        bookmark =
+            existing.first[DownloadedAuthorColumns.bookmark] as int? ?? 0;
       }
     } catch (e) {
       Log.w('获取旧作者 bookmark 失败: $e');
@@ -1886,8 +2043,9 @@ class DownloadDatabaseProvider {
         DownloadedAuthorColumns.userId: userId,
         if (userName != null) DownloadedAuthorColumns.userName: userName,
         if (profileImageUrl != null)
-          DownloadedAuthorColumns.profileImageUrl:
-              PixivUrlUtil.compressPxUrl(profileImageUrl),
+          DownloadedAuthorColumns.profileImageUrl: PixivUrlUtil.compressPxUrl(
+            profileImageUrl,
+          ),
         DownloadedAuthorColumns.illustCount: illustCount,
         DownloadedAuthorColumns.totalImageCount: totalImageCount,
         DownloadedAuthorColumns.totalFileSize: totalFileSize,
@@ -1917,7 +2075,11 @@ class DownloadDatabaseProvider {
   Future<void> updateAuthorProfileUrl(int userId, String newUrl) async {
     await db.update(
       DownloadedAuthorColumns.tableName,
-      {DownloadedAuthorColumns.profileImageUrl: PixivUrlUtil.compressPxUrl(newUrl)},
+      {
+        DownloadedAuthorColumns.profileImageUrl: PixivUrlUtil.compressPxUrl(
+          newUrl,
+        ),
+      },
       where: '${DownloadedAuthorColumns.userId} = ?',
       whereArgs: [userId],
     );
@@ -1963,7 +2125,9 @@ class DownloadDatabaseProvider {
     // 批量过滤指定的作者 ID
     if (filterUserIds != null && filterUserIds.isNotEmpty) {
       final placeholders = List.filled(filterUserIds.length, '?').join(',');
-      whereConditions.add('${DownloadedAuthorColumns.userId} IN ($placeholders)');
+      whereConditions.add(
+        '${DownloadedAuthorColumns.userId} IN ($placeholders)',
+      );
       whereArgs.addAll(filterUserIds);
     }
 
@@ -1974,7 +2138,8 @@ class DownloadDatabaseProvider {
 
       if (userId != null) {
         whereConditions.add(
-            '(${DownloadedAuthorColumns.userId} = ? OR ${DownloadedAuthorColumns.userName} LIKE ?)');
+          '(${DownloadedAuthorColumns.userId} = ? OR ${DownloadedAuthorColumns.userName} LIKE ?)',
+        );
         whereArgs.addAll([userId, '%$keyword%']);
       } else {
         whereConditions.add('${DownloadedAuthorColumns.userName} LIKE ?');
@@ -1982,7 +2147,8 @@ class DownloadDatabaseProvider {
       }
     }
 
-    final String? where = whereConditions.isNotEmpty ? whereConditions.join(' AND ') : null;
+    final String? where =
+        whereConditions.isNotEmpty ? whereConditions.join(' AND ') : null;
 
     List<Map<String, dynamic>> maps = await db.query(
       DownloadedAuthorColumns.tableName,
@@ -2012,11 +2178,14 @@ class DownloadDatabaseProvider {
     // 批量过滤指定的作者 ID
     if (filterUserIds != null && filterUserIds.isNotEmpty) {
       final placeholders = List.filled(filterUserIds.length, '?').join(',');
-      whereConditions.add('${DownloadedAuthorColumns.userId} IN ($placeholders)');
+      whereConditions.add(
+        '${DownloadedAuthorColumns.userId} IN ($placeholders)',
+      );
       whereArgs.addAll(filterUserIds);
     }
 
-    final String? where = whereConditions.isNotEmpty ? whereConditions.join(' AND ') : null;
+    final String? where =
+        whereConditions.isNotEmpty ? whereConditions.join(' AND ') : null;
 
     final result = await db.rawQuery(
       'SELECT COUNT(*) as count FROM ${DownloadedAuthorColumns.tableName}${where != null ? ' WHERE $where' : ''}',
@@ -2032,17 +2201,18 @@ class DownloadDatabaseProvider {
     // 构建 WHERE 条件
     String whereClause;
     List<dynamic> whereArgs;
-    
+
     if (userIds != null && userIds.isNotEmpty) {
       final placeholders = List.filled(userIds.length, '?').join(',');
-      whereClause = 'WHERE T1.${DownloadedIllustColumns.userId} IN ($placeholders)';
+      whereClause =
+          'WHERE T1.${DownloadedIllustColumns.userId} IN ($placeholders)';
       whereArgs = userIds;
     } else {
       // 查询所有作者
       whereClause = 'WHERE 1=1';
       whereArgs = [];
     }
-    
+
     // 查询条件：
     // 1. 图片后缀不是 .webp（通过 partial index 预筛选）
     // 2. 作品类型不是 ugoira (动图通常是 zip，单独处理)
@@ -2069,7 +2239,7 @@ class DownloadDatabaseProvider {
     if (illustIds.isEmpty) return {};
 
     final placeholders = List.filled(illustIds.length, '?').join(',');
-    
+
     // 查询条件：
     // 1. 指定的插画列表
     // 2. 图片后缀不是 .webp（通过 partial index 预筛选）
@@ -2089,7 +2259,9 @@ class DownloadDatabaseProvider {
         AND T1.${DownloadedIllustColumns.type} != 'ugoira'
     ''', illustIds);
 
-    return result.map((e) => e[DownloadedIllustColumns.illustId] as int).toSet();
+    return result
+        .map((e) => e[DownloadedIllustColumns.illustId] as int)
+        .toSet();
   }
 
   /// 获取所有作者（不分页）
@@ -2104,19 +2276,25 @@ class DownloadDatabaseProvider {
   /// 更新作者统计信息（从插画表重新计算）
   Future<void> updateAuthorStats(int userId) async {
     // 获取插画数量
-    final illustCount = await db.rawQuery('''
+    final illustCount = await db.rawQuery(
+      '''
       SELECT COUNT(*) as count 
       FROM ${DownloadedIllustColumns.tableName} 
       WHERE ${DownloadedIllustColumns.userId} = ?
-    ''', [userId]);
+    ''',
+      [userId],
+    );
     final count = illustCount.first['count'] as int? ?? 0;
 
     // 获取最新下载时间
-    final latestTime = await db.rawQuery('''
+    final latestTime = await db.rawQuery(
+      '''
       SELECT MAX(${DownloadedIllustColumns.downloadTime}) as last_time
       FROM ${DownloadedIllustColumns.tableName}
       WHERE ${DownloadedIllustColumns.userId} = ?
-    ''', [userId]);
+    ''',
+      [userId],
+    );
     final lastDownloadTime = latestTime.first['last_time'] as int? ?? 0;
 
     // 获取最新插画的 JSON 来解析用户名和头像
@@ -2145,13 +2323,16 @@ class DownloadDatabaseProvider {
     }
 
     // 计算总图片数量和总文件大小（使用物化字段）
-    final statsResult = await db.rawQuery('''
+    final statsResult = await db.rawQuery(
+      '''
       SELECT 
         COALESCE(SUM(${DownloadedIllustColumns.downloadedImageCount}), 0) as total_image_count,
         COALESCE(SUM(${DownloadedIllustColumns.totalFileSize}), 0) as total_file_size
       FROM ${DownloadedIllustColumns.tableName}
       WHERE ${DownloadedIllustColumns.userId} = ?
-    ''', [userId]);
+    ''',
+      [userId],
+    );
     final totalImageCount = statsResult.first['total_image_count'] as int? ?? 0;
     final totalFileSize = statsResult.first['total_file_size'] as int? ?? 0;
 
@@ -2170,13 +2351,16 @@ class DownloadDatabaseProvider {
   /// 更新作者统计信息，如果作者没有插画则删除作者记录
   /// 这个方法应该在删除插画后调用，用于维护作者表的正确状态
   Future<void> deleteAuthorIfEmpty(int userId) async {
-    final count = await db.rawQuery('''
+    final count = await db.rawQuery(
+      '''
       SELECT COUNT(*) as count 
       FROM ${DownloadedIllustColumns.tableName} 
       WHERE ${DownloadedIllustColumns.userId} = ?
-    ''', [userId]);
+    ''',
+      [userId],
+    );
     final illustCount = count.first['count'] as int? ?? 0;
-    
+
     if (illustCount == 0) {
       // 没有插画，删除作者记录
       await db.delete(
@@ -2193,13 +2377,16 @@ class DownloadDatabaseProvider {
   /// 获取作者的图片统计信息（总图片张数和总文件大小）
   /// 使用物化字段优化查询
   Future<Map<String, int>> getAuthorImageStats(int userId) async {
-    final result = await db.rawQuery('''
+    final result = await db.rawQuery(
+      '''
       SELECT 
         COALESCE(SUM(${DownloadedIllustColumns.downloadedImageCount}), 0) as total_image_count,
         COALESCE(SUM(${DownloadedIllustColumns.totalFileSize}), 0) as total_file_size
       FROM ${DownloadedIllustColumns.tableName}
       WHERE ${DownloadedIllustColumns.userId} = ?
-    ''', [userId]);
+    ''',
+      [userId],
+    );
 
     if (result.isNotEmpty) {
       return {
@@ -2230,11 +2417,15 @@ class DownloadDatabaseProvider {
       conditions.add('di.${DownloadedIllustColumns.bookmark} > 0');
     }
     if (typeFilter == Constants.filterNoUgoira) {
-      conditions.add("di.${DownloadedIllustColumns.type} != '${Constants.ugoira}'");
+      conditions.add(
+        "di.${DownloadedIllustColumns.type} != '${Constants.ugoira}'",
+      );
     } else if (typeFilter == Constants.filterOnlyUgoira) {
-      conditions.add("di.${DownloadedIllustColumns.type} = '${Constants.ugoira}'");
+      conditions.add(
+        "di.${DownloadedIllustColumns.type} = '${Constants.ugoira}'",
+      );
     }
-    
+
     if (conditions.isNotEmpty) {
       whereClause = 'WHERE ${conditions.join(' AND ')}';
     }
@@ -2246,7 +2437,8 @@ class DownloadDatabaseProvider {
         whereClause += ' AND di.${DownloadedIllustColumns.userId} = ?';
       }
       whereArgs.add(userId);
-    } else if (filterType == 'tag' && (tagId != null || (tagName != null && tagName.isNotEmpty))) {
+    } else if (filterType == 'tag' &&
+        (tagId != null || (tagName != null && tagName.isNotEmpty))) {
       int? targetTagId = tagId;
       if (targetTagId == null && tagName != null) {
         final tag = await getTagByName(tagName);
@@ -2255,7 +2447,10 @@ class DownloadDatabaseProvider {
 
       if (targetTagId != null) {
         // 使用 CTE 找到等价组的所有标签 ID
-        final bookmarkCondition = filterBookmarks ? 'AND di.${DownloadedIllustColumns.bookmark} > 0' : '';
+        final bookmarkCondition =
+            filterBookmarks
+                ? 'AND di.${DownloadedIllustColumns.bookmark} > 0'
+                : '';
         final query = '''
           WITH TargetGroup AS (
             SELECT ${DownloadedTagsColumns.id} as id, COALESCE(${DownloadedTagsColumns.referencedTagId}, ${DownloadedTagsColumns.id}) as main_id 
@@ -2295,17 +2490,22 @@ class DownloadDatabaseProvider {
     } else if (filterType == 'search' &&
         searchKeyword != null &&
         searchKeyword.isNotEmpty) {
-      final searchCondition = 'di.${DownloadedIllustColumns.title} LIKE ? OR di.${DownloadedIllustColumns.userName} LIKE ? OR di.${DownloadedIllustColumns.tags} LIKE ?';
+      final searchCondition =
+          'di.${DownloadedIllustColumns.title} LIKE ? OR di.${DownloadedIllustColumns.userName} LIKE ? OR di.${DownloadedIllustColumns.tags} LIKE ?';
       if (whereClause.isEmpty) {
         whereClause = 'WHERE ($searchCondition)';
       } else {
         whereClause += ' AND ($searchCondition)';
       }
-      whereArgs
-          .addAll(['%$searchKeyword%', '%$searchKeyword%', '%$searchKeyword%']);
+      whereArgs.addAll([
+        '%$searchKeyword%',
+        '%$searchKeyword%',
+        '%$searchKeyword%',
+      ]);
     } else if (filterType == 'incomplete') {
       // 未下载完整：使用物化字段过滤，无需 JOIN
-      final incompleteCondition = '${DownloadedIllustColumns.downloadedImageCount} < ${DownloadedIllustColumns.pageCount}';
+      final incompleteCondition =
+          '${DownloadedIllustColumns.downloadedImageCount} < ${DownloadedIllustColumns.pageCount}';
       if (whereClause.isEmpty) {
         whereClause = 'WHERE $incompleteCondition';
       } else {
@@ -2358,7 +2558,8 @@ class DownloadDatabaseProvider {
 
   /// 获取指定状态的待下载任务
   Future<List<PendingDownload>> getPendingDownloadsByStatus(
-      List<String> status) async {
+    List<String> status,
+  ) async {
     List<Map<String, dynamic>> maps = await db.query(
       PendingDownloadColumns.tableName,
       where:
@@ -2370,10 +2571,7 @@ class DownloadDatabaseProvider {
   }
 
   /// 更新任务状态
-  Future<int> updatePendingDownloadStatus(
-    String id,
-    String status,
-  ) async {
+  Future<int> updatePendingDownloadStatus(String id, String status) async {
     return await db.update(
       PendingDownloadColumns.tableName,
       {PendingDownloadColumns.status: status},
@@ -2405,7 +2603,6 @@ class DownloadDatabaseProvider {
     return await db.delete(PendingDownloadColumns.tableName);
   }
 
-
   /// 获取待下载任务数量
   Future<int> getPendingDownloadCount() async {
     final result = await db.rawQuery(
@@ -2416,7 +2613,8 @@ class DownloadDatabaseProvider {
 
   /// 批量插入待下载任务（使用事务优化性能）
   Future<void> batchInsertPendingDownloads(
-      List<PendingDownload> pendings) async {
+    List<PendingDownload> pendings,
+  ) async {
     if (pendings.isEmpty) return;
 
     final batch = db.batch();
@@ -2456,7 +2654,8 @@ class DownloadDatabaseProvider {
   /// 批量检查并插入插画记录（使用事务优化性能）
   /// 返回已存在的 illustId 集合
   Future<Set<int>> batchInsertIllustsIfNotExists(
-      List<DownloadedIllust> illusts) async {
+    List<DownloadedIllust> illusts,
+  ) async {
     if (illusts.isEmpty) return {};
 
     // 先批量查询已存在的 illustId
@@ -2472,8 +2671,9 @@ class DownloadDatabaseProvider {
         'SELECT ${DownloadedIllustColumns.illustId} FROM ${DownloadedIllustColumns.tableName} WHERE ${DownloadedIllustColumns.illustId} IN ($placeholders)',
         batch,
       );
-      existingIds
-          .addAll(maps.map((e) => e[DownloadedIllustColumns.illustId] as int));
+      existingIds.addAll(
+        maps.map((e) => e[DownloadedIllustColumns.illustId] as int),
+      );
     }
 
     // 过滤出需要插入的 illusts
@@ -2520,11 +2720,11 @@ class DownloadDatabaseProvider {
   // ============ WebP 动图相关操作 ============
 
   /// 将动图序列帧记录替换为WebP动图记录
-  /// 
+  ///
   /// 在事务中执行：
   /// 1. 删除 part > 0 的序列帧记录（保留 part=0 预览图）
   /// 2. 插入 part=-1 的 WebP 动图记录
-  /// 
+  ///
   /// [illustId]: 插画ID
   /// [relativePath]: 相对路径
   /// [fileSize]: WebP文件大小
@@ -2541,7 +2741,8 @@ class DownloadDatabaseProvider {
       // 1. 删除序列帧记录（保留 part=0 的预览图）
       await txn.delete(
         DownloadedImageColumns.tableName,
-        where: '${DownloadedImageColumns.illustId} = ? AND ${DownloadedImageColumns.part} > 0',
+        where:
+            '${DownloadedImageColumns.illustId} = ? AND ${DownloadedImageColumns.part} > 0',
         whereArgs: [illustId],
       );
 
@@ -2570,7 +2771,8 @@ class DownloadDatabaseProvider {
         DownloadedImageColumns.width: width,
         DownloadedImageColumns.height: height,
       },
-      where: '${DownloadedImageColumns.illustId} = ? AND ${DownloadedImageColumns.part} = ?',
+      where:
+          '${DownloadedImageColumns.illustId} = ? AND ${DownloadedImageColumns.part} = ?',
       whereArgs: [illustId, -1],
     );
   }
@@ -2609,14 +2811,15 @@ class DownloadDatabaseProvider {
 
   Future<void> batchUpdateTagCategory(List<int> tagIds, int category) async {
     if (tagIds.isEmpty) return;
-    
+
     // Batch update using WHERE IN
     const batchSize = 500;
     for (int i = 0; i < tagIds.length; i += batchSize) {
-      final end = (i + batchSize < tagIds.length) ? i + batchSize : tagIds.length;
+      final end =
+          (i + batchSize < tagIds.length) ? i + batchSize : tagIds.length;
       final batchIds = tagIds.sublist(i, end);
       final placeholders = List.filled(batchIds.length, '?').join(',');
-      
+
       await db.update(
         DownloadedTagsColumns.tableName,
         {DownloadedTagsColumns.category: category},
@@ -2715,108 +2918,121 @@ class DownloadDatabaseProvider {
   }
 
   Future<List<String>> getTagsForIllust(int illustId) async {
-    final List<Map<String, dynamic>> maps = await db.rawQuery('''
+    final List<Map<String, dynamic>> maps = await db.rawQuery(
+      '''
       SELECT t.${DownloadedTagsColumns.name}
       FROM ${DownloadedIllustTagsColumns.tableName} it
       JOIN ${DownloadedTagsColumns.tableName} t ON it.${DownloadedIllustTagsColumns.tagId} = t.${DownloadedTagsColumns.id}
       WHERE it.${DownloadedIllustTagsColumns.illustId} = ?
-    ''', [illustId]);
+    ''',
+      [illustId],
+    );
     return maps.map((e) => e[DownloadedTagsColumns.name] as String).toList();
   }
 
   Future<List<TagDisplayData>> getTags() async {
-      // Fetch all tags. Sorting and filtering are handled by the frontend store.
-      final List<Map<String, dynamic>> maps = await db.query(
-        DownloadedTagsColumns.tableName,
-      );
-      
-      List<TagDisplayData> result = [];
-      Set<int> allIllustIds = {};
+    // Fetch all tags. Sorting and filtering are handled by the frontend store.
+    final List<Map<String, dynamic>> maps = await db.query(
+      DownloadedTagsColumns.tableName,
+    );
 
-      // First pass: create entities and collect IDs
-      List<DownloadedTag> tagEntities = [];
-      for (var map in maps) {
-        var entity = DownloadedTag.fromJson(map);
-        tagEntities.add(entity);
-        allIllustIds.addAll(entity.exampleIllustIds);
-      }
+    List<TagDisplayData> result = [];
+    Set<int> allIllustIds = {};
 
-      // Batch query illusts
-      Map<int, IllustPreviewData> illustMap = {};
-      if (allIllustIds.isNotEmpty) {
-        final List<int> idsList = allIllustIds.toList();
-        // Batch size of 200 to be safe (SQLite usually limits params to ~999)
-        const int batchSize = 200;
-        for (var i = 0; i < idsList.length; i += batchSize) {
-           var end = (i + batchSize < idsList.length) ? i + batchSize : idsList.length;
-           var batchIds = idsList.sublist(i, end);
-           
-           final placeholders = List.filled(batchIds.length, '?').join(',');
-           
-           final List<Map<String, dynamic>> illustMaps = await db.query(
-             DownloadedIllustColumns.tableName,
-             columns: [
-                DownloadedIllustColumns.illustId,
-                DownloadedIllustColumns.imageUrlsJson,
-             ],
-             where: '${DownloadedIllustColumns.illustId} IN ($placeholders)',
-             whereArgs: batchIds,
-           );
-           for (var m in illustMaps) {
-             final illustId = m[DownloadedIllustColumns.illustId] as int;
-             final imageUrlsJson = m[DownloadedIllustColumns.imageUrlsJson] as String;
+    // First pass: create entities and collect IDs
+    List<DownloadedTag> tagEntities = [];
+    for (var map in maps) {
+      var entity = DownloadedTag.fromJson(map);
+      tagEntities.add(entity);
+      allIllustIds.addAll(entity.exampleIllustIds);
+    }
 
-             String squareMedium = '';
-             if (imageUrlsJson.isNotEmpty) {
-               final map = TypeUtil.parseMap(PixivUrlUtil.decompressPxUrl(imageUrlsJson));
-                 squareMedium = TypeUtil.parseString(map['square_medium']);
-             }
-             
-             illustMap[illustId] = IllustPreviewData(
-               illustId: illustId,
-               squareMediumUrl: squareMedium,
-             );
-           }
-        }
-      }
+    // Batch query illusts
+    Map<int, IllustPreviewData> illustMap = {};
+    if (allIllustIds.isNotEmpty) {
+      final List<int> idsList = allIllustIds.toList();
+      // Batch size of 200 to be safe (SQLite usually limits params to ~999)
+      const int batchSize = 200;
+      for (var i = 0; i < idsList.length; i += batchSize) {
+        var end =
+            (i + batchSize < idsList.length) ? i + batchSize : idsList.length;
+        var batchIds = idsList.sublist(i, end);
 
-      // Pre-collect all referencedTagIds to determine which tags have equivalent relationships
-      final List<Map<String, dynamic>> refMaps = await db.query(
-        DownloadedTagsColumns.tableName,
-        columns: [DownloadedTagsColumns.referencedTagId],
-        where: '${DownloadedTagsColumns.referencedTagId} IS NOT NULL'
-      );
-      final Set<int> allReferencedIds = refMaps.map((m) => m[DownloadedTagsColumns.referencedTagId] as int).toSet();
-      
-      // Second pass: associate illusts and determine hasEquivalentTags
-      for (var entity in tagEntities) {
-        List<IllustPreviewData> previewIllusts = [];
-        for (var illustId in entity.exampleIllustIds) {
-          if (illustMap.containsKey(illustId)) {
-            previewIllusts.add(illustMap[illustId]!);
+        final placeholders = List.filled(batchIds.length, '?').join(',');
+
+        final List<Map<String, dynamic>> illustMaps = await db.query(
+          DownloadedIllustColumns.tableName,
+          columns: [
+            DownloadedIllustColumns.illustId,
+            DownloadedIllustColumns.imageUrlsJson,
+          ],
+          where: '${DownloadedIllustColumns.illustId} IN ($placeholders)',
+          whereArgs: batchIds,
+        );
+        for (var m in illustMaps) {
+          final illustId = m[DownloadedIllustColumns.illustId] as int;
+          final imageUrlsJson =
+              m[DownloadedIllustColumns.imageUrlsJson] as String;
+
+          String squareMedium = '';
+          if (imageUrlsJson.isNotEmpty) {
+            final map = TypeUtil.parseMap(
+              PixivUrlUtil.decompressPxUrl(imageUrlsJson),
+            );
+            squareMedium = TypeUtil.parseString(map['square_medium']);
           }
+
+          illustMap[illustId] = IllustPreviewData(
+            illustId: illustId,
+            squareMediumUrl: squareMedium,
+          );
         }
-        // Since we don't have createDate in the lean object, we'll rely on the order of exampleIllustIds 
-        // which was already sorted by date when saved to DB during syncTags.
-        
-        // A tag has equivalent tags if:
-        // 1. It is an alias (points to someone else)
-        // 2. It is a primary tag (someone else points to it)
-        bool hasEquivalentTags = entity.referencedTagId != 0 || allReferencedIds.contains(entity.id);
-        
-        result.add(TagDisplayData(
-          tag: entity, 
+      }
+    }
+
+    // Pre-collect all referencedTagIds to determine which tags have equivalent relationships
+    final List<Map<String, dynamic>> refMaps = await db.query(
+      DownloadedTagsColumns.tableName,
+      columns: [DownloadedTagsColumns.referencedTagId],
+      where: '${DownloadedTagsColumns.referencedTagId} IS NOT NULL',
+    );
+    final Set<int> allReferencedIds =
+        refMaps
+            .map((m) => m[DownloadedTagsColumns.referencedTagId] as int)
+            .toSet();
+
+    // Second pass: associate illusts and determine hasEquivalentTags
+    for (var entity in tagEntities) {
+      List<IllustPreviewData> previewIllusts = [];
+      for (var illustId in entity.exampleIllustIds) {
+        if (illustMap.containsKey(illustId)) {
+          previewIllusts.add(illustMap[illustId]!);
+        }
+      }
+      // Since we don't have createDate in the lean object, we'll rely on the order of exampleIllustIds
+      // which was already sorted by date when saved to DB during syncTags.
+
+      // A tag has equivalent tags if:
+      // 1. It is an alias (points to someone else)
+      // 2. It is a primary tag (someone else points to it)
+      bool hasEquivalentTags =
+          entity.referencedTagId != 0 || allReferencedIds.contains(entity.id);
+
+      result.add(
+        TagDisplayData(
+          tag: entity,
           previewIllusts: previewIllusts,
           hasEquivalentTags: hasEquivalentTags,
-        ));
-      }
+        ),
+      );
+    }
 
-      return result;
+    return result;
   }
 
   Future<void> syncTags({Function(String status)? onStatus}) async {
     if (onStatus != null) onStatus('正在准备...');
-      
+
     // 1. Get all downloaded illusts
     if (onStatus != null) onStatus('正在读取作品列表...');
     final List<Map<String, dynamic>> illustsMaps = await db.query(
@@ -2830,61 +3046,70 @@ class DownloadDatabaseProvider {
     Map<String, Set<int>> tagToIllusts = {};
     Map<String, String> tagTranslations = {};
     int count = 0;
-    
+
     for (var map in illustsMaps) {
       int illustId = map[DownloadedIllustColumns.illustId];
       String tagsJson = map[DownloadedIllustColumns.tags];
       try {
-          List<Tags> illustTags = TypeUtil.parseList(tagsJson, (e) => Tags.fromMap(TypeUtil.parseMap(e)));
-          
-          for (var tag in illustTags) {
-            String tagName = tag.name;
-            if (processTags(tagName)) {
-               tagToIllusts.putIfAbsent(tagName, () => {});
-               tagToIllusts[tagName]!.add(illustId);
-               tagTranslations[tagName] = tag.translatedName ?? '';
-            }
+        List<Tags> illustTags = TypeUtil.parseList(
+          tagsJson,
+          (e) => Tags.fromMap(TypeUtil.parseMap(e)),
+        );
+
+        for (var tag in illustTags) {
+          String tagName = tag.name;
+          if (processTags(tagName)) {
+            tagToIllusts.putIfAbsent(tagName, () => {});
+            tagToIllusts[tagName]!.add(illustId);
+            tagTranslations[tagName] = tag.translatedName ?? '';
           }
+        }
       } catch (e) {
         // ignore parsing error
       }
-      
+
       count++;
       if (count % 200 == 0) {
-          if (onStatus != null) onStatus('已分析 $count / ${illustsMaps.length}...');
+        if (onStatus != null) onStatus('已分析 $count / ${illustsMaps.length}...');
       }
     }
 
     if (onStatus != null) onStatus('正在写入数据库...');
-    
+
     await db.transaction((txn) async {
-       // Clear automatic links and reset counts
-       await txn.delete(
+      // Clear automatic links and reset counts
+      await txn.delete(
         DownloadedIllustTagsColumns.tableName,
         where: '${DownloadedIllustTagsColumns.source} = ?',
         whereArgs: [0],
       );
-      
+
       // Update DB
       int currentTag = 0;
       int totalTags = tagToIllusts.length;
-      
+
       for (var entry in tagToIllusts.entries) {
         String tagName = entry.key;
         Set<int> illustIds = entry.value;
         String translation = tagTranslations[tagName] ?? '';
-        
+
         // 1. Insert or Ignore Tag
-        await txn.rawInsert('''
+        await txn.rawInsert(
+          '''
           INSERT OR IGNORE INTO ${DownloadedTagsColumns.tableName} 
           (${DownloadedTagsColumns.name}, ${DownloadedTagsColumns.translatedName})
           VALUES (?, ?)
-        ''', [tagName, translation]);
-        
+        ''',
+          [tagName, translation],
+        );
+
         // 2. Prepare metadata
-        List<int> sortedIllusts = illustIds.toList()..sort((a, b) => b.compareTo(a)); // Descending ID roughly means descending date
+        List<int> sortedIllusts =
+            illustIds.toList()..sort(
+              (a, b) => b.compareTo(a),
+            ); // Descending ID roughly means descending date
         String exampleIllusts = sortedIllusts.take(3).join(',');
-        
+
         // 3. Update Tag Metadata
         await txn.update(
           DownloadedTagsColumns.tableName,
@@ -2895,7 +3120,7 @@ class DownloadDatabaseProvider {
           where: '${DownloadedTagsColumns.name} = ?',
           whereArgs: [tagName],
         );
-        
+
         // 4. Get Tag ID
         final tagRows = await txn.query(
           DownloadedTagsColumns.tableName,
@@ -2903,26 +3128,26 @@ class DownloadDatabaseProvider {
           where: '${DownloadedTagsColumns.name} = ?',
           whereArgs: [tagName],
         );
-        
+
         if (tagRows.isNotEmpty) {
-           int tagId = tagRows.first[DownloadedTagsColumns.id] as int;
-           
-           // 5. Insert Relations (Batch)
-           Batch batch = txn.batch();
-           for (int iId in illustIds) {
-             batch.insert(
-               DownloadedIllustTagsColumns.tableName,
-               {
-                 DownloadedIllustTagsColumns.illustId: iId,
-                 DownloadedIllustTagsColumns.tagId: tagId,
-                 DownloadedIllustTagsColumns.source: 0,
-               },
-               conflictAlgorithm: ConflictAlgorithm.ignore,
-             );
-           }
-           await batch.commit(noResult: true);
+          int tagId = tagRows.first[DownloadedTagsColumns.id] as int;
+
+          // 5. Insert Relations (Batch)
+          Batch batch = txn.batch();
+          for (int iId in illustIds) {
+            batch.insert(
+              DownloadedIllustTagsColumns.tableName,
+              {
+                DownloadedIllustTagsColumns.illustId: iId,
+                DownloadedIllustTagsColumns.tagId: tagId,
+                DownloadedIllustTagsColumns.source: 0,
+              },
+              conflictAlgorithm: ConflictAlgorithm.ignore,
+            );
+          }
+          await batch.commit(noResult: true);
         }
-        
+
         currentTag++;
         if (currentTag % 50 == 0 && onStatus != null) {
           onStatus('正在同步标签 $currentTag / $totalTags...');
@@ -2930,7 +3155,7 @@ class DownloadDatabaseProvider {
       }
     });
   }
-  
+
   bool processTags(String tag) {
     return true;
   }

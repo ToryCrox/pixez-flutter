@@ -38,6 +38,7 @@ import 'package:pixez/page/hello/hello_page.dart';
 import 'package:pixez/page/hello/recom/recom_manga_page.dart';
 import 'package:pixez/page/hello/setting/data_export_page.dart';
 import 'package:pixez/page/hello/setting/setting_quality_page.dart';
+import 'package:pixez/page/hello/setting/ai_settings_page.dart';
 import 'package:pixez/page/history/history_page.dart';
 import 'package:pixez/page/login/login_page.dart';
 import 'package:pixez/page/novel/history/novel_history_page.dart';
@@ -109,117 +110,135 @@ class _SettingPageState extends State<SettingPage> {
                   backgroundColor: Colors.transparent,
                   actions: [
                     IconButton(
-                      icon: Icon(
-                        Icons.palette,
-                      ),
+                      icon: Icon(Icons.palette),
                       onPressed: () {
-                        Navigator.of(context).push(MaterialPageRoute(
-                            builder: (context) => ThemePage()));
+                        Navigator.of(context).push(
+                          MaterialPageRoute(builder: (context) => ThemePage()),
+                        );
                       },
                     ),
                   ],
                 ),
-                Observer(builder: (context) {
-                  if (accountStore.now != null)
-                    return SingleChildScrollView(
-                      child: Column(
-                        children: <Widget>[
-                          Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: InkWell(
-                              onTap: () {
-                                Navigator.of(context)
-                                    .push(MaterialPageRoute(builder: (_) {
-                                  return AccountSelectPage();
-                                }));
-                              },
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  PainterAvatar(
-                                    url: accountStore.now!.userImage,
-                                    id: int.parse(accountStore.now!.userId),
-                                  ),
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 8.0),
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.max,
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.start,
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Padding(
-                                          padding: const EdgeInsets.symmetric(
-                                              vertical: 8.0),
-                                          child: Text(accountStore.now!.name,
-                                              style: Theme.of(context)
-                                                  .textTheme
-                                                  .titleMedium),
-                                        ),
-                                        if (accountStore
-                                            .now!.mailAddress.isNotEmpty)
-                                          Row(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.center,
-                                            children: [
-                                              Text(
-                                                hideEmail
-                                                    ? accountStore.now!
-                                                        .hiddenEmail()
-                                                    : accountStore
-                                                        .now!.mailAddress,
-                                                style: Theme.of(context)
-                                                    .textTheme
-                                                    .bodySmall,
-                                              ),
-                                              SizedBox(
-                                                width: 6,
-                                              ),
-                                              GestureDetector(
-                                                onTap: () {
-                                                  setState(() {
-                                                    hideEmail = !hideEmail;
-                                                  });
-                                                },
-                                                child: Text(
+                Observer(
+                  builder: (context) {
+                    if (accountStore.now != null)
+                      return SingleChildScrollView(
+                        child: Column(
+                          children: <Widget>[
+                            Padding(
+                              padding: const EdgeInsets.all(8.0),
+                              child: InkWell(
+                                onTap: () {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) {
+                                        return AccountSelectPage();
+                                      },
+                                    ),
+                                  );
+                                },
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    PainterAvatar(
+                                      url: accountStore.now!.userImage,
+                                      id: int.parse(accountStore.now!.userId),
+                                    ),
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8.0,
+                                      ),
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.max,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Padding(
+                                            padding: const EdgeInsets.symmetric(
+                                              vertical: 8.0,
+                                            ),
+                                            child: Text(
+                                              accountStore.now!.name,
+                                              style:
+                                                  Theme.of(
+                                                    context,
+                                                  ).textTheme.titleMedium,
+                                            ),
+                                          ),
+                                          if (accountStore
+                                              .now!
+                                              .mailAddress
+                                              .isNotEmpty)
+                                            Row(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.center,
+                                              children: [
+                                                Text(
+                                                  hideEmail
+                                                      ? accountStore.now!
+                                                          .hiddenEmail()
+                                                      : accountStore
+                                                          .now!
+                                                          .mailAddress,
+                                                  style:
+                                                      Theme.of(
+                                                        context,
+                                                      ).textTheme.bodySmall,
+                                                ),
+                                                SizedBox(width: 6),
+                                                GestureDetector(
+                                                  onTap: () {
+                                                    setState(() {
+                                                      hideEmail = !hideEmail;
+                                                    });
+                                                  },
+                                                  child: Text(
                                                     hideEmail
-                                                        ? I18n.of(context)
-                                                            .reveal
+                                                        ? I18n.of(
+                                                          context,
+                                                        ).reveal
                                                         : I18n.of(context).hide,
                                                     style: Theme.of(context)
                                                         .textTheme
                                                         .bodySmall!
                                                         .copyWith(
-                                                            color: Theme.of(
-                                                                    context)
-                                                                .colorScheme
-                                                                .primary)),
-                                              )
-                                            ],
-                                          )
-                                      ],
+                                                          color:
+                                                              Theme.of(context)
+                                                                  .colorScheme
+                                                                  .primary,
+                                                        ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                        ],
+                                      ),
                                     ),
-                                  )
-                                ],
+                                  ],
+                                ),
                               ),
                             ),
-                          ),
-                          ListTile(
-                            leading: Icon(Icons.account_box),
-                            title: Text(I18n.of(context).account_message),
-                            onTap: () {
-                              Navigator.of(context).push(MaterialPageRoute(
-                                  builder: (BuildContext context) =>
-                                      AccountEditPage()));
-                            },
-                          )
-                        ],
-                      ),
-                    );
-                  return Container();
-                }),
+                            ListTile(
+                              leading: Icon(Icons.account_box),
+                              title: Text(I18n.of(context).account_message),
+                              onTap: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder:
+                                        (BuildContext context) =>
+                                            AccountEditPage(),
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                      );
+                    return Container();
+                  },
+                ),
                 Divider(),
                 Column(
                   children: <Widget>[
@@ -228,11 +247,14 @@ class _SettingPageState extends State<SettingPage> {
                       title: Text(I18n.of(context).history_record),
                       onTap: () {
                         Navigator.of(context).push(
-                            MaterialPageRoute(builder: (BuildContext context) {
-                          return Constants.type == 0
-                              ? HistoryPage()
-                              : NovelHistory();
-                        }));
+                          MaterialPageRoute(
+                            builder: (BuildContext context) {
+                              return Constants.type == 0
+                                  ? HistoryPage()
+                                  : NovelHistory();
+                            },
+                          ),
+                        );
                       },
                     ),
                     ListTile(
@@ -240,16 +262,25 @@ class _SettingPageState extends State<SettingPage> {
                       title: Text(I18n.of(context).quality_setting),
                       onTap: () {
                         Navigator.of(context).push(
-                            MaterialPageRoute(builder: (BuildContext context) {
-                          return SettingQualityPage();
-                        }));
+                          MaterialPageRoute(
+                            builder: (BuildContext context) {
+                              return SettingQualityPage();
+                            },
+                          ),
+                        );
                       },
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.auto_awesome),
+                      title: const Text('AI 设置'),
+                      subtitle: const Text('翻译服务与提示词'),
+                      onTap: () => Leader.push(context, const AiSettingsPage()),
                     ),
                     ListTile(
                       leading: Icon(Icons.bookmark),
                       title: Text(I18n.of(context).favorited_tag),
-                      onTap: () =>
-                          Leader.pushWithScaffold(context, BookTagPage()),
+                      onTap:
+                          () => Leader.pushWithScaffold(context, BookTagPage()),
                     ),
                     ListTile(
                       leading: Icon(Icons.block),
@@ -269,7 +300,8 @@ class _SettingPageState extends State<SettingPage> {
                     ListTile(
                       leading: Icon(Icons.storage_rounded),
                       title: const Text('数据库管理'),
-                      onTap: () => Leader.push(context, const DatabaseListPage()),
+                      onTap:
+                          () => Leader.push(context, const DatabaseListPage()),
                     ),
                   ],
                 ),
@@ -283,30 +315,48 @@ class _SettingPageState extends State<SettingPage> {
                     ),
                     ListTile(
                       leading: Icon(
-                          Constants.type == 0 ? Icons.book : Icons.image),
-                      title: Text(Constants.type == 0
-                          ? I18n.of(context).novel
-                          : I18n.of(context).illust),
+                        Constants.type == 0 ? Icons.book : Icons.image,
+                      ),
+                      title: Text(
+                        Constants.type == 0
+                            ? I18n.of(context).novel
+                            : I18n.of(context).illust,
+                      ),
                       onTap: () {
                         if (Constants.type == 0) {
-                          Navigator.of(context, rootNavigator: true)
-                              .pushReplacement(MaterialPageRoute(
-                                  builder: (context) => NovelRail()));
+                          Navigator.of(
+                            context,
+                            rootNavigator: true,
+                          ).pushReplacement(
+                            MaterialPageRoute(
+                              builder: (context) => NovelRail(),
+                            ),
+                          );
                         } else {
                           Constants.type = 0;
-                          Navigator.of(context, rootNavigator: true)
-                              .pushReplacement(MaterialPageRoute(
-                                  builder: (context) => Platform.isAndroid
-                                      ? const AndroidHelloPage()
-                                      : HelloPage()));
+                          Navigator.of(
+                            context,
+                            rootNavigator: true,
+                          ).pushReplacement(
+                            MaterialPageRoute(
+                              builder:
+                                  (context) =>
+                                      Platform.isAndroid
+                                          ? const AndroidHelloPage()
+                                          : HelloPage(),
+                            ),
+                          );
                         }
                       },
                     ),
                     ListTile(
                       leading: Icon(Icons.message),
                       title: Text(I18n.of(context).about),
-                      onTap: () => Leader.push(
-                          context, AboutPage(newVersion: hasNewVersion)),
+                      onTap:
+                          () => Leader.push(
+                            context,
+                            AboutPage(newVersion: hasNewVersion),
+                          ),
                       trailing: Visibility(
                         child: NewVersionChip(),
                         visible: hasNewVersion,
@@ -316,28 +366,30 @@ class _SettingPageState extends State<SettingPage> {
                       ListTile(
                         leading: Icon(Icons.article),
                         title: Text(I18n.of(context).bulletin_board),
-                        onTap: () => Leader.push(
-                            context,
-                            BoardPage(
-                              boardList: _boardList,
-                            )),
+                        onTap:
+                            () => Leader.push(
+                              context,
+                              BoardPage(boardList: _boardList),
+                            ),
                       ),
-                    Observer(builder: (context) {
-                      if (accountStore.now != null)
-                        return ListTile(
-                          leading: Icon(Icons.arrow_back),
-                          title: Text(I18n.of(context).logout),
-                          onTap: () => _showLogoutDialog(context),
-                        );
-                      else
-                        return ListTile(
-                          leading: Icon(Icons.arrow_back),
-                          title: Text(I18n.of(context).login),
-                          onTap: () => Leader.push(context, LoginPage()),
-                        );
-                    })
+                    Observer(
+                      builder: (context) {
+                        if (accountStore.now != null)
+                          return ListTile(
+                            leading: Icon(Icons.arrow_back),
+                            title: Text(I18n.of(context).logout),
+                            onTap: () => _showLogoutDialog(context),
+                          );
+                        else
+                          return ListTile(
+                            leading: Icon(Icons.arrow_back),
+                            title: Text(I18n.of(context).login),
+                            onTap: () => Leader.push(context, LoginPage()),
+                          );
+                      },
+                    ),
                   ],
-                )
+                ),
               ],
             ),
           ),
@@ -348,26 +400,27 @@ class _SettingPageState extends State<SettingPage> {
 
   Future _showLogoutDialog(BuildContext context) async {
     final result = await showDialog(
-        context: context,
-        builder: (context) {
-          return AlertDialog(
-            title: Text(I18n.of(context).logout),
-            actions: <Widget>[
-              TextButton(
-                child: Text(I18n.of(context).cancel),
-                onPressed: () {
-                  Navigator.of(context).pop("CANCEL");
-                },
-              ),
-              TextButton(
-                child: Text(I18n.of(context).ok),
-                onPressed: () {
-                  Navigator.of(context).pop("OK");
-                },
-              ),
-            ],
-          );
-        });
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text(I18n.of(context).logout),
+          actions: <Widget>[
+            TextButton(
+              child: Text(I18n.of(context).cancel),
+              onPressed: () {
+                Navigator.of(context).pop("CANCEL");
+              },
+            ),
+            TextButton(
+              child: Text(I18n.of(context).ok),
+              onPressed: () {
+                Navigator.of(context).pop("OK");
+              },
+            ),
+          ],
+        );
+      },
+    );
     switch (result) {
       case "OK":
         {

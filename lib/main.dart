@@ -53,6 +53,9 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:pixez/debug/mana_manager.dart';
 import 'package:pixez/component/network_speed_floating_ball.dart';
+import 'package:pixez/ai/ai_client.dart';
+import 'package:pixez/ai/ai_settings_store.dart';
+import 'package:pixez/ai/ai_translation_service.dart';
 
 import 'custom/log.dart';
 
@@ -71,6 +74,12 @@ final TagManagerStore tagManagerStore = TagManagerStore();
 
 final FullScreenStore fullScreenStore = FullScreenStore();
 final DownloadStore downloadStore = DownloadStore();
+final AiSettingsStore aiSettings = AiSettingsStore();
+final AiClient aiClient = AiClient();
+final AiTranslationService aiTranslationService = AiTranslationService(
+  settings: aiSettings,
+  client: aiClient,
+);
 
 final globalNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -229,6 +238,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   Future<void> _initialize() async {
     userSetting.askInit();
     await userSetting.init(); // 等待 userSetting 初始化完成
+    await aiSettings.init();
     accountStore.fetch();
     bookTagStore.init();
     muteStore.init();
@@ -315,9 +325,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                   children: [
                     child,
                     Observer(
-                      builder: (context) => userSetting.showNetworkSpeedBall
-                            ? FloatingNetworkSpeedBall()
-                            : const SizedBox(),
+                      builder:
+                          (context) =>
+                              userSetting.showNetworkSpeedBall
+                                  ? FloatingNetworkSpeedBall()
+                                  : const SizedBox(),
                     ),
                   ],
                 );
@@ -342,12 +354,12 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                 dialogTheme: DialogThemeData(
                   backgroundColor: lightColorScheme.surfaceContainer,
                   titleTextStyle: TextStyle(
-                    fontFamily: userSetting.fontFamily, 
+                    fontFamily: userSetting.fontFamily,
                     fontSize: 22,
                     color: lightColorScheme.onSurface,
                   ),
                   contentTextStyle: TextStyle(
-                    fontFamily: userSetting.fontFamily, 
+                    fontFamily: userSetting.fontFamily,
                     fontSize: 16,
                     color: lightColorScheme.onSurfaceVariant,
                   ),
@@ -363,12 +375,12 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                 colorScheme: darkColorScheme,
                 dialogTheme: DialogThemeData(
                   titleTextStyle: TextStyle(
-                    fontFamily: userSetting.fontFamily, 
+                    fontFamily: userSetting.fontFamily,
                     fontSize: 22,
                     color: darkColorScheme.onSurface,
                   ),
                   contentTextStyle: TextStyle(
-                    fontFamily: userSetting.fontFamily, 
+                    fontFamily: userSetting.fontFamily,
                     fontSize: 16,
                     color: darkColorScheme.onSurfaceVariant,
                   ),

@@ -24,11 +24,14 @@ class _TagEditDialogState extends State<TagEditDialog> {
   late List<TagDisplayData> _equivalenceGroup;
   late int _parentId;
   late List<TagDisplayData> _childTags;
+  bool _isTranslating = false;
 
   @override
   void initState() {
     super.initState();
-    _customTranslateController = TextEditingController(text: widget.tag.customTranslatedName);
+    _customTranslateController = TextEditingController(
+      text: widget.tag.customTranslatedName,
+    );
     _selectedCategory = widget.tag.categoryEnum;
     _isBookmarked = widget.tag.isBookmarked;
     _displayOrder = widget.tag.displayOrder;
@@ -63,9 +66,21 @@ class _TagEditDialogState extends State<TagEditDialog> {
               const SizedBox(height: 16),
               TextField(
                 controller: _customTranslateController,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: '自定义翻译',
-                  border: OutlineInputBorder(),
+                  border: const OutlineInputBorder(),
+                  suffixIcon: IconButton(
+                    tooltip: 'AI 翻译',
+                    onPressed: _isTranslating ? null : _translateWithAi,
+                    icon:
+                        _isTranslating
+                            ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                            : const Icon(Icons.auto_awesome),
+                  ),
                 ),
               ),
               const SizedBox(height: 16),
@@ -77,17 +92,24 @@ class _TagEditDialogState extends State<TagEditDialog> {
               Wrap(
                 spacing: 8.0,
                 runSpacing: 8.0,
-                children: TagCategory.values.where((e) => e != TagCategory.uncategorized).map((category) {
-                  return ChoiceChip(
-                    label: Text(category.label),
-                    selected: _selectedCategory == category,
-                    onSelected: (bool selected) {
-                      setState(() {
-                        _selectedCategory = selected ? category : TagCategory.uncategorized;
-                      });
-                    },
-                  );
-                }).toList(),
+                children:
+                    TagCategory.values
+                        .where((e) => e != TagCategory.uncategorized)
+                        .map((category) {
+                          return ChoiceChip(
+                            label: Text(category.label),
+                            selected: _selectedCategory == category,
+                            onSelected: (bool selected) {
+                              setState(() {
+                                _selectedCategory =
+                                    selected
+                                        ? category
+                                        : TagCategory.uncategorized;
+                              });
+                            },
+                          );
+                        })
+                        .toList(),
               ),
               const SizedBox(height: 16),
               SwitchListTile(
@@ -100,7 +122,10 @@ class _TagEditDialogState extends State<TagEditDialog> {
                 },
               ),
               const SizedBox(height: 16),
-              const Text('优先级 (负数沉底，正数置顶)', style: TextStyle(fontWeight: FontWeight.bold)),
+              const Text(
+                '优先级 (负数沉底，正数置顶)',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
               Slider(
                 value: _displayOrder.toDouble().clamp(-10.0, 10.0),
                 min: -10,
@@ -123,10 +148,7 @@ class _TagEditDialogState extends State<TagEditDialog> {
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('取消'),
         ),
-        ElevatedButton(
-          onPressed: _save,
-          child: const Text('保存'),
-        ),
+        ElevatedButton(onPressed: _save, child: const Text('保存')),
       ],
     );
   }
@@ -137,7 +159,13 @@ class _TagEditDialogState extends State<TagEditDialog> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('$label: ', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+          Text(
+            '$label: ',
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Colors.grey,
+            ),
+          ),
           Expanded(child: SelectableText(value)),
         ],
       ),
@@ -146,7 +174,8 @@ class _TagEditDialogState extends State<TagEditDialog> {
 
   Widget _buildEquivalenceGroup() {
     // 排除当前标签
-    final otherTags = _equivalenceGroup.where((td) => td.tag.id != widget.tag.id).toList();
+    final otherTags =
+        _equivalenceGroup.where((td) => td.tag.id != widget.tag.id).toList();
 
     return Padding(
       padding: const EdgeInsets.only(top: 12.0),
@@ -155,10 +184,19 @@ class _TagEditDialogState extends State<TagEditDialog> {
         children: [
           Row(
             children: [
-              const Text('关联标签: ', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+              const Text(
+                '关联标签: ',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey,
+                ),
+              ),
               if (widget.tag.referencedTagId == 0 && otherTags.isNotEmpty)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 1,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.blue.withOpacity(0.1),
                     border: Border.all(color: Colors.blue, width: 0.5),
@@ -166,7 +204,11 @@ class _TagEditDialogState extends State<TagEditDialog> {
                   ),
                   child: const Text(
                     '主标签',
-                    style: TextStyle(color: Colors.blue, fontSize: 10, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      color: Colors.blue,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               const Spacer(),
@@ -185,40 +227,49 @@ class _TagEditDialogState extends State<TagEditDialog> {
               child: Wrap(
                 spacing: 4,
                 runSpacing: 4,
-                children: otherTags.map((td) {
-                  final t = td.tag;
-                  // 判断是否为主标签（大师标签的 referencedTagId 为 0）
-                  final isPrimary = t.referencedTagId == 0;
-                  
-                  // 构建显示文本：原名 + (翻译) + [数量]
-                  final namePart = t.name;
-                  final translatePart = t.displayTranslatedName.isNotEmpty 
-                      ? ' (${t.displayTranslatedName})' 
-                      : '';
-                  final countPart = ' [${t.count}]';
-                  
-                  final labelText = '$namePart$translatePart$countPart';
+                children:
+                    otherTags.map((td) {
+                      final t = td.tag;
+                      // 判断是否为主标签（大师标签的 referencedTagId 为 0）
+                      final isPrimary = t.referencedTagId == 0;
 
-                  return ActionChip(
-                    onPressed: () {
-                      DownloadedPage.open(context, tagId: t.id);
-                    },
-                    label: Text(
-                      labelText, 
-                      style: TextStyle(
-                        fontSize: 11,
-                        // 主标签使用蓝色加粗，别名标签使用默认样式
-                        color: isPrimary ? Colors.blue : null,
-                        fontWeight: isPrimary ? FontWeight.bold : null,
-                      ),
-                    ),
-                    // 主标签背景色稍微淡一点以区分
-                    backgroundColor: isPrimary ? Colors.blue.withOpacity(0.1) : null,
-                    side: isPrimary ? const BorderSide(color: Colors.blue, width: 0.5) : null,
-                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                  );
-                }).toList(),
+                      // 构建显示文本：原名 + (翻译) + [数量]
+                      final namePart = t.name;
+                      final translatePart =
+                          t.displayTranslatedName.isNotEmpty
+                              ? ' (${t.displayTranslatedName})'
+                              : '';
+                      final countPart = ' [${t.count}]';
+
+                      final labelText = '$namePart$translatePart$countPart';
+
+                      return ActionChip(
+                        onPressed: () {
+                          DownloadedPage.open(context, tagId: t.id);
+                        },
+                        label: Text(
+                          labelText,
+                          style: TextStyle(
+                            fontSize: 11,
+                            // 主标签使用蓝色加粗，别名标签使用默认样式
+                            color: isPrimary ? Colors.blue : null,
+                            fontWeight: isPrimary ? FontWeight.bold : null,
+                          ),
+                        ),
+                        // 主标签背景色稍微淡一点以区分
+                        backgroundColor:
+                            isPrimary ? Colors.blue.withOpacity(0.1) : null,
+                        side:
+                            isPrimary
+                                ? const BorderSide(
+                                  color: Colors.blue,
+                                  width: 0.5,
+                                )
+                                : null,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                      );
+                    }).toList(),
               ),
             ),
         ],
@@ -239,7 +290,10 @@ class _TagEditDialogState extends State<TagEditDialog> {
             children: [
               const Text(
                 '子标签: ',
-                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey),
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey,
+                ),
               ),
               Text(
                 '${_childTags.length}',
@@ -252,9 +306,8 @@ class _TagEditDialogState extends State<TagEditDialog> {
                   Navigator.of(context).pop(); // 先关闭对话框
                   Navigator.of(context).push(
                     MaterialPageRoute(
-                      builder: (_) => TagManagerPage(
-                        initialParentId: widget.tag.id,
-                      ),
+                      builder:
+                          (_) => TagManagerPage(initialParentId: widget.tag.id),
                     ),
                   );
                 },
@@ -301,11 +354,12 @@ class _TagEditDialogState extends State<TagEditDialog> {
   Future<void> _showTagSelectionDialog() async {
     final result = await showDialog<bool>(
       context: context,
-      builder: (context) => TagSelectionDialog(
-        comicTags: widget.comicTags!,
-        currentGroup: _equivalenceGroup,
-        currentTagId: widget.tag.id,
-      ),
+      builder:
+          (context) => TagSelectionDialog(
+            comicTags: widget.comicTags!,
+            currentGroup: _equivalenceGroup,
+            currentTagId: widget.tag.id,
+          ),
     );
 
     if (result == true) {
@@ -317,8 +371,10 @@ class _TagEditDialogState extends State<TagEditDialog> {
   }
 
   Widget _buildParentRow() {
-    final parent = _parentId != 0 
-        ? tagManagerStore.getTagDisplayDataByID(_parentId)?.tag : null;
+    final parent =
+        _parentId != 0
+            ? tagManagerStore.getTagDisplayDataByID(_parentId)?.tag
+            : null;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -335,7 +391,11 @@ class _TagEditDialogState extends State<TagEditDialog> {
             ),
             child: Row(
               children: [
-                const Icon(Icons.account_tree, size: 16, color: Colors.blueGrey),
+                const Icon(
+                  Icons.account_tree,
+                  size: 16,
+                  color: Colors.blueGrey,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -371,10 +431,12 @@ class _TagEditDialogState extends State<TagEditDialog> {
       onUpdated: () {
         if (mounted) {
           setState(() {
-            final updatedTag = tagManagerStore.getTagDisplayDataByID(widget.tag.id)?.tag;
+            final updatedTag =
+                tagManagerStore.getTagDisplayDataByID(widget.tag.id)?.tag;
             if (updatedTag != null) {
               _parentId = updatedTag.parentId;
-              _customTranslateController.text = updatedTag.customTranslatedName ?? '';
+              _customTranslateController.text =
+                  updatedTag.customTranslatedName ?? '';
             }
           });
         }
@@ -392,5 +454,26 @@ class _TagEditDialogState extends State<TagEditDialog> {
     );
     tagManagerStore.updateTag(newTag);
     Navigator.of(context).pop();
+  }
+
+  Future<void> _translateWithAi() async {
+    setState(() => _isTranslating = true);
+    try {
+      final translated = await aiTranslationService.translateTag(
+        tagName: widget.tag.name,
+        officialTranslation: widget.tag.translatedName,
+      );
+      if (mounted) {
+        setState(() => _customTranslateController.text = translated);
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.toString())));
+      }
+    } finally {
+      if (mounted) setState(() => _isTranslating = false);
+    }
   }
 }

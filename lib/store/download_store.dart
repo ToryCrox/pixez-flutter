@@ -62,7 +62,7 @@ enum DownloadTaskStatus {
   paused,
 
   /// 已删除
-  deleted;
+  deleted,
 
   /// 下载失败和暂停都是
 }
@@ -105,13 +105,14 @@ class DownloadTask {
     this.total = total;
     final now = DateTime.now().millisecondsSinceEpoch;
     final deltaT = now - _lastTime;
-    
+
     // 如果间隔太短（比如小于 300ms），则不触发界面更新，除非下载已完成
     if (deltaT < 300 && received < total) {
       return false;
     }
 
-    if (deltaT >= 500) { // 每500ms计算一次速度
+    if (deltaT >= 500) {
+      // 每500ms计算一次速度
       final deltaR = received - _lastReceived;
       speed = (deltaR * 1000) / deltaT;
       _lastReceived = received;
@@ -157,8 +158,10 @@ class DownloadTask {
       part: pendingDownload.part,
       url: pendingDownload.url,
       createTime: pendingDownload.createTime,
-      status: DownloadTaskStatus.values
-              .firstWhereOrNull((e) => e.name == pendingDownload.status) ??
+      status:
+          DownloadTaskStatus.values.firstWhereOrNull(
+            (e) => e.name == pendingDownload.status,
+          ) ??
           DownloadTaskStatus.pending,
       received: 0,
       total: 0,
@@ -193,7 +196,8 @@ class IllustDownloadStatus {
 
   /// 累计的总字节数（如果有实时任务则包含实时任务的总量，否则为已存大小）
   /// 注意：在下载过程中，totalBytes 是当前任务的总大小，如果有多页任务，这可能只是部分
-  int get totalTotalBytes => fileSize + (totalBytes > 0 ? totalBytes : receivedBytes);
+  int get totalTotalBytes =>
+      fileSize + (totalBytes > 0 ? totalBytes : receivedBytes);
 
   bool get isAllDownloaded {
     // 对于动图，只要状态是 completed 且有至少一条记录就认为下载完成
@@ -259,7 +263,6 @@ abstract class _DownloadStoreBase with Store {
     _processQueue();
   }
 
-
   bool get isInitialized => _dbProvider.downloadPath.isNotEmpty;
 
   @observable
@@ -282,7 +285,7 @@ abstract class _DownloadStoreBase with Store {
     await _dbProvider.open(downloadPath);
     Log.d('DownloadStore downloadPath: ${_dbProvider.downloadPath}');
     await refreshCount();
-    
+
     progressStream.listen((e) {
       _downloadProgressIllustIdBuffer.add(e.illusts.id);
       if (_debounceTimer?.isActive ?? false) return;
@@ -328,7 +331,8 @@ abstract class _DownloadStoreBase with Store {
     Log.d(() => 'handleIllustDownloadStatus $illustId: $illustDownloadStatus');
     if (illustDownloadStatus != null && illustDownloadStatus.isAllDownloaded) {
       BotToast.showText(
-          text: '下载完成${illustId}：${illustDownloadStatus.illusts.title}');
+        text: '下载完成${illustId}：${illustDownloadStatus.illusts.title}',
+      );
     }
     if (illustDownloadStatus != null) {
       _illustDownloadStatusController.add(illustDownloadStatus);
@@ -394,6 +398,19 @@ abstract class _DownloadStoreBase with Store {
     return await _dbProvider.getIllustByIllustId(illustId);
   }
 
+  Future<void> updateIllustTranslations(
+    int illustId, {
+    String? translatedTitle,
+    String? translatedCaption,
+  }) async {
+    if (!isInitialized) return;
+    await _dbProvider.updateIllustTranslations(
+      illustId,
+      translatedTitle: translatedTitle,
+      translatedCaption: translatedCaption,
+    );
+  }
+
   Future<List<DownloadedIllust>> getDownloadedIllustsByIds(
     List<int> illustIds,
   ) async {
@@ -434,7 +451,10 @@ abstract class _DownloadStoreBase with Store {
 
   /// 获取封面缓存路径（分质量目录存储格式）
   /// 路径格式：databasePath/covers/{quality}/{illustId}.webp
-  String getCoverCachePath(int illustId, {String quality = Constants.qualitySquareMedium}) {
+  String getCoverCachePath(
+    int illustId, {
+    String quality = Constants.qualitySquareMedium,
+  }) {
     return path.join(_dbProvider.coverPath, quality, '$illustId.webp');
   }
 
@@ -534,12 +554,14 @@ abstract class _DownloadStoreBase with Store {
     bool filterBookmarks = false,
     String? typeFilter,
   }) async {
-    return await _dbProvider.getIllustsByUserId(userId,
-        limit: limit,
-        offset: offset,
-        orderBy: orderBy,
-        filterBookmarks: filterBookmarks,
-        typeFilter: typeFilter);
+    return await _dbProvider.getIllustsByUserId(
+      userId,
+      limit: limit,
+      offset: offset,
+      orderBy: orderBy,
+      filterBookmarks: filterBookmarks,
+      typeFilter: typeFilter,
+    );
   }
 
   Future<List<DownloadedIllust>> searchDownloadedByTagId(
@@ -551,13 +573,15 @@ abstract class _DownloadStoreBase with Store {
     bool filterBookmarks = false,
     String? typeFilter,
   }) async {
-    return await _dbProvider.searchIllustsByTagId(tagId,
-        limit: limit,
-        offset: offset,
-        orderBy: orderBy,
-        exampleIllustIds: exampleIllustIds,
-        filterBookmarks: filterBookmarks,
-        typeFilter: typeFilter);
+    return await _dbProvider.searchIllustsByTagId(
+      tagId,
+      limit: limit,
+      offset: offset,
+      orderBy: orderBy,
+      exampleIllustIds: exampleIllustIds,
+      filterBookmarks: filterBookmarks,
+      typeFilter: typeFilter,
+    );
   }
 
   Future<List<DownloadedIllust>> searchDownloadedByTagName(
@@ -572,13 +596,15 @@ abstract class _DownloadStoreBase with Store {
     // 先获取标签 ID，再调用按 ID 搜索的方法
     final tag = await _dbProvider.getTagByName(tagName);
     if (tag == null) return [];
-    return await searchDownloadedByTagId(tag.id,
-        limit: limit,
-        offset: offset,
-        orderBy: orderBy,
-        exampleIllustIds: exampleIllustIds,
-        filterBookmarks: filterBookmarks,
-        typeFilter: typeFilter);
+    return await searchDownloadedByTagId(
+      tag.id,
+      limit: limit,
+      offset: offset,
+      orderBy: orderBy,
+      exampleIllustIds: exampleIllustIds,
+      filterBookmarks: filterBookmarks,
+      typeFilter: typeFilter,
+    );
   }
 
   Future<List<DownloadedIllust>> searchDownloaded(
@@ -589,12 +615,14 @@ abstract class _DownloadStoreBase with Store {
     bool filterBookmarks = false,
     String? typeFilter,
   }) async {
-    return await _dbProvider.searchIllusts(keyword,
-        limit: limit,
-        offset: offset,
-        orderBy: orderBy,
-        filterBookmarks: filterBookmarks,
-        typeFilter: typeFilter);
+    return await _dbProvider.searchIllusts(
+      keyword,
+      limit: limit,
+      offset: offset,
+      orderBy: orderBy,
+      filterBookmarks: filterBookmarks,
+      typeFilter: typeFilter,
+    );
   }
 
   /// 获取包含非 WebP 图片的插画（排除动图）
@@ -773,9 +801,10 @@ abstract class _DownloadStoreBase with Store {
       status = DownloadTaskStatus.completed;
     } else {
       // 查找相关任务，单次遍历按优先级判断状态
-      final tasks = downloadingTasks.values
-          .where((t) => t.illusts.id == illustId)
-          .toList();
+      final tasks =
+          downloadingTasks.values
+              .where((t) => t.illusts.id == illustId)
+              .toList();
 
       if (tasks.isEmpty) {
         status = DownloadTaskStatus.completed;
@@ -828,7 +857,9 @@ abstract class _DownloadStoreBase with Store {
         _pendingQueue.removeWhere((t) => t.taskKey == task.taskKey);
         task.status = DownloadTaskStatus.paused;
         await _dbProvider.updatePendingDownloadStatus(
-            task.taskKey, task.status.name);
+          task.taskKey,
+          task.status.name,
+        );
         _notifyProgress(task);
       }
     }
@@ -837,18 +868,23 @@ abstract class _DownloadStoreBase with Store {
   /// 恢复插画的所有暂停任务
   @action
   Future<void> resumeIllustDownload(int illustId) async {
-    final tasks = downloadingTasks.values
-        .where((t) =>
-            t.illusts.id == illustId &&
-            (t.status == DownloadTaskStatus.paused ||
-                t.status == DownloadTaskStatus.failed))
-        .toList();
+    final tasks =
+        downloadingTasks.values
+            .where(
+              (t) =>
+                  t.illusts.id == illustId &&
+                  (t.status == DownloadTaskStatus.paused ||
+                      t.status == DownloadTaskStatus.failed),
+            )
+            .toList();
     for (final task in tasks) {
       task.status = DownloadTaskStatus.pending;
       task.error = null;
       task.received = 0;
       await _dbProvider.updatePendingDownloadStatus(
-          task.taskKey, task.status.name);
+        task.taskKey,
+        task.status.name,
+      );
       _pendingQueue.add(task);
       _notifyProgress(task);
     }
@@ -858,10 +894,14 @@ abstract class _DownloadStoreBase with Store {
   /// 重启插画的所有失败任务
   @action
   void retryIllustDownload(int illustId) {
-    final tasks = downloadingTasks.values
-        .where((t) =>
-            t.illusts.id == illustId && t.status == DownloadTaskStatus.failed)
-        .toList();
+    final tasks =
+        downloadingTasks.values
+            .where(
+              (t) =>
+                  t.illusts.id == illustId &&
+                  t.status == DownloadTaskStatus.failed,
+            )
+            .toList();
     for (final task in tasks) {
       task.status = DownloadTaskStatus.pending;
       task.error = null;
@@ -875,7 +915,11 @@ abstract class _DownloadStoreBase with Store {
   // ============ 下载接口 ============
 
   @action
-  Future<void> downloadIllust(Illusts illusts, {int? part, int bookmark = 0}) async {
+  Future<void> downloadIllust(
+    Illusts illusts, {
+    int? part,
+    int bookmark = 0,
+  }) async {
     if (!isInitialized) {
       throw Exception('DownloadStore not initialized');
     }
@@ -888,14 +932,20 @@ abstract class _DownloadStoreBase with Store {
 
     if (part != null) {
       // 下载单页
-      _downloadTaskBuffer.add(createDownloadTask(illusts, part, bookmark: bookmark));
+      _downloadTaskBuffer.add(
+        createDownloadTask(illusts, part, bookmark: bookmark),
+      );
     } else {
       // 下载所有页
       if (illusts.pageCount == 1) {
-        _downloadTaskBuffer.add(createDownloadTask(illusts, 0, bookmark: bookmark));
+        _downloadTaskBuffer.add(
+          createDownloadTask(illusts, 0, bookmark: bookmark),
+        );
       } else {
         for (int i = 0; i < illusts.metaPages.length; i++) {
-          _downloadTaskBuffer.add(createDownloadTask(illusts, i, bookmark: bookmark));
+          _downloadTaskBuffer.add(
+            createDownloadTask(illusts, i, bookmark: bookmark),
+          );
         }
       }
     }
@@ -934,22 +984,27 @@ abstract class _DownloadStoreBase with Store {
 
     // 先插入作品记录到数据库（与普通图片下载保持一致）
     await _insertIllustIfNotExists(illusts, bookmark: bookmark);
-    
+
     // 创建动图下载任务（part=0 表示整个动图）
     final task = createDownloadTask(illusts, 0, bookmark: bookmark);
     task.url = ''; // 稍后从元数据获取
-    
+
     await _addDownloadTask(task);
   }
 
-
-
-  Future<({String fullPath})?> _tryFindExistingImageFile(DownloadTask task) async {
+  Future<({String fullPath})?> _tryFindExistingImageFile(
+    DownloadTask task,
+  ) async {
     final relativePath = await _dbProvider.resolveRelativePath(task.illusts);
-    final fileName =
-        DownloadDatabaseProvider.buildFileName(task.illusts.id, task.part);
+    final fileName = DownloadDatabaseProvider.buildFileName(
+      task.illusts.id,
+      task.part,
+    );
     for (final ext in kImageExtensions) {
-      final fullPath = _dbProvider.getAbsolutePath(relativePath, '$fileName$ext');
+      final fullPath = _dbProvider.getAbsolutePath(
+        relativePath,
+        '$fileName$ext',
+      );
       if (await File(fullPath).exists()) {
         return (fullPath: fullPath);
       }
@@ -958,7 +1013,11 @@ abstract class _DownloadStoreBase with Store {
   }
 
   /// 创建下载任务
-  DownloadTask createDownloadTask(Illusts illusts, int part, {int bookmark = 0}) {
+  DownloadTask createDownloadTask(
+    Illusts illusts,
+    int part, {
+    int bookmark = 0,
+  }) {
     // 获取下载URL
     String url;
     if (illusts.pageCount == 1) {
@@ -980,8 +1039,10 @@ abstract class _DownloadStoreBase with Store {
   }
 
   /// 加入下载（优化版本，支持批量处理）
-  Future<void> addDownloadTasks(List<DownloadTask> tasks,
-      {bool batchMode = false}) async {
+  Future<void> addDownloadTasks(
+    List<DownloadTask> tasks, {
+    bool batchMode = false,
+  }) async {
     if (tasks.isEmpty) return;
 
     // 过滤掉已存在的任务
@@ -994,7 +1055,8 @@ abstract class _DownloadStoreBase with Store {
         final existingTask = downloadingTasks[taskKey]!;
         if (!existingTask.isCanRetry) {
           Log.d(
-              'DownloadStore task $taskKey already exists, ${existingTask.error}, ${existingTask.status}');
+            'DownloadStore task $taskKey already exists, ${existingTask.error}, ${existingTask.status}',
+          );
           continue;
         }
       }
@@ -1019,14 +1081,11 @@ abstract class _DownloadStoreBase with Store {
   /// 批量添加下载任务（优化版本）
   Future<void> _addDownloadTasksBatch(List<DownloadTask> tasks) async {
     // 1. 批量检查已下载状态
-    final illustParts = tasks
-        .map((t) => {
-              'illustId': t.illusts.id,
-              'part': t.part,
-            })
-        .toList();
-    final downloadedResults =
-        await _dbProvider.batchCheckImageDownloaded(illustParts);
+    final illustParts =
+        tasks.map((t) => {'illustId': t.illusts.id, 'part': t.part}).toList();
+    final downloadedResults = await _dbProvider.batchCheckImageDownloaded(
+      illustParts,
+    );
 
     // 组装成字符串键集合，方便后续查找
     final downloadedTaskKeys =
@@ -1047,8 +1106,10 @@ abstract class _DownloadStoreBase with Store {
 
     // 批量删除已下载任务的 pending 记录（使用批量删除优化性能）
     if (taskKeysToDelete.isNotEmpty) {
-      Log.d(() =>
-          'DownloadStore delete ${taskKeysToDelete.length} pending downloads');
+      Log.d(
+        () =>
+            'DownloadStore delete ${taskKeysToDelete.length} pending downloads',
+      );
       await _dbProvider.batchDeletePendingDownloads(taskKeysToDelete);
     }
 
@@ -1064,14 +1125,15 @@ abstract class _DownloadStoreBase with Store {
     for (final task in tasksToAdd) {
       if (!illustIds.contains(task.illusts.id)) {
         illustIds.add(task.illusts.id);
-        illustsToInsert.add(DownloadedIllust.fromIllusts(
-          task.illusts,
-          await _dbProvider.resolveRelativePath(task.illusts),
-          bookmark: task.bookmark,
-        ));
+        illustsToInsert.add(
+          DownloadedIllust.fromIllusts(
+            task.illusts,
+            await _dbProvider.resolveRelativePath(task.illusts),
+            bookmark: task.bookmark,
+          ),
+        );
       }
     }
-  
 
     // 批量检查并插入 illust（使用批量操作优化性能）
     await _dbProvider.batchInsertIllustsIfNotExists(illustsToInsert);
@@ -1085,33 +1147,36 @@ abstract class _DownloadStoreBase with Store {
     const batchSize = 100;
     for (int i = 0; i < tasksToAdd.length; i += batchSize) {
       final batch = tasksToAdd.skip(i).take(batchSize).toList();
-      await Future.wait(batch.map((task) async {
-        try {
-          final result = await _tryFindExistingImageFile(task);
-          if (result != null) {
-            // 文件已存在，直接记录
-            final url = task.illusts.pageCount == 1
-                ? task.illusts.metaSinglePage!.originalImageUrl!
-                : task.illusts.metaPages[task.part].imageUrls!.original;
-            await _recordDownload(
-              task.illusts,
-              part: task.part,
-              url: url,
-              filePath: result.fullPath,
-              bookmark: task.bookmark,
-            );
-            task.status = DownloadTaskStatus.completed;
-            tasksToNotify.add(task);
-          } else {
-            // 需要下载，添加到队列
+      await Future.wait(
+        batch.map((task) async {
+          try {
+            final result = await _tryFindExistingImageFile(task);
+            if (result != null) {
+              // 文件已存在，直接记录
+              final url =
+                  task.illusts.pageCount == 1
+                      ? task.illusts.metaSinglePage!.originalImageUrl!
+                      : task.illusts.metaPages[task.part].imageUrls!.original;
+              await _recordDownload(
+                task.illusts,
+                part: task.part,
+                url: url,
+                filePath: result.fullPath,
+                bookmark: task.bookmark,
+              );
+              task.status = DownloadTaskStatus.completed;
+              tasksToNotify.add(task);
+            } else {
+              // 需要下载，添加到队列
+              tasksToQueue.add(task);
+            }
+          } catch (e) {
+            // 单个任务失败不影响其他任务，记录错误并添加到下载队列
+            Log.e('检查文件存在性失败: ${task.taskKey}, $e');
             tasksToQueue.add(task);
           }
-        } catch (e) {
-          // 单个任务失败不影响其他任务，记录错误并添加到下载队列
-          Log.e('检查文件存在性失败: ${task.taskKey}, $e');
-          tasksToQueue.add(task);
-        }
-      }));
+        }),
+      );
     }
 
     // 5. 先批量插入 pending 记录到数据库（保证数据一致性）
@@ -1162,8 +1227,10 @@ abstract class _DownloadStoreBase with Store {
     int addedCount = 0;
     for (final task in tasks) {
       final taskKey = task.taskKey;
-      final isDownloaded =
-          await _dbProvider.isImageDownloaded(task.illusts.id, task.part);
+      final isDownloaded = await _dbProvider.isImageDownloaded(
+        task.illusts.id,
+        task.part,
+      );
       if (isDownloaded) {
         Log.d('DownloadStore task $taskKey already downloaded');
         await _dbProvider.deletePendingDownload(task.taskKey);
@@ -1260,9 +1327,15 @@ abstract class _DownloadStoreBase with Store {
   /// 下载普通图片
   Future<void> _downloadNormalImage(DownloadTask task) async {
     final relativePath = await _dbProvider.resolveRelativePath(task.illusts);
-    final fileName = DownloadDatabaseProvider.buildFileName(task.illusts.id, task.part);
+    final fileName = DownloadDatabaseProvider.buildFileName(
+      task.illusts.id,
+      task.part,
+    );
     final extension = path.extension(task.url);
-    final targetPath = _dbProvider.getAbsolutePath(relativePath, '$fileName$extension');
+    final targetPath = _dbProvider.getAbsolutePath(
+      relativePath,
+      '$fileName$extension',
+    );
 
     final targetFile = File(targetPath);
     final targetDir = targetFile.parent;
@@ -1275,7 +1348,8 @@ abstract class _DownloadStoreBase with Store {
         // 如果目录创建失败，可能是路径中包含非法字符
         Log.e('创建目录失败: ${targetDir.path}, 错误: $e');
         throw Exception(
-            '无法创建目录: ${targetDir.path}。可能包含Windows不支持的字符（如emoji）。请检查路径设置。');
+          '无法创建目录: ${targetDir.path}。可能包含Windows不支持的字符（如emoji）。请检查路径设置。',
+        );
       }
     }
 
@@ -1351,24 +1425,32 @@ abstract class _DownloadStoreBase with Store {
 
       // 2. 移动帧图片到目标目录
       final relativePath = await _dbProvider.resolveRelativePath(illusts);
-      final targetDir = Directory(_dbProvider.getUgoiraFrameDirPath(relativePath));
+      final targetDir = Directory(
+        _dbProvider.getUgoiraFrameDirPath(relativePath),
+      );
       if (!await targetDir.exists()) {
         await targetDir.create(recursive: true);
       }
 
       for (final frameFile in tempFrameFiles) {
-        final destPath = path.join(targetDir.path, path.basename(frameFile.path));
+        final destPath = path.join(
+          targetDir.path,
+          path.basename(frameFile.path),
+        );
         await frameFile.copy(destPath);
       }
 
       // 3. 下载预览图
-      final previewUrl = illusts.metaSinglePage?.originalImageUrl ??
-                         illusts.imageUrls.large;
-      final previewFileName = DownloadDatabaseProvider.buildFileName(illustId, 0);
+      final previewUrl =
+          illusts.metaSinglePage?.originalImageUrl ?? illusts.imageUrls.large;
+      final previewFileName = DownloadDatabaseProvider.buildFileName(
+        illustId,
+        0,
+      );
       final previewExtension = path.extension(previewUrl);
       final previewPath = _dbProvider.getAbsolutePath(
         relativePath,
-        '$previewFileName$previewExtension'
+        '$previewFileName$previewExtension',
       );
 
       // 下载预览图，获取进度
@@ -1379,7 +1461,10 @@ abstract class _DownloadStoreBase with Store {
         withProgress: true,
       )) {
         if (response is DownloadProgress) {
-          if (task.updateProgress(response.downloaded, response.totalSize ?? 0)) {
+          if (task.updateProgress(
+            response.downloaded,
+            response.totalSize ?? 0,
+          )) {
             _notifyProgress(task);
           }
         } else if (response is FileInfo) {
@@ -1426,20 +1511,29 @@ abstract class _DownloadStoreBase with Store {
     String relativePath, {
     int bookmark = 0,
   }) async {
-
     // 1. 插入插画记录（包含完整 UgoiraMetadata）
     final metadataJson = PixivUrlUtil.compressPxUrl(
-      TypeUtil.parseJsonString(metadata.ugoiraMetadata.toJson())
+      TypeUtil.parseJsonString(metadata.ugoiraMetadata.toJson()),
     );
 
+    final existingIllust = await _dbProvider.getIllustByIllustId(illusts.id);
     final downloadedIllust = DownloadedIllust.fromIllusts(
       illusts,
-      relativePath,
+      existingIllust?.relativePath ?? relativePath,
       ugoiraMetadataJson: metadataJson,
-      bookmark: bookmark,
+      bookmark: existingIllust?.bookmark ?? bookmark,
+      downloadTime: existingIllust?.downloadTime,
+      downloadedImageCount: existingIllust?.downloadedImageCount,
+      totalFileSize: existingIllust?.totalFileSize,
+      translatedTitle: existingIllust?.translatedTitle,
+      translatedCaption: existingIllust?.translatedCaption,
     );
 
-    await _dbProvider.insertIllust(downloadedIllust);
+    if (existingIllust == null) {
+      await _dbProvider.insertIllust(downloadedIllust);
+    } else {
+      await _dbProvider.updateIllust(downloadedIllust);
+    }
 
     // 2. 插入预览图记录（part=0）
     final previewFile = File(previewPath);
@@ -1478,9 +1572,10 @@ abstract class _DownloadStoreBase with Store {
 
       if (await frameFile.exists()) {
         final fileSize = await frameFile.length();
-        final fileNameWithoutExtension = path.basenameWithoutExtension(frameFile.path);
+        final fileNameWithoutExtension = path.basenameWithoutExtension(
+          frameFile.path,
+        );
         final extension = path.extension(frameFile.path);
-
 
         final downloadedFrame = DownloadedImage(
           illustId: illusts.id,
@@ -1547,7 +1642,9 @@ abstract class _DownloadStoreBase with Store {
     // 任务失败后不从downloadingTasks中移除，这样后续可以继续尝试
     //downloadingTasks.remove(task.taskKey);
     await _dbProvider.updatePendingDownloadStatus(
-        task.taskKey, task.status.name);
+      task.taskKey,
+      task.status.name,
+    );
     _notifyProgress(task);
     _processQueue();
   }
@@ -1618,20 +1715,24 @@ abstract class _DownloadStoreBase with Store {
   // 取消插画的所有下载任务
   @action
   void cancelIllustDownload(int illustId) {
-    final keysToRemove = downloadingTasks.keys
-        .where((key) => key.startsWith('${illustId}_'))
-        .toList();
+    final keysToRemove =
+        downloadingTasks.keys
+            .where((key) => key.startsWith('${illustId}_'))
+            .toList();
     for (final key in keysToRemove) {
       cancelTask(key);
     }
   }
 
   // 取消插画的所有下载任务（内部使用，可选是否删除 pending 记录）
-  void _cancelIllustDownloadInternal(int illustId,
-      {bool deletePending = true}) {
-    final keysToRemove = downloadingTasks.keys
-        .where((key) => key.startsWith('${illustId}_'))
-        .toList();
+  void _cancelIllustDownloadInternal(
+    int illustId, {
+    bool deletePending = true,
+  }) {
+    final keysToRemove =
+        downloadingTasks.keys
+            .where((key) => key.startsWith('${illustId}_'))
+            .toList();
     for (final key in keysToRemove) {
       _cancelTaskInternal(key, deletePending: deletePending);
     }
@@ -1641,19 +1742,22 @@ abstract class _DownloadStoreBase with Store {
   @action
   Future<void> pauseAllDownload() async {
     isQueuePaused = true;
-    
+
     // 将所有排队中的任务状态设为暂停
-    final pendingTasks = downloadingTasks.values
-        .where((t) => t.status == DownloadTaskStatus.pending)
-        .toList();
-    
-    _pendingQueue.clear(); 
+    final pendingTasks =
+        downloadingTasks.values
+            .where((t) => t.status == DownloadTaskStatus.pending)
+            .toList();
+
+    _pendingQueue.clear();
 
     for (final task in pendingTasks) {
       task.status = DownloadTaskStatus.paused;
       task.speed = 0;
       await _dbProvider.updatePendingDownloadStatus(
-          task.taskKey, task.status.name);
+        task.taskKey,
+        task.status.name,
+      );
       _notifyProgress(task);
     }
   }
@@ -1662,23 +1766,28 @@ abstract class _DownloadStoreBase with Store {
   @action
   Future<void> resumeAllDownload() async {
     isQueuePaused = false;
-    
-    final tasks = downloadingTasks.values
-        .where((t) =>
-            t.status == DownloadTaskStatus.paused ||
-            t.status == DownloadTaskStatus.failed)
-        .toList();
+
+    final tasks =
+        downloadingTasks.values
+            .where(
+              (t) =>
+                  t.status == DownloadTaskStatus.paused ||
+                  t.status == DownloadTaskStatus.failed,
+            )
+            .toList();
 
     for (final task in tasks) {
       task.status = DownloadTaskStatus.pending;
       task.error = null;
       task.speed = 0;
       await _dbProvider.updatePendingDownloadStatus(
-          task.taskKey, task.status.name);
+        task.taskKey,
+        task.status.name,
+      );
       _pendingQueue.add(task);
       _notifyProgress(task);
     }
-    
+
     _processQueue();
   }
 
@@ -1694,7 +1803,9 @@ abstract class _DownloadStoreBase with Store {
   /// 清除已完成任务
   @action
   void clearCompletedTasks() {
-    downloadingTasks.removeWhere((key, task) => task.status == DownloadTaskStatus.completed);
+    downloadingTasks.removeWhere(
+      (key, task) => task.status == DownloadTaskStatus.completed,
+    );
   }
 
   /// 获取当前总下载速度
@@ -1710,12 +1821,18 @@ abstract class _DownloadStoreBase with Store {
   }
 
   /// 插入插画信息
-  Future<void> _insertIllustIfNotExists(Illusts illusts, {int bookmark = 0}) async {
+  Future<void> _insertIllustIfNotExists(
+    Illusts illusts, {
+    int bookmark = 0,
+  }) async {
     final existingIllust = await _dbProvider.getIllustByIllustId(illusts.id);
     if (existingIllust == null) {
       // 插画不存在，插入数据库
       final downloadedIllust = DownloadedIllust.fromIllusts(
-          illusts, await _dbProvider.resolveRelativePath(illusts), bookmark: bookmark);
+        illusts,
+        await _dbProvider.resolveRelativePath(illusts),
+        bookmark: bookmark,
+      );
       await _dbProvider.insertIllust(downloadedIllust);
     }
   }
@@ -1740,6 +1857,8 @@ abstract class _DownloadStoreBase with Store {
         downloadedImageCount: existingIllust.downloadedImageCount,
         totalFileSize: existingIllust.totalFileSize,
         bookmark: existingIllust.bookmark,
+        translatedTitle: existingIllust.translatedTitle,
+        translatedCaption: existingIllust.translatedCaption,
       );
 
       await _dbProvider.updateIllust(updatedIllust);
@@ -1779,7 +1898,7 @@ abstract class _DownloadStoreBase with Store {
     Log.d('开始优化数据库存储...');
 
     int initialSize = await _dbProvider.getDatabaseSize();
-    
+
     // 1. 备份数据库（在 Isolate 中执行，避免阻塞 UI）
     try {
       final dbPath = _dbProvider.dbPathStr;
@@ -1932,13 +2051,15 @@ abstract class _DownloadStoreBase with Store {
     await _dbProvider.deleteAuthorIfEmpty(userId);
 
     // 通知删除状态
-    _illustDownloadStatusController.add(IllustDownloadStatus(
-      status: DownloadTaskStatus.deleted,
-      illusts: illust,
-      totalCount: illust.pageCount,
-      completedCount: 0,
-      fileSize: 0,
-    ));
+    _illustDownloadStatusController.add(
+      IllustDownloadStatus(
+        status: DownloadTaskStatus.deleted,
+        illusts: illust,
+        totalCount: illust.pageCount,
+        completedCount: 0,
+        fileSize: 0,
+      ),
+    );
 
     await refreshCount();
   }
@@ -1988,7 +2109,6 @@ abstract class _DownloadStoreBase with Store {
     return illust?.totalFileSize ?? 0;
   }
 
-
   /// 获取插画的下载目录路径（从 Illusts 对象构建）
   Future<String?> getIllustDownloadDirectory(Illusts illusts) async {
     if (!isInitialized) {
@@ -2019,7 +2139,6 @@ abstract class _DownloadStoreBase with Store {
     return path.join(_dbProvider.downloadPath, userDirName);
   }
 
-
   /// 检查插画的下载目录是否存在
   Future<bool> isIllustDirectoryExists(Illusts illusts) async {
     final dirPath = await getIllustDownloadDirectory(illusts);
@@ -2038,8 +2157,10 @@ abstract class _DownloadStoreBase with Store {
       bool hasValidImage = false;
 
       for (final image in images) {
-        final filePath =
-            await _dbProvider.findImagePath(image.illustId, image.part);
+        final filePath = await _dbProvider.findImagePath(
+          image.illustId,
+          image.part,
+        );
         if (filePath == null) {
           // 文件不存在，删除记录
           await _dbProvider.deleteImage(image.illustId, image.part);
@@ -2063,13 +2184,13 @@ abstract class _DownloadStoreBase with Store {
   // ============ 动图转换 ============
 
   /// 将已下载的动图序列帧转换为WebP动图
-  /// 
+  ///
   /// 转换流程：
   /// 1. 检查是否为动图且已下载序列帧
   /// 2. 调用WebPEncoder进行转换
   /// 3. 删除序列帧文件和数据库记录（保留part=0预览图）
   /// 4. 添加WebP动图记录（part=DownloadedImage.partUgoiraWebP）
-  /// 
+  ///
   /// 返回转换后的WebP文件路径，失败返回null
   Future<String?> convertUgoiraToWebP(int illustId, {int quality = 80}) async {
     // 检查平台支持
@@ -2091,9 +2212,15 @@ abstract class _DownloadStoreBase with Store {
     }
 
     // 2. 检查是否已有WebP动图（part=DownloadedImage.partUgoiraWebP）
-    final existingWebP = await _dbProvider.getImage(illustId, DownloadedImage.partUgoiraWebP);
+    final existingWebP = await _dbProvider.getImage(
+      illustId,
+      DownloadedImage.partUgoiraWebP,
+    );
     if (existingWebP != null) {
-      final webpPath = await _dbProvider.findImagePath(illustId, DownloadedImage.partUgoiraWebP);
+      final webpPath = await _dbProvider.findImagePath(
+        illustId,
+        DownloadedImage.partUgoiraWebP,
+      );
       if (webpPath != null && await File(webpPath).exists()) {
         Log.d('convertUgoiraToWebP: 已存在WebP动图 $webpPath');
         return webpPath;
@@ -2103,14 +2230,18 @@ abstract class _DownloadStoreBase with Store {
     // 3. 获取元数据和帧延迟
     final metadata = illust.getUgoiraMetadata();
     if (metadata == null || metadata.frames.isEmpty) {
-      Log.e('convertUgoiraToWebP: 无法获取动图元数据 $illustId, ${illust.ugoiraMetadataJson}');
+      Log.e(
+        'convertUgoiraToWebP: 无法获取动图元数据 $illustId, ${illust.ugoiraMetadataJson}',
+      );
       return null;
     }
 
     final delays = metadata.frames.map((f) => f.delay).toList();
 
     // 4. 获取序列帧目录
-    final frameDir = Directory(_dbProvider.getUgoiraFrameDirPath(illust.relativePath));
+    final frameDir = Directory(
+      _dbProvider.getUgoiraFrameDirPath(illust.relativePath),
+    );
     if (!await frameDir.exists()) {
       Log.e('convertUgoiraToWebP: 序列帧目录不存在 ${frameDir.path}');
       return null;
@@ -2139,7 +2270,7 @@ abstract class _DownloadStoreBase with Store {
     // 7. 获取WebP文件信息，尺寸从第一帧获取
     final webpFile = File(result);
     final webpFileSize = await webpFile.length();
-    
+
     // 从第一帧图片获取尺寸（动图所有帧尺寸相同）
     // 获取WebP尺寸
     final size = await getImageSize(result);
@@ -2186,7 +2317,7 @@ abstract class _DownloadStoreBase with Store {
   Future<bool> hasUgoiraWebP(int illustId) async {
     final webpImage = await _dbProvider.getImage(illustId, -1);
     if (webpImage == null) return false;
-    
+
     final webpPath = await _dbProvider.findImagePath(illustId, -1);
     return webpPath != null && await File(webpPath).exists();
   }
@@ -2197,6 +2328,7 @@ abstract class _DownloadStoreBase with Store {
     if (!hasWebP) return null;
     return await _dbProvider.findImagePath(illustId, -1);
   }
+
   Future<void> updateTagExampleIllusts(int tagId, List<int> illustIds) async {
     await _dbProvider.updateTagExampleIllusts(tagId, illustIds);
   }
@@ -2213,18 +2345,18 @@ abstract class _DownloadStoreBase with Store {
   /// [nextUrl] 下一页链接，如果为null则请求第一页
   /// 返回：{'illusts': List<Illusts>, 'nextUrl': String?}
   Future<Map<String, dynamic>> fetchOnlineBookmarksPage(
-      int userId, String restrict, {String? nextUrl}) async {
-    final result = <String, dynamic>{
-      'illusts': <Illusts>[],
-      'nextUrl': null,
-    };
+    int userId,
+    String restrict, {
+    String? nextUrl,
+  }) async {
+    final result = <String, dynamic>{'illusts': <Illusts>[], 'nextUrl': null};
 
     try {
       final Response res;
       if (nextUrl != null && nextUrl.isNotEmpty) {
-         res = await apiClient.getNext(nextUrl);
+        res = await apiClient.getNext(nextUrl);
       } else {
-         res = await apiClient.getBookmarksIllustsOffset(
+        res = await apiClient.getBookmarksIllustsOffset(
           userId,
           restrict,
           null, // tag
@@ -2241,7 +2373,7 @@ abstract class _DownloadStoreBase with Store {
 
         final nextUrl = res.data['next_url'] as String?;
         if (nextUrl != null) {
-            result['nextUrl'] = nextUrl;
+          result['nextUrl'] = nextUrl;
         }
       }
     } catch (e) {
