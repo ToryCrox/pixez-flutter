@@ -41,6 +41,8 @@ class _NovelBookmarkPageState extends State<NovelBookmarkPage> {
     super.initState();
   }
 
+  String get _cacheKey => 'novel_bookmark_${id}_$restrict';
+
   @override
   Widget build(BuildContext context) {
     return Observer(
@@ -57,11 +59,16 @@ class _NovelBookmarkPageState extends State<NovelBookmarkPage> {
                   },
                 ),
               ),
-              Expanded(child: NovelLightingList(futureGet: futureGet)),
+              Expanded(
+                child: NovelLightingList(
+                  futureGet: futureGet,
+                  cacheKey: _cacheKey,
+                ),
+              ),
             ],
           );
         else {
-          return NovelLightingList(futureGet: futureGet);
+          return NovelLightingList(futureGet: futureGet, cacheKey: _cacheKey);
         }
       },
     );
@@ -82,8 +89,9 @@ class _NovelBookmarkPageState extends State<NovelBookmarkPage> {
                 title: Text(I18n.of(context).public),
                 onTap: () {
                   setState(() {
+                    restrict = 'public';
                     futureGet =
-                        () => apiClient.getUserBookmarkNovel(id, 'public');
+                        () => apiClient.getUserBookmarkNovel(id, restrict);
                   });
                   Navigator.of(context).pop();
                 },
@@ -92,8 +100,9 @@ class _NovelBookmarkPageState extends State<NovelBookmarkPage> {
                 title: Text(I18n.of(context).private),
                 onTap: () {
                   setState(() {
+                    restrict = 'private';
                     futureGet =
-                        () => apiClient.getUserBookmarkNovel(id, 'private');
+                        () => apiClient.getUserBookmarkNovel(id, restrict);
                   });
                   Navigator.of(context).pop();
                 },

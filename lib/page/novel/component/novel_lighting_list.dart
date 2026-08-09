@@ -30,9 +30,14 @@ import 'package:pixez/exts.dart';
 class NovelLightingList extends StatefulWidget {
   final FutureGet futureGet;
   final bool? isNested;
+  final String? cacheKey;
 
-  const NovelLightingList({Key? key, required this.futureGet, this.isNested})
-    : super(key: key);
+  const NovelLightingList({
+    Key? key,
+    required this.futureGet,
+    this.isNested,
+    this.cacheKey,
+  }) : super(key: key);
 
   @override
   _NovelLightingListState createState() => _NovelLightingListState();
@@ -50,7 +55,11 @@ class _NovelLightingListState extends State<NovelLightingList> {
       controlFinishLoad: true,
       controlFinishRefresh: true,
     );
-    _store = NovelLightingStore(widget.futureGet, _easyRefreshController);
+    _store = NovelLightingStore(
+      widget.futureGet,
+      _easyRefreshController,
+      cacheKey: widget.cacheKey,
+    );
     super.initState();
     if (_isNested) _store.fetch();
   }
@@ -60,7 +69,8 @@ class _NovelLightingListState extends State<NovelLightingList> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.futureGet != widget.futureGet) {
       _store.source = widget.futureGet;
-      _store.fetch();
+      _store.cacheKey = widget.cacheKey;
+      _store.fetch(loadCache: true);
     }
   }
 

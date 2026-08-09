@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:pixez/i18n.dart';
 import 'package:pixez/lighting/lighting_store.dart';
+import 'package:pixez/main.dart';
 import 'package:pixez/network/api_client.dart';
 import 'package:pixez/page/novel/component/novel_lighting_list.dart';
 
@@ -12,10 +13,14 @@ class NovelNewList extends StatefulWidget {
 }
 
 class _NovelNewListState extends State<NovelNewList> {
+  String restrict = 'public';
   late FutureGet futureGet;
+
+  String get _cacheKey => 'novel_follow_${accountStore.now!.userId}_$restrict';
+
   @override
   void initState() {
-    futureGet = () => apiClient.getNovelFollow('public');
+    futureGet = () => apiClient.getNovelFollow(restrict);
     super.initState();
   }
 
@@ -45,18 +50,22 @@ class _NovelNewListState extends State<NovelNewList> {
                             title: Text(I18n.of(context).public),
                             onTap: () {
                               setState(() {
+                                restrict = 'public';
                                 futureGet =
-                                    () => apiClient.getNovelFollow('public');
+                                    () => apiClient.getNovelFollow(restrict);
                               });
+                              Navigator.of(context).pop();
                             },
                           ),
                           ListTile(
                             title: Text(I18n.of(context).private),
                             onTap: () {
                               setState(() {
+                                restrict = 'private';
                                 futureGet =
-                                    () => apiClient.getNovelFollow('private');
+                                    () => apiClient.getNovelFollow(restrict);
                               });
+                              Navigator.of(context).pop();
                             },
                           ),
                         ],
@@ -67,7 +76,9 @@ class _NovelNewListState extends State<NovelNewList> {
               },
             ),
           ),
-          Expanded(child: NovelLightingList(futureGet: futureGet)),
+          Expanded(
+            child: NovelLightingList(futureGet: futureGet, cacheKey: _cacheKey),
+          ),
         ],
       ),
     );

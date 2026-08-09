@@ -17,6 +17,7 @@
 import 'package:dio/dio.dart';
 import 'package:easy_refresh/easy_refresh.dart';
 import 'package:mobx/mobx.dart';
+import 'package:pixez/custom/disk_cache.dart';
 import 'package:pixez/lighting/lighting_store.dart';
 import 'package:pixez/models/novel_recom_response.dart';
 import 'package:pixez/network/api_client.dart';
@@ -25,24 +26,53 @@ import 'package:pixez/custom/log.dart';
 
 part 'novel_lighting_store.g.dart';
 
-class NovelLightingStore = _NovelLightingStoreBase with _$NovelLightingStore;
+class NovelLightingStore extends _NovelLightingStoreBase
+    with _$NovelLightingStore {
+  NovelLightingStore(
+    FutureGet source,
+    EasyRefreshController controller, {
+    String? cacheKey,
+  }) : super(source, controller, cacheKey: cacheKey);
+}
 
 abstract class _NovelLightingStoreBase with Store {
   FutureGet source;
   final ApiClient _client = apiClient;
   final EasyRefreshController controller;
 
-  _NovelLightingStoreBase(this.source, this.controller);
+  _NovelLightingStoreBase(this.source, this.controller, {this.cacheKey});
 
   String? nextUrl;
+  String? cacheKey;
   ObservableList<NovelStore> novels = ObservableList();
   @observable
   String? errorMessage;
 
   @action
-  Future<void> fetch() async {
+  Future<void> fetch({bool loadCache = false}) async {
     nextUrl = null;
     errorMessage = null;
+
+    if (cacheKey != null &&
+        cacheKey!.isNotEmpty &&
+        (loadCache || novels.isEmpty)) {
+      try {
+        final cachedData = await DiskCache.readModel(
+          cacheKey!,
+          (map) => NovelRecomResponse.fromJson(map),
+        );
+        if (cachedData != null && cachedData.novels.isNotEmpty) {
+          novels.clear();
+          nextUrl = cachedData.nextUrl;
+          novels.addAll(
+            cachedData.novels.map((element) => NovelStore(element.id, element)),
+          );
+        }
+      } catch (_) {
+        // 缓存读取失败时继续请求网络数据。
+      }
+    }
+
     try {
       Response response = await source();
       NovelRecomResponse novelRecomResponse = NovelRecomResponse.fromJson(
@@ -54,6 +84,11 @@ abstract class _NovelLightingStoreBase with Store {
       this.novels.addAll(
         novel.map((element) => NovelStore(element.id, element)),
       );
+
+      if (cacheKey != null && cacheKey!.isNotEmpty) {
+        Future.microtask(() => DiskCache.writeModel(cacheKey!, response.data));
+      }
+
       controller.finishRefresh(IndicatorResult.success);
     } catch (e) {
       Log.e('Failed to fetch novels', error: e);
