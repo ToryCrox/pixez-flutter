@@ -27,7 +27,7 @@ part 'sauce_notifier.freezed.dart';
 part 'sauce_notifier.g.dart';
 
 @freezed
-class SauceState with _$SauceState {
+abstract class SauceState with _$SauceState {
   const factory SauceState({required bool notStart}) = _SauceState;
 }
 

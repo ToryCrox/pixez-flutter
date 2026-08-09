@@ -10,22 +10,18 @@ import 'package:pixez/page/river/river_provider.dart';
 import 'package:waterfall_flow/waterfall_flow.dart';
 
 class RiverPage extends HookConsumerWidget {
-  final illustsProvider =
-      StateNotifierProvider<IllustListNotifier, IllustListState>((ref) {
-        return IllustListNotifier(ref);
-      });
+  const RiverPage({super.key});
 
   @override
   Widget build(Object context, WidgetRef ref) {
-    final provider = ref.watch(illustsProvider);
+    final provider = ref.watch(illustListProvider);
     final illusts = provider.illusts;
     final offset = provider.offset;
     final scrollController = useScrollController();
     useEffect(() {
-      ref.read(illustsProvider.notifier).fetch(offset: 0);
+      ref.read(illustListProvider.notifier).fetch(offset: 0);
       return null;
     }, []);
-    // ref.read(illustsProvider.notifier).fetch();
 
     return Scaffold(
       appBar: AppBar(
@@ -33,7 +29,7 @@ class RiverPage extends HookConsumerWidget {
         actions: [
           IconButton(
             onPressed: () {
-              ref.read(illustsProvider.notifier).fetch(offset: offset ?? 0);
+              ref.read(illustListProvider.notifier).fetch(offset: offset ?? 0);
             },
             icon: Icon(Icons.next_plan),
           ),

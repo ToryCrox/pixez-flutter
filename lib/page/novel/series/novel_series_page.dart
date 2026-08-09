@@ -16,11 +16,9 @@ import 'package:pixez/page/novel/viewer/novel_store.dart';
 import 'package:pixez/page/novel/viewer/novel_viewer.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:pixez/custom/log.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
 
-final novelSeriesProvider =
-    NotifierProvider<NovelSeriesNotifier, NovelSeriesState?>(() {
-      return NovelSeriesNotifier();
-    });
+part 'novel_series_page.g.dart';
 
 class NovelSeriesState {
   final NovelSeriesDetail novelSeriesDetail;
@@ -36,7 +34,8 @@ class NovelSeriesState {
   );
 }
 
-class NovelSeriesNotifier extends Notifier<NovelSeriesState?> {
+@Riverpod(keepAlive: true)
+class NovelSeries extends _$NovelSeries {
   final EasyRefreshController refreshController = EasyRefreshController(
     controlFinishLoad: true,
     controlFinishRefresh: true,

@@ -13,7 +13,7 @@ part 'log_store.g.dart';
 const int maxLogPreviewLines = 2;
 
 @freezed
-class LogViewerState with _$LogViewerState {
+abstract class LogViewerState with _$LogViewerState {
   const factory LogViewerState({
     required List<OutputEvent> logs,
     required Set<Level> filterLevels,

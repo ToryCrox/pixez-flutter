@@ -9,7 +9,7 @@ part 'watchlist_notifier.freezed.dart';
 part 'watchlist_notifier.g.dart';
 
 @freezed
-class WatchlistState with _$WatchlistState {
+abstract class WatchlistState with _$WatchlistState {
   const factory WatchlistState({
     @Default([]) List<MangaSeriesModel> mangaSeries,
     WatchlistMangaModel? model,
