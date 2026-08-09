@@ -26,7 +26,7 @@ void main() {
   });
 
   group('NovelSpansGenerator content blocks', () {
-    test('merges short paragraphs and keeps chapter and page boundaries', () {
+    test('keeps logical source lines and chapter and page boundaries', () {
       final response = _response(
         '一。\n\n二。\n\n三。\n\n[chapter:下一章]\n短句。\n\n[newpage]\n尾段。',
       );
@@ -51,7 +51,7 @@ void main() {
     });
 
     test('splits a long paragraph without exceeding the request limit', () {
-      final response = _response('${'甲。' * 650}');
+      final response = _response('${'甲。' * 1050}');
       final blocks = NovelSpansGenerator().buildContentBlocks(response);
 
       expect(blocks, isNotEmpty);
@@ -59,7 +59,7 @@ void main() {
         blocks.where((block) => block.isTranslatable),
         everyElement(
           predicate<NovelContentBlock>(
-            (block) => block.translationSource.length <= 1200,
+            (block) => block.translationSource.length <= 2000,
           ),
         ),
       );

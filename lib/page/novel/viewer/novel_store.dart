@@ -315,56 +315,44 @@ abstract class _NovelStoreBase with Store {
   List<List<NovelContentBlock>> _buildBodyBatches(
     List<NovelContentBlock> blocks,
   ) {
+    // 渲染块需要在图片、分页等位置断开，以保持原有版式；翻译请求则
+    // 只按可翻译文本累计。这样特殊标记不会让其前后的短文本分别发起请求。
     const targetLength = 400;
-    const maximumLength = 1200;
+    const maximumLength = 2000;
     final batches = <List<NovelContentBlock>>[];
-    var segment = <NovelContentBlock>[];
+    var pending = <NovelContentBlock>[];
+    var pendingLength = 0;
 
-    void flushSegment() {
-      if (segment.isEmpty) return;
-      final grouped = <List<NovelContentBlock>>[];
-      var pending = <NovelContentBlock>[];
-      var pendingLength = 0;
-      for (final block in segment) {
-        final length = block.translationSource.length;
-        if (pending.isNotEmpty && pendingLength + length > maximumLength) {
-          grouped.add(pending);
-          pending = <NovelContentBlock>[];
-          pendingLength = 0;
-        }
-        pending.add(block);
-        pendingLength += length;
-        if (pendingLength >= targetLength) {
-          grouped.add(pending);
-          pending = <NovelContentBlock>[];
-          pendingLength = 0;
-        }
+    for (final block in blocks.where((block) => block.isTranslatable)) {
+      final length = block.translationSource.length;
+      if (pending.isNotEmpty && pendingLength + length > maximumLength) {
+        batches.add(pending);
+        pending = <NovelContentBlock>[];
+        pendingLength = 0;
       }
-      if (pending.isNotEmpty) {
-        if (grouped.isNotEmpty &&
-            grouped.last.fold<int>(
-                      0,
-                      (sum, block) => sum + block.translationSource.length,
-                    ) +
-                    pendingLength <=
-                maximumLength) {
-          grouped.last.addAll(pending);
-        } else {
-          grouped.add(pending);
-        }
+      pending.add(block);
+      pendingLength += length;
+      if (pendingLength >= targetLength) {
+        batches.add(pending);
+        pending = <NovelContentBlock>[];
+        pendingLength = 0;
       }
-      batches.addAll(grouped);
-      segment = <NovelContentBlock>[];
     }
-
-    for (final block in blocks) {
-      if (block.isTranslatable) {
-        segment.add(block);
+    if (pending.isNotEmpty) {
+      final previousLength =
+          batches.isEmpty
+              ? 0
+              : batches.last.fold<int>(
+                0,
+                (sum, block) => sum + block.translationSource.length,
+              );
+      if (batches.isNotEmpty &&
+          previousLength + pendingLength <= maximumLength) {
+        batches.last.addAll(pending);
       } else {
-        flushSegment();
+        batches.add(pending);
       }
     }
-    flushSegment();
     return batches;
   }
 

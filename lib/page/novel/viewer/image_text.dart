@@ -118,7 +118,7 @@ class PixivImageSpan extends WidgetSpan {
 // [[rb:汉宇＞假名]]
 class NovelSpansGenerator {
   static const _splitMinimumLength = 400;
-  static const _translationMaximumLength = 1200;
+  static const _translationMaximumLength = 2000;
 
   List<NovelSpansData> buildSpans(NovelWebResponse webResponse) {
     final source = webResponse.text;
@@ -304,8 +304,8 @@ class NovelSpansGenerator {
     return TextSpan(text: data.text);
   }
 
-  /// 将正文拆成可独立渲染和翻译的块。图片、分页和章节是硬边界；
-  /// 相邻短段落会合并，避免仅有几个字符的段落产生一次 AI 请求。
+  /// 将正文拆成可独立渲染和翻译的块。图片、分页和章节会保持独立渲染；
+  /// 请求批次由 [NovelStore] 跨渲染边界累计，避免短文本分别发起请求。
   List<NovelContentBlock> buildContentBlocks(NovelWebResponse webResponse) {
     final spans = buildSpans(webResponse);
     final blocks = <NovelContentBlock>[];
