@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:pixez/ai/ai_models.dart';
+import 'package:pixez/debug/network_logger.dart';
 
 class AiCompletionInput {
   final String systemPrompt;
@@ -71,7 +72,7 @@ class AiClient {
         sendTimeout: const Duration(seconds: 30),
         responseType: ResponseType.json,
       ),
-    );
+    )..interceptors.add(NetworkLogInterceptor());
     try {
       final result = await adapter.complete(dio, config, input);
       if (result.trim().isEmpty) throw const AiRequestException('AI 未返回可用文本');
