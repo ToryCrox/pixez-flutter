@@ -117,7 +117,7 @@ class PixivImageSpan extends WidgetSpan {
 // [[jumpuri:标题 ＞ 链接目标的URL]]
 // [[rb:汉宇＞假名]]
 class NovelSpansGenerator {
-  static const _translationTargetLength = 400;
+  static const _splitMinimumLength = 400;
   static const _translationMaximumLength = 1200;
 
   List<NovelSpansData> buildSpans(NovelWebResponse webResponse) {
@@ -342,73 +342,39 @@ class NovelSpansGenerator {
       span.type == NovelSpansType.chapter;
 
   List<NovelContentBlock> _buildTextBlocks(List<NovelSpansData> spans) {
-    final paragraphs = <NovelSpansData>[];
+    final blocks = <NovelContentBlock>[];
+    var line = <NovelSpansData>[];
+
+    void flushLine({bool force = false}) {
+      if (line.isEmpty && !force) return;
+      blocks.add(NovelContentBlock(id: '', spans: line));
+      line = <NovelSpansData>[];
+    }
+
     for (final span in spans) {
       if (span.type != NovelSpansType.normal) {
-        paragraphs.add(span);
+        line.add(span);
         continue;
       }
-      paragraphs.addAll(_splitParagraphs(span));
-    }
-
-    final blocks = <NovelContentBlock>[];
-    var pending = <NovelSpansData>[];
-    var pendingLength = 0;
-
-    void flush() {
-      if (pending.isEmpty) return;
-      blocks.add(NovelContentBlock(id: '', spans: pending));
-      pending = <NovelSpansData>[];
-      pendingLength = 0;
-    }
-
-    for (final paragraph in paragraphs) {
-      final pieces = _splitLongSpan(paragraph);
-      for (final piece in pieces) {
-        final length = piece.text.length;
-        if (pending.isNotEmpty &&
-            pendingLength + length > _translationMaximumLength) {
-          flush();
-        } else if (pendingLength >= _translationTargetLength) {
-          flush();
+      final lines = span.text.split('\n');
+      for (var index = 0; index < lines.length; index++) {
+        final lineText = lines[index].replaceFirst(RegExp(r'\r$'), '');
+        if (lineText.isNotEmpty) {
+          final pieces = _splitLongSpan(
+            NovelSpansData(NovelSpansType.normal, lineText),
+          );
+          for (var pieceIndex = 0; pieceIndex < pieces.length; pieceIndex++) {
+            line.add(pieces[pieceIndex]);
+            if (pieceIndex < pieces.length - 1) flushLine();
+          }
         }
-        pending.add(piece);
-        pendingLength += length;
+        if (index < lines.length - 1) {
+          flushLine(force: line.isEmpty);
+        }
       }
     }
-    flush();
-
-    // 将最后不足目标长度的块尽量并回前一块，避免尾部短段单独请求。
-    if (blocks.length > 1 &&
-        blocks.last.translationSource.length < _translationTargetLength) {
-      final previous = blocks[blocks.length - 2];
-      final last = blocks.last;
-      if (previous.translationSource.length + last.translationSource.length <=
-          _translationMaximumLength) {
-        blocks[blocks.length - 2] = NovelContentBlock(
-          id: '',
-          spans: [...previous.spans, ...last.spans],
-        );
-        blocks.removeLast();
-      }
-    }
+    flushLine();
     return blocks;
-  }
-
-  List<NovelSpansData> _splitParagraphs(NovelSpansData span) {
-    final result = <NovelSpansData>[];
-    final separator = RegExp(r'\r?\n[ \t]*\r?\n+');
-    var start = 0;
-    for (final match in separator.allMatches(span.text)) {
-      result.add(
-        NovelSpansData(span.type, span.text.substring(start, match.end)),
-      );
-      start = match.end;
-    }
-    if (start < span.text.length) {
-      result.add(NovelSpansData(span.type, span.text.substring(start)));
-    }
-    return result.isEmpty ? [span] : result;
   }
 
   List<NovelSpansData> _splitLongSpan(NovelSpansData span) {
@@ -420,7 +386,7 @@ class NovelSpansGenerator {
     var start = 0;
     while (span.text.length - start > _translationMaximumLength) {
       final upper = start + _translationMaximumLength;
-      final lower = start + _translationTargetLength;
+      final lower = start + _splitMinimumLength;
       var splitAt = -1;
       for (var index = upper - 1; index >= lower; index--) {
         final char = span.text[index];
@@ -484,6 +450,8 @@ class NovelContentBlock {
           .join();
 
   bool get isTranslatable => translationSource.trim().isNotEmpty;
+
+  bool get isEmptyLine => spans.isEmpty;
 
   NovelContentBlock copyWith({String? id, List<NovelSpansData>? spans}) =>
       NovelContentBlock(id: id ?? this.id, spans: spans ?? this.spans);

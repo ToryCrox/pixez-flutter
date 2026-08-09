@@ -247,6 +247,9 @@ class _NovelViewerPageState extends State<NovelViewerPage> {
     List<NovelContentBlock> blocks,
   ) {
     final block = blocks[index];
+    if (block.isEmptyLine) {
+      return SizedBox(height: (_textStyle?.fontSize ?? fontSize) * 0.8);
+    }
     final translation = _translationForCurrentLocale(
       context,
       'body:${block.id}',

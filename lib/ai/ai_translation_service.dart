@@ -143,6 +143,35 @@ class AiTranslationService {
     return protection.restore(_stripCodeFence(translated));
   }
 
+  Future<List<String>> translateNovelBodyBatch({
+    required int novelId,
+    required String batchKey,
+    required String targetLanguage,
+    required List<String> sourceTexts,
+  }) async {
+    final markers = List.generate(
+      sourceTexts.length,
+      (index) => '⟪PXEZ_NOVEL_SEGMENT_${index.toString().padLeft(4, '0')}⟫',
+    );
+    final sourceText = List.generate(
+      sourceTexts.length,
+      (index) => '${markers[index]}${sourceTexts[index]}',
+    ).join('\n');
+    final translated = await translateCached(
+      sceneId: AiPromptScenes.novelTranslation,
+      resourceKey: 'novel:$novelId:$targetLanguage:body-batch:$batchKey',
+      sourceText: sourceText,
+      variables: {
+        'text': sourceText,
+        'content_type': '小说正文',
+        'target_language': targetLanguage,
+      },
+      systemSuffix:
+          '\n\n输入由形如 ⟪PXEZ_NOVEL_SEGMENT_0000⟫ 的不可变分段标记和正文构成。每个标记必须恰好保留一次，字符和顺序完全不变；每个标记后的内容只翻译对应的一行正文。不要合并、删除、添加或移动标记，不要输出 Markdown 代码块或解释。',
+    );
+    return _restoreNovelBatch(_stripCodeFence(translated), markers);
+  }
+
   Future<String?> cachedComment({
     required String resourceKey,
     required String text,
@@ -278,5 +307,29 @@ class AiTranslationService {
       caseSensitive: false,
     ).firstMatch(trimmed);
     return match?.group(1) ?? trimmed;
+  }
+
+  List<String> _restoreNovelBatch(String translated, List<String> markers) {
+    final found =
+        RegExp(
+          r'⟪PXEZ_NOVEL_SEGMENT_\d{4}⟫',
+        ).allMatches(translated).map((match) => match.group(0)!).toList();
+    if (found.length != markers.length ||
+        !List.generate(
+          markers.length,
+          (index) => index,
+        ).every((index) => found[index] == markers[index])) {
+      throw const AiRequestException('AI 未能完整保留正文分段标记，请重新翻译');
+    }
+    final result = <String>[];
+    for (var index = 0; index < markers.length; index++) {
+      final start = translated.indexOf(markers[index]) + markers[index].length;
+      final end =
+          index == markers.length - 1
+              ? translated.length
+              : translated.indexOf(markers[index + 1]);
+      result.add(translated.substring(start, end).trim());
+    }
+    return result;
   }
 }

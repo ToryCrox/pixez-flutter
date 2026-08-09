@@ -224,15 +224,8 @@ abstract class _NovelStoreBase with Store {
         ),
       );
     }
-    for (final block in contentBlocks.where((item) => item.isTranslatable)) {
-      tasks.add(
-        () => _translatePart(
-          key: 'body:${block.id}',
-          sourceText: block.translationSource,
-          contentType: '小说正文',
-          targetLanguage: targetLanguage,
-        ),
-      );
+    for (final batch in _buildBodyBatches(contentBlocks)) {
+      tasks.add(() => _translateBodyBatch(batch, targetLanguage));
     }
     await _runWithConcurrency(tasks, maxConcurrent: 3);
   }
@@ -305,6 +298,117 @@ abstract class _NovelStoreBase with Store {
           sourceText: sourceText,
           errorMessage: error.toString(),
         );
+      }
+    }
+  }
+
+  List<List<NovelContentBlock>> _buildBodyBatches(
+    List<NovelContentBlock> blocks,
+  ) {
+    const targetLength = 400;
+    const maximumLength = 1200;
+    final batches = <List<NovelContentBlock>>[];
+    var segment = <NovelContentBlock>[];
+
+    void flushSegment() {
+      if (segment.isEmpty) return;
+      final grouped = <List<NovelContentBlock>>[];
+      var pending = <NovelContentBlock>[];
+      var pendingLength = 0;
+      for (final block in segment) {
+        final length = block.translationSource.length;
+        if (pending.isNotEmpty && pendingLength + length > maximumLength) {
+          grouped.add(pending);
+          pending = <NovelContentBlock>[];
+          pendingLength = 0;
+        }
+        pending.add(block);
+        pendingLength += length;
+        if (pendingLength >= targetLength) {
+          grouped.add(pending);
+          pending = <NovelContentBlock>[];
+          pendingLength = 0;
+        }
+      }
+      if (pending.isNotEmpty) {
+        if (grouped.isNotEmpty &&
+            grouped.last.fold<int>(
+                      0,
+                      (sum, block) => sum + block.translationSource.length,
+                    ) +
+                    pendingLength <=
+                maximumLength) {
+          grouped.last.addAll(pending);
+        } else {
+          grouped.add(pending);
+        }
+      }
+      batches.addAll(grouped);
+      segment = <NovelContentBlock>[];
+    }
+
+    for (final block in blocks) {
+      if (block.isTranslatable) {
+        segment.add(block);
+      } else {
+        flushSegment();
+      }
+    }
+    flushSegment();
+    return batches;
+  }
+
+  Future<void> _translateBodyBatch(
+    List<NovelContentBlock> blocks,
+    String targetLanguage,
+  ) async {
+    if (translationLocale != targetLanguage || blocks.isEmpty) return;
+    final pendingBlocks =
+        blocks.where((block) {
+          final existing = translations['body:${block.id}'];
+          return existing?.status != NovelTranslationStatus.loading &&
+              existing?.status != NovelTranslationStatus.success;
+        }).toList();
+    if (pendingBlocks.isEmpty) return;
+
+    for (final block in pendingBlocks) {
+      translations['body:${block.id}'] = NovelTranslationEntry(
+        status: NovelTranslationStatus.loading,
+        sourceText: block.translationSource,
+      );
+    }
+    try {
+      final translated = await aiTranslationService.translateNovelBodyBatch(
+        novelId: id,
+        batchKey: '${pendingBlocks.first.id}-${pendingBlocks.last.id}',
+        targetLanguage: targetLanguage,
+        sourceTexts: pendingBlocks
+            .map((block) => block.translationSource)
+            .toList(growable: false),
+      );
+      if (translated.length != pendingBlocks.length) {
+        throw StateError('小说正文翻译分段数量不匹配');
+      }
+      if (translationLocale == targetLanguage) {
+        for (var index = 0; index < pendingBlocks.length; index++) {
+          final block = pendingBlocks[index];
+          translations['body:${block.id}'] = NovelTranslationEntry(
+            status: NovelTranslationStatus.success,
+            sourceText: block.translationSource,
+            translatedText: translated[index],
+          );
+        }
+      }
+    } catch (error, stackTrace) {
+      Log.w('小说正文翻译失败', error: error, stackTrace: stackTrace);
+      if (translationLocale == targetLanguage) {
+        for (final block in pendingBlocks) {
+          translations['body:${block.id}'] = NovelTranslationEntry(
+            status: NovelTranslationStatus.failed,
+            sourceText: block.translationSource,
+            errorMessage: error.toString(),
+          );
+        }
       }
     }
   }

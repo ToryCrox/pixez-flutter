@@ -32,8 +32,8 @@ void main() {
       );
       final blocks = NovelSpansGenerator().buildContentBlocks(response);
 
-      expect(blocks.where((block) => block.isTranslatable), hasLength(4));
-      expect(blocks.first.translationSource, contains('一。\n\n二。\n\n三。'));
+      expect(blocks.where((block) => block.isTranslatable), hasLength(6));
+      expect(blocks.first.translationSource, '一。');
       expect(
         blocks.any(
           (block) =>
@@ -174,6 +174,30 @@ void main() {
       expect(adapter.requestCount, 1);
     },
   );
+
+  test('novel body batch restores one translation per source line', () async {
+    final adapter = _CountingAdapter();
+    final service = AiTranslationService(
+      settings: _FakeSettings(),
+      client: AiClient(adapters: [adapter]),
+      cache: AiResultCache(databasePath: inMemoryDatabasePath),
+    );
+    addTearDown(service.cache.close);
+
+    final request = service.translateNovelBodyBatch(
+      novelId: 1,
+      batchKey: 'block-0-block-1',
+      targetLanguage: 'zh-CN',
+      sourceTexts: const ['第一行', '第二行'],
+    );
+    adapter.completeRequest(
+      '⟪PXEZ_NOVEL_SEGMENT_0000⟫Line one\n'
+      '⟪PXEZ_NOVEL_SEGMENT_0001⟫Line two',
+    );
+
+    expect(await request, ['Line one', 'Line two']);
+    expect(adapter.requestCount, 1);
+  });
 }
 
 NovelWebResponse _response(
