@@ -440,7 +440,18 @@ class _OriginalAuthorImportDialogState
       final existingSets = await downloadStore.originalRepository
           .getSetsForIllust(targetIllustId);
       var existingSetAction = OriginalExistingSetAction.addVersion;
-      if (existingSets.isNotEmpty) {
+      final alreadyMappedInThisBatch = selections.any(
+        (selection) => selection.targetIllustId == targetIllustId,
+      );
+      if (alreadyMappedInThisBatch) {
+        final action = await _askBatchDuplicateAction(row, existingSets);
+        if (!mounted || action == null) return;
+        if (action == OriginalExistingSetAction.skip) {
+          skippedCount++;
+          continue;
+        }
+        existingSetAction = action;
+      } else if (existingSets.isNotEmpty) {
         final action = await _askExistingSetAction(row, existingSets);
         if (!mounted || action == null) return;
         if (action == OriginalExistingSetAction.skip) {
@@ -483,7 +494,14 @@ class _OriginalAuthorImportDialogState
             onProgress: _onProgress,
             isCancelled: () => _cancelRequested,
           );
-      if (mounted) setState(() => _manifest = manifest);
+      if (mounted) {
+        setState(() {
+          _manifest = manifest;
+          _expandedItemIds
+            ..clear()
+            ..addAll(manifest.items.map((item) => item.itemId));
+        });
+      }
     } catch (e, stackTrace) {
       if (_cancelRequested) {
         if (mounted) Navigator.pop(context, false);
@@ -494,6 +512,47 @@ class _OriginalAuthorImportDialogState
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  /// 自动匹配可能将多个目录指向同一作品。此时不能静默继续，
+  /// 否则它们会争用同一个“默认版”版本名。
+  Future<OriginalExistingSetAction?> _askBatchDuplicateAction(
+    _AuthorImportRow row,
+    List<OriginalImageSet> existingSets,
+  ) {
+    final existingHint =
+        existingSets.isEmpty ? '' : '该作品当前还有 ${existingSets.length} 个已导入版本。';
+    return showDialog<OriginalExistingSetAction>(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('检测到同一作品的多个目录'),
+            content: Text(
+              '目录“${p.basename(row.directory)}”自动匹配到了本批次中已选择的同一作品。'
+              '是否作为该作品的另一个版本导入？${existingHint.isEmpty ? '' : '\n$existingHint'}',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('取消本次预览'),
+              ),
+              TextButton(
+                onPressed:
+                    () =>
+                        Navigator.pop(context, OriginalExistingSetAction.skip),
+                child: const Text('跳过此目录'),
+              ),
+              FilledButton(
+                onPressed:
+                    () => Navigator.pop(
+                      context,
+                      OriginalExistingSetAction.addVersion,
+                    ),
+                child: const Text('作为新版本导入'),
+              ),
+            ],
+          ),
+    );
   }
 
   Future<OriginalExistingSetAction?> _askExistingSetAction(

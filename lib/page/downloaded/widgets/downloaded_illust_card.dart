@@ -80,7 +80,6 @@ class DownloadedIllustCard extends StatelessWidget {
 
     Widget imageWidget = PixivImage(
       coverUrl,
-      localImageInfo: store.originalCoverInfos[illust.illustId],
       fit: BoxFit.cover,
       httpHeaders: {'cover': '${illust.illustId}', 'quality': quality},
       memCacheWidth: 480,

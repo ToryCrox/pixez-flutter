@@ -39,6 +39,7 @@ class _OriginalImportDialogState extends State<OriginalImportDialog> {
   bool _cancelRequested = false;
   bool _isDraggingDirectory = false;
   final Map<int, Future<String?>> _downloadPathFutures = {};
+  List<OriginalImageSet> _existingSets = const [];
 
   @override
   void dispose() {
@@ -46,6 +47,19 @@ class _OriginalImportDialogState extends State<OriginalImportDialog> {
     _downloadStartController.dispose();
     _originalStartController.dispose();
     super.dispose();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _reloadExistingSets();
+  }
+
+  Future<void> _reloadExistingSets() async {
+    final sets = await downloadStore.originalRepository.getSetsForIllust(
+      widget.illust.illustId,
+    );
+    if (mounted) setState(() => _existingSets = sets);
   }
 
   void _applyStarts(OriginalImportItemManifest item) {
@@ -136,7 +150,15 @@ class _OriginalImportDialogState extends State<OriginalImportDialog> {
             onProgress: _onProgress,
             isCancelled: () => _cancelRequested,
           );
-      if (mounted) setState(() => _manifest = manifest);
+      if (mounted) {
+        setState(() {
+          _manifest = manifest;
+          // 新增版本时，服务会为重名版本自动生成唯一名称。提交时必须
+          // 沿用该名称，否则会将其覆盖回输入的名称并触发唯一索引冲突。
+          _editionController.text = manifest.items.single.editionName;
+          _existingSets = existingSets;
+        });
+      }
     } catch (e, stackTrace) {
       if (_cancelRequested) {
         if (mounted) Navigator.of(context).pop(false);
@@ -260,11 +282,6 @@ class _OriginalImportDialogState extends State<OriginalImportDialog> {
       _cancelRequested = false;
     });
     try {
-      final item = manifest.items.single;
-      item.editionName =
-          _editionController.text.trim().isEmpty
-              ? item.editionName
-              : _editionController.text.trim();
       await downloadStore.originalImportService.writeManifest(manifest);
       await downloadStore.originalImportService.execute(
         manifest,
@@ -285,6 +302,84 @@ class _OriginalImportDialogState extends State<OriginalImportDialog> {
           _error = e.toString();
         });
       }
+    }
+  }
+
+  Future<void> _applyEditionName() async {
+    final manifest = _manifest;
+    if (manifest == null) return;
+    final item = manifest.items.single;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final resolvedName =
+          item.existingSetId == null
+              ? await downloadStore.originalImportService
+                  .renamePreparedNewVersion(
+                    manifest,
+                    item.itemId,
+                    _editionController.text,
+                  )
+              : await downloadStore.originalRepository.renameSet(
+                item.existingSetId!,
+                _editionController.text,
+              );
+      item.editionName = resolvedName;
+      _editionController.text = resolvedName;
+      await downloadStore.originalImportService.writeManifest(manifest);
+      await _reloadExistingSets();
+    } catch (e, stackTrace) {
+      Log.e('修改原图版本名称失败', error: e, stackTrace: stackTrace);
+      if (mounted) setState(() => _error = e.toString());
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _renameExistingSet(OriginalImageSet set) async {
+    final controller = TextEditingController(text: set.editionName);
+    final name = await showDialog<String>(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('修改版本名称'),
+            content: TextField(
+              controller: controller,
+              autofocus: true,
+              decoration: const InputDecoration(labelText: '版本名称'),
+              onSubmitted: (value) => Navigator.pop(context, value),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('取消'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, controller.text),
+                child: const Text('保存'),
+              ),
+            ],
+          ),
+    );
+    controller.dispose();
+    if (!mounted || name == null) return;
+    try {
+      final resolvedName = await downloadStore.originalRepository.renameSet(
+        set.id!,
+        name,
+      );
+      final item = _manifest?.items.single;
+      if (item?.existingSetId == set.id) {
+        item!.editionName = resolvedName;
+        _editionController.text = resolvedName;
+        await downloadStore.originalImportService.writeManifest(_manifest!);
+      }
+      await _reloadExistingSets();
+    } catch (e, stackTrace) {
+      Log.e('重命名原图版本失败', error: e, stackTrace: stackTrace);
+      if (mounted) setState(() => _error = e.toString());
     }
   }
 
@@ -329,14 +424,56 @@ class _OriginalImportDialogState extends State<OriginalImportDialog> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              TextField(
-                controller: _editionController,
-                enabled: !_busy && item == null,
-                decoration: const InputDecoration(
-                  labelText: '版本名称',
-                  hintText: '例如：有字版、无字版',
-                ),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _editionController,
+                      enabled: !_busy,
+                      decoration: const InputDecoration(
+                        labelText: '版本名称',
+                        hintText: '例如：有字版、无字版',
+                      ),
+                    ),
+                  ),
+                  if (item != null) ...[
+                    const SizedBox(width: 12),
+                    OutlinedButton(
+                      onPressed: _busy ? null : _applyEditionName,
+                      child: const Text('应用名称'),
+                    ),
+                  ],
+                ],
               ),
+              if (_existingSets.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Card(
+                  child: SizedBox(
+                    height: 104,
+                    child: ListView.separated(
+                      itemCount: _existingSets.length,
+                      separatorBuilder: (_, _) => const Divider(height: 1),
+                      itemBuilder: (_, index) {
+                        final set = _existingSets[index];
+                        return ListTile(
+                          dense: true,
+                          leading: Icon(
+                            set.isDefault ? Icons.star : Icons.collections,
+                          ),
+                          title: Text(set.editionName),
+                          subtitle: Text('${set.imageCount} 张原图'),
+                          trailing: IconButton(
+                            tooltip: '修改版本名称',
+                            onPressed:
+                                _busy ? null : () => _renameExistingSet(set),
+                            icon: const Icon(Icons.edit_outlined),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 12),
               AnimatedContainer(
                 duration: const Duration(milliseconds: 150),

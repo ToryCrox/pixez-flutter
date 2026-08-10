@@ -611,10 +611,11 @@ abstract class _DownloadedPageStoreBase with Store {
             status: downloadStatus?.status,
             originalCount: originalCount,
             enhancedCount: displayManifest?.pageCount ?? 0,
+            // 下载页卡片始终使用下载图作为封面；原图只用于详情页显示。
             originalCover:
                 displayManifest == null || displayManifest.pages.isEmpty
                     ? null
-                    : displayManifest.pages.first.resolve(displayManifest.mode),
+                    : displayManifest.pages.first.downloadedImage,
           );
         }).toList();
 
@@ -627,6 +628,8 @@ abstract class _DownloadedPageStoreBase with Store {
       _enhancedPageCounts[entry.id] = entry.enhancedCount;
       if (entry.originalCover != null) {
         _originalCoverInfos[entry.id] = entry.originalCover!;
+      } else {
+        _originalCoverInfos.remove(entry.id);
       }
     }
   }

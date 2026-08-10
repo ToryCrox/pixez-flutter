@@ -318,6 +318,46 @@ class OriginalImageRepository {
     });
   }
 
+  /// 重命名版本；若名称已被同一作品使用，会自动追加序号。
+  Future<String> renameSet(int setId, String requestedName) async {
+    final requested = requestedName.trim();
+    if (requested.isEmpty) throw StateError('版本名称不能为空');
+    return _db.transaction((txn) async {
+      final rows = await txn.query(
+        'original_image_sets',
+        columns: ['illust_id'],
+        where: 'id = ?',
+        whereArgs: [setId],
+        limit: 1,
+      );
+      if (rows.isEmpty) throw StateError('原图版本不存在');
+      final illustId = rows.first['illust_id'] as int;
+      final nameRows = await txn.query(
+        'original_image_sets',
+        columns: ['edition_name'],
+        where: 'illust_id = ? AND id != ?',
+        whereArgs: [illustId, setId],
+      );
+      final used = nameRows.map((row) => row['edition_name'] as String).toSet();
+      var resolved = requested;
+      var suffix = 2;
+      while (used.contains(resolved)) {
+        resolved = '$requested ($suffix)';
+        suffix++;
+      }
+      await txn.update(
+        'original_image_sets',
+        {
+          'edition_name': resolved,
+          'updated_at': DateTime.now().millisecondsSinceEpoch,
+        },
+        where: 'id = ?',
+        whereArgs: [setId],
+      );
+      return resolved;
+    });
+  }
+
   Future<void> deleteSetRecord(int setId) async {
     await _db.delete(
       'original_image_sets',

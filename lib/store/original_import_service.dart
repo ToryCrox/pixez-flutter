@@ -239,7 +239,7 @@ class OriginalImportItemManifest {
   String editionName;
   final String storageKey;
   final String stagingRelativePath;
-  final String finalRelativePath;
+  String finalRelativePath;
   final int? existingSetId;
   final bool replaceExistingSet;
   String directoryFingerprint;
@@ -588,6 +588,9 @@ class OriginalImportService {
       updatedAt: now,
       items: [],
     );
+    // 同一批次中多个源目录可能被自动匹配到同一作品。数据库在预览阶段
+    // 尚未写入，不能只依赖数据库中的版本名来生成唯一名称。
+    final reservedEditionNamesByIllust = <int, Set<String>>{};
     await Directory(p.join(_stagingRoot, jobId)).create(recursive: true);
     try {
       for (final selection in selections) {
@@ -599,6 +602,10 @@ class OriginalImportService {
         final imageFiles = await _listImages(source);
         if (imageFiles.isEmpty) continue;
         final existingSets = await repository.getSetsForIllust(target.illustId);
+        final reservedEditionNames = reservedEditionNamesByIllust.putIfAbsent(
+          target.illustId,
+          () => existingSets.map((set) => set.editionName).toSet(),
+        );
         if (existingSets.isNotEmpty &&
             selection.existingSetAction == OriginalExistingSetAction.skip) {
           continue;
@@ -616,12 +623,11 @@ class OriginalImportService {
         final storageKey = existingSet?.storageKey ?? _newStorageKey();
         final editionName =
             existingSet?.editionName ??
-            (selection.existingSetAction == OriginalExistingSetAction.addVersion
-                ? await _uniqueEditionName(
-                  target.illustId,
-                  selection.editionName,
-                )
-                : selection.editionName);
+            _uniqueEditionNameFromUsed(
+              reservedEditionNames,
+              selection.editionName,
+            );
+        reservedEditionNames.add(editionName);
         final workKey =
             target.isLocal
                 ? 'local_${target.illustId.abs()}'
@@ -684,6 +690,39 @@ class OriginalImportService {
       }
       rethrow;
     }
+  }
+
+  /// 修改预览中待新增版本的名称，并同步更新最终目录名。
+  /// 已存在版本的改名由 [OriginalImageRepository.renameSet] 处理。
+  Future<String> renamePreparedNewVersion(
+    OriginalImportManifest manifest,
+    String itemId,
+    String requestedName,
+  ) async {
+    final item = manifest.items.firstWhere(
+      (item) => item.itemId == itemId,
+      orElse: () => throw StateError('待导入的原图项目不存在'),
+    );
+    if (item.existingSetId != null) {
+      throw StateError('该项目正在更新已有版本，请直接修改已有版本名称');
+    }
+    if (item.state == OriginalImportItemState.committed) {
+      throw StateError('已导入的版本不能在此修改名称');
+    }
+    final name = requestedName.trim();
+    if (name.isEmpty) throw StateError('版本名称不能为空');
+    final existingSets = await repository.getSetsForIllust(item.targetIllustId);
+    final resolvedName = _uniqueEditionNameFromUsed(
+      existingSets.map((set) => set.editionName).toSet(),
+      name,
+    );
+    item.editionName = resolvedName;
+    item.finalRelativePath = p.join(
+      p.dirname(item.finalRelativePath),
+      '[${item.storageKey}]${_sanitizePathPart(resolvedName)}',
+    );
+    await writeManifest(manifest);
+    return resolvedName;
   }
 
   Future<Map<int, List<OriginalMappingDraft>>> previewLocalLink({
@@ -1856,6 +1895,10 @@ class OriginalImportService {
   Future<String> _uniqueEditionName(int illustId, String requested) async {
     final sets = await repository.getSetsForIllust(illustId);
     final used = sets.map((set) => set.editionName).toSet();
+    return _uniqueEditionNameFromUsed(used, requested);
+  }
+
+  String _uniqueEditionNameFromUsed(Set<String> used, String requested) {
     if (!used.contains(requested)) return requested;
     var index = 2;
     while (used.contains('$requested ($index)')) {
