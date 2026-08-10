@@ -26,6 +26,7 @@ import 'package:pixez/models/download_record.dart';
 import 'package:pixez/models/error_message.dart';
 import 'package:pixez/models/illust.dart';
 import 'package:pixez/models/illust_series_detail.dart';
+import 'package:pixez/models/original_image.dart';
 import 'package:pixez/models/ugoira_metadata_response.dart';
 import 'package:pixez/network/api_client.dart';
 import 'package:pixez/store/download_store.dart';
@@ -78,6 +79,22 @@ abstract class _IllustStoreBase with Store {
   ObservableMap<int, LocalImageInfo?> localImageInfos =
       ObservableMap<int, LocalImageInfo?>();
 
+  @observable
+  DisplayManifest? displayManifest;
+
+  @observable
+  OriginalDisplayMode displayMode = OriginalDisplayMode.originalPreferred;
+
+  @observable
+  int? selectedOriginalSetId;
+
+  @observable
+  ObservableList<OriginalImageSet> originalSets = ObservableList();
+
+  bool get hasOriginal => originalSets.isNotEmpty;
+  int get displayPageCount =>
+      displayManifest?.pageCount ?? illusts?.pageCount ?? 1;
+
   StreamSubscription<IllustDownloadStatus>? _downloadStatusSubscription;
   Timer? _jumpHintTimer;
 
@@ -93,6 +110,13 @@ abstract class _IllustStoreBase with Store {
   /// 获取指定页面的本地图片信息（同步方法）
   LocalImageInfo? getLocalImageInfo(int part) {
     return localImageInfos[part];
+  }
+
+  int? getDownloadedPartForDisplayIndex(int index) {
+    final pages = displayManifest?.pages;
+    if (pages == null) return index;
+    if (index < 0 || index >= pages.length) return null;
+    return pages[index].downloadedPart;
   }
 
   /// 预加载首帧图片信息（用于进入详情页前预加载，避免尺寸跳动）
@@ -254,10 +278,12 @@ abstract class _IllustStoreBase with Store {
 
     // 1. 优先从数据库查询已下载的 illust（如果已下载）
     bool isDownloaded = false;
+    bool isLocalWork = false;
     Illusts? originalIllusts; // 保存从数据库加载的原始 illusts，用于对比
     if (downloadStore.isInitialized) {
       final downloadedIllust = await downloadStore.getDownloadedIllust(id);
       if (downloadedIllust != null) {
+        isLocalWork = downloadedIllust.isLocal;
         Log.d('已下载的 illust: ${downloadedIllust.illustId}');
         try {
           final dbIllusts = downloadedIllust.toIllusts();
@@ -288,7 +314,7 @@ abstract class _IllustStoreBase with Store {
 
     // 2. 如果数据库中没有，尝试从缓存加载
     final cacheKey = 'illust_detail_$id';
-    if (illusts == null) {
+    if (illusts == null && !isLocalWork) {
       final cachedData = await DiskCache.readModel(
         cacheKey,
         (map) => Illusts.fromJson(map),
@@ -307,10 +333,11 @@ abstract class _IllustStoreBase with Store {
     }
 
     // 3. 如果仍然没有数据或需要更新（caption 为空），从网络加载
-    if (illusts == null ||
-        force ||
-        illusts?.caption == null ||
-        illusts?.caption.isEmpty == true) {
+    if (!isLocalWork &&
+        (illusts == null ||
+            force ||
+            illusts?.caption == null ||
+            illusts?.caption.isEmpty == true)) {
       final captionEmtpyCase = illusts != null && illusts!.caption.isEmpty;
       if (captionEmtpyCase) {
         captionFetching = true;
@@ -387,7 +414,9 @@ abstract class _IllustStoreBase with Store {
       }
       HistoryManager.instance.updateHistory(illusts!, lastPage: pageToRecord);
     }
-    if (illusts?.series != null && illustSeriesDetailResponse == null) {
+    if (!isLocalWork &&
+        illusts?.series != null &&
+        illustSeriesDetailResponse == null) {
       try {
         Response response = await client.illustSeriesIllust(id);
         final result = IllustSeriesDetailResponse.fromJson(response.data);
@@ -403,6 +432,28 @@ abstract class _IllustStoreBase with Store {
     if (!downloadStore.isInitialized) return;
 
     final t1 = DateTime.now();
+    final sets = await downloadStore.originalRepository.getSetsForIllust(id);
+    originalSets
+      ..clear()
+      ..addAll(sets);
+    if (sets.isNotEmpty) {
+      selectedOriginalSetId ??= sets.first.id;
+      displayManifest = await downloadStore.buildDisplayManifest(
+        id,
+        setId: selectedOriginalSetId,
+        mode: displayMode,
+      );
+      localImageInfos.clear();
+      for (final page in displayManifest!.pages) {
+        localImageInfos[page.displayOrder] = page.resolve(displayMode);
+      }
+      updateTotalPages(displayManifest!.pageCount);
+      Log.d(
+        'loadDisplayManifest: $id, mode: $displayMode, pages: ${displayManifest!.pageCount}',
+      );
+      return;
+    }
+
     // 批量从数据库获取所有图片信息（已自动检测后缀名）
     final imageInfos = await downloadStore.getLocalImageInfos(id);
     localImageInfos.clear();
@@ -411,6 +462,65 @@ abstract class _IllustStoreBase with Store {
       'loadLocalImageInfos time1: ${DateTime.now().difference(t1).inMilliseconds}ms, illusts.id: $id, length: ${imageInfos.length}',
     );
     _tryUpdateLocalImageInfo(imageInfos);
+  }
+
+  @action
+  Future<int> selectDisplayMode(OriginalDisplayMode mode) async {
+    if (displayMode == mode) return currentPage;
+    final anchorPart = _currentDownloadedAnchor();
+    displayMode = mode;
+    await _loadLocalImageInfos();
+    return _restoreDisplayAnchor(anchorPart);
+  }
+
+  @action
+  Future<int> selectOriginalSet(int setId) async {
+    if (selectedOriginalSetId == setId) return currentPage;
+    final anchorPart = _currentDownloadedAnchor();
+    selectedOriginalSetId = setId;
+    displayMode = OriginalDisplayMode.originalPreferred;
+    await _loadLocalImageInfos();
+    return _restoreDisplayAnchor(anchorPart);
+  }
+
+  int? _currentDownloadedAnchor() {
+    final pages = displayManifest?.pages;
+    if (pages == null || pages.isEmpty) return currentPage;
+    final index = currentPage.clamp(0, pages.length - 1);
+    if (pages[index].downloadedPart != null) {
+      return pages[index].downloadedPart;
+    }
+    for (var distance = 1; distance < pages.length; distance++) {
+      final before = index - distance;
+      if (before >= 0 && pages[before].downloadedPart != null) {
+        return pages[before].downloadedPart;
+      }
+      final after = index + distance;
+      if (after < pages.length && pages[after].downloadedPart != null) {
+        return pages[after].downloadedPart;
+      }
+    }
+    return null;
+  }
+
+  int _restoreDisplayAnchor(int? downloadedPart) {
+    final pages = displayManifest?.pages ?? const [];
+    if (pages.isEmpty) return 0;
+    var target = currentPage.clamp(0, pages.length - 1);
+    if (downloadedPart != null) {
+      var bestDistance = 1 << 30;
+      for (var i = 0; i < pages.length; i++) {
+        final part = pages[i].downloadedPart;
+        if (part == null) continue;
+        final distance = (part - downloadedPart).abs();
+        if (distance < bestDistance) {
+          bestDistance = distance;
+          target = i;
+        }
+      }
+    }
+    currentPage = target;
+    return target;
   }
 
   Future<void> _tryUpdateLocalImageInfo(

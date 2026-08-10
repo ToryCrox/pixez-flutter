@@ -97,12 +97,10 @@ class _DownloadStatusIndicatorState extends State<DownloadStatusIndicator> {
   }
 
   Future<void> _checkStatus() async {
-    if (!downloadStore.isInitialized) {
-      if (mounted) {
-        setState(() {
-          _status = null;
-        });
-      }
+    try {
+      await downloadStore.waitUntilInitialized();
+    } catch (error, stackTrace) {
+      Log.e('等待下载数据库初始化失败', error: error, stackTrace: stackTrace);
       return;
     }
     _status = await downloadStore.getIllustDownloadStatus(widget.illustId);
@@ -293,12 +291,10 @@ class _IllustDownloadButtonState extends State<IllustDownloadButton> {
   }
 
   Future<void> _checkStatus() async {
-    if (!downloadStore.isInitialized) {
-      if (mounted) {
-        setState(() {
-          _status = null;
-        });
-      }
+    try {
+      await downloadStore.waitUntilInitialized();
+    } catch (error, stackTrace) {
+      Log.e('等待下载数据库初始化失败', error: error, stackTrace: stackTrace);
       return;
     }
     _status = await downloadStore.getIllustDownloadStatus(widget.illusts.id);

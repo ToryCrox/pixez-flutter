@@ -33,6 +33,8 @@ enum DownloadFilter {
   downloading,
   completed,
   incomplete, // 未下载完整
+  hasOriginal, // 有原图
+  originalOnly, // 仅原图
   noUgoira, // 排除动图
   onlyUgoira, // 仅显示动图
 }
@@ -75,6 +77,15 @@ abstract class _DownloadedPageStoreBase with Store {
       ObservableMap();
 
   @readonly
+  ObservableMap<int, int> _originalImageCounts = ObservableMap();
+
+  @readonly
+  ObservableMap<int, LocalImageInfo> _originalCoverInfos = ObservableMap();
+
+  @readonly
+  ObservableMap<int, int> _enhancedPageCounts = ObservableMap();
+
+  @readonly
   bool _loading = true;
 
   @readonly
@@ -112,6 +123,9 @@ abstract class _DownloadedPageStoreBase with Store {
 
   @readonly
   Map<String, int>? _stats;
+
+  @readonly
+  Map<String, int>? _originalStats;
 
   @computed
   TagDisplayData? get filterTagData =>
@@ -183,15 +197,26 @@ abstract class _DownloadedPageStoreBase with Store {
 
     return _illusts.where((illust) {
       final status = _illustDownloadStatus[illust.illustId];
+      final originalCount = _originalImageCounts[illust.illustId] ?? 0;
+      if (_downloadFilter == DownloadFilter.hasOriginal) {
+        return originalCount > 0;
+      }
+      if (_downloadFilter == DownloadFilter.originalOnly) {
+        return originalCount > 0 && illust.downloadedImageCount == 0;
+      }
       // 直接使用物化字段
-      final isCompleted = illust.downloadedImageCount >= illust.pageCount;
+      final isCompleted =
+          illust.downloadedImageCount > 0 &&
+          illust.downloadedImageCount >= illust.pageCount;
 
       if (_downloadFilter == DownloadFilter.downloading) {
-        return !isCompleted ||
-            status == DownloadTaskStatus.downloading ||
-            status == DownloadTaskStatus.pending ||
-            status == DownloadTaskStatus.paused ||
-            status == DownloadTaskStatus.failed;
+        return !illust.isLocal &&
+            illust.downloadRemovedAt == null &&
+            (!isCompleted ||
+                status == DownloadTaskStatus.downloading ||
+                status == DownloadTaskStatus.pending ||
+                status == DownloadTaskStatus.paused ||
+                status == DownloadTaskStatus.failed);
       } else if (_downloadFilter == DownloadFilter.completed) {
         return isCompleted &&
             status != DownloadTaskStatus.downloading &&
@@ -358,11 +383,15 @@ abstract class _DownloadedPageStoreBase with Store {
     try {
       List<DownloadedIllust> illusts;
       final orderBy = _sortBy;
+      final originalFilter =
+          _downloadFilter == DownloadFilter.hasOriginal ||
+          _downloadFilter == DownloadFilter.originalOnly;
+      final queryLimit = originalFilter ? null : _pageSize;
 
       final t1 = DateTime.now();
       if (_downloadFilter == DownloadFilter.incomplete) {
         illusts = await downloadStore.getIncompleteDownloaded(
-          limit: _pageSize,
+          limit: queryLimit,
           offset: 0,
           orderBy: orderBy,
           filterBookmarks: _showBookmarksOnly,
@@ -371,7 +400,7 @@ abstract class _DownloadedPageStoreBase with Store {
       } else if (_filterTagId != null) {
         illusts = await downloadStore.searchDownloadedByTagId(
           _filterTagId!,
-          limit: _pageSize,
+          limit: queryLimit,
           offset: 0,
           orderBy: orderBy,
           exampleIllustIds: filterTagData?.tag.exampleIllustIds,
@@ -381,7 +410,7 @@ abstract class _DownloadedPageStoreBase with Store {
       } else if (_filterUserId != null) {
         illusts = await downloadStore.getDownloadedByUser(
           _filterUserId!,
-          limit: _pageSize,
+          limit: queryLimit,
           offset: 0,
           orderBy: orderBy,
           filterBookmarks: _showBookmarksOnly,
@@ -390,7 +419,7 @@ abstract class _DownloadedPageStoreBase with Store {
       } else if (_searchKeyword != null && _searchKeyword!.isNotEmpty) {
         illusts = await downloadStore.searchDownloaded(
           _searchKeyword!,
-          limit: _pageSize,
+          limit: queryLimit,
           offset: 0,
           orderBy: orderBy,
           filterBookmarks: _showBookmarksOnly,
@@ -398,7 +427,7 @@ abstract class _DownloadedPageStoreBase with Store {
         );
       } else {
         illusts = await downloadStore.getAllDownloaded(
-          limit: _pageSize,
+          limit: queryLimit,
           offset: 0,
           orderBy: orderBy,
           filterBookmarks: _showBookmarksOnly,
@@ -418,7 +447,7 @@ abstract class _DownloadedPageStoreBase with Store {
       _unprocessedIllustIds.clear();
       _illusts.addAll(illusts);
       _loading = false;
-      _hasMore = illusts.length >= _pageSize;
+      _hasMore = queryLimit != null && illusts.length >= _pageSize;
 
       // 如果开启了标记未处理，加载未处理状态
       // 如果开启了标记未处理，加载未处理状态
@@ -547,6 +576,13 @@ abstract class _DownloadedPageStoreBase with Store {
       );
 
       _stats = stats;
+      if (filterType == 'all' || filterType == 'user') {
+        _originalStats = await downloadStore.originalRepository.getStats(
+          userId: userId,
+        );
+      } else {
+        _originalStats = null;
+      }
     } catch (e) {
       // 忽略错误，不影响主功能
     }
@@ -562,13 +598,35 @@ abstract class _DownloadedPageStoreBase with Store {
             illust.illustId,
             downloadedIllust: illust,
           );
-          return MapEntry(illust.illustId, downloadStatus?.status);
+          final originalStats = await downloadStore.originalRepository.getStats(
+            illustId: illust.illustId,
+          );
+          final originalCount = originalStats['image_count'] ?? 0;
+          final displayManifest =
+              originalCount == 0
+                  ? null
+                  : await downloadStore.buildDisplayManifest(illust.illustId);
+          return (
+            id: illust.illustId,
+            status: downloadStatus?.status,
+            originalCount: originalCount,
+            enhancedCount: displayManifest?.pageCount ?? 0,
+            originalCover:
+                displayManifest == null || displayManifest.pages.isEmpty
+                    ? null
+                    : displayManifest.pages.first.resolve(displayManifest.mode),
+          );
         }).toList();
 
     final results = await Future.wait(futures);
     for (final entry in results) {
-      if (entry.value != null) {
-        _illustDownloadStatus[entry.key] = entry.value!;
+      if (entry.status != null) {
+        _illustDownloadStatus[entry.id] = entry.status!;
+      }
+      _originalImageCounts[entry.id] = entry.originalCount;
+      _enhancedPageCounts[entry.id] = entry.enhancedCount;
+      if (entry.originalCover != null) {
+        _originalCoverInfos[entry.id] = entry.originalCover!;
       }
     }
   }

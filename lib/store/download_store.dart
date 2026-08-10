@@ -36,11 +36,14 @@ import 'package:pixez/custom/type_util.dart';
 import 'package:pixez/er/hoster.dart';
 import 'package:pixez/models/download_record.dart';
 import 'package:pixez/models/illust.dart';
+import 'package:pixez/models/original_image.dart';
+import 'package:pixez/models/original_image_repository.dart';
 import 'package:pixez/models/ugoira_metadata_response.dart';
 import 'package:pixez/page/database/database_registry.dart';
 import 'package:pixez/utils/ugoira_downloader.dart';
 import 'package:pixez/utils/webp_encoder.dart';
 import 'package:pixez/store/account_store.dart';
+import 'package:pixez/store/original_import_service.dart';
 import 'package:pixez/network/api_client.dart';
 
 part 'download_store.g.dart';
@@ -217,11 +220,21 @@ class IllustDownloadStatus {
 
 class DownloadStore = _DownloadStoreBase with _$DownloadStore;
 
+class DownloadResourcesRemovedEvent {
+  final int illustId;
+
+  const DownloadResourcesRemovedEvent(this.illustId);
+}
+
 abstract class _DownloadStoreBase with Store {
   final DownloadDatabaseProvider _dbProvider = DownloadDatabaseProvider();
 
   // 暴露数据库 provider 供 downloader 使用
   DownloadDatabaseProvider get dbProvider => _dbProvider;
+  OriginalImageRepository get originalRepository =>
+      OriginalImageRepository(_dbProvider);
+  OriginalImportService get originalImportService =>
+      OriginalImportService(_dbProvider);
 
   // Account Store for user info
   late AccountStore accountStore;
@@ -237,6 +250,13 @@ abstract class _DownloadStoreBase with Store {
 
   Stream<IllustDownloadStatus> get illustDownloadStatusStream =>
       _illustDownloadStatusController.stream;
+
+  final StreamController<DownloadResourcesRemovedEvent>
+  _downloadResourcesRemovedController =
+      StreamController<DownloadResourcesRemovedEvent>.broadcast();
+
+  Stream<DownloadResourcesRemovedEvent> get downloadResourcesRemovedStream =>
+      _downloadResourcesRemovedController.stream;
 
   /// 正在下载illust id
   final Set<int> _downloadProgressIllustIdBuffer = {};
@@ -263,7 +283,20 @@ abstract class _DownloadStoreBase with Store {
     _processQueue();
   }
 
-  bool get isInitialized => _dbProvider.downloadPath.isNotEmpty;
+  bool _databaseReady = false;
+  Completer<void> _databaseReadyCompleter = Completer<void>();
+  Future<void>? _initializationFuture;
+
+  /// 数据库连接已经打开，可以安全执行查询。
+  ///
+  /// 不能使用 downloadPath 是否为空来判断：数据库迁移期间路径已经设置，
+  /// 但 sqflite 的 Database 实例尚未创建。
+  bool get isInitialized => _databaseReady;
+
+  Future<void> waitUntilInitialized() async {
+    if (_databaseReady) return;
+    await _databaseReadyCompleter.future;
+  }
 
   @observable
   int totalDownloaded = 0;
@@ -278,13 +311,43 @@ abstract class _DownloadStoreBase with Store {
   Timer? _debounceTimer;
 
   // 初始化
-  Future<void> init(String downloadPath, {int maxConcurrent = 3}) async {
-    if (_isInit) return;
-    _isInit = true;
+  Future<void> init(String downloadPath, {int maxConcurrent = 3}) {
+    final initializing = _initializationFuture;
+    if (initializing != null) return initializing;
+
+    final future = _initialize(downloadPath, maxConcurrent: maxConcurrent);
+    _initializationFuture = future;
+    return future;
+  }
+
+  Future<void> _initialize(
+    String downloadPath, {
+    required int maxConcurrent,
+  }) async {
     _maxConcurrent = maxConcurrent;
-    await _dbProvider.open(downloadPath);
+    try {
+      await _dbProvider.open(downloadPath);
+    } catch (error, stackTrace) {
+      _initializationFuture = null;
+      if (!_databaseReadyCompleter.isCompleted) {
+        _databaseReadyCompleter.completeError(error, stackTrace);
+      }
+      Log.e('DownloadStore 数据库初始化失败', error: error, stackTrace: stackTrace);
+      rethrow;
+    }
+
+    _isInit = true;
+    _databaseReady = true;
+    if (!_databaseReadyCompleter.isCompleted) {
+      _databaseReadyCompleter.complete();
+    }
     Log.d('DownloadStore downloadPath: ${_dbProvider.downloadPath}');
     await refreshCount();
+
+    final recoverableJobs = await originalImportService.findRecoverableJobs();
+    if (recoverableJobs.isNotEmpty) {
+      Log.w('发现 ${recoverableJobs.length} 个可恢复的原图导入任务');
+    }
 
     progressStream.listen((e) {
       _downloadProgressIllustIdBuffer.add(e.illusts.id);
@@ -381,20 +444,37 @@ abstract class _DownloadStoreBase with Store {
   void dispose() {
     _debounceTimer?.cancel();
     _progressController.close();
+    _downloadResourcesRemovedController.close();
+  }
+
+  Future<DisplayManifest> buildDisplayManifest(
+    int illustId, {
+    int? setId,
+    OriginalDisplayMode mode = OriginalDisplayMode.originalPreferred,
+  }) async {
+    await waitUntilInitialized();
+    return originalRepository.buildDisplayManifest(
+      illustId,
+      setId: setId,
+      mode: mode,
+    );
   }
 
   // ============ 查询接口 ============
 
   Future<bool> isIllustDownloaded(int illustId) async {
+    await waitUntilInitialized();
     return await _dbProvider.isIllustDownloaded(illustId);
   }
 
   /// 批量查询插画是否已下载
   Future<Set<int>> getDownloadedIds(List<int> ids) async {
+    await waitUntilInitialized();
     return await _dbProvider.getDownloadedIds(ids);
   }
 
   Future<DownloadedIllust?> getDownloadedIllust(int illustId) async {
+    await waitUntilInitialized();
     return await _dbProvider.getIllustByIllustId(illustId);
   }
 
@@ -414,6 +494,7 @@ abstract class _DownloadStoreBase with Store {
   Future<List<DownloadedIllust>> getDownloadedIllustsByIds(
     List<int> illustIds,
   ) async {
+    await waitUntilInitialized();
     return await _dbProvider.getIllustsByIllustIds(illustIds);
   }
 
@@ -424,6 +505,7 @@ abstract class _DownloadStoreBase with Store {
     bool isUgoira = false,
     bool update = true,
   }) async {
+    await waitUntilInitialized();
     return await _dbProvider.findImagePath(
       illustId,
       part,
@@ -440,6 +522,7 @@ abstract class _DownloadStoreBase with Store {
     bool update = true,
     bool checkExists = true,
   }) async {
+    await waitUntilInitialized();
     return await _dbProvider.findImagePathForImage(
       image,
       relativePath: relativePath,
@@ -466,11 +549,13 @@ abstract class _DownloadStoreBase with Store {
 
   /// 获取本地图片信息（包含宽高）
   Future<DownloadedImage?> getLocalImage(int illustId, int part) async {
+    await waitUntilInitialized();
     return await _dbProvider.getImage(illustId, part);
   }
 
   /// 批量获取插画的所有本地图片信息
   Future<Map<int, LocalImageInfo>> getLocalImageInfos(int illustId) async {
+    await waitUntilInitialized();
     return await _dbProvider.getLocalImageInfosByIllustId(illustId);
   }
 
@@ -502,6 +587,7 @@ abstract class _DownloadStoreBase with Store {
 
   /// 获取本地图片的宽高比，如果没有宽高信息则尝试解析并更新
   Future<double?> getLocalImageAspectRatio(int illustId, int part) async {
+    await waitUntilInitialized();
     final image = await _dbProvider.getImage(illustId, part);
     if (image == null) return null;
 
@@ -536,6 +622,7 @@ abstract class _DownloadStoreBase with Store {
     bool filterBookmarks = false,
     String? typeFilter,
   }) async {
+    await waitUntilInitialized();
     return await _dbProvider.getAllIllusts(
       limit: limit,
       offset: offset,
@@ -554,6 +641,7 @@ abstract class _DownloadStoreBase with Store {
     bool filterBookmarks = false,
     String? typeFilter,
   }) async {
+    await waitUntilInitialized();
     return await _dbProvider.getIllustsByUserId(
       userId,
       limit: limit,
@@ -573,6 +661,7 @@ abstract class _DownloadStoreBase with Store {
     bool filterBookmarks = false,
     String? typeFilter,
   }) async {
+    await waitUntilInitialized();
     return await _dbProvider.searchIllustsByTagId(
       tagId,
       limit: limit,
@@ -593,6 +682,7 @@ abstract class _DownloadStoreBase with Store {
     bool filterBookmarks = false,
     String? typeFilter,
   }) async {
+    await waitUntilInitialized();
     // 先获取标签 ID，再调用按 ID 搜索的方法
     final tag = await _dbProvider.getTagByName(tagName);
     if (tag == null) return [];
@@ -615,6 +705,7 @@ abstract class _DownloadStoreBase with Store {
     bool filterBookmarks = false,
     String? typeFilter,
   }) async {
+    await waitUntilInitialized();
     return await _dbProvider.searchIllusts(
       keyword,
       limit: limit,
@@ -633,6 +724,7 @@ abstract class _DownloadStoreBase with Store {
     String? orderBy,
     bool filterBookmarks = false,
   }) async {
+    await waitUntilInitialized();
     return await _dbProvider.getIllustsWithNonWebPImages(
       userId: userId,
       limit: limit,
@@ -651,6 +743,7 @@ abstract class _DownloadStoreBase with Store {
     bool filterBookmarks = false,
     String? typeFilter,
   }) async {
+    await waitUntilInitialized();
     return await _dbProvider.getIncompleteIllusts(
       limit: limit,
       offset: offset,
@@ -661,6 +754,7 @@ abstract class _DownloadStoreBase with Store {
   }
 
   Future<List<Map<String, dynamic>>> getDistinctUsers() async {
+    await waitUntilInitialized();
     return await _dbProvider.getDistinctUsers();
   }
 
@@ -674,6 +768,7 @@ abstract class _DownloadStoreBase with Store {
     bool filterBookmarks = false,
     List<int>? filterUserIds,
   }) async {
+    await waitUntilInitialized();
     return await _dbProvider.getAuthorsWithStats(
       sortBy: sortBy,
       desc: desc,
@@ -687,6 +782,7 @@ abstract class _DownloadStoreBase with Store {
 
   /// 获取单个作者信息
   Future<DownloadedAuthor?> getAuthorByUserId(int userId) async {
+    await waitUntilInitialized();
     return await _dbProvider.getAuthorByUserId(userId);
   }
 
@@ -695,6 +791,7 @@ abstract class _DownloadStoreBase with Store {
     int userId, {
     int limit = 3,
   }) async {
+    await waitUntilInitialized();
     return await _dbProvider.getIllustsByUserId(
       userId,
       limit: limit,
@@ -707,6 +804,7 @@ abstract class _DownloadStoreBase with Store {
     int userId, {
     int limit = 3,
   }) async {
+    await waitUntilInitialized();
     return await _dbProvider.getIllustsByUserId(
       userId,
       limit: limit,
@@ -717,6 +815,7 @@ abstract class _DownloadStoreBase with Store {
 
   /// 获取作者的图片统计信息（总图片张数和总文件大小）
   Future<Map<String, int>> getAuthorImageStats(int userId) async {
+    await waitUntilInitialized();
     return await _dbProvider.getAuthorImageStats(userId);
   }
 
@@ -731,6 +830,7 @@ abstract class _DownloadStoreBase with Store {
     bool filterBookmarks = false,
     String? typeFilter,
   }) async {
+    await waitUntilInitialized();
     return await _dbProvider.getFilteredStats(
       filterType: filterType,
       userId: userId,
@@ -743,6 +843,7 @@ abstract class _DownloadStoreBase with Store {
   }
 
   Future<int> getDownloadedCount() async {
+    await waitUntilInitialized();
     return await _dbProvider.getIllustCount();
   }
 
@@ -924,6 +1025,8 @@ abstract class _DownloadStoreBase with Store {
       throw Exception('DownloadStore not initialized');
     }
 
+    await originalRepository.clearDownloadResourcesRemoved(illusts.id);
+
     // 动图下载分流
     if (illusts.type == 'ugoira') {
       await downloadUgoira(illusts, bookmark: bookmark);
@@ -961,6 +1064,7 @@ abstract class _DownloadStoreBase with Store {
   @action
   Future<void> downloadUgoira(Illusts illusts, {int bookmark = 0}) async {
     final illustId = illusts.id;
+    await originalRepository.clearDownloadResourcesRemoved(illustId);
 
     // 先检查任务是否已存在（优先检查，避免重复创建任务）
     final taskKey = '${illusts.id}_0';
@@ -1847,6 +1951,10 @@ abstract class _DownloadStoreBase with Store {
         return false;
       }
       Log.d(() => "更新已下载的插画信息: ${illusts.id}");
+      if (existingIllust.pageCount != illusts.pageCount &&
+          await originalRepository.hasOriginal(illusts.id)) {
+        BotToast.showText(text: '作品 ${illusts.id} 页数已变化，建议复核原图映射');
+      }
 
       // 使用 fromIllusts 方法创建优化后的 DownloadedIllust（保留原有的 relativePath 和 downloadTime）
       final updatedIllust = DownloadedIllust.fromIllusts(
@@ -1859,6 +1967,8 @@ abstract class _DownloadStoreBase with Store {
         bookmark: existingIllust.bookmark,
         translatedTitle: existingIllust.translatedTitle,
         translatedCaption: existingIllust.translatedCaption,
+        sourceType: existingIllust.sourceType,
+        downloadRemovedAt: existingIllust.downloadRemovedAt,
       );
 
       await _dbProvider.updateIllust(updatedIllust);
@@ -2016,6 +2126,9 @@ abstract class _DownloadStoreBase with Store {
     // 获取插画信息
     final illust = await _dbProvider.getIllustByIllustId(illustId);
     if (illust == null) return;
+    if (illust.isLocal) return;
+
+    final hasOriginal = await originalRepository.hasOriginal(illustId);
 
     // 获取所有图片信息（包含完整路径，动图包含序列帧）
     final imageInfos = await _dbProvider.getLocalImageInfosByIllustId(
@@ -2043,23 +2156,38 @@ abstract class _DownloadStoreBase with Store {
       Log.e('删除目录失败: ${illustDir}', stackTrace: s);
     }
 
-    // 从数据库删除
     final userId = illust.userId;
-    await _dbProvider.deleteIllustByIllustId(illustId);
-
-    // 更新或删除作者记录（根据是否还有插画）
-    await _dbProvider.deleteAuthorIfEmpty(userId);
-
-    // 通知删除状态
-    _illustDownloadStatusController.add(
-      IllustDownloadStatus(
-        status: DownloadTaskStatus.deleted,
-        illusts: illust,
-        totalCount: illust.pageCount,
-        completedCount: 0,
-        fileSize: 0,
-      ),
-    );
+    if (hasOriginal) {
+      await _dbProvider.deleteDownloadedImagesOnly(illustId);
+      await originalRepository.markDownloadResourcesRemoved(illustId);
+      await _dbProvider.updateAuthorStats(userId);
+      final retained = await _dbProvider.getIllustByIllustId(illustId);
+      if (retained != null) {
+        _illustDownloadStatusController.add(
+          IllustDownloadStatus(
+            status: DownloadTaskStatus.completed,
+            illusts: retained,
+            totalCount: retained.pageCount,
+            completedCount: 0,
+          ),
+        );
+      }
+      _downloadResourcesRemovedController.add(
+        DownloadResourcesRemovedEvent(illustId),
+      );
+    } else {
+      await _dbProvider.deleteIllustByIllustId(illustId);
+      await _dbProvider.deleteAuthorIfEmpty(userId);
+      _illustDownloadStatusController.add(
+        IllustDownloadStatus(
+          status: DownloadTaskStatus.deleted,
+          illusts: illust,
+          totalCount: illust.pageCount,
+          completedCount: 0,
+          fileSize: 0,
+        ),
+      );
+    }
 
     await refreshCount();
   }
@@ -2169,8 +2297,9 @@ abstract class _DownloadStoreBase with Store {
         }
       }
 
-      // 如果没有有效图片，删除插画记录
-      if (!hasValidImage) {
+      // 原图作品只清理下载图片记录，不能删除主记录。
+      if (!hasValidImage &&
+          !await originalRepository.hasOriginal(illust.illustId)) {
         await _dbProvider.deleteIllustByIllustId(illust.illustId);
       }
     }

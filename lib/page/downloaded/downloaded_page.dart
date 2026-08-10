@@ -30,6 +30,13 @@ import 'package:pixez/page/downloaded/sync_bookmarks_dialog.dart';
 
 import 'package:pixez/page/downloaded/update_illust_info_dialog.dart';
 import 'package:pixez/page/downloaded/bookmark_priority_dialog.dart';
+import 'package:pixez/page/downloaded/original_import_dialog.dart';
+import 'package:pixez/page/downloaded/original_author_import_dialog.dart';
+import 'package:pixez/page/downloaded/original_version_manager_dialog.dart';
+import 'package:pixez/page/downloaded/original_import_recovery_dialog.dart';
+import 'package:pixez/page/downloaded/local_original_work_dialog.dart';
+import 'package:pixez/page/downloaded/link_local_work_dialog.dart';
+import 'package:pixez/page/downloaded/edit_local_work_dialog.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/component/pixez_default_header.dart';
 import 'package:pixez/page/picture/illust_store.dart';
@@ -271,8 +278,14 @@ class _DownloadedPageState extends State<DownloadedPage> {
     final illustCount = stats['illust_count'] ?? 0;
     final imageCount = stats['image_count'] ?? 0;
     final fileSize = stats['file_size'] ?? 0;
+    final originalStats = _store.originalStats;
+    final originalCount = originalStats?['image_count'] ?? 0;
+    final originalSize = originalStats?['total_file_size'] ?? 0;
 
-    if (illustCount == 0 && imageCount == 0 && fileSize == 0) {
+    if (illustCount == 0 &&
+        imageCount == 0 &&
+        fileSize == 0 &&
+        originalCount == 0) {
       return titleWidget;
     }
 
@@ -282,7 +295,8 @@ class _DownloadedPageState extends State<DownloadedPage> {
         titleWidget,
         SizedBox(width: 8),
         Text(
-          '${illustCount}作品 · ${imageCount}图 · ${fileSize.formatFileSize()}',
+          '${illustCount}作品 · ${imageCount}图 · ${fileSize.formatFileSize()}'
+          '${originalCount > 0 ? '  |  原图 $originalCount · ${originalSize.formatFileSize()}' : ''}',
           style: TextStyle(
             fontSize: 12,
             color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
@@ -339,6 +353,12 @@ class _DownloadedPageState extends State<DownloadedPage> {
       case 'filter_incomplete':
         _store.onFilterChanged(DownloadFilter.incomplete);
         break;
+      case 'filter_has_original':
+        _store.onFilterChanged(DownloadFilter.hasOriginal);
+        break;
+      case 'filter_original_only':
+        _store.onFilterChanged(DownloadFilter.originalOnly);
+        break;
       case 'filter_no_ugoira':
         _store.onFilterChanged(DownloadFilter.noUgoira);
         break;
@@ -360,6 +380,31 @@ class _DownloadedPageState extends State<DownloadedPage> {
       case 'optimize_json':
         OptimizeJsonDialog.show(context, downloadStore);
         break;
+      case 'import_author_originals':
+        if (_store.filterUserId != null) {
+          OriginalAuthorImportDialog.show(
+            context,
+            userId: _store.filterUserId!,
+            userName: _store.filterUserName ?? '作者',
+          ).then((changed) {
+            if (changed == true) _store.refresh();
+          });
+        }
+        break;
+      case 'recover_original_imports':
+        OriginalImportRecoveryDialog.show(context);
+        break;
+      case 'create_local_original_work':
+        if (_store.filterUserId != null) {
+          LocalOriginalWorkDialog.show(
+            context,
+            userId: _store.filterUserId!,
+            userName: _store.filterUserName ?? '作者',
+          ).then((changed) {
+            if (changed == true) _store.refresh();
+          });
+        }
+        break;
     }
   }
 
@@ -376,6 +421,18 @@ class _DownloadedPageState extends State<DownloadedPage> {
         icon: Icons.warning_amber,
         label: '未下载完整',
         isSelected: _store.downloadFilter == DownloadFilter.incomplete,
+      ),
+      _buildFilterMenuItem(
+        value: 'filter_has_original',
+        icon: Icons.hd,
+        label: '有原图',
+        isSelected: _store.downloadFilter == DownloadFilter.hasOriginal,
+      ),
+      _buildFilterMenuItem(
+        value: 'filter_original_only',
+        icon: Icons.image_outlined,
+        label: '仅原图',
+        isSelected: _store.downloadFilter == DownloadFilter.originalOnly,
       ),
       _buildFilterMenuItem(
         value: 'filter_no_ugoira',
@@ -418,6 +475,38 @@ class _DownloadedPageState extends State<DownloadedPage> {
 
   List<PopupMenuEntry<String>> _buildActionMenuItems() {
     return [
+      if (_store.filterUserId != null)
+        PopupMenuItem(
+          value: 'import_author_originals',
+          child: Row(
+            children: [
+              Icon(Icons.add_photo_alternate_outlined, color: Colors.indigo),
+              SizedBox(width: 8),
+              Text('批量导入该作者原图'),
+            ],
+          ),
+        ),
+      if (_store.filterUserId != null)
+        PopupMenuItem(
+          value: 'create_local_original_work',
+          child: Row(
+            children: [
+              Icon(Icons.create_new_folder_outlined, color: Colors.teal),
+              SizedBox(width: 8),
+              Text('新建本地作品并导入'),
+            ],
+          ),
+        ),
+      PopupMenuItem(
+        value: 'recover_original_imports',
+        child: Row(
+          children: [
+            Icon(Icons.restore, color: Colors.blueGrey),
+            SizedBox(width: 8),
+            Text('恢复原图导入任务'),
+          ],
+        ),
+      ),
       PopupMenuItem(
         value: 'optimize_json',
         child: Row(
@@ -686,7 +775,18 @@ class _DownloadedPageState extends State<DownloadedPage> {
   }
 
   Future<void> _openIllustFolder(DownloadedIllust illust) async {
-    final dirPath = downloadStore.getIllustDirectoryPath(illust);
+    String? dirPath;
+    if (illust.isLocal || illust.downloadedImageCount == 0) {
+      final set = await downloadStore.originalRepository.getDefaultSet(
+        illust.illustId,
+      );
+      if (set != null) {
+        dirPath = downloadStore.dbProvider.getOriginalAbsolutePath(
+          set.relativePath,
+        );
+      }
+    }
+    dirPath ??= downloadStore.getIllustDirectoryPath(illust);
     if (dirPath != null) {
       await FileUtils.openFileOrDirectory(dirPath);
     }
@@ -745,6 +845,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
     } else {
       illustsToUpdate = List.from(_store.filteredIllusts);
     }
+    illustsToUpdate = illustsToUpdate.where((item) => !item.isLocal).toList();
 
     if (illustsToUpdate.isEmpty) {
       ScaffoldMessenger.of(
@@ -884,31 +985,33 @@ class _DownloadedPageState extends State<DownloadedPage> {
           targetIllusts,
         ),
 
-        _buildContextMenuItem(
-          icon: Icons.update,
-          label: isSelectedInMulti ? '更新选中信息 ($selectedCount)' : '更新插画信息',
-          onTap: () async {
-            final result = await UpdateIllustInfoDialog.show(
-              context,
-              illusts: targetIllusts,
-              userId: _store.filterUserId,
-            );
-            if (result == true) {
-              _store.loadData();
-            }
-          },
-        ),
+        if (!targetIllusts.any((item) => item.isLocal))
+          _buildContextMenuItem(
+            icon: Icons.update,
+            label: isSelectedInMulti ? '更新选中信息 ($selectedCount)' : '更新插画信息',
+            onTap: () async {
+              final result = await UpdateIllustInfoDialog.show(
+                context,
+                illusts: targetIllusts,
+                userId: _store.filterUserId,
+              );
+              if (result == true) {
+                _store.loadData();
+              }
+            },
+          ),
 
-        _buildContextMenuItem(
-          icon: Icons.delete,
-          iconColor: Colors.red,
-          label:
-              isSelectedInMulti
-                  ? '删除选中 ($selectedCount)'
-                  : I18n.of(context).delete,
-          labelColor: Colors.red,
-          onTap: () => _deleteIllusts(targetIllusts),
-        ),
+        if (!targetIllusts.any((item) => item.isLocal))
+          _buildContextMenuItem(
+            icon: Icons.delete,
+            iconColor: Colors.red,
+            label:
+                isSelectedInMulti
+                    ? '删除选中 ($selectedCount)'
+                    : I18n.of(context).delete,
+            labelColor: Colors.red,
+            onTap: () => _deleteIllusts(targetIllusts),
+          ),
       ],
     );
   }
@@ -948,6 +1051,50 @@ class _DownloadedPageState extends State<DownloadedPage> {
     final isFailed = status == DownloadTaskStatus.failed;
 
     return [
+      _buildContextMenuItem(
+        icon: Icons.add_photo_alternate_outlined,
+        label:
+            (_store.originalImageCounts[illust.illustId] ?? 0) > 0
+                ? '更新/添加原图版本'
+                : '导入原图',
+        onTap: () async {
+          final changed = await OriginalImportDialog.show(context, illust);
+          if (changed == true) {
+            await _store.loadData();
+            await _store.loadStats();
+          }
+        },
+      ),
+      if ((_store.originalImageCounts[illust.illustId] ?? 0) > 0)
+        _buildContextMenuItem(
+          icon: Icons.tune,
+          label: '管理原图版本',
+          onTap: () async {
+            final changed = await OriginalVersionManagerDialog.show(
+              context,
+              illust,
+            );
+            if (changed == true) await _store.loadData();
+          },
+        ),
+      if (illust.isLocal)
+        _buildContextMenuItem(
+          icon: Icons.edit_outlined,
+          label: '编辑本地作品',
+          onTap: () async {
+            final changed = await EditLocalWorkDialog.show(context, illust);
+            if (changed == true) await _store.refresh();
+          },
+        ),
+      if (illust.isLocal)
+        _buildContextMenuItem(
+          icon: Icons.link,
+          label: '关联已有 Pixiv 作品',
+          onTap: () async {
+            final changed = await LinkLocalWorkDialog.show(context, illust);
+            if (changed == true) await _store.refresh();
+          },
+        ),
       if (_store.filterTagId != null)
         _buildContextMenuItem(
           icon:

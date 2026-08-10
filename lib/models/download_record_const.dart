@@ -36,6 +36,9 @@ class TagChangeEvent {
 
 // 下载的插画记录
 class DownloadedIllust {
+  static const String sourcePixiv = 'pixiv';
+  static const String sourceLocal = 'local';
+
   final int illustId;
   final int userId;
   final String userName;
@@ -62,6 +65,8 @@ class DownloadedIllust {
   final int bookmark;
   final String translatedTitle;
   final String translatedCaption;
+  final String sourceType;
+  final int? downloadRemovedAt;
 
   // Getter 用于数据库序列化
   String get illustJson => _illustJson;
@@ -95,7 +100,14 @@ class DownloadedIllust {
     this.bookmark = 0,
     this.translatedTitle = '',
     this.translatedCaption = '',
+    this.sourceType = sourcePixiv,
+    this.downloadRemovedAt,
   }) : _illustJson = illustJson;
+
+  bool get isLocal => sourceType == sourceLocal;
+
+  bool get hasDownloadResources =>
+      downloadedImageCount > 0 && downloadRemovedAt == null;
 
   /// 从 imageUrlsJson 解析 ImageUrls 对象
   ImageUrls getImageUrls() {
@@ -136,6 +148,8 @@ class DownloadedIllust {
     int? bookmark,
     String? translatedTitle,
     String? translatedCaption,
+    String sourceType = sourcePixiv,
+    int? downloadRemovedAt,
   }) {
     // 使用 copyWith 将需要移除的字段设置为空/默认值
     final optimizedIllusts = illusts.copyWith(
@@ -195,6 +209,8 @@ class DownloadedIllust {
       bookmark: bookmark ?? 0,
       translatedTitle: translatedTitle ?? '',
       translatedCaption: translatedCaption ?? '',
+      sourceType: sourceType,
+      downloadRemovedAt: downloadRemovedAt,
     );
   }
 
@@ -204,6 +220,9 @@ class DownloadedIllust {
     int? bookmark,
     String? translatedTitle,
     String? translatedCaption,
+    String? sourceType,
+    int? downloadRemovedAt,
+    bool clearDownloadRemovedAt = false,
   }) {
     return DownloadedIllust(
       illustId: illustId,
@@ -231,6 +250,11 @@ class DownloadedIllust {
       bookmark: bookmark ?? this.bookmark,
       translatedTitle: translatedTitle ?? this.translatedTitle,
       translatedCaption: translatedCaption ?? this.translatedCaption,
+      sourceType: sourceType ?? this.sourceType,
+      downloadRemovedAt:
+          clearDownloadRemovedAt
+              ? null
+              : downloadRemovedAt ?? this.downloadRemovedAt,
     );
   }
 
@@ -283,6 +307,16 @@ class DownloadedIllust {
       translatedCaption: TypeUtil.parseString(
         json[DownloadedIllustColumns.translatedCaption],
       ),
+      sourceType:
+          TypeUtil.parseString(json[DownloadedIllustColumns.sourceType]).isEmpty
+              ? sourcePixiv
+              : TypeUtil.parseString(json[DownloadedIllustColumns.sourceType]),
+      downloadRemovedAt:
+          json[DownloadedIllustColumns.downloadRemovedAt] == null
+              ? null
+              : TypeUtil.parseInt(
+                json[DownloadedIllustColumns.downloadRemovedAt],
+              ),
     );
   }
 
@@ -315,6 +349,8 @@ class DownloadedIllust {
     data[DownloadedIllustColumns.bookmark] = bookmark;
     data[DownloadedIllustColumns.translatedTitle] = translatedTitle;
     data[DownloadedIllustColumns.translatedCaption] = translatedCaption;
+    data[DownloadedIllustColumns.sourceType] = sourceType;
+    data[DownloadedIllustColumns.downloadRemovedAt] = downloadRemovedAt;
     return data;
   }
 
@@ -526,6 +562,8 @@ class DownloadedIllustColumns {
   static const String bookmark = 'bookmark';
   static const String translatedTitle = 'translated_title';
   static const String translatedCaption = 'translated_caption';
+  static const String sourceType = 'source_type';
+  static const String downloadRemovedAt = 'download_removed_at';
 }
 
 class DownloadedImageColumns {

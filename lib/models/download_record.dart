@@ -41,6 +41,8 @@ class DownloadDatabaseProvider {
   String? _coverPath;
   String? _avatarPath;
   String? _ugoiraTempPath;
+  String? _originalPath;
+  String? _originalCoverPath;
   String? _dbPath;
 
   /// Tag变更事件流
@@ -64,6 +66,10 @@ class DownloadDatabaseProvider {
 
   String get ugoiraTempPath => _ugoiraTempPath ?? '';
 
+  String get originalPath => _originalPath ?? '';
+
+  String get originalCoverPath => _originalCoverPath ?? '';
+
   Future<void> open(String basePath) async {
     /// 创建下载目录
     _basePath = basePath;
@@ -71,6 +77,8 @@ class DownloadDatabaseProvider {
     _coverPath = path.join(basePath, 'covers');
     _avatarPath = path.join(basePath, 'avatars');
     _ugoiraTempPath = path.join(basePath, 'ugoira');
+    _originalPath = path.join(basePath, 'original');
+    _originalCoverPath = path.join(basePath, 'covers', 'original');
     _dbPath = path.join(basePath, 'download.db');
     String dbPath = _dbPath!;
 
@@ -132,6 +140,18 @@ class DownloadDatabaseProvider {
         await downloadDir.create(recursive: true);
       }
 
+      for (final dirPath in [
+        _originalPath!,
+        path.join(_originalPath!, '.staging'),
+        path.join(_originalPath!, '.trash'),
+        _originalCoverPath!,
+      ]) {
+        final directory = Directory(dirPath);
+        if (!await directory.exists()) {
+          await directory.create(recursive: true);
+        }
+      }
+
       // 检查数据库文件访问权限
       final dbFile = File(dbPath);
       if (await dbFile.exists()) {
@@ -160,9 +180,13 @@ class DownloadDatabaseProvider {
         }
       }
 
+      await _backupBeforeV19Migration(dbPath);
       db = await openDatabase(
         dbPath,
-        version: 18,
+        version: 19,
+        onConfigure: (database) async {
+          await database.execute('PRAGMA foreign_keys = ON');
+        },
         onCreate: (Database db, int version) async {
           await db.execute('''
           CREATE TABLE ${DownloadedIllustColumns.tableName} (
@@ -191,7 +215,9 @@ class DownloadDatabaseProvider {
             ${DownloadedIllustColumns.totalFileSize} INTEGER DEFAULT 0,
             ${DownloadedIllustColumns.bookmark} INTEGER DEFAULT 0,
             ${DownloadedIllustColumns.translatedTitle} TEXT NOT NULL DEFAULT '',
-            ${DownloadedIllustColumns.translatedCaption} TEXT NOT NULL DEFAULT ''
+            ${DownloadedIllustColumns.translatedCaption} TEXT NOT NULL DEFAULT '',
+            ${DownloadedIllustColumns.sourceType} TEXT NOT NULL DEFAULT '${DownloadedIllust.sourcePixiv}',
+            ${DownloadedIllustColumns.downloadRemovedAt} INTEGER
           )
         ''');
 
@@ -335,6 +361,7 @@ class DownloadDatabaseProvider {
           await db.execute('''
           CREATE INDEX idx_illust_downloaded_count ON ${DownloadedIllustColumns.tableName}(${DownloadedIllustColumns.downloadedImageCount})
         ''');
+          await _createOriginalTables(db);
         },
         onUpgrade: (Database db, int oldVersion, int newVersion) async {
           Log.i(() => '升级数据库 $oldVersion -> $newVersion');
@@ -364,6 +391,15 @@ class DownloadDatabaseProvider {
               "ALTER TABLE ${DownloadedIllustColumns.tableName} ADD COLUMN ${DownloadedIllustColumns.translatedCaption} TEXT NOT NULL DEFAULT ''",
             );
           }
+          if (oldVersion < 19) {
+            await db.execute(
+              "ALTER TABLE ${DownloadedIllustColumns.tableName} ADD COLUMN ${DownloadedIllustColumns.sourceType} TEXT NOT NULL DEFAULT '${DownloadedIllust.sourcePixiv}'",
+            );
+            await db.execute(
+              'ALTER TABLE ${DownloadedIllustColumns.tableName} ADD COLUMN ${DownloadedIllustColumns.downloadRemovedAt} INTEGER',
+            );
+            await _createOriginalTables(db);
+          }
         },
       );
     } catch (e, stackTrace) {
@@ -385,6 +421,108 @@ class DownloadDatabaseProvider {
 
       rethrow;
     }
+  }
+
+  Future<void> _backupBeforeV19Migration(String dbPath) async {
+    final source = File(dbPath);
+    if (!await source.exists()) return;
+
+    final backup = File('$dbPath.pre_v19.bak');
+    if (await backup.exists()) return;
+
+    Database? readOnlyDb;
+    try {
+      readOnlyDb = await openDatabase(dbPath, readOnly: true);
+      final result = await readOnlyDb.rawQuery('PRAGMA user_version');
+      final version = TypeUtil.parseInt(result.firstOrNull?['user_version']);
+      await readOnlyDb.close();
+      readOnlyDb = null;
+      if (version < 19) {
+        await source.copy(backup.path);
+        Log.i(() => '已创建 v19 迁移前备份: ${backup.path}');
+      }
+    } catch (e, stackTrace) {
+      Log.e('创建 v19 迁移前备份失败', error: e, stackTrace: stackTrace);
+      rethrow;
+    } finally {
+      await readOnlyDb?.close();
+    }
+  }
+
+  Future<void> _createOriginalTables(DatabaseExecutor executor) async {
+    await executor.execute('''
+      CREATE TABLE IF NOT EXISTS original_image_sets (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        illust_id INTEGER NOT NULL,
+        edition_name TEXT NOT NULL,
+        storage_key TEXT NOT NULL UNIQUE,
+        relative_path TEXT NOT NULL UNIQUE,
+        last_source_path TEXT NOT NULL DEFAULT '',
+        source_folder_name TEXT NOT NULL DEFAULT '',
+        directory_fingerprint TEXT NOT NULL DEFAULT '',
+        image_count INTEGER NOT NULL DEFAULT 0,
+        total_file_size INTEGER NOT NULL DEFAULT 0,
+        enhanced_page_count INTEGER NOT NULL DEFAULT 0,
+        is_default INTEGER NOT NULL DEFAULT 0,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        UNIQUE(illust_id, edition_name)
+      )
+    ''');
+    await executor.execute('''
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_original_default_set
+      ON original_image_sets(illust_id)
+      WHERE is_default = 1
+    ''');
+    await executor.execute('''
+      CREATE INDEX IF NOT EXISTS idx_original_sets_illust
+      ON original_image_sets(illust_id)
+    ''');
+
+    await executor.execute('''
+      CREATE TABLE IF NOT EXISTS original_images (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        set_id INTEGER NOT NULL,
+        source_order INTEGER NOT NULL,
+        file_name TEXT NOT NULL,
+        relative_path TEXT NOT NULL,
+        extension TEXT NOT NULL,
+        file_size INTEGER NOT NULL,
+        width INTEGER,
+        height INTEGER,
+        sha256 TEXT NOT NULL,
+        perceptual_hash TEXT NOT NULL DEFAULT '',
+        UNIQUE(set_id, source_order),
+        FOREIGN KEY(set_id) REFERENCES original_image_sets(id) ON DELETE CASCADE
+      )
+    ''');
+    await executor.execute('''
+      CREATE INDEX IF NOT EXISTS idx_original_images_set
+      ON original_images(set_id)
+    ''');
+    await executor.execute('''
+      CREATE INDEX IF NOT EXISTS idx_original_images_sha256
+      ON original_images(sha256)
+    ''');
+
+    await executor.execute('''
+      CREATE TABLE IF NOT EXISTS original_page_mappings (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        set_id INTEGER NOT NULL,
+        display_order INTEGER NOT NULL,
+        downloaded_part INTEGER,
+        original_image_id INTEGER,
+        relation_type TEXT NOT NULL,
+        manually_adjusted INTEGER NOT NULL DEFAULT 0,
+        UNIQUE(set_id, display_order),
+        FOREIGN KEY(set_id) REFERENCES original_image_sets(id) ON DELETE CASCADE,
+        FOREIGN KEY(original_image_id) REFERENCES original_images(id) ON DELETE CASCADE
+      )
+    ''');
+    await executor.execute('''
+      CREATE INDEX IF NOT EXISTS idx_original_mappings_set
+      ON original_page_mappings(set_id)
+    ''');
   }
 
   // ============ Illusts 操作 ============
@@ -747,7 +885,7 @@ class DownloadDatabaseProvider {
 
   Future<bool> isIllustDownloaded(int illustId) async {
     final result = await getIllustByIllustId(illustId);
-    return result != null;
+    return result != null && result.downloadedImageCount > 0;
   }
 
   /// 批量查询作品是否已下载，返回已下载的作品 ID 集合
@@ -757,7 +895,9 @@ class DownloadDatabaseProvider {
     final List<Map<String, dynamic>> maps = await db.query(
       DownloadedIllustColumns.tableName,
       columns: [DownloadedIllustColumns.illustId],
-      where: '${DownloadedIllustColumns.illustId} IN ($placeholders)',
+      where:
+          '${DownloadedIllustColumns.illustId} IN ($placeholders) AND '
+          '${DownloadedIllustColumns.downloadedImageCount} > 0',
       whereArgs: ids,
     );
     return maps
@@ -1245,6 +1385,8 @@ class DownloadDatabaseProvider {
 
     final whereConditions = [
       '${DownloadedIllustColumns.downloadedImageCount} < ${DownloadedIllustColumns.pageCount}',
+      '${DownloadedIllustColumns.downloadRemovedAt} IS NULL',
+      "${DownloadedIllustColumns.sourceType} = '${DownloadedIllust.sourcePixiv}'",
     ];
     if (filterBookmarks) {
       whereConditions.add('${DownloadedIllustColumns.bookmark} > 0');
@@ -1348,16 +1490,39 @@ class DownloadDatabaseProvider {
   }
 
   Future<int> getIllustCount() async {
-    final result = await db.rawQuery(
-      'SELECT COUNT(*) as count FROM ${DownloadedIllustColumns.tableName}',
-    );
+    final result = await db.rawQuery('''
+      SELECT COUNT(*) as count
+      FROM ${DownloadedIllustColumns.tableName}
+      WHERE ${DownloadedIllustColumns.downloadedImageCount} > 0
+      ''');
     return result.first['count'] as int? ?? 0;
+  }
+
+  /// 只移除下载图片记录，保留作品元数据、标签和原图映射。
+  Future<void> deleteDownloadedImagesOnly(int illustId) async {
+    await db.transaction((txn) async {
+      await txn.delete(
+        DownloadedImageColumns.tableName,
+        where: '${DownloadedImageColumns.illustId} = ?',
+        whereArgs: [illustId],
+      );
+      await txn.update(
+        DownloadedIllustColumns.tableName,
+        {
+          DownloadedIllustColumns.downloadedImageCount: 0,
+          DownloadedIllustColumns.totalFileSize: 0,
+        },
+        where: '${DownloadedIllustColumns.illustId} = ?',
+        whereArgs: [illustId],
+      );
+    });
   }
 
   Future<List<Map<String, dynamic>>> getDistinctUsers() async {
     return await db.rawQuery('''
       SELECT DISTINCT ${DownloadedIllustColumns.userId}, ${DownloadedIllustColumns.userName}, COUNT(*) as count
       FROM ${DownloadedIllustColumns.tableName}
+      WHERE ${DownloadedIllustColumns.downloadedImageCount} > 0
       GROUP BY ${DownloadedIllustColumns.userId}
       ORDER BY count DESC
     ''');
@@ -1930,6 +2095,10 @@ class DownloadDatabaseProvider {
     return path.join(_downloadPath!, relativePath);
   }
 
+  String getOriginalAbsolutePath(String relativePath) {
+    return path.join(originalPath, relativePath);
+  }
+
   /// 通用方法：根据相对路径和可选的文件名获取完整的绝对路径
   /// 如果提供了 fileName，返回 basePath/relativePath/fileName
   /// 如果未提供 fileName，返回 basePath/relativePath
@@ -2116,6 +2285,7 @@ class DownloadDatabaseProvider {
 
     final whereConditions = <String>[];
     final whereArgs = <Object?>[];
+    whereConditions.add('${DownloadedAuthorColumns.illustCount} > 0');
 
     // 筛选收藏
     if (filterBookmarks) {
@@ -2169,6 +2339,7 @@ class DownloadDatabaseProvider {
   }) async {
     final whereConditions = <String>[];
     final whereArgs = <Object?>[];
+    whereConditions.add('${DownloadedAuthorColumns.illustCount} > 0');
 
     // 筛选收藏
     if (filterBookmarks) {
@@ -2281,6 +2452,7 @@ class DownloadDatabaseProvider {
       SELECT COUNT(*) as count 
       FROM ${DownloadedIllustColumns.tableName} 
       WHERE ${DownloadedIllustColumns.userId} = ?
+        AND ${DownloadedIllustColumns.downloadedImageCount} > 0
     ''',
       [userId],
     );
@@ -2292,6 +2464,7 @@ class DownloadDatabaseProvider {
       SELECT MAX(${DownloadedIllustColumns.downloadTime}) as last_time
       FROM ${DownloadedIllustColumns.tableName}
       WHERE ${DownloadedIllustColumns.userId} = ?
+        AND ${DownloadedIllustColumns.downloadedImageCount} > 0
     ''',
       [userId],
     );
@@ -2300,7 +2473,9 @@ class DownloadDatabaseProvider {
     // 获取最新插画的 JSON 来解析用户名和头像
     final latestIllust = await db.query(
       DownloadedIllustColumns.tableName,
-      where: '${DownloadedIllustColumns.userId} = ?',
+      where:
+          '${DownloadedIllustColumns.userId} = ? AND '
+          '${DownloadedIllustColumns.downloadedImageCount} > 0',
       whereArgs: [userId],
       orderBy: '${DownloadedIllustColumns.downloadTime} DESC',
       limit: 1,
@@ -2330,6 +2505,7 @@ class DownloadDatabaseProvider {
         COALESCE(SUM(${DownloadedIllustColumns.totalFileSize}), 0) as total_file_size
       FROM ${DownloadedIllustColumns.tableName}
       WHERE ${DownloadedIllustColumns.userId} = ?
+        AND ${DownloadedIllustColumns.downloadedImageCount} > 0
     ''',
       [userId],
     );
@@ -2468,7 +2644,7 @@ class DownloadDatabaseProvider {
             WHERE ${DownloadedIllustTagsColumns.tagId} IN (SELECT id FROM GroupIds)
           )
           SELECT 
-            COUNT(di.${DownloadedIllustColumns.illustId}) as illust_count,
+            SUM(CASE WHEN di.${DownloadedIllustColumns.downloadedImageCount} > 0 THEN 1 ELSE 0 END) as illust_count,
             COALESCE(SUM(di.${DownloadedIllustColumns.downloadedImageCount}), 0) as total_image_count,
             COALESCE(SUM(di.${DownloadedIllustColumns.totalFileSize}), 0) as total_file_size
           FROM ${DownloadedIllustColumns.tableName} di
@@ -2505,7 +2681,9 @@ class DownloadDatabaseProvider {
     } else if (filterType == 'incomplete') {
       // 未下载完整：使用物化字段过滤，无需 JOIN
       final incompleteCondition =
-          '${DownloadedIllustColumns.downloadedImageCount} < ${DownloadedIllustColumns.pageCount}';
+          '${DownloadedIllustColumns.downloadedImageCount} < ${DownloadedIllustColumns.pageCount} '
+          'AND ${DownloadedIllustColumns.downloadRemovedAt} IS NULL '
+          "AND ${DownloadedIllustColumns.sourceType} = '${DownloadedIllust.sourcePixiv}'";
       if (whereClause.isEmpty) {
         whereClause = 'WHERE $incompleteCondition';
       } else {
@@ -2516,7 +2694,7 @@ class DownloadDatabaseProvider {
     // 对于其他情况（all, user, search），使用物化字段统计
     final query = '''
       SELECT 
-        COUNT(*) as illust_count,
+        SUM(CASE WHEN di.${DownloadedIllustColumns.downloadedImageCount} > 0 THEN 1 ELSE 0 END) as illust_count,
         COALESCE(SUM(di.${DownloadedIllustColumns.downloadedImageCount}), 0) as total_image_count,
         COALESCE(SUM(di.${DownloadedIllustColumns.totalFileSize}), 0) as total_file_size
       FROM ${DownloadedIllustColumns.tableName} di

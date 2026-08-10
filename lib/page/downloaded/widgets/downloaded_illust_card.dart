@@ -78,6 +78,7 @@ class DownloadedIllustCard extends StatelessWidget {
 
     Widget imageWidget = PixivImage(
       coverUrl,
+      localImageInfo: store.originalCoverInfos[illust.illustId],
       fit: BoxFit.cover,
       httpHeaders: {'cover': '${illust.illustId}', 'quality': quality},
       memCacheWidth: 480,
@@ -270,11 +271,32 @@ class DownloadedIllustCard extends StatelessWidget {
       children: [
         _buildThumbnail(context),
         _buildFolderButton(context),
-        _buildOrganizerButton(context),
+        if (!illust.isLocal) _buildOrganizerButton(context),
         if (illust.isUgoira) _buildUgoiraBadge(context),
+        if ((store.originalImageCounts[illust.illustId] ?? 0) > 0)
+          Positioned(
+            top: 4,
+            right: 4,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+              decoration: BoxDecoration(
+                color:
+                    illust.downloadedImageCount == 0
+                        ? Colors.deepOrange.withValues(alpha: 0.9)
+                        : Colors.indigo.withValues(alpha: 0.9),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                illust.downloadedImageCount == 0
+                    ? '仅原图'
+                    : '原图 ${store.originalImageCounts[illust.illustId]} · 增强 ${store.enhancedPageCounts[illust.illustId]}',
+                style: const TextStyle(color: Colors.white, fontSize: 11),
+              ),
+            ),
+          ),
         if (isMarked) _buildUnprocessedBadge(context),
         if (store.isExample(illust.illustId)) _buildExampleBadge(context),
-        _buildBookmarkButton(context),
+        if (!illust.isLocal) _buildBookmarkButton(context),
         _buildLastReadBadge(context),
         if (isDownloading) _buildDownloadingOverlay(),
         if (isPending) _buildPendingOverlay(context),

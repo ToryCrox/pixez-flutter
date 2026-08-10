@@ -41,11 +41,11 @@ import 'package:pixez/main.dart';
 import 'package:pixez/models/ban_illust_id.dart';
 import 'package:pixez/models/ban_tag.dart';
 import 'package:pixez/models/illust.dart';
+import 'package:pixez/models/original_image.dart';
 import 'package:pixez/page/picture/illust_about_store.dart';
 import 'package:pixez/page/picture/illust_detail_content.dart';
 import 'package:pixez/page/picture/illust_row_page.dart';
 import 'package:pixez/page/picture/illust_store.dart';
-import 'package:pixez/page/picture/picture_list_page.dart';
 import 'package:pixez/page/picture/tag_for_illust_page.dart';
 import 'package:pixez/page/picture/ugoira_loader.dart';
 import 'package:pixez/page/picture/user_follow_button.dart';
@@ -224,6 +224,68 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  Observer(
+                    builder: (_) {
+                      if (!_illustStore.hasOriginal) {
+                        return const SizedBox.shrink();
+                      }
+                      return PopupMenuButton<Object>(
+                        tooltip: '图片版本',
+                        onSelected: (value) async {
+                          int? targetIndex;
+                          if (value is OriginalDisplayMode) {
+                            targetIndex = await _illustStore.selectDisplayMode(
+                              value,
+                            );
+                          } else if (value is int) {
+                            targetIndex = await _illustStore.selectOriginalSet(
+                              value,
+                            );
+                          }
+                          if (targetIndex != null && mounted) {
+                            await _observerController.animateTo(
+                              index: targetIndex,
+                              duration: const Duration(milliseconds: 250),
+                              curve: Curves.easeOut,
+                            );
+                          }
+                        },
+                        itemBuilder:
+                            (_) => [
+                              const PopupMenuItem(
+                                value: OriginalDisplayMode.originalPreferred,
+                                child: Text('原图优先'),
+                              ),
+                              if (_illustStore.illusts?.id.isNegative != true)
+                                const PopupMenuItem(
+                                  value: OriginalDisplayMode.downloaded,
+                                  child: Text('下载版'),
+                                ),
+                              const PopupMenuDivider(),
+                              for (final set in _illustStore.originalSets)
+                                PopupMenuItem(
+                                  value: set.id,
+                                  child: Text(
+                                    '${set.editionName} · ${set.imageCount} 张',
+                                  ),
+                                ),
+                            ],
+                        child: Chip(
+                          avatar: const Icon(Icons.hd, size: 18),
+                          label: Text(
+                            _illustStore.displayMode ==
+                                    OriginalDisplayMode.downloaded
+                                ? '下载版'
+                                : (_illustStore
+                                        .displayManifest
+                                        ?.edition
+                                        ?.editionName ??
+                                    '原图优先'),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
                   IconButton(
                     icon: Icon(Icons.expand_less),
                     onPressed: () {
@@ -235,12 +297,16 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
                       _photoScrollController.position.jumpTo(p);
                     },
                   ),
-                  IconButton(
-                    icon: Icon(Icons.more_vert),
-                    onPressed: () {
-                      buildShowModalBottomSheet(context, _illustStore.illusts!);
-                    },
-                  ),
+                  if (_illustStore.illusts?.id.isNegative != true)
+                    IconButton(
+                      icon: Icon(Icons.more_vert),
+                      onPressed: () {
+                        buildShowModalBottomSheet(
+                          context,
+                          _illustStore.illusts!,
+                        );
+                      },
+                    ),
                 ],
               ),
             ],
@@ -255,7 +321,8 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
       mainAxisSize: MainAxisSize.min,
       children: [
         // Download 按钮（上方）
-        if (_illustStore.illusts != null)
+        if (_illustStore.illusts != null &&
+            _illustStore.illusts!.id.isNegative == false)
           Padding(
             padding: EdgeInsets.only(bottom: 16),
             child: IllustDownloadButton(
@@ -273,42 +340,44 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
             ),
           ),
         // Star 按钮（下方）
-        GestureDetector(
-          onLongPress: () {
-            _showBookMarkTag();
-          },
-          onHorizontalDragEnd: (DragEndDetails detail) {
-            if (widget.onHorizontalDragEnd != null) {
-              widget.onHorizontalDragEnd!(detail);
-            }
-          },
-          child: FloatingActionButton(
-            heroTag: widget.id,
-            onPressed: () async {
-              if (userSetting.saveAfterStar && (_illustStore.state == 0)) {
-                downloadStore.downloadIllust(_illustStore.illusts!);
-              }
-              _illustStore.star(
-                restrict: userSetting.defaultPrivateLike ? "private" : "public",
-              );
-              if (userSetting.followAfterStar) {
-                bool success = await _illustStore.followAfterStar();
-                if (success) {
-                  userStore?.isFollow = true;
-                  BotToast.showText(
-                    text:
-                        "${_illustStore.illusts!.user.name} ${I18n.of(context).followed}",
-                  );
-                }
+        if (_illustStore.illusts?.id.isNegative != true)
+          GestureDetector(
+            onLongPress: () {
+              _showBookMarkTag();
+            },
+            onHorizontalDragEnd: (DragEndDetails detail) {
+              if (widget.onHorizontalDragEnd != null) {
+                widget.onHorizontalDragEnd!(detail);
               }
             },
-            child: Observer(
-              builder: (_) {
-                return StarIcon(state: _illustStore.state);
+            child: FloatingActionButton(
+              heroTag: widget.id,
+              onPressed: () async {
+                if (userSetting.saveAfterStar && (_illustStore.state == 0)) {
+                  downloadStore.downloadIllust(_illustStore.illusts!);
+                }
+                _illustStore.star(
+                  restrict:
+                      userSetting.defaultPrivateLike ? "private" : "public",
+                );
+                if (userSetting.followAfterStar) {
+                  bool success = await _illustStore.followAfterStar();
+                  if (success) {
+                    userStore?.isFollow = true;
+                    BotToast.showText(
+                      text:
+                          "${_illustStore.illusts!.user.name} ${I18n.of(context).followed}",
+                    );
+                  }
+                }
               },
+              child: Observer(
+                builder: (_) {
+                  return StarIcon(state: _illustStore.state);
+                },
+              ),
             ),
           ),
-        ),
       ],
     );
   }
@@ -356,7 +425,7 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
                       left: 10,
                       child: Observer(builder: (_) => _buildJumpHint()),
                     ),
-                    if (data != null && data.pageCount > 1)
+                    if (data != null && _illustStore.displayPageCount > 1)
                       Positioned(
                         bottom: 20,
                         left: 10,
@@ -513,21 +582,36 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
                       ),
                     ),
                   ..._buildPhotoList(data),
-                  SliverToBoxAdapter(
-                    child: IllustDetailContent(
-                      illusts: data,
-                      userStore: userStore,
-                      illustStore: _illustStore,
-                      loadAbout: () {
-                        _loadAbout();
-                      },
+                  if (data.id.isNegative)
+                    SliverToBoxAdapter(
+                      child: Card(
+                        margin: const EdgeInsets.all(16),
+                        child: ListTile(
+                          leading: const Icon(Icons.offline_pin),
+                          title: Text(data.title),
+                          subtitle: Text(
+                            '本地作品 · ${data.user.name} · ${data.createDate.split('T').first}',
+                          ),
+                        ),
+                      ),
+                    )
+                  else ...[
+                    SliverToBoxAdapter(
+                      child: IllustDetailContent(
+                        illusts: data,
+                        userStore: userStore,
+                        illustStore: _illustStore,
+                        loadAbout: () {
+                          _loadAbout();
+                        },
+                      ),
                     ),
-                  ),
-                  IllustRecommendGrid(
-                    illusts: _aboutStore.illusts,
-                    currentIllustStore: _illustStore,
-                    showLongPressConfirm: userSetting.longPressSaveConfirm,
-                  ),
+                    IllustRecommendGrid(
+                      illusts: _aboutStore.illusts,
+                      currentIllustStore: _illustStore,
+                      showLongPressConfirm: userSetting.longPressSaveConfirm,
+                    ),
+                  ],
                 ],
               ),
             );
@@ -555,7 +639,7 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
           ),
         ),
       if (data.type != "ugoira")
-        data.pageCount == 1
+        _illustStore.displayPageCount == 1
             ? SliverList(
               delegate: SliverChildBuilderDelegate((
                 BuildContext context,
@@ -572,7 +656,12 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
                 Widget placeWidget = Container(height: height);
                 return InkWell(
                   onLongPress: () {
-                    _pressSave(data, 0);
+                    final part = _illustStore.getDownloadedPartForDisplayIndex(
+                      0,
+                    );
+                    if (!data.id.isNegative && part != null) {
+                      _pressSave(data, part);
+                    }
                   },
                   onTap: () {
                     Leader.push(
@@ -616,7 +705,12 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
               ) {
                 return InkWell(
                   onLongPress: () {
-                    _pressSave(data, index);
+                    final part = _illustStore.getDownloadedPartForDisplayIndex(
+                      index,
+                    );
+                    if (!data.id.isNegative && part != null) {
+                      _pressSave(data, part);
+                    }
                   },
                   onTap: () {
                     Leader.push(
@@ -634,14 +728,15 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
                     },
                   ),
                 );
-              }, childCount: data.metaPages.length),
+              }, childCount: _illustStore.displayPageCount),
             ),
     ];
   }
 
   void _onObserve(ListViewObserveModel observeModel) {
     final illusts = _illustStore.illusts;
-    if (illusts == null || illusts.pageCount <= 1) {
+    final displayPageCount = _illustStore.displayPageCount;
+    if (illusts == null || displayPageCount <= 1) {
       if (_illustStore.currentPage != 0 || _illustStore.totalPages != 1) {
         _illustStore.updateTotalPages(1);
         _illustStore.updateCurrentPage(0);
@@ -649,8 +744,8 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
       return;
     }
 
-    if (_illustStore.totalPages != illusts.pageCount) {
-      _illustStore.updateTotalPages(illusts.pageCount);
+    if (_illustStore.totalPages != displayPageCount) {
+      _illustStore.updateTotalPages(displayPageCount);
     }
 
     final firstVisibleIndex = observeModel.firstChild?.index;
@@ -662,7 +757,7 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
         final currentScroll = position.pixels;
         final maxScroll = position.maxScrollExtent;
         if (maxScroll > 0 && currentScroll / maxScroll > 0.9) {
-          clampedIndex = illusts.pageCount - 1;
+          clampedIndex = displayPageCount - 1;
         } else {
           return;
         }
@@ -670,14 +765,14 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
         return;
       }
     } else {
-      clampedIndex = firstVisibleIndex.clamp(0, illusts.pageCount - 1);
+      clampedIndex = firstVisibleIndex.clamp(0, displayPageCount - 1);
     }
 
     if (clampedIndex != _illustStore.currentPage) {
       _illustStore.updateCurrentPage(clampedIndex);
     }
 
-    if (clampedIndex >= illusts.pageCount - 1 && _isAutoScrolling) {
+    if (clampedIndex >= displayPageCount - 1 && _isAutoScrolling) {
       _stopAutoScroll();
     }
   }
@@ -1002,6 +1097,19 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
     final String placeholderUrl;
     final bool usePlaceholder;
     final localImageInfo = _illustStore.getLocalImageInfo(index);
+
+    if (index >= illust.metaPages.length && localImageInfo != null) {
+      Widget child = PixivImage(
+        '',
+        localImageInfo: localImageInfo,
+        placeWidget: Container(height: height),
+        fade: false,
+      );
+      if (index == 0) {
+        child = NullHero(child: child, tag: widget.heroString);
+      }
+      return child;
+    }
 
     // 计算质量标识
     String quality = userSetting.previewQuality;

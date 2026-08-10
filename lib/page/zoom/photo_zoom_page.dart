@@ -37,19 +37,32 @@ class _PhotoZoomPageState extends State<PhotoZoomPage> {
   int _index = 0;
   Map<int, String?> _localPaths = {};
 
+  int get _pageCount => widget.illustStore.displayPageCount;
+
+  String _urlFor(int index) {
+    if (_illusts.pageCount == 1 && index == 0) {
+      return _loadSource
+          ? (_illusts.metaSinglePage?.originalImageUrl ??
+              _illusts.imageUrls.large)
+          : _illusts.imageUrls.large;
+    }
+    if (index >= 0 && index < _illusts.metaPages.length) {
+      return _loadSource
+          ? _illusts.metaPages[index].imageUrls!.original
+          : _illusts.metaPages[index].imageUrls!.large;
+    }
+    return '';
+  }
+
   @override
   void initState() {
     _loadSource = userSetting.zoomQuality == 1;
     _illusts = widget.illusts;
     _index = widget.index;
-    nowUrl =
-        _illusts.pageCount == 1
-            ? (_loadSource
-                ? _illusts.metaSinglePage!.originalImageUrl!
-                : _illusts.imageUrls.large)
-            : (_loadSource
-                ? _illusts.metaPages[_index].imageUrls!.original
-                : _illusts.metaPages[_index].imageUrls!.large);
+    for (var i = 0; i < _pageCount; i++) {
+      _localPaths[i] = widget.illustStore.getLocalImageInfo(i)?.path;
+    }
+    nowUrl = _urlFor(_index);
 
     super.initState();
     initCache();
@@ -59,8 +72,10 @@ class _PhotoZoomPageState extends State<PhotoZoomPage> {
   Future<void> _loadLocalPaths() async {
     if (!downloadStore.isInitialized) return;
 
-    for (int i = 0; i < _illusts.pageCount; i++) {
-      final path = await downloadStore.getLocalImagePath(_illusts.id, i);
+    for (int i = 0; i < _pageCount; i++) {
+      final path =
+          widget.illustStore.getLocalImageInfo(i)?.path ??
+          await downloadStore.getLocalImagePath(_illusts.id, i);
       if (mounted) {
         setState(() {
           _localPaths[i] = path;
@@ -97,6 +112,10 @@ class _PhotoZoomPageState extends State<PhotoZoomPage> {
   }
 
   initCache() async {
+    if (nowUrl.isEmpty) {
+      if (mounted) setState(() => shareShow = _localPaths[_index] != null);
+      return;
+    }
     var fileInfo = await pixivCacheManager.getFileFromCache(nowUrl);
     if (mounted)
       setState(() {
@@ -108,11 +127,8 @@ class _PhotoZoomPageState extends State<PhotoZoomPage> {
   Widget build(BuildContext context) {
     return Builder(
       builder: (context) {
-        if (_illusts.pageCount == 1) {
-          final url =
-              _loadSource
-                  ? _illusts.metaSinglePage!.originalImageUrl!
-                  : _illusts.imageUrls.large;
+        if (_pageCount == 1) {
+          final url = _urlFor(0);
           return Scaffold(
             extendBody: true,
             extendBodyBehindAppBar: true,
@@ -180,10 +196,7 @@ class _PhotoZoomPageState extends State<PhotoZoomPage> {
                   scrollPhysics: const BouncingScrollPhysics(),
                   pageController: PageController(initialPage: _index),
                   builder: (BuildContext context, int index) {
-                    final url =
-                        _loadSource
-                            ? _illusts.metaPages[index].imageUrls!.original
-                            : _illusts.metaPages[index].imageUrls!.large;
+                    final url = _urlFor(index);
                     return PhotoViewGalleryPageOptions(
                       imageProvider: _getImageProvider(index, url),
                       initialScale: PhotoViewComputedScale.contained,
@@ -199,12 +212,9 @@ class _PhotoZoomPageState extends State<PhotoZoomPage> {
                       },
                     );
                   },
-                  itemCount: _illusts.metaPages.length,
+                  itemCount: _pageCount,
                   onPageChanged: (index) async {
-                    nowUrl =
-                        _loadSource
-                            ? _illusts.metaPages[index].imageUrls!.original
-                            : _illusts.metaPages[index].imageUrls!.large;
+                    nowUrl = _urlFor(index);
                     setState(() {
                       _index = index;
                       shareShow = false;
@@ -302,7 +312,7 @@ class _PhotoZoomPageState extends State<PhotoZoomPage> {
                   onPressed: () {},
                 ),
                 Text(
-                  "${_index + 1}/${widget.illusts.pageCount}",
+                  "${_index + 1}/$_pageCount",
                   style: Theme.of(
                     context,
                   ).textTheme.bodyLarge!.copyWith(color: Colors.white),
@@ -330,7 +340,7 @@ class _PhotoZoomPageState extends State<PhotoZoomPage> {
                     );
                   },
                 ),
-                if (ClipboardPlugin.supported)
+                if (ClipboardPlugin.supported && !_illusts.id.isNegative)
                   IconButton(
                     icon: Icon(Icons.copy, color: Colors.white),
                     onPressed: () async {
@@ -343,38 +353,40 @@ class _PhotoZoomPageState extends State<PhotoZoomPage> {
                       );
                     },
                   ),
-                GestureDetector(
-                  child: IconButton(
-                    icon: Icon(Icons.save_alt, color: Colors.white),
-                    onPressed: () {
-                      if (_illusts.metaPages.isNotEmpty)
+                if (!_illusts.id.isNegative)
+                  GestureDetector(
+                    child: IconButton(
+                      icon: Icon(Icons.save_alt, color: Colors.white),
+                      onPressed: () {
+                        final part = widget.illustStore
+                            .getDownloadedPartForDisplayIndex(_index);
+                        if (part == null) return;
                         downloadStore.downloadIllust(
                           widget.illusts,
-                          part: _index,
+                          part: part,
                         );
-                      else
-                        downloadStore.downloadIllust(widget.illusts);
-                      if (userSetting.starAfterSave &&
-                          (widget.illustStore.state == 0)) {
-                        widget.illustStore.star(
-                          restrict:
-                              userSetting.defaultPrivateLike
-                                  ? "private"
-                                  : "public",
+                        if (userSetting.starAfterSave &&
+                            (widget.illustStore.state == 0)) {
+                          widget.illustStore.star(
+                            restrict:
+                                userSetting.defaultPrivateLike
+                                    ? "private"
+                                    : "public",
+                          );
+                        }
+                      },
+                    ),
+                    onLongPress: () async {
+                      final part = widget.illustStore
+                          .getDownloadedPartForDisplayIndex(_index);
+                      if (part != null) {
+                        downloadStore.downloadIllust(
+                          widget.illusts,
+                          part: part,
                         );
                       }
                     },
                   ),
-                  onLongPress: () async {
-                    if (_illusts.metaPages.isNotEmpty)
-                      downloadStore.downloadIllust(
-                        widget.illusts,
-                        part: _index,
-                      );
-                    else
-                      downloadStore.downloadIllust(widget.illusts);
-                  },
-                ),
                 AnimatedOpacity(
                   opacity: shareShow ? 1 : 0.5,
                   duration: Duration(milliseconds: 500),
@@ -383,6 +395,18 @@ class _PhotoZoomPageState extends State<PhotoZoomPage> {
                       return IconButton(
                         icon: Icon(Icons.share, color: Colors.white),
                         onPressed: () async {
+                          final localPath = _localPaths[_index];
+                          if (localPath != null &&
+                              File(localPath).existsSync()) {
+                            final box =
+                                context.findRenderObject() as RenderBox?;
+                            Share.shareXFiles(
+                              [XFile(localPath)],
+                              sharePositionOrigin:
+                                  box!.localToGlobal(Offset.zero) & box.size,
+                            );
+                            return;
+                          }
                           var file = await pixivCacheManager.getFileFromCache(
                             nowUrl,
                           );
@@ -413,17 +437,18 @@ class _PhotoZoomPageState extends State<PhotoZoomPage> {
                     },
                   ),
                 ),
-                IconButton(
-                  icon: Icon(
-                    !_loadSource ? Icons.hd_outlined : Icons.hd,
-                    color: Colors.white,
+                if (!_illusts.id.isNegative)
+                  IconButton(
+                    icon: Icon(
+                      !_loadSource ? Icons.hd_outlined : Icons.hd,
+                      color: Colors.white,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _loadSource = !_loadSource;
+                      });
+                    },
                   ),
-                  onPressed: () {
-                    setState(() {
-                      _loadSource = !_loadSource;
-                    });
-                  },
-                ),
               ],
             ),
           ],
