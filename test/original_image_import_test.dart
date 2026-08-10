@@ -171,7 +171,7 @@ void main() {
     expect(await File('${manifestFile.path}.tmp').exists(), isFalse);
     expect(
       progress.map((item) => item.phase),
-      contains(OriginalImportProgressPhase.analyzingOriginals),
+      isNot(contains(OriginalImportProgressPhase.analyzingOriginals)),
     );
     expect(
       progress.map((item) => item.phase),
@@ -181,6 +181,8 @@ void main() {
       progress.every((item) => !item.description.contains('正在复制')),
       isTrue,
     );
+    expect(manifest.items.single.files.single.sha256Value, isEmpty);
+    expect(manifest.items.single.files.single.perceptualHash, isEmpty);
     final stagedFiles = Directory(
       p.join(
         provider.originalPath,

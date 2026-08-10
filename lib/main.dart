@@ -15,6 +15,7 @@
  */
 import 'dart:async';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:flutter/gestures.dart';
 import 'package:bot_toast/bot_toast.dart';
@@ -110,7 +111,9 @@ main(List<String> args) async {
   ManaManager.instance.initialize();
 
   // 初始化 Isolate 线程池
-  await workerManager.init(isolatesCount: 3);
+  final workerCount = min(4, max(1, Platform.numberOfProcessors - 1));
+  await workerManager.init(isolatesCount: workerCount);
+  Log.i(() => 'WorkerManager 已初始化，并发数: $workerCount');
 
   final app = ProviderScope(child: MyApp(arguments: args));
 

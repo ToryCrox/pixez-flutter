@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/gestures.dart';
@@ -10,7 +11,9 @@ import 'package:pixez/ai/ai_client.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/models/download_record.dart';
 import 'package:pixez/models/original_image.dart';
+import 'package:pixez/page/downloaded/local_image_viewer_page.dart';
 import 'package:pixez/store/original_import_service.dart';
+import 'package:pixez/utils/file_utils.dart';
 
 class OriginalAuthorImportDialog extends StatefulWidget {
   final int userId;
@@ -68,7 +71,9 @@ class _OriginalAuthorImportDialogState
   final ScrollController _matchScrollController = ScrollController();
   final ScrollController _previewScrollController = ScrollController();
   final Set<String> _expandedItemIds = <String>{};
-  final Map<String, ScrollController> _mappingScrollControllers = {};
+  final Map<String, Future<String?>> _sourceCoverFutures = {};
+  final Map<int, Future<String?>> _downloadCoverFutures = {};
+  final Map<String, Future<String?>> _mappingDownloadPathFutures = {};
   final TextEditingController _batchSizeController = TextEditingController(
     text: '20',
   );
@@ -91,9 +96,6 @@ class _OriginalAuthorImportDialogState
   void dispose() {
     _matchScrollController.dispose();
     _previewScrollController.dispose();
-    for (final controller in _mappingScrollControllers.values) {
-      controller.dispose();
-    }
     _batchSizeController.dispose();
     super.dispose();
   }
@@ -318,6 +320,40 @@ class _OriginalAuthorImportDialogState
     RegExp(r'[^a-z0-9\u3040-\u30ff\u3400-\u9fff]+'),
     '',
   );
+
+  Future<String?> _getSourceCoverPath(String directory) =>
+      _sourceCoverFutures.putIfAbsent(
+        directory,
+        () => downloadStore.originalImportService.getFirstImagePath(directory),
+      );
+
+  Future<String?> _getDownloadCoverPath(DownloadedIllust work) =>
+      _downloadCoverFutures.putIfAbsent(
+        work.illustId,
+        () => _resolveDownloadedCoverPath(work),
+      );
+
+  Future<void> _openDirectory(String directory) async {
+    try {
+      await FileUtils.openFileOrDirectory(directory);
+    } catch (e, stackTrace) {
+      Log.e('打开原图目录失败', error: e, stackTrace: stackTrace);
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('打开目录失败：$e')));
+      }
+    }
+  }
+
+  Future<void> _copyPath(String path) async {
+    await Clipboard.setData(ClipboardData(text: path));
+    if (mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('路径已复制到剪贴板')));
+    }
+  }
 
   Future<void> _selectWorkForRow(_AuthorImportRow row) async {
     final selected = await showDialog<int>(
@@ -561,7 +597,7 @@ class _OriginalAuthorImportDialogState
                 LinearProgressIndicator(value: _progress?.fraction),
                 Text(
                   _progress == null
-                      ? '正在分析目录或计算图片哈希，请稍候…'
+                      ? '正在读取文件名并按顺序生成初步映射…'
                       : _progress!.description,
                 ),
               ],
@@ -632,6 +668,22 @@ class _OriginalAuthorImportDialogState
             '本批只匹配 $_currentDirectoryCount 个${_hasMoreDirectories ? "，目录中还有后续作品" : ""}；完成后重新选择同一目录继续下一批。',
           ),
         ),
+        Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: const Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.info_outline, size: 20),
+              SizedBox(width: 8),
+              Expanded(child: Text('详细预览只根据文件名和顺序生成初步映射，不读取图片内容；请展开后人工检查和修正。')),
+            ],
+          ),
+        ),
         Expanded(
           child: Scrollbar(
             controller: _matchScrollController,
@@ -640,8 +692,8 @@ class _OriginalAuthorImportDialogState
             child: ListView.builder(
               controller: _matchScrollController,
               itemCount: _rows.length,
-              itemExtent: 92,
-              cacheExtent: 276,
+              itemExtent: 152,
+              cacheExtent: 456,
               addAutomaticKeepAlives: false,
               keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               itemBuilder: (_, index) {
@@ -653,42 +705,102 @@ class _OriginalAuthorImportDialogState
                         : '${work.createDate.split('T').first} · ${work.title}';
                 return CheckboxListTile(
                   key: ValueKey(row.directory),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 8),
                   value: row.selected,
                   onChanged:
                       row.targetIllustId == null
                           ? null
                           : (value) =>
                               setState(() => row.selected = value ?? false),
-                  title: Text(
-                    p.basename(row.directory),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                  title: Text('', style: const TextStyle(fontSize: 0)),
                   subtitle: InkWell(
                     onTap: _busy ? null : () => _selectWorkForRow(row),
                     child: SizedBox(
-                      height: 38,
-                      child: Row(
+                      height: 136,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Expanded(
-                            child: Text(
-                              workLabel,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontWeight:
-                                    work == null
-                                        ? FontWeight.normal
-                                        : FontWeight.w600,
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  p.basename(row.directory),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style:
+                                      Theme.of(context).textTheme.titleMedium,
+                                ),
                               ),
+                              Tooltip(
+                                message: '打开原图目录',
+                                child: IconButton(
+                                  visualDensity: VisualDensity.compact,
+                                  onPressed:
+                                      _busy
+                                          ? null
+                                          : () => _openDirectory(row.directory),
+                                  icon: const Icon(Icons.folder_open_outlined),
+                                ),
+                              ),
+                              Tooltip(
+                                message: '复制原图目录路径',
+                                child: IconButton(
+                                  visualDensity: VisualDensity.compact,
+                                  onPressed:
+                                      _busy
+                                          ? null
+                                          : () => _copyPath(row.directory),
+                                  icon: const Icon(Icons.content_copy),
+                                ),
+                              ),
+                              Chip(
+                                visualDensity: VisualDensity.compact,
+                                label: Text(row.confidence),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Expanded(
+                            child: Row(
+                              children: [
+                                if (work != null) ...[
+                                  _LocalCover(
+                                    pathFuture: _getDownloadCoverPath(work),
+                                    width: 64,
+                                    height: 64,
+                                    icon: Icons.image_outlined,
+                                    title: work.title,
+                                  ),
+                                  const SizedBox(width: 8),
+                                ],
+                                Expanded(
+                                  child: Text(
+                                    workLabel,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontWeight:
+                                          work == null
+                                              ? FontWeight.normal
+                                              : FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                                const Icon(Icons.arrow_drop_down),
+                              ],
                             ),
                           ),
-                          const Icon(Icons.arrow_drop_down),
                         ],
                       ),
                     ),
                   ),
-                  secondary: Chip(label: Text(row.confidence)),
+                  secondary: _LocalCover(
+                    pathFuture: _getSourceCoverPath(row.directory),
+                    width: 112,
+                    height: 132,
+                    icon: Icons.photo_outlined,
+                    title: p.basename(row.directory),
+                  ),
                 );
               },
             ),
@@ -764,10 +876,39 @@ class _OriginalAuthorImportDialogState
                 }
               });
             },
-            title: Text(
-              p.basename(item.sourceDirectory),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+            leading: _LocalCover(
+              pathFuture: _getSourceCoverPath(item.sourceDirectory),
+              width: 60,
+              height: 72,
+              icon: Icons.photo_outlined,
+              title: p.basename(item.sourceDirectory),
+            ),
+            title: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    p.basename(item.sourceDirectory),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                Tooltip(
+                  message: '打开原图目录',
+                  child: IconButton(
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () => _openDirectory(item.sourceDirectory),
+                    icon: const Icon(Icons.folder_open_outlined),
+                  ),
+                ),
+                Tooltip(
+                  message: '复制原图目录路径',
+                  child: IconButton(
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () => _copyPath(item.sourceDirectory),
+                    icon: const Icon(Icons.content_copy),
+                  ),
+                ),
+              ],
             ),
             subtitle: Text(
               '原图 ${item.files.length} · 增强 ${item.pageMappings.length} · 作品 ${item.targetIllustId}',
@@ -784,96 +925,606 @@ class _OriginalAuthorImportDialogState
     OriginalImportManifest manifest,
     OriginalImportItemManifest item,
   ) {
-    final controller = _mappingScrollControllers.putIfAbsent(
-      item.itemId,
-      ScrollController.new,
-    );
-    final mappingHeight =
-        (item.pageMappings.length * 52.0).clamp(52.0, 380.0).toDouble();
+    final previewMappings = item.pageMappings.take(5).toList();
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Align(
-          alignment: Alignment.centerRight,
-          child: Padding(
-            padding: const EdgeInsets.only(right: 16, bottom: 4),
-            child: FilledButton.tonalIcon(
-              onPressed:
-                  _committingItemId == null &&
-                          item.state != OriginalImportItemState.committed
-                      ? () => _commitItem(item)
-                      : null,
-              icon:
-                  _committingItemId == item.itemId
-                      ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                      : const Icon(Icons.download_done),
-              label: Text(
-                item.state == OriginalImportItemState.committed
-                    ? '已导入'
-                    : '仅导入此作品',
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+          child: Wrap(
+            alignment: WrapAlignment.end,
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              OutlinedButton.icon(
+                onPressed:
+                    item.pageMappings.isEmpty
+                        ? null
+                        : () => _showPageMappings(manifest, item),
+                icon: const Icon(Icons.view_list_outlined),
+                label: Text('查看全部 ${item.pageMappings.length} 页映射'),
+              ),
+              FilledButton.tonalIcon(
+                onPressed:
+                    _committingItemId == null &&
+                            item.state != OriginalImportItemState.committed
+                        ? () => _commitItem(item)
+                        : null,
+                icon:
+                    _committingItemId == item.itemId
+                        ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                        : const Icon(Icons.download_done),
+                label: Text(
+                  item.state == OriginalImportItemState.committed
+                      ? '已导入'
+                      : '仅导入此作品',
+                ),
+              ),
+            ],
+          ),
+        ),
+        const Divider(height: 1),
+        for (final mapping in previewMappings)
+          _buildMappingTile(manifest, item, mapping),
+        if (item.pageMappings.length > previewMappings.length)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 6, 16, 10),
+            child: Text(
+              '这里只显示前 ${previewMappings.length} 条，剩余 ${item.pageMappings.length - previewMappings.length} 条请在全部映射中查看。',
+              style: Theme.of(context).textTheme.bodySmall,
+              textAlign: TextAlign.center,
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildMappingTile(
+    OriginalImportManifest manifest,
+    OriginalImportItemManifest item,
+    OriginalImportMappingManifest mapping,
+  ) {
+    final editable =
+        item.state != OriginalImportItemState.committed &&
+        _committingItemId == null;
+    return _MappingComparisonTile(
+      mapping: mapping,
+      downloadPathFuture: _getMappingDownloadPath(item, mapping),
+      originalPath: _getMappingOriginalPath(item, mapping),
+      editable: editable,
+      onEditDownloaded:
+          editable
+              ? () => _editMappingPage(manifest, item, mapping, true)
+              : null,
+      onEditOriginal:
+          editable
+              ? () => _editMappingPage(manifest, item, mapping, false)
+              : null,
+      onRelationChanged: (value) {
+        setState(() {
+          mapping.relationType = value;
+          mapping.manuallyAdjusted = true;
+        });
+        downloadStore.originalImportService.writeManifest(manifest);
+      },
+    );
+  }
+
+  Future<void> _editMappingPage(
+    OriginalImportManifest manifest,
+    OriginalImportItemManifest item,
+    OriginalImportMappingManifest mapping,
+    bool downloaded,
+  ) async {
+    final count = downloaded ? _downloadedPageCount(item) : item.files.length;
+    final current =
+        downloaded ? mapping.downloadedPart : mapping.originalSourceOrder;
+    final selected = await showDialog<int>(
+      context: context,
+      builder:
+          (_) => _PageIndexPickerDialog(
+            title: downloaded ? '选择下载图' : '选择原图',
+            pageCount: count,
+            selectedIndex: current,
+          ),
+    );
+    if (!mounted || selected == null) return;
+    final value = selected < 0 ? null : selected;
+    if (value == null &&
+        (downloaded
+            ? mapping.originalSourceOrder == null
+            : mapping.downloadedPart == null)) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('一条映射不能同时没有下载图和原图')));
+      return;
+    }
+    setState(() {
+      if (downloaded) {
+        mapping.downloadedPart = value;
+      } else {
+        mapping.originalSourceOrder = value;
+      }
+      _normalizeMappingRelation(mapping);
+      mapping.manuallyAdjusted = true;
+    });
+    await downloadStore.originalImportService.writeManifest(manifest);
+  }
+
+  Future<String?> _getMappingDownloadPath(
+    OriginalImportItemManifest item,
+    OriginalImportMappingManifest mapping,
+  ) {
+    final part = mapping.downloadedPart;
+    if (part == null) return Future<String?>.value();
+    final key = '${item.targetIllustId}:$part';
+    return _mappingDownloadPathFutures.putIfAbsent(
+      key,
+      () => downloadStore.getLocalImagePath(
+        item.targetIllustId,
+        part,
+        update: false,
+      ),
+    );
+  }
+
+  String? _getMappingOriginalPath(
+    OriginalImportItemManifest item,
+    OriginalImportMappingManifest mapping,
+  ) {
+    final sourceOrder = mapping.originalSourceOrder;
+    if (sourceOrder == null) return null;
+    for (final file in item.files) {
+      if (file.sourceOrder == sourceOrder) {
+        return p.join(item.sourceDirectory, file.sourceRelativePath);
+      }
+    }
+    return null;
+  }
+
+  Future<void> _showPageMappings(
+    OriginalImportManifest manifest,
+    OriginalImportItemManifest item,
+  ) async {
+    await showDialog<void>(
+      context: context,
+      builder:
+          (_) => _OriginalPageMappingDialog(
+            manifest: manifest,
+            item: item,
+            editable:
+                item.state != OriginalImportItemState.committed &&
+                _committingItemId == null,
+          ),
+    );
+    if (mounted) setState(() {});
+  }
+}
+
+const _mappingRelationItems = [
+  DropdownMenuItem(
+    value: OriginalRelationType.replacement,
+    child: Text('原图替换'),
+  ),
+  DropdownMenuItem(
+    value: OriginalRelationType.originalOnly,
+    child: Text('原图新增'),
+  ),
+  DropdownMenuItem(
+    value: OriginalRelationType.downloadFallback,
+    child: Text('下载补位'),
+  ),
+];
+
+int _downloadedPageCount(OriginalImportItemManifest item) {
+  var count = 0;
+  for (final mapping in item.pageMappings) {
+    final part = mapping.downloadedPart;
+    if (part != null && part + 1 > count) count = part + 1;
+  }
+  return count;
+}
+
+void _normalizeMappingRelation(OriginalImportMappingManifest mapping) {
+  if (mapping.downloadedPart != null && mapping.originalSourceOrder != null) {
+    mapping.relationType = OriginalRelationType.replacement;
+  } else if (mapping.originalSourceOrder != null) {
+    mapping.relationType = OriginalRelationType.originalOnly;
+  } else {
+    mapping.relationType = OriginalRelationType.downloadFallback;
+  }
+}
+
+class _PageIndexPickerDialog extends StatefulWidget {
+  final String title;
+  final int pageCount;
+  final int? selectedIndex;
+
+  const _PageIndexPickerDialog({
+    required this.title,
+    required this.pageCount,
+    required this.selectedIndex,
+  });
+
+  @override
+  State<_PageIndexPickerDialog> createState() => _PageIndexPickerDialogState();
+}
+
+class _PageIndexPickerDialogState extends State<_PageIndexPickerDialog> {
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.title),
+      content: SizedBox(
+        width: 320,
+        height: 460,
+        child: Scrollbar(
+          controller: _scrollController,
+          thumbVisibility: true,
+          interactive: true,
+          child: ListView.builder(
+            controller: _scrollController,
+            itemCount: widget.pageCount + 1,
+            itemExtent: 48,
+            itemBuilder: (_, index) {
+              final pageIndex = index - 1;
+              final selected = widget.selectedIndex == pageIndex;
+              return ListTile(
+                selected: selected,
+                title: Text(index == 0 ? '无' : '第 $index 页'),
+                trailing: selected ? const Icon(Icons.check) : null,
+                onTap: () => Navigator.pop(context, pageIndex),
+              );
+            },
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('取消'),
+        ),
+      ],
+    );
+  }
+}
+
+class _OriginalPageMappingDialog extends StatefulWidget {
+  final OriginalImportManifest manifest;
+  final OriginalImportItemManifest item;
+  final bool editable;
+
+  const _OriginalPageMappingDialog({
+    required this.manifest,
+    required this.item,
+    required this.editable,
+  });
+
+  @override
+  State<_OriginalPageMappingDialog> createState() =>
+      _OriginalPageMappingDialogState();
+}
+
+class _OriginalPageMappingDialogState
+    extends State<_OriginalPageMappingDialog> {
+  final ScrollController _scrollController = ScrollController();
+  final Map<int, Future<String?>> _downloadPathFutures = {};
+
+  Future<String?> _downloadPath(OriginalImportMappingManifest mapping) {
+    final part = mapping.downloadedPart;
+    if (part == null) return Future<String?>.value();
+    return _downloadPathFutures.putIfAbsent(
+      part,
+      () => downloadStore.getLocalImagePath(
+        widget.item.targetIllustId,
+        part,
+        update: false,
+      ),
+    );
+  }
+
+  String? _originalPath(OriginalImportMappingManifest mapping) {
+    final sourceOrder = mapping.originalSourceOrder;
+    if (sourceOrder == null) return null;
+    for (final file in widget.item.files) {
+      if (file.sourceOrder == sourceOrder) {
+        return p.join(widget.item.sourceDirectory, file.sourceRelativePath);
+      }
+    }
+    return null;
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _updateRelation(
+    OriginalImportMappingManifest mapping,
+    OriginalRelationType value,
+  ) async {
+    setState(() {
+      mapping.relationType = value;
+      mapping.manuallyAdjusted = true;
+    });
+    try {
+      await downloadStore.originalImportService.writeManifest(widget.manifest);
+    } catch (e, stackTrace) {
+      Log.e('保存页面映射失败', error: e, stackTrace: stackTrace);
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('保存页面映射失败：$e')));
+      }
+    }
+  }
+
+  Future<void> _editPage(
+    OriginalImportMappingManifest mapping,
+    bool downloaded,
+  ) async {
+    final selected = await showDialog<int>(
+      context: context,
+      builder:
+          (_) => _PageIndexPickerDialog(
+            title: downloaded ? '选择下载图' : '选择原图',
+            pageCount:
+                downloaded
+                    ? _downloadedPageCount(widget.item)
+                    : widget.item.files.length,
+            selectedIndex:
+                downloaded
+                    ? mapping.downloadedPart
+                    : mapping.originalSourceOrder,
+          ),
+    );
+    if (!mounted || selected == null) return;
+    final value = selected < 0 ? null : selected;
+    if (value == null &&
+        (downloaded
+            ? mapping.originalSourceOrder == null
+            : mapping.downloadedPart == null)) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('一条映射不能同时没有下载图和原图')));
+      return;
+    }
+    setState(() {
+      if (downloaded) {
+        mapping.downloadedPart = value;
+      } else {
+        mapping.originalSourceOrder = value;
+      }
+      _normalizeMappingRelation(mapping);
+      mapping.manuallyAdjusted = true;
+    });
+    await downloadStore.originalImportService.writeManifest(widget.manifest);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final screenSize = MediaQuery.sizeOf(context);
+    final contentWidth = (screenSize.width - 96).clamp(520.0, 840.0);
+    final contentHeight = (screenSize.height - 190).clamp(320.0, 620.0);
+    return AlertDialog(
+      title: Text(
+        '页面映射 · ${p.basename(widget.item.sourceDirectory)}',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      content: ScrollConfiguration(
+        behavior: ScrollConfiguration.of(context).copyWith(
+          dragDevices: const {
+            PointerDeviceKind.mouse,
+            PointerDeviceKind.touch,
+            PointerDeviceKind.stylus,
+            PointerDeviceKind.trackpad,
+          },
+        ),
+        child: SizedBox(
+          width: contentWidth,
+          height: contentHeight,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(
+                  '共 ${widget.item.pageMappings.length} 页 · 下载页和原图页均从 1 开始计数',
+                ),
+              ),
+              Expanded(
+                child: Scrollbar(
+                  controller: _scrollController,
+                  thumbVisibility: true,
+                  interactive: true,
+                  child: ListView.builder(
+                    controller: _scrollController,
+                    itemCount: widget.item.pageMappings.length,
+                    itemExtent: 132,
+                    cacheExtent: 396,
+                    itemBuilder: (_, index) {
+                      final mapping = widget.item.pageMappings[index];
+                      return _MappingComparisonTile(
+                        mapping: mapping,
+                        downloadPathFuture: _downloadPath(mapping),
+                        originalPath: _originalPath(mapping),
+                        editable: widget.editable,
+                        onEditDownloaded:
+                            widget.editable
+                                ? () => _editPage(mapping, true)
+                                : null,
+                        onEditOriginal:
+                            widget.editable
+                                ? () => _editPage(mapping, false)
+                                : null,
+                        onRelationChanged:
+                            (value) => _updateRelation(mapping, value),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        FilledButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('完成'),
+        ),
+      ],
+    );
+  }
+}
+
+class _MappingComparisonTile extends StatelessWidget {
+  final OriginalImportMappingManifest mapping;
+  final Future<String?> downloadPathFuture;
+  final String? originalPath;
+  final bool editable;
+  final VoidCallback? onEditDownloaded;
+  final VoidCallback? onEditOriginal;
+  final ValueChanged<OriginalRelationType> onRelationChanged;
+
+  const _MappingComparisonTile({
+    required this.mapping,
+    required this.downloadPathFuture,
+    required this.originalPath,
+    required this.editable,
+    this.onEditDownloaded,
+    this.onEditOriginal,
+    required this.onRelationChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final downloadLabel =
+        mapping.downloadedPart == null
+            ? '下载图 —'
+            : '下载图 ${mapping.downloadedPart! + 1}';
+    final originalLabel =
+        mapping.originalSourceOrder == null
+            ? '原图 —'
+            : '原图 ${mapping.originalSourceOrder! + 1}';
+    return Container(
+      height: 132,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: Theme.of(context).dividerColor),
+        ),
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 36,
+            child: Text(
+              '${mapping.displayOrder + 1}',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+          ),
+          _MappingImage(
+            label: downloadLabel,
+            pathFuture: downloadPathFuture,
+            icon: Icons.download_outlined,
+            onEdit: onEditDownloaded,
+          ),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 10),
+            child: Icon(Icons.compare_arrows),
+          ),
+          _MappingImage(
+            label: originalLabel,
+            pathFuture: Future<String?>.value(originalPath),
+            icon: Icons.photo_outlined,
+            onEdit: onEditOriginal,
+          ),
+          const Spacer(),
+          DropdownButton<OriginalRelationType>(
+            value: mapping.relationType,
+            onChanged:
+                editable
+                    ? (value) {
+                      if (value != null) onRelationChanged(value);
+                    }
+                    : null,
+            items: _mappingRelationItems,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MappingImage extends StatelessWidget {
+  final String label;
+  final Future<String?> pathFuture;
+  final IconData icon;
+  final VoidCallback? onEdit;
+
+  const _MappingImage({
+    required this.label,
+    required this.pathFuture,
+    required this.icon,
+    this.onEdit,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 104,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (onEdit != null)
+                InkWell(
+                  onTap: onEdit,
+                  borderRadius: BorderRadius.circular(12),
+                  child: const Padding(
+                    padding: EdgeInsets.all(2),
+                    child: Icon(Icons.edit_outlined, size: 16),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Expanded(
+            child: Center(
+              child: _LocalCover(
+                pathFuture: pathFuture,
+                width: 96,
+                height: 88,
+                icon: icon,
+                title: label,
               ),
             ),
           ),
-        ),
-        SizedBox(
-          height: mappingHeight,
-          child: Scrollbar(
-            controller: controller,
-            thumbVisibility: item.pageMappings.length > 7,
-            interactive: true,
-            child: ListView.builder(
-              controller: controller,
-              itemCount: item.pageMappings.length,
-              itemExtent: 52,
-              cacheExtent: 156,
-              itemBuilder: (_, index) {
-                final mapping = item.pageMappings[index];
-                return ListTile(
-                  dense: true,
-                  leading: Text('${mapping.displayOrder + 1}'),
-                  title: Text(
-                    '下载 ${mapping.downloadedPart == null ? "—" : mapping.downloadedPart! + 1} ↔ 原图 ${mapping.originalSourceOrder == null ? "—" : mapping.originalSourceOrder! + 1}',
-                  ),
-                  trailing: DropdownButton<OriginalRelationType>(
-                    value: mapping.relationType,
-                    onChanged:
-                        item.state == OriginalImportItemState.committed ||
-                                _committingItemId != null
-                            ? null
-                            : (value) {
-                              if (value == null) return;
-                              setState(() {
-                                mapping.relationType = value;
-                                mapping.manuallyAdjusted = true;
-                              });
-                              downloadStore.originalImportService.writeManifest(
-                                manifest,
-                              );
-                            },
-                    items: const [
-                      DropdownMenuItem(
-                        value: OriginalRelationType.replacement,
-                        child: Text('原图替换'),
-                      ),
-                      DropdownMenuItem(
-                        value: OriginalRelationType.originalOnly,
-                        child: Text('原图新增'),
-                      ),
-                      DropdownMenuItem(
-                        value: OriginalRelationType.downloadFallback,
-                        child: Text('下载补位'),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -895,7 +1546,64 @@ class _OriginalWorkPickerDialog extends StatefulWidget {
 class _OriginalWorkPickerDialogState extends State<_OriginalWorkPickerDialog> {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  final Map<int, Future<String?>> _coverFutures = {};
   String _query = '';
+
+  Future<String?> _coverPath(DownloadedIllust work) => _coverFutures
+      .putIfAbsent(work.illustId, () => _resolveDownloadedCoverPath(work));
+
+  Future<String?> _workDirectoryPath(DownloadedIllust work) async {
+    final downloadPath = downloadStore.getIllustDirectoryPath(work);
+    if (downloadPath != null && await Directory(downloadPath).exists()) {
+      return downloadPath;
+    }
+    final originalSet = await downloadStore.originalRepository.getDefaultSet(
+      work.illustId,
+    );
+    return originalSet == null
+        ? downloadPath
+        : downloadStore.dbProvider.getOriginalAbsolutePath(
+          originalSet.relativePath,
+        );
+  }
+
+  Future<void> _openWorkDirectory(DownloadedIllust work) async {
+    final directory = await _workDirectoryPath(work);
+    if (!mounted) return;
+    if (directory == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('未找到作品目录')));
+      return;
+    }
+    try {
+      await FileUtils.openFileOrDirectory(directory);
+    } catch (e, stackTrace) {
+      Log.e('打开匹配作品目录失败', error: e, stackTrace: stackTrace);
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('打开目录失败：$e')));
+      }
+    }
+  }
+
+  Future<void> _copyWorkPath(DownloadedIllust work) async {
+    final directory = await _workDirectoryPath(work);
+    if (!mounted) return;
+    if (directory == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('未找到作品目录')));
+      return;
+    }
+    await Clipboard.setData(ClipboardData(text: directory));
+    if (mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('路径已复制到剪贴板')));
+    }
+  }
 
   @override
   void dispose() {
@@ -957,8 +1665,8 @@ class _OriginalWorkPickerDialogState extends State<_OriginalWorkPickerDialog> {
                           child: ListView.builder(
                             controller: _scrollController,
                             itemCount: filtered.length,
-                            itemExtent: 64,
-                            cacheExtent: 256,
+                            itemExtent: 84,
+                            cacheExtent: 336,
                             keyboardDismissBehavior:
                                 ScrollViewKeyboardDismissBehavior.onDrag,
                             itemBuilder: (_, index) {
@@ -967,9 +1675,12 @@ class _OriginalWorkPickerDialogState extends State<_OriginalWorkPickerDialog> {
                                   work.illustId == widget.selectedIllustId;
                               return ListTile(
                                 selected: selected,
-                                leading: SizedBox(
-                                  width: 88,
-                                  child: Text(work.createDate.split('T').first),
+                                leading: _LocalCover(
+                                  pathFuture: _coverPath(work),
+                                  width: 76,
+                                  height: 72,
+                                  icon: Icons.image_outlined,
+                                  title: work.title,
                                 ),
                                 title: Text(
                                   work.title,
@@ -977,10 +1688,31 @@ class _OriginalWorkPickerDialogState extends State<_OriginalWorkPickerDialog> {
                                   overflow: TextOverflow.ellipsis,
                                 ),
                                 subtitle: Text(
-                                  'ID ${work.illustId} · ${work.pageCount} 页',
+                                  '${work.createDate.split('T').first} · ID ${work.illustId} · ${work.pageCount} 页',
                                 ),
-                                trailing:
-                                    selected ? const Icon(Icons.check) : null,
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Tooltip(
+                                      message: '打开作品目录',
+                                      child: IconButton(
+                                        onPressed:
+                                            () => _openWorkDirectory(work),
+                                        icon: const Icon(
+                                          Icons.folder_open_outlined,
+                                        ),
+                                      ),
+                                    ),
+                                    Tooltip(
+                                      message: '复制作品路径',
+                                      child: IconButton(
+                                        onPressed: () => _copyWorkPath(work),
+                                        icon: const Icon(Icons.content_copy),
+                                      ),
+                                    ),
+                                    if (selected) const Icon(Icons.check),
+                                  ],
+                                ),
                                 onTap:
                                     () => Navigator.pop(context, work.illustId),
                               );
@@ -1002,6 +1734,112 @@ class _OriginalWorkPickerDialogState extends State<_OriginalWorkPickerDialog> {
           child: const Text('取消'),
         ),
       ],
+    );
+  }
+}
+
+Future<String?> _resolveDownloadedCoverPath(DownloadedIllust work) async {
+  final cachedCover = File(downloadStore.getCoverCachePath(work.illustId));
+  if (await cachedCover.exists()) return cachedCover.path;
+  final infos = await downloadStore.getLocalImageInfos(work.illustId);
+  if (infos.isEmpty) return null;
+  final parts = infos.keys.toList()..sort();
+  return infos[parts.first]?.path;
+}
+
+class _LocalCover extends StatelessWidget {
+  final Future<String?> pathFuture;
+  final double width;
+  final double height;
+  final IconData icon;
+  final String? title;
+
+  const _LocalCover({
+    required this.pathFuture,
+    required this.width,
+    required this.height,
+    required this.icon,
+    this.title,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return SizedBox(
+      width: width,
+      height: height,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(6),
+        child: ColoredBox(
+          color: colorScheme.surfaceContainerHighest,
+          child: FutureBuilder<String?>(
+            future: pathFuture,
+            builder: (context, snapshot) {
+              final path = snapshot.data;
+              if (path == null) {
+                return Center(
+                  child:
+                      snapshot.connectionState == ConnectionState.waiting
+                          ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                          : Icon(icon, color: colorScheme.onSurfaceVariant),
+                );
+              }
+              return Tooltip(
+                message: '点击放大',
+                child: InkWell(
+                  onTap:
+                      () => LocalImageViewerPage.open(
+                        context,
+                        imagePath: path,
+                        title: title ?? p.basename(path),
+                      ),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      Image.file(
+                        File(path),
+                        fit: BoxFit.contain,
+                        cacheWidth: (width * 2).round(),
+                        filterQuality: FilterQuality.low,
+                        gaplessPlayback: true,
+                        errorBuilder:
+                            (_, _, _) => Center(
+                              child: Icon(
+                                Icons.broken_image_outlined,
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                      ),
+                      Positioned(
+                        right: 3,
+                        bottom: 3,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.55),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Padding(
+                            padding: EdgeInsets.all(2),
+                            child: Icon(
+                              Icons.zoom_in,
+                              size: 16,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ),
     );
   }
 }

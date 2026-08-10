@@ -10,6 +10,7 @@ import 'package:pixez/custom/log.dart';
 import 'package:pixez/models/download_record.dart';
 import 'package:pixez/models/original_image.dart';
 import 'package:pixez/models/original_image_repository.dart';
+import 'package:pixez/utils/image_utils.dart';
 import 'package:worker_manager/worker_manager.dart';
 
 const _supportedOriginalExtensions = {
@@ -372,7 +373,8 @@ class OriginalImportService {
   final Random _random = Random.secure();
   final Map<String, Future<_ImageAnalysis>> _analysisCache = {};
 
-  static const int _analysisConcurrency = 2;
+  static int get _analysisConcurrency =>
+      min(4, max(1, Platform.numberOfProcessors - 1));
   static const int _maxAnalysisCacheEntries = 4096;
 
   OriginalImportService(this.provider)
@@ -529,9 +531,10 @@ class OriginalImportService {
       }
       rethrow;
     }
-    if (existingSets.any(
-      (set) => set.directoryFingerprint == item.directoryFingerprint,
-    )) {
+    if (item.directoryFingerprint.isNotEmpty &&
+        existingSets.any(
+          (set) => set.directoryFingerprint == item.directoryFingerprint,
+        )) {
       await cancel(manifest);
       throw StateError('该目录内容已经导入，无需重复导入');
     }
@@ -612,9 +615,10 @@ class OriginalImportService {
           isCancelled: isCancelled,
         );
         final existingSets = await repository.getSetsForIllust(target.illustId);
-        if (existingSets.any(
-          (set) => set.directoryFingerprint == item.directoryFingerprint,
-        )) {
+        if (item.directoryFingerprint.isNotEmpty &&
+            existingSets.any(
+              (set) => set.directoryFingerprint == item.directoryFingerprint,
+            )) {
           continue;
         }
         manifest.items.add(item);
@@ -672,7 +676,7 @@ class OriginalImportService {
             ),
         ],
       );
-      final mappings = await _alignPages(item);
+      final mappings = await _alignPagesByHash(item);
       result[set.id!] = [
         for (final mapping in mappings)
           OriginalMappingDraft(
@@ -700,6 +704,16 @@ class OriginalImportService {
     }
     result.sort((a, b) => _naturalCompare(a.path, b.path));
     return result;
+  }
+
+  /// 返回作品目录中按自然顺序排列的第一张图片，用于导入预览封面。
+  ///
+  /// 只扫描当前目录，不递归进入子目录，也不会读取或解码图片内容。
+  Future<String?> getFirstImagePath(String sourceDirectory) async {
+    final directory = Directory(sourceDirectory);
+    if (!await directory.exists()) return null;
+    final images = await _listImages(directory, recursive: false);
+    return images.isEmpty ? null : images.first.path;
   }
 
   Future<OriginalAuthorDirectoryBatch> discoverNextAuthorDirectoryBatch({
@@ -761,59 +775,107 @@ class OriginalImportService {
     void Function(OriginalImportProgress progress)? onProgress,
     bool Function()? isCancelled,
   }) async {
-    final fingerprintParts = List<String>.filled(item.files.length, '');
     for (final file in item.files) {
+      if (isCancelled?.call() == true) throw StateError('用户已取消导入');
       file.fileSize =
           await File(
             p.join(item.sourceDirectory, file.sourceRelativePath),
           ).length();
     }
-    final totalBytes = item.files.fold<int>(
-      0,
-      (sum, file) => sum + file.fileSize,
-    );
-    var scannedBytes = 0;
-    var completedFiles = 0;
-    await _runImageAnalysisPool(item.files.length, (index) async {
-      if (isCancelled?.call() == true) throw StateError('用户已取消导入');
-      final file = item.files[index];
-      final source = File(
-        p.join(item.sourceDirectory, file.sourceRelativePath),
-      );
-      final analysis = await _analyzeImage(source);
-      file.sha256Value = analysis.sha256Value;
-      file.perceptualHash = analysis.perceptualHash;
-      file.width = analysis.width;
-      file.height = analysis.height;
-      fingerprintParts[index] =
-          '${file.sourceOrder}|${file.fileSize}|${file.sha256Value}';
-      scannedBytes += file.fileSize;
-      completedFiles++;
-      onProgress?.call(
-        OriginalImportProgress(
-          jobId: manifest.jobId,
-          itemId: item.itemId,
-          phase: OriginalImportProgressPhase.analyzingOriginals,
-          copiedBytes: scannedBytes,
-          totalBytes: totalBytes,
-          completedFiles: completedFiles,
-          totalFiles: item.files.length,
-          itemName: p.basename(item.sourceDirectory),
-        ),
-      );
-    });
-    item.directoryFingerprint =
-        sha256.convert(utf8.encode(fingerprintParts.join('\n'))).toString();
-    item.pageMappings = await _alignPages(
+    item.directoryFingerprint = '';
+    item.pageMappings = await _alignPagesByNameAndOrder(
       item,
       manifest: manifest,
       onProgress: onProgress,
-      isCancelled: isCancelled,
     );
     manifest.updatedAt = DateTime.now().millisecondsSinceEpoch;
   }
 
-  Future<List<OriginalImportMappingManifest>> _alignPages(
+  Future<List<OriginalImportMappingManifest>> _alignPagesByNameAndOrder(
+    OriginalImportItemManifest item, {
+    required OriginalImportManifest manifest,
+    void Function(OriginalImportProgress progress)? onProgress,
+  }) async {
+    onProgress?.call(
+      OriginalImportProgress(
+        jobId: manifest.jobId,
+        itemId: item.itemId,
+        phase: OriginalImportProgressPhase.aligningPages,
+        copiedBytes: 0,
+        totalBytes: 1,
+        itemName: p.basename(item.sourceDirectory),
+      ),
+    );
+    final downloadedRecords =
+        (await provider.getImagesByIllustId(
+            item.targetIllustId,
+          )).where((image) => image.part >= 0).toList()
+          ..sort((a, b) => a.part.compareTo(b.part));
+    final partsByName = <String, List<int>>{};
+    for (final image in downloadedRecords) {
+      final name = _normalizeFileName(image.fileName);
+      if (name.isNotEmpty) {
+        partsByName.putIfAbsent(name, () => []).add(image.part);
+      }
+    }
+    final usedParts = <int>{};
+    final unmatchedParts =
+        downloadedRecords.map((image) => image.part).toList();
+    final result = <OriginalImportMappingManifest>[];
+    for (final source in item.files) {
+      final sourceName = _normalizeFileName(source.sourceRelativePath);
+      final exactCandidates = partsByName[sourceName];
+      int? downloadedPart;
+      if (exactCandidates != null && exactCandidates.length == 1) {
+        final exactPart = exactCandidates.single;
+        if (!usedParts.contains(exactPart)) downloadedPart = exactPart;
+      }
+      if (downloadedPart == null) {
+        for (final part in unmatchedParts) {
+          if (!usedParts.contains(part)) {
+            downloadedPart = part;
+            break;
+          }
+        }
+      }
+      if (downloadedPart != null) usedParts.add(downloadedPart);
+      result.add(
+        OriginalImportMappingManifest(
+          displayOrder: result.length,
+          downloadedPart: downloadedPart,
+          originalSourceOrder: source.sourceOrder,
+          relationType:
+              downloadedPart == null
+                  ? OriginalRelationType.originalOnly
+                  : OriginalRelationType.replacement,
+        ),
+      );
+    }
+    for (final part in unmatchedParts.where(
+      (part) => !usedParts.contains(part),
+    )) {
+      result.add(
+        OriginalImportMappingManifest(
+          displayOrder: result.length,
+          downloadedPart: part,
+          relationType: OriginalRelationType.downloadFallback,
+        ),
+      );
+    }
+    onProgress?.call(
+      OriginalImportProgress(
+        jobId: manifest.jobId,
+        itemId: item.itemId,
+        phase: OriginalImportProgressPhase.aligningPages,
+        copiedBytes: 1,
+        totalBytes: 1,
+        itemName: p.basename(item.sourceDirectory),
+      ),
+    );
+    return result;
+  }
+
+  Future<List<OriginalImportMappingManifest>> _alignPagesByHash(
     OriginalImportItemManifest item, {
     OriginalImportManifest? manifest,
     void Function(OriginalImportProgress progress)? onProgress,
@@ -1057,6 +1119,22 @@ class OriginalImportService {
     void Function(OriginalImportProgress progress)? onProgress,
     bool Function()? isCancelled,
   }) async {
+    await _ensureImportAnalysis(
+      manifest,
+      item,
+      onProgress: onProgress,
+      isCancelled: isCancelled,
+    );
+    if (item.existingSetId == null) {
+      final existingSets = await repository.getSetsForIllust(
+        item.targetIllustId,
+      );
+      if (existingSets.any(
+        (set) => set.directoryFingerprint == item.directoryFingerprint,
+      )) {
+        throw StateError('该目录内容已经导入，无需重复导入');
+      }
+    }
     item.state = OriginalImportItemState.copying;
     await writeManifest(manifest);
     final stagingDirectory = Directory(
@@ -1142,6 +1220,59 @@ class OriginalImportService {
       );
     }
     item.state = OriginalImportItemState.validated;
+    await writeManifest(manifest);
+  }
+
+  Future<void> _ensureImportAnalysis(
+    OriginalImportManifest manifest,
+    OriginalImportItemManifest item, {
+    void Function(OriginalImportProgress progress)? onProgress,
+    bool Function()? isCancelled,
+  }) async {
+    final needsAnalysis = item.files.any((file) => file.sha256Value.isEmpty);
+    if (!needsAnalysis && item.directoryFingerprint.isNotEmpty) return;
+    final fingerprintParts = List<String>.filled(item.files.length, '');
+    final totalBytes = item.files.fold<int>(
+      0,
+      (sum, file) => sum + file.fileSize,
+    );
+    var analyzedBytes = 0;
+    var completedFiles = 0;
+    await _runImageAnalysisPool(item.files.length, (index) async {
+      if (isCancelled?.call() == true) throw StateError('用户已取消导入');
+      final file = item.files[index];
+      final source = File(
+        p.join(item.sourceDirectory, file.sourceRelativePath),
+      );
+      file.fileSize = await source.length();
+      if (file.sha256Value.isEmpty) {
+        final hashFuture = _sha256File(source);
+        final sizeFuture = ImageUtils.parseImageSize(source.path);
+        file.sha256Value = await hashFuture;
+        final size = await sizeFuture;
+        file.width = size?.width.toInt();
+        file.height = size?.height.toInt();
+      }
+      fingerprintParts[index] =
+          '${file.sourceOrder}|${file.fileSize}|${file.sha256Value}';
+      analyzedBytes += file.fileSize;
+      completedFiles++;
+      onProgress?.call(
+        OriginalImportProgress(
+          jobId: manifest.jobId,
+          itemId: item.itemId,
+          phase: OriginalImportProgressPhase.analyzingOriginals,
+          copiedBytes: analyzedBytes,
+          totalBytes: totalBytes,
+          completedFiles: completedFiles,
+          totalFiles: item.files.length,
+          itemName: p.basename(item.sourceDirectory),
+        ),
+      );
+    });
+    item.directoryFingerprint =
+        sha256.convert(utf8.encode(fingerprintParts.join('\n'))).toString();
+    manifest.updatedAt = DateTime.now().millisecondsSinceEpoch;
     await writeManifest(manifest);
   }
 
@@ -1666,6 +1797,11 @@ class OriginalImportService {
 
   Future<String> _sha256File(File file) async =>
       (await sha256.bind(file.openRead()).first).toString();
+
+  String _normalizeFileName(String value) => p
+      .basenameWithoutExtension(value)
+      .toLowerCase()
+      .replaceAll(RegExp(r'[^a-z0-9\u3040-\u30ff\u3400-\u9fff]+'), '');
 
   int _hamming(String left, String right) {
     if (left.isEmpty || right.isEmpty) return 64;
