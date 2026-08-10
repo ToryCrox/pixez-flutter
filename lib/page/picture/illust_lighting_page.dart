@@ -210,6 +210,112 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
     super.dispose();
   }
 
+  Future<void> _selectImageDisplayMode(OriginalDisplayMode mode) async {
+    final targetIndex = await _illustStore.selectDisplayMode(mode);
+    if (mounted) {
+      await _observerController.animateTo(
+        index: targetIndex,
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOut,
+      );
+    }
+  }
+
+  Future<void> _toggleImageDisplayMode() async {
+    final target =
+        _illustStore.displayMode == OriginalDisplayMode.downloaded
+            ? OriginalDisplayMode.originalPreferred
+            : OriginalDisplayMode.downloaded;
+    await _selectImageDisplayMode(target);
+  }
+
+  Future<void> _removeAllOriginals() async {
+    final sets = List<OriginalImageSet>.from(_illustStore.originalSets);
+    if (sets.isEmpty) return;
+    final totalImages = sets.fold<int>(0, (sum, set) => sum + set.imageCount);
+    final totalBytes = sets.fold<int>(0, (sum, set) => sum + set.totalFileSize);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('删除原图及关联'),
+            content: Text(
+              '将删除当前作品的 ${sets.length} 个原图版本、$totalImages 张原图和全部页面映射（${_formatBytes(totalBytes)}）。\n\n下载图不会受到影响。之后如需原图，需要重新导入。',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('取消'),
+              ),
+              FilledButton(
+                style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('删除原图'),
+              ),
+            ],
+          ),
+    );
+    if (confirmed != true) return;
+    try {
+      for (final set in sets) {
+        await downloadStore.originalRepository.removeSetSafely(set.id!);
+      }
+      if (!mounted) return;
+      if (_illustStore.illusts?.id.isNegative == true) {
+        Navigator.of(context).pop();
+        return;
+      }
+      final targetIndex = await _illustStore.reloadAfterOriginalRemoved();
+      if (mounted) {
+        await _observerController.animateTo(
+          index: targetIndex,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOut,
+        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('原图及页面映射已删除，可重新导入')));
+      }
+    } catch (e, stackTrace) {
+      Log.e('删除原图及关联失败', error: e, stackTrace: stackTrace);
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('删除原图失败：$e')));
+      }
+    }
+  }
+
+  String _formatBytes(int bytes) {
+    if (bytes >= 1024 * 1024 * 1024) {
+      return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GiB';
+    }
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MiB';
+  }
+
+  List<IllustDownloadMenuAction> _originalMenuActions() {
+    if (!_illustStore.hasOriginal) return const [];
+    return [
+      IllustDownloadMenuAction(
+        icon:
+            _illustStore.displayMode == OriginalDisplayMode.downloaded
+                ? Icons.hd_outlined
+                : Icons.download_outlined,
+        title:
+            _illustStore.displayMode == OriginalDisplayMode.downloaded
+                ? '切换到原图优先'
+                : '切换到下载版',
+        onTap: _toggleImageDisplayMode,
+      ),
+      IllustDownloadMenuAction(
+        icon: Icons.delete_sweep_outlined,
+        title: '删除原图及关联',
+        color: Colors.redAccent,
+        onTap: _removeAllOriginals,
+      ),
+    ];
+  }
+
   Widget _buildAppbar() {
     return Column(
       children: [
@@ -328,6 +434,7 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
             child: IllustDownloadButton(
               illusts: _illustStore.illusts!,
               asFloatingActionButton: true,
+              additionalMenuActions: _originalMenuActions(),
               onStarAfterSave: () async {
                 if (_illustStore.state == 0) {
                   return _illustStore.star(

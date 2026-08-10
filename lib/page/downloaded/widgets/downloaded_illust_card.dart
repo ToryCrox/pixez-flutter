@@ -38,6 +38,7 @@ class DownloadedIllustCard extends StatelessWidget {
   final VoidCallback onLongPress;
   final VoidCallback onSecondaryTap;
   final VoidCallback onOpenFolder;
+  final VoidCallback onOpenOriginalFolder;
   final VoidCallback onRefreshData;
   final VoidCallback? onAuthorTap;
 
@@ -49,6 +50,7 @@ class DownloadedIllustCard extends StatelessWidget {
     required this.onLongPress,
     required this.onSecondaryTap,
     required this.onOpenFolder,
+    required this.onOpenOriginalFolder,
     required this.onRefreshData,
     this.onAuthorTap,
   });
@@ -124,6 +126,29 @@ class DownloadedIllustCard extends StatelessWidget {
           child: Container(
             padding: EdgeInsets.all(6),
             child: Icon(Icons.folder_open, color: Colors.white, size: 18),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOriginalFolderButton(BuildContext context) {
+    return Positioned(
+      top: 4,
+      left: 38,
+      child: Material(
+        color: Colors.black54,
+        borderRadius: BorderRadius.circular(20),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: onOpenOriginalFolder,
+          child: Container(
+            padding: const EdgeInsets.all(6),
+            child: const Icon(
+              Icons.folder_copy_outlined,
+              color: Colors.white,
+              size: 18,
+            ),
           ),
         ),
       ),
@@ -271,6 +296,8 @@ class DownloadedIllustCard extends StatelessWidget {
       children: [
         _buildThumbnail(context),
         _buildFolderButton(context),
+        if ((store.originalImageCounts[illust.illustId] ?? 0) > 0)
+          _buildOriginalFolderButton(context),
         if (!illust.isLocal) _buildOrganizerButton(context),
         if (illust.isUgoira) _buildUgoiraBadge(context),
         if ((store.originalImageCounts[illust.illustId] ?? 0) > 0)

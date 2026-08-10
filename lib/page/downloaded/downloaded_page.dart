@@ -705,6 +705,8 @@ class _DownloadedPageState extends State<DownloadedPage> {
                   _tapPosition,
                 ),
             onOpenFolder: () => _openIllustFolder(filteredList[index]),
+            onOpenOriginalFolder:
+                () => _openOriginalFolder(filteredList[index]),
             onRefreshData: () {
               _store.loadData();
               _store.loadStats();
@@ -789,6 +791,32 @@ class _DownloadedPageState extends State<DownloadedPage> {
     dirPath ??= downloadStore.getIllustDirectoryPath(illust);
     if (dirPath != null) {
       await FileUtils.openFileOrDirectory(dirPath);
+    }
+  }
+
+  Future<void> _openOriginalFolder(DownloadedIllust illust) async {
+    final set = await downloadStore.originalRepository.getDefaultSet(
+      illust.illustId,
+    );
+    if (set == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('该作品尚未导入原图')));
+      }
+      return;
+    }
+    final dirPath = downloadStore.dbProvider.getOriginalAbsolutePath(
+      set.relativePath,
+    );
+    try {
+      await FileUtils.openFileOrDirectory(dirPath);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('打开原图目录失败：$e')));
+      }
     }
   }
 
@@ -1076,6 +1104,12 @@ class _DownloadedPageState extends State<DownloadedPage> {
             );
             if (changed == true) await _store.loadData();
           },
+        ),
+      if ((_store.originalImageCounts[illust.illustId] ?? 0) > 0)
+        _buildContextMenuItem(
+          icon: Icons.folder_copy_outlined,
+          label: '打开原图目录',
+          onTap: () => _openOriginalFolder(illust),
         ),
       if (illust.isLocal)
         _buildContextMenuItem(

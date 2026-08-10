@@ -454,6 +454,8 @@ abstract class _IllustStoreBase with Store {
       return;
     }
 
+    selectedOriginalSetId = null;
+    displayManifest = null;
     // 批量从数据库获取所有图片信息（已自动检测后缀名）
     final imageInfos = await downloadStore.getLocalImageInfos(id);
     localImageInfos.clear();
@@ -479,6 +481,16 @@ abstract class _IllustStoreBase with Store {
     final anchorPart = _currentDownloadedAnchor();
     selectedOriginalSetId = setId;
     displayMode = OriginalDisplayMode.originalPreferred;
+    await _loadLocalImageInfos();
+    return _restoreDisplayAnchor(anchorPart);
+  }
+
+  /// 原图版本被移除后，重新加载为下载版（或本地图片）显示状态。
+  @action
+  Future<int> reloadAfterOriginalRemoved() async {
+    final anchorPart = _currentDownloadedAnchor();
+    selectedOriginalSetId = null;
+    displayMode = OriginalDisplayMode.downloaded;
     await _loadLocalImageInfos();
     return _restoreDisplayAnchor(anchorPart);
   }

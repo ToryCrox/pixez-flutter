@@ -231,6 +231,7 @@ class IllustDownloadButton extends StatefulWidget {
   final Illusts illusts;
   final double iconSize;
   final Future<bool> Function()? onStarAfterSave;
+  final List<IllustDownloadMenuAction> additionalMenuActions;
 
   /// 是否以 FloatingActionButton 样式显示
   final bool asFloatingActionButton;
@@ -240,11 +241,26 @@ class IllustDownloadButton extends StatefulWidget {
     required this.illusts,
     this.iconSize = 24,
     this.onStarAfterSave,
+    this.additionalMenuActions = const [],
     this.asFloatingActionButton = false,
   }) : super(key: key);
 
   @override
   State<IllustDownloadButton> createState() => _IllustDownloadButtonState();
+}
+
+class IllustDownloadMenuAction {
+  final IconData icon;
+  final String title;
+  final Color? color;
+  final VoidCallback onTap;
+
+  const IllustDownloadMenuAction({
+    required this.icon,
+    required this.title,
+    required this.onTap,
+    this.color,
+  });
 }
 
 class _IllustDownloadButtonState extends State<IllustDownloadButton> {
@@ -473,6 +489,18 @@ class _IllustDownloadButtonState extends State<IllustDownloadButton> {
                   _openDownloadDirectory();
                 },
               ),
+              for (final action in widget.additionalMenuActions)
+                ListTile(
+                  leading: Icon(action.icon, color: action.color),
+                  title: Text(
+                    action.title,
+                    style: TextStyle(color: action.color),
+                  ),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    action.onTap();
+                  },
+                ),
               if (isDownloaded) ...[
                 ListTile(
                   leading: Icon(Icons.check_circle, color: Colors.green),
