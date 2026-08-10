@@ -199,6 +199,53 @@ void main() {
     await temporary.delete(recursive: true);
   });
 
+  test('下载图比原图多时会默认将原图后移页数差', () async {
+    final temporary = await Directory.systemTemp.createTemp(
+      'pixez_original_alignment_test_',
+    );
+    final source = Directory(p.join(temporary.path, 'source'));
+    await source.create();
+    await File(p.join(source.path, '1.png')).writeAsBytes(_pngBytes());
+    final provider = DownloadDatabaseProvider();
+    await provider.open(p.join(temporary.path, 'downloads'));
+    await provider.insertIllust(
+      DownloadedIllust.fromIllusts(_illust(320, pageCount: 3), 'download/320'),
+    );
+    for (var part = 0; part < 3; part++) {
+      await provider.insertImage(
+        DownloadedImage(
+          illustId: 320,
+          part: part,
+          fileName: 'download_$part',
+          extension: '.png',
+          fileSize: 1,
+          originalUrl: '',
+        ),
+      );
+    }
+
+    final service = OriginalImportService(provider);
+    final manifest = await service.prepareSingleImport(
+      sourceDirectory: source.path,
+      targetIllustId: 320,
+    );
+    final mappings = manifest.items.single.pageMappings;
+    expect(mappings, hasLength(3));
+    expect(mappings[0].downloadedPart, 0);
+    expect(mappings[0].originalSourceOrder, isNull);
+    expect(mappings[0].relationType, OriginalRelationType.downloadFallback);
+    expect(mappings[1].downloadedPart, 1);
+    expect(mappings[1].originalSourceOrder, isNull);
+    expect(mappings[1].relationType, OriginalRelationType.downloadFallback);
+    expect(mappings[2].downloadedPart, 2);
+    expect(mappings[2].originalSourceOrder, 0);
+    expect(mappings[2].relationType, OriginalRelationType.replacement);
+
+    await service.cancel(manifest);
+    await provider.db.close();
+    await temporary.delete(recursive: true);
+  });
+
   test('同名版本增量更新复用版本并保留来源中消失的图片', () async {
     final temporary = await Directory.systemTemp.createTemp(
       'pixez_update_test_',

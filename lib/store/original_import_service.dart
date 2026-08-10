@@ -29,6 +29,7 @@ enum OriginalImportJobStatus { active, completed, cancelled, failed }
 
 enum OriginalImportItemState {
   pending,
+  skipped,
   copying,
   validated,
   finalizing,
@@ -829,6 +830,25 @@ class OriginalImportService {
     final unmatchedParts =
         downloadedRecords.map((image) => image.part).toList();
     final result = <OriginalImportMappingManifest>[];
+
+    // 当下载页数更多时，通常是下载图前面包含了预告页、封面或其他
+    // 非原图页。预览阶段不再读取图片内容，因此以页数差作为默认对齐：
+    // 先保留前面的下载页，再让原图从后面的下载页开始替换。用户仍可在
+    // 页面映射中通过“原图整体前移/后移”恢复或微调这个默认结果。
+    final leadingDownloadFallbackCount = (downloadedRecords.length -
+            item.files.length)
+        .clamp(0, downloadedRecords.length);
+    for (var index = 0; index < leadingDownloadFallbackCount; index++) {
+      final part = unmatchedParts[index];
+      usedParts.add(part);
+      result.add(
+        OriginalImportMappingManifest(
+          displayOrder: result.length,
+          downloadedPart: part,
+          relationType: OriginalRelationType.downloadFallback,
+        ),
+      );
+    }
     for (final source in item.files) {
       final sourceName = _normalizeFileName(source.sourceRelativePath);
       final exactCandidates = partsByName[sourceName];
@@ -1054,7 +1074,10 @@ class OriginalImportService {
   }) async {
     Object? firstError;
     for (final item in manifest.items) {
-      if (item.state == OriginalImportItemState.committed) continue;
+      if (item.state == OriginalImportItemState.committed ||
+          item.state == OriginalImportItemState.skipped) {
+        continue;
+      }
       try {
         await _copyAndValidate(
           manifest,
@@ -1091,7 +1114,10 @@ class OriginalImportService {
     bool Function()? isCancelled,
   }) async {
     final item = manifest.items.firstWhere((entry) => entry.itemId == itemId);
-    if (item.state == OriginalImportItemState.committed) return;
+    if (item.state == OriginalImportItemState.committed ||
+        item.state == OriginalImportItemState.skipped) {
+      return;
+    }
     try {
       await _copyAndValidate(
         manifest,
@@ -1109,7 +1135,9 @@ class OriginalImportService {
       rethrow;
     }
     if (manifest.items.every(
-      (entry) => entry.state == OriginalImportItemState.committed,
+      (entry) =>
+          entry.state == OriginalImportItemState.committed ||
+          entry.state == OriginalImportItemState.skipped,
     )) {
       manifest.status = OriginalImportJobStatus.completed;
       await writeManifest(manifest);
@@ -1605,7 +1633,9 @@ class OriginalImportService {
             return job.mode == OriginalImportMode.author &&
                 normalizePath(job.sourceRoot) == expectedRoot &&
                 job.items.any(
-                  (item) => item.state != OriginalImportItemState.committed,
+                  (item) =>
+                      item.state != OriginalImportItemState.committed &&
+                      item.state != OriginalImportItemState.skipped,
                 );
           }).toList()
           ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));

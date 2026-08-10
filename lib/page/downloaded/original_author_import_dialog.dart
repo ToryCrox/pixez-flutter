@@ -45,12 +45,14 @@ class OriginalAuthorImportDialog extends StatefulWidget {
 
 class _AuthorImportRow {
   final String directory;
+  final int sourceImageCount;
   int? targetIllustId;
   bool selected;
   String confidence;
 
   _AuthorImportRow({
     required this.directory,
+    this.sourceImageCount = 0,
     this.targetIllustId,
     this.selected = true,
     required this.confidence,
@@ -74,7 +76,6 @@ class _OriginalAuthorImportDialogState
   final ScrollController _previewScrollController = ScrollController();
   final Set<String> _expandedItemIds = <String>{};
   final Map<String, Future<String?>> _sourceCoverFutures = {};
-  final Map<String, Future<int>> _sourceImageCountFutures = {};
   final Map<int, Future<String?>> _downloadCoverFutures = {};
   final Map<String, Future<String?>> _mappingDownloadPathFutures = {};
   final TextEditingController _batchSizeController = TextEditingController(
@@ -86,7 +87,11 @@ class _OriginalAuthorImportDialogState
 
   List<OriginalImportItemManifest> get _remainingItems =>
       _manifest?.items
-          .where((item) => item.state != OriginalImportItemState.committed)
+          .where(
+            (item) =>
+                item.state != OriginalImportItemState.committed &&
+                item.state != OriginalImportItemState.skipped,
+          )
           .toList() ??
       const [];
 
@@ -146,12 +151,21 @@ class _OriginalAuthorImportDialogState
       final directoryBatch = results[0] as OriginalAuthorDirectoryBatch;
       final works = results[1] as List<DownloadedIllust>;
       final directories = directoryBatch.directories;
+      final sourceImageCounts = await Future.wait(
+        directories.map(
+          (directory) =>
+              downloadStore.originalImportService.getImageCount(directory.path),
+        ),
+      );
       final rows = <_AuthorImportRow>[];
-      for (final directory in directories) {
-        final match = _matchDirectory(directory.path, works);
+      for (var index = 0; index < directories.length; index++) {
+        final directory = directories[index];
+        final sourceImageCount = sourceImageCounts[index];
+        final match = _matchDirectory(directory.path, works, sourceImageCount);
         rows.add(
           _AuthorImportRow(
             directory: directory.path,
+            sourceImageCount: sourceImageCount,
             targetIllustId: match.$1?.illustId,
             selected: match.$1 != null,
             confidence: match.$2,
@@ -200,13 +214,19 @@ class _OriginalAuthorImportDialogState
           {
             'directory': p.basename(row.directory),
             'date': _parseFolderDate(row.directory)?.toIso8601String(),
+            'original_pages': row.sourceImageCount,
             'candidates': [
-              for (final work in _candidateWorks(row.directory, works))
+              for (final work in _candidateWorks(
+                row.directory,
+                works,
+                row.sourceImageCount,
+              ))
                 {
                   'id': work.illustId,
                   'title': work.title,
                   'date': work.createDate,
                   'pages': work.pageCount,
+                  'downloaded_pages': work.downloadedImageCount,
                 },
             ],
           },
@@ -216,7 +236,7 @@ class _OriginalAuthorImportDialogState
           aiSettings.providers.first,
           AiCompletionInput(
             systemPrompt:
-                '根据目录名和日期，从各自 candidates 中选择同一作品。只返回 JSON 数组，元素格式 {"directory":"原值","illust_id":整数或null}。不得返回候选外 ID。',
+                '根据目录名、日期和图片数量，从各自 candidates 中选择同一作品。优先选择页数更接近且不是少页预告的候选。只返回 JSON 数组，元素格式 {"directory":"原值","illust_id":整数或null}。不得返回候选外 ID。',
             userPrompt: jsonEncode(payload),
           ),
         );
@@ -242,6 +262,7 @@ class _OriginalAuthorImportDialogState
               _candidateWorks(
                 row?.directory ?? '',
                 works,
+                row?.sourceImageCount,
               ).map((work) => work.illustId).toSet();
           if (row != null && candidateIds.contains(id)) {
             row.targetIllustId = id;
@@ -257,22 +278,34 @@ class _OriginalAuthorImportDialogState
 
   List<DownloadedIllust> _candidateWorks(
     String directory,
-    List<DownloadedIllust> works,
-  ) {
+    List<DownloadedIllust> works, [
+    int? sourceImageCount,
+  ]) {
     final date = _parseFolderDate(directory);
-    if (date == null) return works.take(12).toList();
     final candidates =
-        works.where((work) {
-          final workDate = DateTime.tryParse(work.createDate)?.toLocal();
-          return workDate != null &&
-              date.difference(workDate).inDays.abs() <= 10;
-        }).toList();
-    return candidates.isEmpty ? works.take(12).toList() : candidates;
+        date == null
+            ? <DownloadedIllust>[]
+            : works.where((work) {
+              final workDate = DateTime.tryParse(work.createDate)?.toLocal();
+              return workDate != null &&
+                  date.difference(workDate).inDays.abs() <= 10;
+            }).toList();
+    final result = candidates.isEmpty ? works.take(12).toList() : candidates;
+    if (sourceImageCount != null) {
+      result.sort(
+        (left, right) => _imageCountDistance(
+          left,
+          sourceImageCount,
+        ).compareTo(_imageCountDistance(right, sourceImageCount)),
+      );
+    }
+    return result;
   }
 
   (DownloadedIllust?, String) _matchDirectory(
     String directory,
     List<DownloadedIllust> works,
+    int sourceImageCount,
   ) {
     final folder = p.basename(directory);
     final normalizedFolder = _normalize(folder);
@@ -288,6 +321,16 @@ class _OriginalAuthorImportDialogState
       if (sourceDate != null && date != null) {
         final days = sourceDate.difference(date.toLocal()).inDays.abs();
         if (days <= 10) score += 40 - days * 3;
+      }
+      final imageDistance = _imageCountDistance(work, sourceImageCount);
+      if (imageDistance == 0) {
+        score += 26;
+      } else if (imageDistance == 1) {
+        score += 16;
+      } else if (imageDistance <= 3) {
+        score += 6;
+      } else {
+        score -= (imageDistance * 3).clamp(0, 30);
       }
       if (score > bestScore) {
         best = work;
@@ -324,16 +367,18 @@ class _OriginalAuthorImportDialogState
     '',
   );
 
+  int _imageCountDistance(DownloadedIllust work, int sourceImageCount) {
+    final count =
+        work.downloadedImageCount > 0
+            ? work.downloadedImageCount
+            : work.pageCount;
+    return (count - sourceImageCount).abs();
+  }
+
   Future<String?> _getSourceCoverPath(String directory) =>
       _sourceCoverFutures.putIfAbsent(
         directory,
         () => downloadStore.originalImportService.getFirstImagePath(directory),
-      );
-
-  Future<int> _getSourceImageCount(String directory) =>
-      _sourceImageCountFutures.putIfAbsent(
-        directory,
-        () => downloadStore.originalImportService.getImageCount(directory),
       );
 
   Future<String?> _getDownloadCoverPath(DownloadedIllust work) =>
@@ -579,9 +624,12 @@ class _OriginalAuthorImportDialogState
     }
     final rows = <_AuthorImportRow>[];
     for (final item in manifest.items) {
+      final sourceImageCount = await downloadStore.originalImportService
+          .getImageCount(item.sourceDirectory);
       rows.add(
         _AuthorImportRow(
           directory: item.sourceDirectory,
+          sourceImageCount: sourceImageCount,
           targetIllustId: item.targetIllustId,
           selected: true,
           confidence: '预览中',
@@ -607,6 +655,26 @@ class _OriginalAuthorImportDialogState
       _error = null;
       _progress = null;
     });
+  }
+
+  Future<void> _toggleItemSkipped(
+    OriginalImportManifest manifest,
+    OriginalImportItemManifest item,
+  ) async {
+    if (_busy ||
+        _committingItemId != null ||
+        item.state == OriginalImportItemState.committed) {
+      return;
+    }
+    setState(() {
+      if (item.state == OriginalImportItemState.skipped) {
+        item.state = OriginalImportItemState.pending;
+      } else {
+        item.state = OriginalImportItemState.skipped;
+        item.error = null;
+      }
+    });
+    await downloadStore.originalImportService.writeManifest(manifest);
   }
 
   Future<void> _openIllustDetail(int illustId) async {
@@ -877,18 +945,12 @@ class _OriginalAuthorImportDialogState
                                                   : FontWeight.w600,
                                         ),
                                       ),
-                                      FutureBuilder<int>(
-                                        future: _getSourceImageCount(
-                                          row.directory,
-                                        ),
-                                        builder:
-                                            (_, snapshot) => Text(
-                                              '原图 ${snapshot.hasData ? snapshot.data : "…"} · 下载图 ${work?.downloadedImageCount ?? "—"}',
-                                              style:
-                                                  Theme.of(
-                                                    context,
-                                                  ).textTheme.bodySmall,
-                                            ),
+                                      Text(
+                                        '原图 ${row.sourceImageCount} · 下载图 ${work?.downloadedImageCount ?? "—"}',
+                                        style:
+                                            Theme.of(
+                                              context,
+                                            ).textTheme.bodySmall,
                                       ),
                                     ],
                                   ),
@@ -955,6 +1017,14 @@ class _OriginalAuthorImportDialogState
   }
 
   Widget _buildManifestPreview(OriginalImportManifest manifest) {
+    final completedCount =
+        manifest.items
+            .where((item) => item.state == OriginalImportItemState.committed)
+            .length;
+    final skippedCount =
+        manifest.items
+            .where((item) => item.state == OriginalImportItemState.skipped)
+            .length;
     return Scrollbar(
       controller: _previewScrollController,
       thumbVisibility: true,
@@ -973,7 +1043,7 @@ class _OriginalAuthorImportDialogState
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   Text(
-                    '共 ${manifest.items.length} 个 · 已完成 ${manifest.items.length - _remainingItems.length} 个 · 剩余 ${_remainingItems.length} 个',
+                    '共 ${manifest.items.length} 个 · 已完成 $completedCount 个 · 本批跳过 $skippedCount 个 · 待导入 ${_remainingItems.length} 个',
                   ),
                   Text('当前每批最多导入 $_batchSize 个，可展开检查或单独导入。'),
                 ],
@@ -981,6 +1051,7 @@ class _OriginalAuthorImportDialogState
             );
           }
           final item = manifest.items[index - 1];
+          final skipped = item.state == OriginalImportItemState.skipped;
           final expanded = _expandedItemIds.contains(item.itemId);
           return ExpansionTile(
             key: PageStorageKey(item.itemId),
@@ -1010,6 +1081,11 @@ class _OriginalAuthorImportDialogState
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
+                if (skipped)
+                  const Padding(
+                    padding: EdgeInsets.only(right: 6),
+                    child: Chip(label: Text('本批不导入')),
+                  ),
                 Tooltip(
                   message: '打开原图目录',
                   child: IconButton(
@@ -1029,7 +1105,7 @@ class _OriginalAuthorImportDialogState
               ],
             ),
             subtitle: Text(
-              '下载图 ${_downloadedPageCount(item)} · 原图 ${item.files.length} · 显示 ${item.pageMappings.length} · ID ${item.targetIllustId}',
+              '${skipped ? "本批已跳过 · " : ""}下载图 ${_downloadedPageCount(item)} · 原图 ${item.files.length} · 显示 ${item.pageMappings.length} · ID ${item.targetIllustId}${_automaticOriginalShiftCount(item) > 0 ? " · 已自动将原图后移 ${_automaticOriginalShiftCount(item)} 位" : ""}',
             ),
             children:
                 expanded ? [_buildManifestItem(manifest, item)] : const [],
@@ -1055,6 +1131,22 @@ class _OriginalAuthorImportDialogState
             runSpacing: 8,
             children: [
               OutlinedButton.icon(
+                onPressed:
+                    item.state == OriginalImportItemState.committed
+                        ? null
+                        : () => _toggleItemSkipped(manifest, item),
+                icon: Icon(
+                  item.state == OriginalImportItemState.skipped
+                      ? Icons.restart_alt
+                      : Icons.remove_circle_outline,
+                ),
+                label: Text(
+                  item.state == OriginalImportItemState.skipped
+                      ? '恢复导入'
+                      : '标记不导入',
+                ),
+              ),
+              OutlinedButton.icon(
                 onPressed: () => _openIllustDetail(item.targetIllustId),
                 icon: const Icon(Icons.open_in_new),
                 label: const Text('查看插画详情'),
@@ -1070,7 +1162,8 @@ class _OriginalAuthorImportDialogState
               FilledButton.tonalIcon(
                 onPressed:
                     _committingItemId == null &&
-                            item.state != OriginalImportItemState.committed
+                            item.state != OriginalImportItemState.committed &&
+                            item.state != OriginalImportItemState.skipped
                         ? () => _commitItem(item)
                         : null,
                 icon:
@@ -1084,6 +1177,8 @@ class _OriginalAuthorImportDialogState
                 label: Text(
                   item.state == OriginalImportItemState.committed
                       ? '已导入'
+                      : item.state == OriginalImportItemState.skipped
+                      ? '本批不导入'
                       : '仅导入此作品',
                 ),
               ),
@@ -1113,6 +1208,7 @@ class _OriginalAuthorImportDialogState
   ) {
     final editable =
         item.state != OriginalImportItemState.committed &&
+        item.state != OriginalImportItemState.skipped &&
         _committingItemId == null;
     return _MappingComparisonTile(
       mapping: mapping,
@@ -1221,6 +1317,7 @@ class _OriginalAuthorImportDialogState
             item: item,
             editable:
                 item.state != OriginalImportItemState.committed &&
+                item.state != OriginalImportItemState.skipped &&
                 _committingItemId == null,
           ),
     );
@@ -1250,6 +1347,12 @@ int _downloadedPageCount(OriginalImportItemManifest item) {
     if (part != null && part + 1 > count) count = part + 1;
   }
   return count;
+}
+
+int _automaticOriginalShiftCount(OriginalImportItemManifest item) {
+  if (item.pageMappings.any((mapping) => mapping.manuallyAdjusted)) return 0;
+  final difference = _downloadedPageCount(item) - item.files.length;
+  return difference > 0 ? difference : 0;
 }
 
 void _normalizeMappingRelation(OriginalImportMappingManifest mapping) {
@@ -1482,6 +1585,41 @@ class _OriginalPageMappingDialogState
     await downloadStore.originalImportService.writeManifest(widget.manifest);
   }
 
+  Future<void> _shiftAllPagesForward(bool downloaded) async {
+    if (!widget.editable || widget.item.pageMappings.isEmpty) return;
+    final mappings = widget.item.pageMappings;
+    final values = [
+      for (final mapping in mappings)
+        downloaded ? mapping.downloadedPart : mapping.originalSourceOrder,
+    ];
+    setState(() {
+      for (var index = 0; index < mappings.length - 1; index++) {
+        if (downloaded) {
+          mappings[index].downloadedPart = values[index + 1];
+        } else {
+          mappings[index].originalSourceOrder = values[index + 1];
+        }
+      }
+      if (downloaded) {
+        mappings.last.downloadedPart = null;
+      } else {
+        mappings.last.originalSourceOrder = null;
+      }
+      if (mappings.length > 1 &&
+          mappings.last.downloadedPart == null &&
+          mappings.last.originalSourceOrder == null) {
+        mappings.removeLast();
+      }
+      for (var index = 0; index < mappings.length; index++) {
+        final mapping = mappings[index];
+        mapping.displayOrder = index;
+        _normalizeMappingRelation(mapping);
+        mapping.manuallyAdjusted = true;
+      }
+    });
+    await downloadStore.originalImportService.writeManifest(widget.manifest);
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenSize = MediaQuery.sizeOf(context);
@@ -1518,6 +1656,21 @@ class _OriginalPageMappingDialogState
                     Text(
                       '共 ${widget.item.pageMappings.length} 页 · 下载页和原图页均从 1 开始计数',
                     ),
+                    if (_automaticOriginalShiftCount(widget.item) > 0)
+                      Chip(
+                        avatar: Icon(Icons.lightbulb_outline, size: 18),
+                        label: Text(
+                          '已按页数差将原图后移 ${_automaticOriginalShiftCount(widget.item)} 位，可手动前移调整',
+                        ),
+                      ),
+                    OutlinedButton.icon(
+                      onPressed:
+                          widget.editable
+                              ? () => _shiftAllPagesForward(true)
+                              : null,
+                      icon: const Icon(Icons.arrow_upward),
+                      label: const Text('下载图整体前移一位'),
+                    ),
                     OutlinedButton.icon(
                       onPressed:
                           widget.editable
@@ -1525,6 +1678,14 @@ class _OriginalPageMappingDialogState
                               : null,
                       icon: const Icon(Icons.arrow_downward),
                       label: const Text('下载图整体后移一位'),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed:
+                          widget.editable
+                              ? () => _shiftAllPagesForward(false)
+                              : null,
+                      icon: const Icon(Icons.arrow_upward),
+                      label: const Text('原图整体前移一位'),
                     ),
                     OutlinedButton.icon(
                       onPressed:
