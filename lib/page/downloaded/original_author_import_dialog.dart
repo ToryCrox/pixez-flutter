@@ -429,14 +429,43 @@ class _OriginalAuthorImportDialogState
   Future<void> _preparePreview() async {
     final root = _root;
     if (root == null) return;
-    final selections = [
-      for (final row in _rows)
-        if (row.selected && row.targetIllustId != null)
-          OriginalAuthorImportSelection(
-            sourceDirectory: row.directory,
-            targetIllustId: row.targetIllustId!,
+    final selections = <OriginalAuthorImportSelection>[];
+    var skippedCount = 0;
+    for (final row in _rows) {
+      final targetIllustId = row.targetIllustId;
+      if (!row.selected || targetIllustId == null) continue;
+      final existingSets = await downloadStore.originalRepository
+          .getSetsForIllust(targetIllustId);
+      var existingSetAction = OriginalExistingSetAction.addVersion;
+      if (existingSets.isNotEmpty) {
+        final action = await _askExistingSetAction(row, existingSets);
+        if (!mounted || action == null) return;
+        if (action == OriginalExistingSetAction.skip) {
+          skippedCount++;
+          continue;
+        }
+        existingSetAction = action;
+      }
+      selections.add(
+        OriginalAuthorImportSelection(
+          sourceDirectory: row.directory,
+          targetIllustId: targetIllustId,
+          existingSetAction: existingSetAction,
+        ),
+      );
+    }
+    if (selections.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              skippedCount > 0 ? '已跳过 $skippedCount 个已有原图作品' : '没有选中可导入的作品',
+            ),
           ),
-    ];
+        );
+      }
+      return;
+    }
     setState(() {
       _busy = true;
       _error = null;
@@ -462,6 +491,54 @@ class _OriginalAuthorImportDialogState
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  Future<OriginalExistingSetAction?> _askExistingSetAction(
+    _AuthorImportRow row,
+    List<OriginalImageSet> sets,
+  ) {
+    final defaultSet = sets.firstWhere(
+      (set) => set.isDefault,
+      orElse: () => sets.first,
+    );
+    return showDialog<OriginalExistingSetAction>(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('该作品已有原图'),
+            content: Text(
+              '目录“${p.basename(row.directory)}”匹配的作品已有默认版“${defaultSet.editionName}”（${defaultSet.imageCount} 张）。请选择本次处理方式。',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('取消本次预览'),
+              ),
+              TextButton(
+                onPressed:
+                    () =>
+                        Navigator.pop(context, OriginalExistingSetAction.skip),
+                child: const Text('跳过'),
+              ),
+              OutlinedButton(
+                onPressed:
+                    () => Navigator.pop(
+                      context,
+                      OriginalExistingSetAction.replaceDefault,
+                    ),
+                child: const Text('替换默认版'),
+              ),
+              FilledButton(
+                onPressed:
+                    () => Navigator.pop(
+                      context,
+                      OriginalExistingSetAction.addVersion,
+                    ),
+                child: const Text('新增版本'),
+              ),
+            ],
+          ),
+    );
   }
 
   Future<void> _commit() async {

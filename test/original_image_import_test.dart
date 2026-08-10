@@ -299,6 +299,49 @@ void main() {
     await temporary.delete(recursive: true);
   });
 
+  test('已有原图必须明确选择，替换默认版不会自动新增版本', () async {
+    final temporary = await Directory.systemTemp.createTemp(
+      'pixez_replace_original_test_',
+    );
+    final source = Directory(p.join(temporary.path, 'source'));
+    await source.create();
+    final sourceFile = File(p.join(source.path, '1.png'));
+    await sourceFile.writeAsBytes(_pngBytes());
+    final provider = DownloadDatabaseProvider();
+    await provider.open(p.join(temporary.path, 'downloads'));
+    await provider.insertIllust(
+      DownloadedIllust.fromIllusts(_illust(360), 'download/360'),
+    );
+    final service = OriginalImportService(provider);
+    final first = await service.prepareSingleImport(
+      sourceDirectory: source.path,
+      targetIllustId: 360,
+    );
+    await service.execute(first);
+
+    await expectLater(
+      service.prepareSingleImport(
+        sourceDirectory: source.path,
+        targetIllustId: 360,
+      ),
+      throwsA(isA<StateError>()),
+    );
+
+    final replacement = await service.prepareSingleImport(
+      sourceDirectory: source.path,
+      targetIllustId: 360,
+      existingSetAction: OriginalExistingSetAction.replaceDefault,
+    );
+    expect(replacement.items.single.existingSetId, isNotNull);
+    expect(replacement.items.single.replaceExistingSet, isTrue);
+    await service.execute(replacement);
+
+    final sets = await OriginalImageRepository(provider).getSetsForIllust(360);
+    expect(sets, hasLength(1));
+    await provider.db.close();
+    await temporary.delete(recursive: true);
+  });
+
   test('作者任务部分提交后可按原目录恢复并跳过已完成作品', () async {
     final temporary = await Directory.systemTemp.createTemp(
       'pixez_author_resume_test_',

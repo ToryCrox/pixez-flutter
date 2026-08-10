@@ -58,6 +58,7 @@ import 'package:pixez/supportor_plugin.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:pixez/component/local_or_cached_image.dart';
 import 'package:pixez/custom/image_cache_manager.dart';
+import 'package:pixez/utils/file_utils.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 class IllustLightingPage extends StatefulWidget {
@@ -297,6 +298,11 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
     if (!_illustStore.hasOriginal) return const [];
     return [
       IllustDownloadMenuAction(
+        icon: Icons.folder_copy_outlined,
+        title: '打开原图目录',
+        onTap: _openOriginalDirectory,
+      ),
+      IllustDownloadMenuAction(
         icon:
             _illustStore.displayMode == OriginalDisplayMode.downloaded
                 ? Icons.hd_outlined
@@ -314,6 +320,23 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
         onTap: _removeAllOriginals,
       ),
     ];
+  }
+
+  Future<void> _openOriginalDirectory() async {
+    final set = await downloadStore.originalRepository.getDefaultSet(widget.id);
+    if (set == null) return;
+    try {
+      await FileUtils.openFileOrDirectory(
+        downloadStore.dbProvider.getOriginalAbsolutePath(set.relativePath),
+      );
+    } catch (e, stackTrace) {
+      Log.e('打开原图目录失败', error: e, stackTrace: stackTrace);
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('打开原图目录失败：$e')));
+      }
+    }
   }
 
   Widget _buildAppbar() {

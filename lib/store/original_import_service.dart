@@ -25,6 +25,9 @@ const _supportedOriginalExtensions = {
 
 enum OriginalImportMode { author, single, update }
 
+/// 已有原图版本时，必须由调用方明确选择的处理方式。
+enum OriginalExistingSetAction { skip, replaceDefault, addVersion }
+
 enum OriginalImportJobStatus { active, completed, cancelled, failed }
 
 enum OriginalImportItemState {
@@ -52,11 +55,13 @@ class OriginalAuthorImportSelection {
   final String sourceDirectory;
   final int targetIllustId;
   final String editionName;
+  final OriginalExistingSetAction existingSetAction;
 
   const OriginalAuthorImportSelection({
     required this.sourceDirectory,
     required this.targetIllustId,
     this.editionName = '默认版',
+    this.existingSetAction = OriginalExistingSetAction.skip,
   });
 }
 
@@ -236,6 +241,7 @@ class OriginalImportItemManifest {
   final String stagingRelativePath;
   final String finalRelativePath;
   final int? existingSetId;
+  final bool replaceExistingSet;
   String directoryFingerprint;
   final List<OriginalImportFileManifest> files;
   List<OriginalImportMappingManifest> pageMappings;
@@ -252,6 +258,7 @@ class OriginalImportItemManifest {
     required this.stagingRelativePath,
     required this.finalRelativePath,
     this.existingSetId,
+    this.replaceExistingSet = false,
     this.directoryFingerprint = '',
     required this.files,
     this.pageMappings = const [],
@@ -272,6 +279,7 @@ class OriginalImportItemManifest {
         stagingRelativePath: json['staging_relative_path'] as String? ?? '',
         finalRelativePath: json['final_relative_path'] as String? ?? '',
         existingSetId: json['existing_set_id'] as int?,
+        replaceExistingSet: json['replace_existing_set'] as bool? ?? false,
         directoryFingerprint: json['directory_fingerprint'] as String? ?? '',
         files:
             (json['files'] as List<dynamic>? ?? const [])
@@ -303,6 +311,7 @@ class OriginalImportItemManifest {
     'staging_relative_path': stagingRelativePath,
     'final_relative_path': finalRelativePath,
     'existing_set_id': existingSetId,
+    'replace_existing_set': replaceExistingSet,
     'directory_fingerprint': directoryFingerprint,
     'files': files.map((item) => item.toJson()).toList(),
     'page_mappings': pageMappings.map((item) => item.toJson()).toList(),
@@ -429,6 +438,8 @@ class OriginalImportService {
     required int targetIllustId,
     String editionName = '默认版',
     OriginalImportMode mode = OriginalImportMode.single,
+    OriginalExistingSetAction existingSetAction =
+        OriginalExistingSetAction.skip,
     void Function(OriginalImportProgress progress)? onProgress,
     bool Function()? isCancelled,
   }) async {
@@ -462,18 +473,31 @@ class OriginalImportService {
     final itemId = _newStorageKey();
     final existingSets = await repository.getSetsForIllust(targetIllustId);
     OriginalImageSet? existingSet;
-    if (mode == OriginalImportMode.update) {
+    var replaceExistingSet = false;
+    if (existingSetAction == OriginalExistingSetAction.replaceDefault &&
+        existingSets.isNotEmpty) {
+      existingSet = existingSets.firstWhere(
+        (set) => set.isDefault,
+        orElse: () => existingSets.first,
+      );
+      replaceExistingSet = true;
+    } else if (mode == OriginalImportMode.update) {
       for (final set in existingSets) {
         if (set.editionName == editionName) {
           existingSet = set;
           break;
         }
       }
+    } else if (existingSetAction == OriginalExistingSetAction.skip &&
+        existingSets.isNotEmpty) {
+      throw StateError('该作品已有原图，请选择跳过、替换默认版或新增版本');
     }
     final storageKey = existingSet?.storageKey ?? _newStorageKey();
     final resolvedEditionName =
         existingSet?.editionName ??
-        await _uniqueEditionName(targetIllustId, editionName);
+        (existingSetAction == OriginalExistingSetAction.addVersion
+            ? await _uniqueEditionName(targetIllustId, editionName)
+            : editionName);
     final safeTitle = _sanitizePathPart(target.title);
     final workKey =
         target.isLocal
@@ -495,6 +519,7 @@ class OriginalImportService {
       stagingRelativePath: p.join('items', itemId, 'files'),
       finalRelativePath: finalRelativePath,
       existingSetId: existingSet?.id,
+      replaceExistingSet: replaceExistingSet,
       files: [
         for (var i = 0; i < imageFiles.length; i++)
           OriginalImportFileManifest(
@@ -573,12 +598,30 @@ class OriginalImportService {
         final source = Directory(selection.sourceDirectory);
         final imageFiles = await _listImages(source);
         if (imageFiles.isEmpty) continue;
+        final existingSets = await repository.getSetsForIllust(target.illustId);
+        if (existingSets.isNotEmpty &&
+            selection.existingSetAction == OriginalExistingSetAction.skip) {
+          continue;
+        }
+        final existingSet =
+            existingSets.isNotEmpty &&
+                    selection.existingSetAction ==
+                        OriginalExistingSetAction.replaceDefault
+                ? existingSets.firstWhere(
+                  (set) => set.isDefault,
+                  orElse: () => existingSets.first,
+                )
+                : null;
         final itemId = _newStorageKey();
-        final storageKey = _newStorageKey();
-        final editionName = await _uniqueEditionName(
-          target.illustId,
-          selection.editionName,
-        );
+        final storageKey = existingSet?.storageKey ?? _newStorageKey();
+        final editionName =
+            existingSet?.editionName ??
+            (selection.existingSetAction == OriginalExistingSetAction.addVersion
+                ? await _uniqueEditionName(
+                  target.illustId,
+                  selection.editionName,
+                )
+                : selection.editionName);
         final workKey =
             target.isLocal
                 ? 'local_${target.illustId.abs()}'
@@ -591,11 +634,15 @@ class OriginalImportService {
           editionName: editionName,
           storageKey: storageKey,
           stagingRelativePath: p.join('items', itemId, 'files'),
-          finalRelativePath: p.join(
-            '[${_sanitizePathPart(target.userName)}][${target.userId}]',
-            '[$workKey]${_sanitizePathPart(target.title)}',
-            '[$storageKey]${_sanitizePathPart(editionName)}',
-          ),
+          finalRelativePath:
+              existingSet?.relativePath ??
+              p.join(
+                '[${_sanitizePathPart(target.userName)}][${target.userId}]',
+                '[$workKey]${_sanitizePathPart(target.title)}',
+                '[$storageKey]${_sanitizePathPart(editionName)}',
+              ),
+          existingSetId: existingSet?.id,
+          replaceExistingSet: existingSet != null,
           files: [
             for (var i = 0; i < imageFiles.length; i++)
               OriginalImportFileManifest(
@@ -604,7 +651,7 @@ class OriginalImportService {
                   from: source.absolute.path,
                 ),
                 destinationName:
-                    '${(i + 1).toString().padLeft(6, '0')}${p.extension(imageFiles[i].path).toLowerCase()}',
+                    '${existingSet == null ? '' : 'replace_${itemId}_'}${(i + 1).toString().padLeft(6, '0')}${p.extension(imageFiles[i].path).toLowerCase()}',
                 sourceOrder: i,
               ),
           ],
@@ -615,7 +662,6 @@ class OriginalImportService {
           onProgress: onProgress,
           isCancelled: isCancelled,
         );
-        final existingSets = await repository.getSetsForIllust(target.illustId);
         if (item.directoryFingerprint.isNotEmpty &&
             existingSets.any(
               (set) => set.directoryFingerprint == item.directoryFingerprint,
@@ -1441,8 +1487,10 @@ class OriginalImportService {
     await finalDirectory.create(recursive: true);
 
     final remainingByHash = <String, List<OriginalImage>>{};
-    for (final image in bundle.images) {
-      remainingByHash.putIfAbsent(image.sha256, () => []).add(image);
+    if (!item.replaceExistingSet) {
+      for (final image in bundle.images) {
+        remainingByHash.putIfAbsent(image.sha256, () => []).add(image);
+      }
     }
     final drafts = <OriginalImageDraft>[];
     final oldIdToNewOrder = <int, int>{};
@@ -1518,7 +1566,8 @@ class OriginalImportService {
     }
 
     final mappings = <OriginalMappingDraft>[];
-    if (bundle.mappings.any((mapping) => mapping.manuallyAdjusted)) {
+    if (!item.replaceExistingSet &&
+        bundle.mappings.any((mapping) => mapping.manuallyAdjusted)) {
       for (final mapping in bundle.mappings) {
         final newOrder = oldIdToNewOrder[mapping.originalImageId];
         if (newOrder == null && mapping.downloadedPart == null) continue;
@@ -1586,6 +1635,20 @@ class OriginalImportService {
       item.state = OriginalImportItemState.validated;
       await writeManifest(manifest);
       rethrow;
+    }
+    if (item.replaceExistingSet) {
+      for (final image in bundle.images) {
+        final oldFile = File(p.join(provider.originalPath, image.relativePath));
+        try {
+          if (await oldFile.exists()) await oldFile.delete();
+        } catch (e, stackTrace) {
+          Log.w(
+            '替换原图后清理旧文件失败: ${oldFile.path}',
+            error: e,
+            stackTrace: stackTrace,
+          );
+        }
+      }
     }
     item.state = OriginalImportItemState.committed;
     item.error = null;

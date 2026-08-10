@@ -80,6 +80,27 @@ class _OriginalImportDialogState extends State<OriginalImportDialog> {
       lockParentWindow: true,
     );
     if (selected == null) return;
+    final existingSets = await downloadStore.originalRepository
+        .getSetsForIllust(widget.illust.illustId);
+    var existingSetAction = OriginalExistingSetAction.addVersion;
+    if (existingSets.isNotEmpty) {
+      final action = await _askExistingSetAction(existingSets);
+      if (!mounted || action == null) return;
+      if (action == OriginalExistingSetAction.skip) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('已跳过，不会修改现有原图')));
+        return;
+      }
+      existingSetAction = action;
+      if (action == OriginalExistingSetAction.replaceDefault) {
+        final defaultSet = existingSets.firstWhere(
+          (set) => set.isDefault,
+          orElse: () => existingSets.first,
+        );
+        _editionController.text = defaultSet.editionName;
+      }
+    }
     setState(() {
       _busy = true;
       _error = null;
@@ -95,20 +116,12 @@ class _OriginalImportDialogState extends State<OriginalImportDialog> {
           _editionController.text.trim().isEmpty
               ? '默认版'
               : _editionController.text.trim();
-      final existingSets = await downloadStore.originalRepository
-          .getSetsForIllust(widget.illust.illustId);
-      final isUpdate = existingSets.any(
-        (set) => set.editionName == requestedEdition,
-      );
       final manifest = await downloadStore.originalImportService
           .prepareSingleImport(
             sourceDirectory: selected,
             targetIllustId: widget.illust.illustId,
             editionName: requestedEdition,
-            mode:
-                isUpdate
-                    ? OriginalImportMode.update
-                    : OriginalImportMode.single,
+            existingSetAction: existingSetAction,
             onProgress: _onProgress,
             isCancelled: () => _cancelRequested,
           );
@@ -123,6 +136,53 @@ class _OriginalImportDialogState extends State<OriginalImportDialog> {
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  Future<OriginalExistingSetAction?> _askExistingSetAction(
+    List<OriginalImageSet> sets,
+  ) {
+    final defaultSet = sets.firstWhere(
+      (set) => set.isDefault,
+      orElse: () => sets.first,
+    );
+    return showDialog<OriginalExistingSetAction>(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('该作品已有原图'),
+            content: Text(
+              '当前默认版为“${defaultSet.editionName}”，共 ${defaultSet.imageCount} 张。请选择本次目录的处理方式。',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('取消'),
+              ),
+              TextButton(
+                onPressed:
+                    () =>
+                        Navigator.pop(context, OriginalExistingSetAction.skip),
+                child: const Text('跳过'),
+              ),
+              OutlinedButton(
+                onPressed:
+                    () => Navigator.pop(
+                      context,
+                      OriginalExistingSetAction.replaceDefault,
+                    ),
+                child: const Text('替换默认版'),
+              ),
+              FilledButton(
+                onPressed:
+                    () => Navigator.pop(
+                      context,
+                      OriginalExistingSetAction.addVersion,
+                    ),
+                child: const Text('新增版本'),
+              ),
+            ],
+          ),
+    );
   }
 
   Future<void> _commit() async {
