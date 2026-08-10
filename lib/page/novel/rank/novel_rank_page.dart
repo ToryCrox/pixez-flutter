@@ -84,6 +84,7 @@ class _NovelRankPageState extends State<NovelRankPage>
             for (var i in modeList)
               NovelLightingList(
                 futureGet: () => apiClient.getNovelRanking(i, dateTime),
+                cacheKey: 'novel_ranking_${i}_${dateTime ?? 'latest'}',
               ),
           ],
         ),

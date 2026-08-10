@@ -140,7 +140,18 @@ class _NovelUserWorkPageState extends State<NovelUserWorkPage> {
                       children: [
                         Padding(
                           padding: const EdgeInsets.symmetric(vertical: 8.0),
-                          child: PixivImage(novel.imageUrls.medium, width: 80),
+                          child: SizedBox(
+                            width: 80,
+                            height: 120,
+                            child: PixivImage(
+                              novel.imageUrls.medium,
+                              width: 80,
+                              height: 120,
+                              fit: BoxFit.cover,
+                              memCacheWidth: 80,
+                              memCacheHeight: 120,
+                            ),
+                          ),
                         ),
                         Expanded(
                           child: Column(

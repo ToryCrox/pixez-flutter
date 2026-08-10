@@ -79,14 +79,18 @@ class NovelSeriesItem extends StatelessWidget {
               SizedBox(width: 16),
               ClipRRect(
                 borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  constraints: BoxConstraints(minHeight: 120),
+                child: SizedBox(
+                  width: 120,
+                  height: 180,
                   child: Stack(
                     children: [
                       PixivImage(
                         data.url ?? '',
                         width: 120,
-                        fit: BoxFit.fitWidth,
+                        height: 180,
+                        fit: BoxFit.cover,
+                        memCacheWidth: 120,
+                        memCacheHeight: 180,
                       ),
                       Positioned(
                         top: 0,

@@ -16,6 +16,7 @@
 
 import 'package:dio/dio.dart';
 import 'package:easy_refresh/easy_refresh.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:mobx/mobx.dart';
 import 'package:pixez/custom/disk_cache.dart';
 import 'package:pixez/lighting/lighting_store.dart';
@@ -47,6 +48,15 @@ abstract class _NovelLightingStoreBase with Store {
   ObservableList<NovelStore> novels = ObservableList();
   @observable
   String? errorMessage;
+
+  /// EasyRefresh may invoke [next] while scroll physics is laying out the
+  /// current frame. Finishing the task synchronously would notify the footer
+  /// during that layout, which makes Flutter schedule a build in the frame.
+  void _finishLoad(IndicatorResult result) {
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      controller.finishLoad(result);
+    });
+  }
 
   @action
   Future<void> fetch({bool loadCache = false}) async {
@@ -108,12 +118,12 @@ abstract class _NovelLightingStoreBase with Store {
         nextUrl = novelRecomResponse.nextUrl;
         final novel = novelRecomResponse.novels;
         novels.addAll(novel.map((element) => NovelStore(element.id, element)));
-        controller.finishLoad(IndicatorResult.success);
+        _finishLoad(IndicatorResult.success);
       } catch (e) {
-        controller.finishLoad(IndicatorResult.fail);
+        _finishLoad(IndicatorResult.fail);
       }
     } else {
-      controller.finishLoad(IndicatorResult.noMore);
+      _finishLoad(IndicatorResult.noMore);
     }
   }
 }
