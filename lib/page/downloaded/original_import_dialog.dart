@@ -230,7 +230,7 @@ class _OriginalImportDialogState extends State<OriginalImportDialog> {
               Text(
                 _progress == null
                     ? '正在扫描、计算哈希并生成页面对应关系…'
-                    : '正在复制 ${(100 * _progress!.fraction).toStringAsFixed(1)}%',
+                    : _progress!.description,
               ),
             ],
             if (_error != null) ...[

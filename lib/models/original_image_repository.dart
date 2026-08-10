@@ -100,6 +100,22 @@ class OriginalImageRepository {
     return result.isNotEmpty;
   }
 
+  Future<Set<String>> getImportedSourcePathsForUser(int userId) async {
+    final rows = await _db.rawQuery(
+      '''
+      SELECT DISTINCT original_image_sets.last_source_path AS source_path
+      FROM original_image_sets
+      INNER JOIN ${DownloadedIllustColumns.tableName} AS downloaded_illusts
+        ON downloaded_illusts.${DownloadedIllustColumns.illustId} =
+           original_image_sets.illust_id
+      WHERE downloaded_illusts.${DownloadedIllustColumns.userId} = ?
+        AND original_image_sets.last_source_path != ''
+      ''',
+      [userId],
+    );
+    return rows.map((row) => row['source_path']).whereType<String>().toSet();
+  }
+
   Future<OriginalSetBundle?> getBundle(int setId) async {
     final set = await getSet(setId);
     if (set == null) return null;

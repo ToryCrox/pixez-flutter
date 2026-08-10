@@ -231,9 +231,9 @@ abstract class _DownloadStoreBase with Store {
 
   // 暴露数据库 provider 供 downloader 使用
   DownloadDatabaseProvider get dbProvider => _dbProvider;
-  OriginalImageRepository get originalRepository =>
+  late final OriginalImageRepository originalRepository =
       OriginalImageRepository(_dbProvider);
-  OriginalImportService get originalImportService =>
+  late final OriginalImportService originalImportService =
       OriginalImportService(_dbProvider);
 
   // Account Store for user info

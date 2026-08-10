@@ -10,7 +10,7 @@ import 'package:pixez/custom/log.dart';
 import 'package:pixez/models/download_record.dart';
 import 'package:pixez/models/original_image.dart';
 import 'package:pixez/models/original_image_repository.dart';
-import 'package:pixez/utils/image_utils.dart';
+import 'package:worker_manager/worker_manager.dart';
 
 const _supportedOriginalExtensions = {
   '.webp',
@@ -37,6 +37,15 @@ enum OriginalImportItemState {
 
 enum OriginalImportFileState { pending, copied, validated }
 
+enum OriginalImportProgressPhase {
+  analyzingOriginals,
+  analyzingDownloads,
+  aligningPages,
+  copying,
+  validating,
+  finalizing,
+}
+
 class OriginalAuthorImportSelection {
   final String sourceDirectory;
   final int targetIllustId;
@@ -49,20 +58,83 @@ class OriginalAuthorImportSelection {
   });
 }
 
+class OriginalAuthorDirectoryBatch {
+  final List<FileSystemEntity> directories;
+  final bool hasMore;
+
+  const OriginalAuthorDirectoryBatch({
+    required this.directories,
+    required this.hasMore,
+  });
+}
+
 class OriginalImportProgress {
   final String jobId;
   final String itemId;
+  final OriginalImportProgressPhase phase;
   final int copiedBytes;
   final int totalBytes;
+  final int completedFiles;
+  final int totalFiles;
+  final String? itemName;
 
   const OriginalImportProgress({
     required this.jobId,
     required this.itemId,
+    required this.phase,
     required this.copiedBytes,
     required this.totalBytes,
+    this.completedFiles = 0,
+    this.totalFiles = 0,
+    this.itemName,
   });
 
   double get fraction => totalBytes == 0 ? 0 : copiedBytes / totalBytes;
+
+  String get description {
+    final percent = (100 * fraction).clamp(0, 100).toStringAsFixed(1);
+    final fileProgress = totalFiles > 0 ? '（$completedFiles/$totalFiles）' : '';
+    final work = itemName == null ? '' : ' · $itemName';
+    return switch (phase) {
+      OriginalImportProgressPhase.analyzingOriginals =>
+        '正在分析原图 $percent%$fileProgress$work',
+      OriginalImportProgressPhase.analyzingDownloads =>
+        '正在分析下载图 $percent%$fileProgress$work',
+      OriginalImportProgressPhase.aligningPages => '正在对齐页面$work',
+      OriginalImportProgressPhase.copying =>
+        '正在复制原图 $percent%$fileProgress$work',
+      OriginalImportProgressPhase.validating =>
+        '正在校验副本 $percent%$fileProgress$work',
+      OriginalImportProgressPhase.finalizing => '正在写入数据库$work',
+    };
+  }
+}
+
+typedef _ImageAnalysis =
+    ({String sha256Value, String perceptualHash, int? width, int? height});
+
+_ImageAnalysis _analyzeImageFile(String filePath) {
+  final bytes = File(filePath).readAsBytesSync();
+  final digest = sha256.convert(bytes).toString();
+  final decoded = image_lib.decodeImage(bytes);
+  if (decoded == null) {
+    return (sha256Value: digest, perceptualHash: '', width: null, height: null);
+  }
+  final resized = image_lib.copyResize(decoded, width: 9, height: 8);
+  var hash = BigInt.zero;
+  for (var y = 0; y < 8; y++) {
+    for (var x = 0; x < 8; x++) {
+      final left = resized.getPixel(x, y).luminanceNormalized;
+      final right = resized.getPixel(x + 1, y).luminanceNormalized;
+      hash = (hash << 1) | (left > right ? BigInt.one : BigInt.zero);
+    }
+  }
+  return (
+    sha256Value: digest,
+    perceptualHash: hash.toRadixString(16).padLeft(16, '0'),
+    width: decoded.width,
+    height: decoded.height,
+  );
 }
 
 class OriginalImportFileManifest {
@@ -298,11 +370,56 @@ class OriginalImportService {
   final DownloadDatabaseProvider provider;
   final OriginalImageRepository repository;
   final Random _random = Random.secure();
+  final Map<String, Future<_ImageAnalysis>> _analysisCache = {};
+
+  static const int _analysisConcurrency = 2;
+  static const int _maxAnalysisCacheEntries = 4096;
 
   OriginalImportService(this.provider)
     : repository = OriginalImageRepository(provider);
 
   String get _stagingRoot => p.join(provider.originalPath, '.staging');
+
+  Future<_ImageAnalysis> _analyzeImage(File file) async {
+    final stat = await file.stat();
+    final cacheKey =
+        '${file.absolute.path}|${stat.size}|${stat.modified.millisecondsSinceEpoch}';
+    final cached = _analysisCache[cacheKey];
+    if (cached != null) return cached;
+
+    final filePath = file.absolute.path;
+    final Future<_ImageAnalysis> analysis = workerManager.execute(
+      () => _analyzeImageFile(filePath),
+    );
+    _analysisCache[cacheKey] = analysis;
+    if (_analysisCache.length > _maxAnalysisCacheEntries) {
+      _analysisCache.remove(_analysisCache.keys.first);
+    }
+    try {
+      return await analysis;
+    } catch (_) {
+      _analysisCache.remove(cacheKey);
+      rethrow;
+    }
+  }
+
+  Future<void> _runImageAnalysisPool(
+    int itemCount,
+    Future<void> Function(int index) operation,
+  ) async {
+    var nextIndex = 0;
+    Future<void> worker() async {
+      while (true) {
+        if (nextIndex >= itemCount) return;
+        final index = nextIndex++;
+        await operation(index);
+      }
+    }
+
+    await Future.wait(
+      List.generate(min(_analysisConcurrency, itemCount), (_) => worker()),
+    );
+  }
 
   Future<OriginalImportManifest> prepareSingleImport({
     required String sourceDirectory,
@@ -585,13 +702,66 @@ class OriginalImportService {
     return result;
   }
 
+  Future<OriginalAuthorDirectoryBatch> discoverNextAuthorDirectoryBatch({
+    required String authorRoot,
+    required int userId,
+    required int limit,
+  }) async {
+    final importedSourcePaths = await repository.getImportedSourcePathsForUser(
+      userId,
+    );
+    String normalizePath(String value) {
+      final normalized = p.normalize(Directory(value).absolute.path);
+      return Platform.isWindows ? normalized.toLowerCase() : normalized;
+    }
+
+    final importedNormalized = importedSourcePaths.map(normalizePath).toSet();
+    final root = Directory(authorRoot);
+    if (!await root.exists()) {
+      return const OriginalAuthorDirectoryBatch(
+        directories: [],
+        hasMore: false,
+      );
+    }
+    final result = <FileSystemEntity>[];
+    final batchLimit = max(1, limit);
+    final targetCount = batchLimit + 1;
+
+    Future<bool> visit(Directory directory) async {
+      final entries = await directory.list(followLinks: false).toList();
+      final hasDirectImage = entries.whereType<File>().any(
+        (file) => _supportedOriginalExtensions.contains(
+          p.extension(file.path).toLowerCase(),
+        ),
+      );
+      if (hasDirectImage &&
+          !importedNormalized.contains(normalizePath(directory.path))) {
+        result.add(directory);
+        if (result.length >= targetCount) return true;
+      }
+      final children =
+          entries.whereType<Directory>().toList()
+            ..sort((a, b) => _naturalCompare(a.path, b.path));
+      for (final child in children) {
+        if (await visit(child)) return true;
+      }
+      return false;
+    }
+
+    await visit(root);
+    return OriginalAuthorDirectoryBatch(
+      directories: result.take(batchLimit).toList(),
+      hasMore: result.length > batchLimit,
+    );
+  }
+
   Future<void> _scanItem(
     OriginalImportManifest manifest,
     OriginalImportItemManifest item, {
     void Function(OriginalImportProgress progress)? onProgress,
     bool Function()? isCancelled,
   }) async {
-    final fingerprintParts = <String>[];
+    final fingerprintParts = List<String>.filled(item.files.length, '');
     for (final file in item.files) {
       file.fileSize =
           await File(
@@ -603,42 +773,58 @@ class OriginalImportService {
       (sum, file) => sum + file.fileSize,
     );
     var scannedBytes = 0;
-    for (final file in item.files) {
+    var completedFiles = 0;
+    await _runImageAnalysisPool(item.files.length, (index) async {
       if (isCancelled?.call() == true) throw StateError('用户已取消导入');
-      final sourcePath = p.join(item.sourceDirectory, file.sourceRelativePath);
-      final source = File(sourcePath);
-      file.sha256Value = await _sha256File(source);
-      file.perceptualHash = await _dHash(source);
-      final size = await ImageUtils.parseImageSize(source.path);
-      file.width = size?.width.toInt();
-      file.height = size?.height.toInt();
-      fingerprintParts.add(
-        '${file.sourceOrder}|${file.fileSize}|${file.sha256Value}',
+      final file = item.files[index];
+      final source = File(
+        p.join(item.sourceDirectory, file.sourceRelativePath),
       );
+      final analysis = await _analyzeImage(source);
+      file.sha256Value = analysis.sha256Value;
+      file.perceptualHash = analysis.perceptualHash;
+      file.width = analysis.width;
+      file.height = analysis.height;
+      fingerprintParts[index] =
+          '${file.sourceOrder}|${file.fileSize}|${file.sha256Value}';
       scannedBytes += file.fileSize;
+      completedFiles++;
       onProgress?.call(
         OriginalImportProgress(
           jobId: manifest.jobId,
           itemId: item.itemId,
+          phase: OriginalImportProgressPhase.analyzingOriginals,
           copiedBytes: scannedBytes,
           totalBytes: totalBytes,
+          completedFiles: completedFiles,
+          totalFiles: item.files.length,
+          itemName: p.basename(item.sourceDirectory),
         ),
       );
-    }
+    });
     item.directoryFingerprint =
         sha256.convert(utf8.encode(fingerprintParts.join('\n'))).toString();
-    item.pageMappings = await _alignPages(item);
+    item.pageMappings = await _alignPages(
+      item,
+      manifest: manifest,
+      onProgress: onProgress,
+      isCancelled: isCancelled,
+    );
     manifest.updatedAt = DateTime.now().millisecondsSinceEpoch;
   }
 
   Future<List<OriginalImportMappingManifest>> _alignPages(
-    OriginalImportItemManifest item,
-  ) async {
+    OriginalImportItemManifest item, {
+    OriginalImportManifest? manifest,
+    void Function(OriginalImportProgress progress)? onProgress,
+    bool Function()? isCancelled,
+  }) async {
     final downloadedRecords = await provider.getImagesByIllustId(
       item.targetIllustId,
     );
     final downloadedHashes = <int, String>{};
     final downloadedSha256 = <int, String>{};
+    final downloadedFiles = <(int, File)>[];
     for (final record in downloadedRecords.where((image) => image.part >= 0)) {
       final path = await provider.findImagePathForImage(
         record,
@@ -646,10 +832,42 @@ class OriginalImportService {
         update: false,
       );
       if (path != null) {
-        downloadedHashes[record.part] = await _dHash(File(path));
-        downloadedSha256[record.part] = await _sha256File(File(path));
+        downloadedFiles.add((record.part, File(path)));
       }
     }
+    var analyzedDownloads = 0;
+    await _runImageAnalysisPool(downloadedFiles.length, (index) async {
+      if (isCancelled?.call() == true) throw StateError('用户已取消导入');
+      final (part, file) = downloadedFiles[index];
+      final analysis = await _analyzeImage(file);
+      downloadedHashes[part] = analysis.perceptualHash;
+      downloadedSha256[part] = analysis.sha256Value;
+      analyzedDownloads++;
+      if (manifest != null)
+        onProgress?.call(
+          OriginalImportProgress(
+            jobId: manifest.jobId,
+            itemId: item.itemId,
+            phase: OriginalImportProgressPhase.analyzingDownloads,
+            copiedBytes: analyzedDownloads,
+            totalBytes: downloadedFiles.length,
+            completedFiles: analyzedDownloads,
+            totalFiles: downloadedFiles.length,
+            itemName: p.basename(item.sourceDirectory),
+          ),
+        );
+    });
+    if (manifest != null)
+      onProgress?.call(
+        OriginalImportProgress(
+          jobId: manifest.jobId,
+          itemId: item.itemId,
+          phase: OriginalImportProgressPhase.aligningPages,
+          copiedBytes: 0,
+          totalBytes: 1,
+          itemName: p.basename(item.sourceDirectory),
+        ),
+      );
     final parts = downloadedHashes.keys.toList()..sort();
     final sources = item.files;
     final n = sources.length;
@@ -746,6 +964,17 @@ class OriginalImportService {
     for (var index = 0; index < result.length; index++) {
       result[index].displayOrder = index;
     }
+    if (manifest != null)
+      onProgress?.call(
+        OriginalImportProgress(
+          jobId: manifest.jobId,
+          itemId: item.itemId,
+          phase: OriginalImportProgressPhase.aligningPages,
+          copiedBytes: 1,
+          totalBytes: 1,
+          itemName: p.basename(item.sourceDirectory),
+        ),
+      );
     return result;
   }
 
@@ -764,7 +993,7 @@ class OriginalImportService {
           onProgress: onProgress,
           isCancelled: isCancelled,
         );
-        await _finalizeItem(manifest, item);
+        await _finalizeItem(manifest, item, onProgress: onProgress);
       } catch (e, stackTrace) {
         item.state = OriginalImportItemState.failed;
         item.error = e.toString();
@@ -801,7 +1030,7 @@ class OriginalImportService {
         onProgress: onProgress,
         isCancelled: isCancelled,
       );
-      await _finalizeItem(manifest, item);
+      await _finalizeItem(manifest, item, onProgress: onProgress);
     } catch (e, stackTrace) {
       item.state = OriginalImportItemState.failed;
       item.error = e.toString();
@@ -852,8 +1081,12 @@ class OriginalImportService {
             OriginalImportProgress(
               jobId: manifest.jobId,
               itemId: item.itemId,
+              phase: OriginalImportProgressPhase.copying,
               copiedBytes: copiedBytes,
               totalBytes: totalBytes,
+              completedFiles: file.sourceOrder + 1,
+              totalFiles: item.files.length,
+              itemName: p.basename(item.sourceDirectory),
             ),
           );
           continue;
@@ -869,8 +1102,12 @@ class OriginalImportService {
         OriginalImportProgress(
           jobId: manifest.jobId,
           itemId: item.itemId,
+          phase: OriginalImportProgressPhase.copying,
           copiedBytes: copiedBytes,
           totalBytes: totalBytes,
+          completedFiles: file.sourceOrder + 1,
+          totalFiles: item.files.length,
+          itemName: p.basename(item.sourceDirectory),
         ),
       );
       sinceWrite++;
@@ -879,6 +1116,7 @@ class OriginalImportService {
         sinceWrite = 0;
       }
     }
+    var validatedFiles = 0;
     for (final file in item.files) {
       if (isCancelled?.call() == true) throw StateError('用户已取消导入');
       final target = File(p.join(stagingDirectory.path, file.destinationName));
@@ -889,6 +1127,19 @@ class OriginalImportService {
         throw StateError('文件哈希不一致: ${file.destinationName}');
       }
       file.state = OriginalImportFileState.validated;
+      validatedFiles++;
+      onProgress?.call(
+        OriginalImportProgress(
+          jobId: manifest.jobId,
+          itemId: item.itemId,
+          phase: OriginalImportProgressPhase.validating,
+          copiedBytes: validatedFiles,
+          totalBytes: item.files.length,
+          completedFiles: validatedFiles,
+          totalFiles: item.files.length,
+          itemName: p.basename(item.sourceDirectory),
+        ),
+      );
     }
     item.state = OriginalImportItemState.validated;
     await writeManifest(manifest);
@@ -896,10 +1147,31 @@ class OriginalImportService {
 
   Future<void> _finalizeItem(
     OriginalImportManifest manifest,
-    OriginalImportItemManifest item,
-  ) async {
+    OriginalImportItemManifest item, {
+    void Function(OriginalImportProgress progress)? onProgress,
+  }) async {
+    onProgress?.call(
+      OriginalImportProgress(
+        jobId: manifest.jobId,
+        itemId: item.itemId,
+        phase: OriginalImportProgressPhase.finalizing,
+        copiedBytes: 0,
+        totalBytes: 1,
+        itemName: p.basename(item.sourceDirectory),
+      ),
+    );
     if (item.existingSetId != null) {
       await _finalizeUpdateItem(manifest, item);
+      onProgress?.call(
+        OriginalImportProgress(
+          jobId: manifest.jobId,
+          itemId: item.itemId,
+          phase: OriginalImportProgressPhase.finalizing,
+          copiedBytes: 1,
+          totalBytes: 1,
+          itemName: p.basename(item.sourceDirectory),
+        ),
+      );
       return;
     }
     final stagingDirectory = Directory(
@@ -973,6 +1245,16 @@ class OriginalImportService {
     item.state = OriginalImportItemState.committed;
     item.error = null;
     await writeManifest(manifest);
+    onProgress?.call(
+      OriginalImportProgress(
+        jobId: manifest.jobId,
+        itemId: item.itemId,
+        phase: OriginalImportProgressPhase.finalizing,
+        copiedBytes: 1,
+        totalBytes: 1,
+        itemName: p.basename(item.sourceDirectory),
+      ),
+    );
   }
 
   Future<void> _finalizeUpdateItem(
@@ -1170,6 +1452,35 @@ class OriginalImportService {
     return jobs;
   }
 
+  Future<OriginalImportManifest?> findRecoverableAuthorJob({
+    required String sourceRoot,
+    required int userId,
+  }) async {
+    String normalizePath(String value) {
+      final normalized = p.normalize(Directory(value).absolute.path);
+      return Platform.isWindows ? normalized.toLowerCase() : normalized;
+    }
+
+    final expectedRoot = normalizePath(sourceRoot);
+    final candidates =
+        (await findRecoverableJobs()).where((job) {
+            return job.mode == OriginalImportMode.author &&
+                normalizePath(job.sourceRoot) == expectedRoot &&
+                job.items.any(
+                  (item) => item.state != OriginalImportItemState.committed,
+                );
+          }).toList()
+          ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    for (final job in candidates) {
+      if (job.items.isEmpty) continue;
+      final target = await provider.getIllustByIllustId(
+        job.items.first.targetIllustId,
+      );
+      if (target?.userId == userId) return job;
+    }
+    return null;
+  }
+
   Future<List<String>> findBrokenJobDirectories() async {
     final root = Directory(_stagingRoot);
     if (!await root.exists()) return [];
@@ -1355,22 +1666,6 @@ class OriginalImportService {
 
   Future<String> _sha256File(File file) async =>
       (await sha256.bind(file.openRead()).first).toString();
-
-  Future<String> _dHash(File file) async {
-    final bytes = await file.readAsBytes();
-    final decoded = image_lib.decodeImage(bytes);
-    if (decoded == null) return '';
-    final resized = image_lib.copyResize(decoded, width: 9, height: 8);
-    var hash = BigInt.zero;
-    for (var y = 0; y < 8; y++) {
-      for (var x = 0; x < 8; x++) {
-        final left = resized.getPixel(x, y).luminanceNormalized;
-        final right = resized.getPixel(x + 1, y).luminanceNormalized;
-        hash = (hash << 1) | (left > right ? BigInt.one : BigInt.zero);
-      }
-    }
-    return hash.toRadixString(16).padLeft(16, '0');
-  }
 
   int _hamming(String left, String right) {
     if (left.isEmpty || right.isEmpty) return 64;

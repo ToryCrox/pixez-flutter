@@ -11,18 +11,21 @@ import 'package:pixez/models/original_image_repository.dart';
 import 'package:pixez/store/download_store.dart';
 import 'package:pixez/store/original_import_service.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:worker_manager/worker_manager.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  setUpAll(() {
+  setUpAll(() async {
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
+    await workerManager.init(isolatesCount: 2);
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
           const MethodChannel('plugins.flutter.io/path_provider'),
           (_) async => Directory.systemTemp.path,
         );
   });
+  tearDownAll(workerManager.dispose);
 
   group('原图数据库与显示清单', () {
     late Directory temporary;
@@ -150,9 +153,11 @@ void main() {
       DownloadedIllust.fromIllusts(_illust(300), 'download/300'),
     );
     final service = OriginalImportService(provider);
+    final progress = <OriginalImportProgress>[];
     final manifest = await service.prepareSingleImport(
       sourceDirectory: source.path,
       targetIllustId: 300,
+      onProgress: progress.add,
     );
     final manifestFile = File(
       p.join(
@@ -164,6 +169,27 @@ void main() {
     );
     expect(await manifestFile.exists(), isTrue);
     expect(await File('${manifestFile.path}.tmp').exists(), isFalse);
+    expect(
+      progress.map((item) => item.phase),
+      contains(OriginalImportProgressPhase.analyzingOriginals),
+    );
+    expect(
+      progress.map((item) => item.phase),
+      contains(OriginalImportProgressPhase.aligningPages),
+    );
+    expect(
+      progress.every((item) => !item.description.contains('正在复制')),
+      isTrue,
+    );
+    final stagedFiles = Directory(
+      p.join(
+        provider.originalPath,
+        '.staging',
+        manifest.jobId,
+        manifest.items.single.stagingRelativePath,
+      ),
+    );
+    expect(await stagedFiles.exists(), isFalse);
     await service.cancel(manifest);
     expect(await sourceFile.exists(), isTrue);
     expect(await manifestFile.exists(), isFalse);
@@ -220,6 +246,77 @@ void main() {
     final bundle = await repository.getBundle(sets.single.id!);
     expect(bundle!.images, hasLength(2));
 
+    await provider.db.close();
+    await temporary.delete(recursive: true);
+  });
+
+  test('作者任务部分提交后可按原目录恢复并跳过已完成作品', () async {
+    final temporary = await Directory.systemTemp.createTemp(
+      'pixez_author_resume_test_',
+    );
+    final sourceRoot = Directory(p.join(temporary.path, 'author'));
+    final firstSource = Directory(p.join(sourceRoot.path, '1-1 first'));
+    final secondSource = Directory(p.join(sourceRoot.path, '1-2 second'));
+    final thirdSource = Directory(p.join(sourceRoot.path, '1-3 third'));
+    await firstSource.create(recursive: true);
+    await secondSource.create(recursive: true);
+    await thirdSource.create(recursive: true);
+    await File(p.join(firstSource.path, '1.png')).writeAsBytes(_pngBytes());
+    await File(p.join(secondSource.path, '1.png')).writeAsBytes(_pngBytes());
+    await File(p.join(thirdSource.path, '1.png')).writeAsBytes(_pngBytes());
+
+    final provider = DownloadDatabaseProvider();
+    await provider.open(p.join(temporary.path, 'downloads'));
+    await provider.insertIllust(
+      DownloadedIllust.fromIllusts(_illust(401), 'download/401'),
+    );
+    await provider.insertIllust(
+      DownloadedIllust.fromIllusts(_illust(402), 'download/402'),
+    );
+    final service = OriginalImportService(provider);
+    final manifest = await service.prepareAuthorImport(
+      sourceRoot: sourceRoot.path,
+      selections: [
+        OriginalAuthorImportSelection(
+          sourceDirectory: firstSource.path,
+          targetIllustId: 401,
+        ),
+        OriginalAuthorImportSelection(
+          sourceDirectory: secondSource.path,
+          targetIllustId: 402,
+        ),
+      ],
+    );
+    await service.executeItem(manifest, manifest.items.first.itemId);
+
+    final reopenedService = OriginalImportService(provider);
+    final resumed = await reopenedService.findRecoverableAuthorJob(
+      sourceRoot: sourceRoot.path,
+      userId: 1,
+    );
+    expect(resumed?.jobId, manifest.jobId);
+    expect(
+      resumed!.items
+          .where((item) => item.state == OriginalImportItemState.committed)
+          .length,
+      1,
+    );
+    expect(
+      resumed.items
+          .where((item) => item.state != OriginalImportItemState.committed)
+          .length,
+      1,
+    );
+    final nextBatch = await reopenedService.discoverNextAuthorDirectoryBatch(
+      authorRoot: sourceRoot.path,
+      userId: 1,
+      limit: 1,
+    );
+    expect(nextBatch.hasMore, isTrue);
+    expect(nextBatch.directories, hasLength(1));
+    expect(nextBatch.directories.single.path, secondSource.path);
+
+    await reopenedService.cancel(resumed);
     await provider.db.close();
     await temporary.delete(recursive: true);
   });

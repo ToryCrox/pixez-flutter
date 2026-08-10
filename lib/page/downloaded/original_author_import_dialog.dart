@@ -1,9 +1,9 @@
-import 'dart:io';
 import 'dart:convert';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:pixez/custom/log.dart';
 import 'package:pixez/ai/ai_client.dart';
@@ -69,6 +69,23 @@ class _OriginalAuthorImportDialogState
   final ScrollController _previewScrollController = ScrollController();
   final Set<String> _expandedItemIds = <String>{};
   final Map<String, ScrollController> _mappingScrollControllers = {};
+  final TextEditingController _batchSizeController = TextEditingController(
+    text: '20',
+  );
+  int _batchSize = 20;
+  bool _hasMoreDirectories = false;
+  int _currentDirectoryCount = 0;
+
+  List<OriginalImportItemManifest> get _remainingItems =>
+      _manifest?.items
+          .where((item) => item.state != OriginalImportItemState.committed)
+          .toList() ??
+      const [];
+
+  int get _nextBatchCount {
+    final remaining = _remainingItems.length;
+    return remaining < _batchSize ? remaining : _batchSize;
+  }
 
   @override
   void dispose() {
@@ -77,6 +94,7 @@ class _OriginalAuthorImportDialogState
     for (final controller in _mappingScrollControllers.values) {
       controller.dispose();
     }
+    _batchSizeController.dispose();
     super.dispose();
   }
 
@@ -94,16 +112,35 @@ class _OriginalAuthorImportDialogState
       _cancelRequested = false;
     });
     try {
+      final recoverable = await downloadStore.originalImportService
+          .findRecoverableAuthorJob(sourceRoot: root, userId: widget.userId);
+      if (recoverable != null) {
+        if (mounted) {
+          setState(() {
+            _root = root;
+            _manifest = recoverable;
+            _rows = [];
+            _hasMoreDirectories = false;
+            _currentDirectoryCount = recoverable.items.length;
+          });
+        }
+        return;
+      }
       final results = await Future.wait([
-        downloadStore.originalImportService.discoverAuthorWorkDirectories(root),
+        downloadStore.originalImportService.discoverNextAuthorDirectoryBatch(
+          authorRoot: root,
+          userId: widget.userId,
+          limit: _batchSize,
+        ),
         downloadStore.getDownloadedByUser(
           widget.userId,
           limit: null,
           offset: 0,
         ),
       ]);
-      final directories = results[0] as List<FileSystemEntity>;
+      final directoryBatch = results[0] as OriginalAuthorDirectoryBatch;
       final works = results[1] as List<DownloadedIllust>;
+      final directories = directoryBatch.directories;
       final rows = <_AuthorImportRow>[];
       for (final directory in directories) {
         final match = _matchDirectory(directory.path, works);
@@ -127,6 +164,11 @@ class _OriginalAuthorImportDialogState
           _works = works;
           _worksById = {for (final work in works) work.illustId: work};
           _rows = rows;
+          _hasMoreDirectories = directoryBatch.hasMore;
+          _currentDirectoryCount = directories.length;
+          if (directories.isEmpty) {
+            _error = '该作者目录中没有尚未导入的作品';
+          }
         });
       }
     } catch (e, stackTrace) {
@@ -335,21 +377,42 @@ class _OriginalAuthorImportDialogState
   Future<void> _commit() async {
     final manifest = _manifest;
     if (manifest == null) return;
+    final batch = _remainingItems.take(_batchSize).toList();
+    if (batch.isEmpty) return;
     setState(() {
       _busy = true;
       _progress = null;
       _cancelRequested = false;
+      _error = null;
     });
     try {
-      await downloadStore.originalImportService.execute(
-        manifest,
-        onProgress: _onProgress,
-        isCancelled: () => _cancelRequested,
-      );
-      if (mounted) Navigator.pop(context, true);
+      for (final item in batch) {
+        if (_cancelRequested) break;
+        if (mounted) setState(() => _committingItemId = item.itemId);
+        await downloadStore.originalImportService.executeItem(
+          manifest,
+          item.itemId,
+          onProgress: _onProgress,
+          isCancelled: () => _cancelRequested,
+        );
+      }
+      if (_cancelRequested) {
+        await downloadStore.originalImportService.writeManifest(manifest);
+        if (mounted) Navigator.pop(context, false);
+        return;
+      }
+      if (!mounted) return;
+      if (manifest.status == OriginalImportJobStatus.completed) {
+        Navigator.pop(context, true);
+      } else {
+        setState(() {
+          _busy = false;
+          _committingItemId = null;
+          _progress = null;
+        });
+      }
     } catch (e, stackTrace) {
       if (_cancelRequested) {
-        await downloadStore.originalImportService.cancel(manifest);
         if (mounted) Navigator.pop(context, false);
         return;
       }
@@ -357,6 +420,7 @@ class _OriginalAuthorImportDialogState
       if (mounted) {
         setState(() {
           _busy = false;
+          _committingItemId = null;
           _error = e.toString();
         });
       }
@@ -386,7 +450,6 @@ class _OriginalAuthorImportDialogState
       }
     } catch (e, stackTrace) {
       if (_cancelRequested) {
-        await downloadStore.originalImportService.cancel(manifest);
         if (mounted) Navigator.pop(context, false);
         return;
       }
@@ -417,8 +480,42 @@ class _OriginalAuthorImportDialogState
       return;
     }
     if (_manifest != null) {
-      await downloadStore.originalImportService.cancel(_manifest!);
+      await downloadStore.originalImportService.writeManifest(_manifest!);
     }
+    if (mounted) Navigator.pop(context, false);
+  }
+
+  Future<void> _discardTask() async {
+    final manifest = _manifest;
+    if (manifest == null || _busy || _committingItemId != null) return;
+    final committed =
+        manifest.items
+            .where((item) => item.state == OriginalImportItemState.committed)
+            .length;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('放弃剩余导入任务'),
+            content: Text(
+              committed == 0
+                  ? '将删除此任务的 Manifest 和暂存文件，来源目录不会改变。'
+                  : '已完成的 $committed 个作品会保留；将清理其余任务和暂存文件。',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('返回'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('确认放弃'),
+              ),
+            ],
+          ),
+    );
+    if (confirmed != true) return;
+    await downloadStore.originalImportService.cancel(manifest);
     if (mounted) Navigator.pop(context, false);
   }
 
@@ -451,6 +548,10 @@ class _OriginalAuthorImportDialogState
                     icon: const Icon(Icons.folder_open),
                     label: const Text('选择作者目录'),
                   ),
+                  const SizedBox(width: 10),
+                  const Text('每批处理'),
+                  const SizedBox(width: 6),
+                  _buildBatchSizeField(),
                   const SizedBox(width: 12),
                   Expanded(child: Text(_root ?? '尚未选择')),
                 ],
@@ -461,7 +562,7 @@ class _OriginalAuthorImportDialogState
                 Text(
                   _progress == null
                       ? '正在分析目录或计算图片哈希，请稍候…'
-                      : '正在复制 ${(100 * _progress!.fraction).toStringAsFixed(1)}%',
+                      : _progress!.description,
                 ),
               ],
               if (_error != null)
@@ -486,9 +587,16 @@ class _OriginalAuthorImportDialogState
         ),
       ),
       actions: [
+        if (_manifest != null)
+          TextButton(
+            onPressed: _busy || _committingItemId != null ? null : _discardTask,
+            child: const Text('放弃任务'),
+          ),
         TextButton(
           onPressed: _cancelRequested ? null : _close,
-          child: Text(_cancelRequested ? '正在取消…' : '取消'),
+          child: Text(
+            _cancelRequested ? '正在暂停…' : (_manifest == null ? '取消' : '关闭并稍后继续'),
+          ),
         ),
         if (_manifest == null)
           FilledButton(
@@ -503,8 +611,11 @@ class _OriginalAuthorImportDialogState
           )
         else
           FilledButton(
-            onPressed: _busy ? null : _commit,
-            child: Text('导入 ${_manifest!.items.length} 个作品'),
+            onPressed:
+                _busy || _committingItemId != null || _nextBatchCount == 0
+                    ? null
+                    : _commit,
+            child: Text('导入接下来 $_nextBatchCount 个作品'),
           ),
       ],
     );
@@ -512,62 +623,102 @@ class _OriginalAuthorImportDialogState
 
   Widget _buildMatchList() {
     if (_rows.isEmpty) return const Center(child: Text('选择作者目录后开始匹配'));
-    return Scrollbar(
-      controller: _matchScrollController,
-      thumbVisibility: true,
-      interactive: true,
-      child: ListView.builder(
-        controller: _matchScrollController,
-        itemCount: _rows.length,
-        itemExtent: 92,
-        cacheExtent: 276,
-        addAutomaticKeepAlives: false,
-        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-        itemBuilder: (_, index) {
-          final row = _rows[index];
-          final work = _worksById[row.targetIllustId];
-          final workLabel =
-              work == null
-                  ? '选择匹配作品 · ${row.confidence}'
-                  : '${work.createDate.split('T').first} · ${work.title}';
-          return CheckboxListTile(
-            key: ValueKey(row.directory),
-            value: row.selected,
-            onChanged:
-                row.targetIllustId == null
-                    ? null
-                    : (value) => setState(() => row.selected = value ?? false),
-            title: Text(
-              p.basename(row.directory),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            subtitle: InkWell(
-              onTap: _busy ? null : () => _selectWorkForRow(row),
-              child: SizedBox(
-                height: 38,
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        workLabel,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontWeight:
-                              work == null
-                                  ? FontWeight.normal
-                                  : FontWeight.w600,
-                        ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 6),
+          child: Text(
+            '本批只匹配 $_currentDirectoryCount 个${_hasMoreDirectories ? "，目录中还有后续作品" : ""}；完成后重新选择同一目录继续下一批。',
+          ),
+        ),
+        Expanded(
+          child: Scrollbar(
+            controller: _matchScrollController,
+            thumbVisibility: true,
+            interactive: true,
+            child: ListView.builder(
+              controller: _matchScrollController,
+              itemCount: _rows.length,
+              itemExtent: 92,
+              cacheExtent: 276,
+              addAutomaticKeepAlives: false,
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              itemBuilder: (_, index) {
+                final row = _rows[index];
+                final work = _worksById[row.targetIllustId];
+                final workLabel =
+                    work == null
+                        ? '选择匹配作品 · ${row.confidence}'
+                        : '${work.createDate.split('T').first} · ${work.title}';
+                return CheckboxListTile(
+                  key: ValueKey(row.directory),
+                  value: row.selected,
+                  onChanged:
+                      row.targetIllustId == null
+                          ? null
+                          : (value) =>
+                              setState(() => row.selected = value ?? false),
+                  title: Text(
+                    p.basename(row.directory),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  subtitle: InkWell(
+                    onTap: _busy ? null : () => _selectWorkForRow(row),
+                    child: SizedBox(
+                      height: 38,
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              workLabel,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontWeight:
+                                    work == null
+                                        ? FontWeight.normal
+                                        : FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          const Icon(Icons.arrow_drop_down),
+                        ],
                       ),
                     ),
-                    const Icon(Icons.arrow_drop_down),
-                  ],
-                ),
-              ),
+                  ),
+                  secondary: Chip(label: Text(row.confidence)),
+                );
+              },
             ),
-            secondary: Chip(label: Text(row.confidence)),
-          );
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBatchSizeField() {
+    return SizedBox(
+      width: 72,
+      child: TextField(
+        controller: _batchSizeController,
+        enabled:
+            !_busy &&
+            _committingItemId == null &&
+            (_root == null || _manifest != null),
+        keyboardType: TextInputType.number,
+        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+        textAlign: TextAlign.center,
+        decoration: const InputDecoration(
+          isDense: true,
+          suffixText: '个',
+          border: OutlineInputBorder(),
+        ),
+        onChanged: (value) {
+          final parsed = int.tryParse(value);
+          if (parsed == null || parsed < 1) return;
+          setState(() => _batchSize = parsed);
         },
       ),
     );
@@ -586,7 +737,17 @@ class _OriginalAuthorImportDialogState
           if (index == 0) {
             return Padding(
               padding: const EdgeInsets.only(bottom: 8),
-              child: Text('已生成 ${manifest.items.length} 个独立提交项，可展开检查对应关系。'),
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Text(
+                    '共 ${manifest.items.length} 个 · 已完成 ${manifest.items.length - _remainingItems.length} 个 · 剩余 ${_remainingItems.length} 个',
+                  ),
+                  Text('当前每批最多导入 $_batchSize 个，可展开检查或单独导入。'),
+                ],
+              ),
             );
           }
           final item = manifest.items[index - 1];
