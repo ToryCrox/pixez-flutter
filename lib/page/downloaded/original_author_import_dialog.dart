@@ -12,6 +12,8 @@ import 'package:pixez/main.dart';
 import 'package:pixez/models/download_record.dart';
 import 'package:pixez/models/original_image.dart';
 import 'package:pixez/page/downloaded/local_image_viewer_page.dart';
+import 'package:pixez/page/picture/illust_lighting_page.dart';
+import 'package:pixez/page/picture/illust_store.dart';
 import 'package:pixez/store/original_import_service.dart';
 import 'package:pixez/utils/file_utils.dart';
 
@@ -72,6 +74,7 @@ class _OriginalAuthorImportDialogState
   final ScrollController _previewScrollController = ScrollController();
   final Set<String> _expandedItemIds = <String>{};
   final Map<String, Future<String?>> _sourceCoverFutures = {};
+  final Map<String, Future<int>> _sourceImageCountFutures = {};
   final Map<int, Future<String?>> _downloadCoverFutures = {};
   final Map<String, Future<String?>> _mappingDownloadPathFutures = {};
   final TextEditingController _batchSizeController = TextEditingController(
@@ -327,6 +330,12 @@ class _OriginalAuthorImportDialogState
         () => downloadStore.originalImportService.getFirstImagePath(directory),
       );
 
+  Future<int> _getSourceImageCount(String directory) =>
+      _sourceImageCountFutures.putIfAbsent(
+        directory,
+        () => downloadStore.originalImportService.getImageCount(directory),
+      );
+
   Future<String?> _getDownloadCoverPath(DownloadedIllust work) =>
       _downloadCoverFutures.putIfAbsent(
         work.illustId,
@@ -555,6 +564,74 @@ class _OriginalAuthorImportDialogState
     if (mounted) Navigator.pop(context, false);
   }
 
+  Future<void> _returnToWorkSelection() async {
+    final manifest = _manifest;
+    if (manifest == null || _busy || _committingItemId != null) return;
+    if (manifest.items.any(
+      (item) => item.state == OriginalImportItemState.committed,
+    )) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('已有作品完成导入，不能返回重新选择；可继续导入或放弃剩余任务')),
+        );
+      }
+      return;
+    }
+    final rows = <_AuthorImportRow>[];
+    for (final item in manifest.items) {
+      rows.add(
+        _AuthorImportRow(
+          directory: item.sourceDirectory,
+          targetIllustId: item.targetIllustId,
+          selected: true,
+          confidence: '预览中',
+        ),
+      );
+    }
+    if (_works.isEmpty) {
+      final works = await downloadStore.getDownloadedByUser(
+        widget.userId,
+        limit: null,
+        offset: 0,
+      );
+      if (!mounted) return;
+      _works = works;
+      _worksById = {for (final work in works) work.illustId: work};
+    }
+    await downloadStore.originalImportService.cancel(manifest);
+    if (!mounted) return;
+    setState(() {
+      _manifest = null;
+      _rows = rows;
+      _expandedItemIds.clear();
+      _error = null;
+      _progress = null;
+    });
+  }
+
+  Future<void> _openIllustDetail(int illustId) async {
+    var work = _worksById[illustId];
+    work ??= await downloadStore.getDownloadedIllust(illustId);
+    if (!mounted) return;
+    if (work == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('未找到对应插画记录')));
+      return;
+    }
+    final store = IllustStore(work.illustId, work.toIllusts());
+    await Navigator.of(context, rootNavigator: true).push(
+      MaterialPageRoute<void>(
+        builder:
+            (_) => IllustLightingPage(
+              id: work!.illustId,
+              store: store,
+              heroString: 'original_import_illust_${work.illustId}',
+            ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenSize = MediaQuery.sizeOf(context);
@@ -625,13 +702,23 @@ class _OriginalAuthorImportDialogState
       actions: [
         if (_manifest != null)
           TextButton(
+            onPressed:
+                _busy || _committingItemId != null
+                    ? null
+                    : _returnToWorkSelection,
+            child: const Text('重新选择作品'),
+          ),
+        if (_manifest != null)
+          TextButton(
             onPressed: _busy || _committingItemId != null ? null : _discardTask,
             child: const Text('放弃任务'),
           ),
         TextButton(
           onPressed: _cancelRequested ? null : _close,
           child: Text(
-            _cancelRequested ? '正在暂停…' : (_manifest == null ? '取消' : '关闭并稍后继续'),
+            _cancelRequested
+                ? '正在暂停…'
+                : (_manifest == null ? '取消' : '暂不导入（稍后继续）'),
           ),
         ),
         if (_manifest == null)
@@ -774,18 +861,49 @@ class _OriginalAuthorImportDialogState
                                   const SizedBox(width: 8),
                                 ],
                                 Expanded(
-                                  child: Text(
-                                    workLabel,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      fontWeight:
-                                          work == null
-                                              ? FontWeight.normal
-                                              : FontWeight.w600,
-                                    ),
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        workLabel,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontWeight:
+                                              work == null
+                                                  ? FontWeight.normal
+                                                  : FontWeight.w600,
+                                        ),
+                                      ),
+                                      FutureBuilder<int>(
+                                        future: _getSourceImageCount(
+                                          row.directory,
+                                        ),
+                                        builder:
+                                            (_, snapshot) => Text(
+                                              '原图 ${snapshot.hasData ? snapshot.data : "…"} · 下载图 ${work?.downloadedImageCount ?? "—"}',
+                                              style:
+                                                  Theme.of(
+                                                    context,
+                                                  ).textTheme.bodySmall,
+                                            ),
+                                      ),
+                                    ],
                                   ),
                                 ),
+                                if (work != null)
+                                  Tooltip(
+                                    message: '查看插画详情',
+                                    child: IconButton(
+                                      visualDensity: VisualDensity.compact,
+                                      onPressed:
+                                          () =>
+                                              _openIllustDetail(work.illustId),
+                                      icon: const Icon(Icons.open_in_new),
+                                    ),
+                                  ),
                                 const Icon(Icons.arrow_drop_down),
                               ],
                             ),
@@ -911,7 +1029,7 @@ class _OriginalAuthorImportDialogState
               ],
             ),
             subtitle: Text(
-              '原图 ${item.files.length} · 增强 ${item.pageMappings.length} · 作品 ${item.targetIllustId}',
+              '下载图 ${_downloadedPageCount(item)} · 原图 ${item.files.length} · 显示 ${item.pageMappings.length} · ID ${item.targetIllustId}',
             ),
             children:
                 expanded ? [_buildManifestItem(manifest, item)] : const [],
@@ -936,6 +1054,11 @@ class _OriginalAuthorImportDialogState
             spacing: 8,
             runSpacing: 8,
             children: [
+              OutlinedButton.icon(
+                onPressed: () => _openIllustDetail(item.targetIllustId),
+                icon: const Icon(Icons.open_in_new),
+                label: const Text('查看插画详情'),
+              ),
               OutlinedButton.icon(
                 onPressed:
                     item.pageMappings.isEmpty
@@ -1314,6 +1437,51 @@ class _OriginalPageMappingDialogState
     await downloadStore.originalImportService.writeManifest(widget.manifest);
   }
 
+  Future<void> _shiftAllPagesBackward(bool downloaded) async {
+    if (!widget.editable || widget.item.pageMappings.isEmpty) return;
+    final mappings = widget.item.pageMappings;
+    final values = [
+      for (final mapping in mappings)
+        downloaded ? mapping.downloadedPart : mapping.originalSourceOrder,
+    ];
+    final lastValue = values.last;
+    setState(() {
+      for (var index = mappings.length - 1; index >= 1; index--) {
+        if (downloaded) {
+          mappings[index].downloadedPart = values[index - 1];
+        } else {
+          mappings[index].originalSourceOrder = values[index - 1];
+        }
+      }
+      if (downloaded) {
+        mappings.first.downloadedPart = null;
+      } else {
+        mappings.first.originalSourceOrder = null;
+      }
+      if (lastValue != null) {
+        mappings.add(
+          OriginalImportMappingManifest(
+            displayOrder: mappings.length,
+            downloadedPart: downloaded ? lastValue : null,
+            originalSourceOrder: downloaded ? null : lastValue,
+            relationType:
+                downloaded
+                    ? OriginalRelationType.downloadFallback
+                    : OriginalRelationType.originalOnly,
+            manuallyAdjusted: true,
+          ),
+        );
+      }
+      for (var index = 0; index < mappings.length; index++) {
+        final mapping = mappings[index];
+        mapping.displayOrder = index;
+        _normalizeMappingRelation(mapping);
+        mapping.manuallyAdjusted = true;
+      }
+    });
+    await downloadStore.originalImportService.writeManifest(widget.manifest);
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenSize = MediaQuery.sizeOf(context);
@@ -1342,8 +1510,31 @@ class _OriginalPageMappingDialogState
             children: [
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
-                child: Text(
-                  '共 ${widget.item.pageMappings.length} 页 · 下载页和原图页均从 1 开始计数',
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Text(
+                      '共 ${widget.item.pageMappings.length} 页 · 下载页和原图页均从 1 开始计数',
+                    ),
+                    OutlinedButton.icon(
+                      onPressed:
+                          widget.editable
+                              ? () => _shiftAllPagesBackward(true)
+                              : null,
+                      icon: const Icon(Icons.arrow_downward),
+                      label: const Text('下载图整体后移一位'),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed:
+                          widget.editable
+                              ? () => _shiftAllPagesBackward(false)
+                              : null,
+                      icon: const Icon(Icons.arrow_downward),
+                      label: const Text('原图整体后移一位'),
+                    ),
+                  ],
                 ),
               ),
               Expanded(

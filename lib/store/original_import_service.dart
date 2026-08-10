@@ -716,6 +716,13 @@ class OriginalImportService {
     return images.isEmpty ? null : images.first.path;
   }
 
+  /// 返回作品目录中直接包含的原图数量；不会读取图片内容。
+  Future<int> getImageCount(String sourceDirectory) async {
+    final directory = Directory(sourceDirectory);
+    if (!await directory.exists()) return 0;
+    return (await _listImages(directory, recursive: false)).length;
+  }
+
   Future<OriginalAuthorDirectoryBatch> discoverNextAuthorDirectoryBatch({
     required String authorRoot,
     required int userId,
