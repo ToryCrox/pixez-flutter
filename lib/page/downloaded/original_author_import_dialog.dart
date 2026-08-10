@@ -12,6 +12,7 @@ import 'package:pixez/main.dart';
 import 'package:pixez/models/download_record.dart';
 import 'package:pixez/models/original_image.dart';
 import 'package:pixez/page/downloaded/local_image_viewer_page.dart';
+import 'package:pixez/page/downloaded/widgets/original_mapping_comparison_tile.dart';
 import 'package:pixez/page/picture/illust_lighting_page.dart';
 import 'package:pixez/page/picture/illust_store.dart';
 import 'package:pixez/store/original_import_service.dart';
@@ -416,6 +417,8 @@ class _OriginalAuthorImportDialogState
           (_) => _OriginalWorkPickerDialog(
             works: _works,
             selectedIllustId: row.targetIllustId,
+            initialQuery:
+                _worksById[row.targetIllustId]?.createDate.split('T').first,
           ),
     );
     if (!mounted || selected == null) return;
@@ -780,9 +783,10 @@ class _OriginalAuthorImportDialogState
   @override
   Widget build(BuildContext context) {
     final screenSize = MediaQuery.sizeOf(context);
-    final contentWidth = (screenSize.width - 96).clamp(360.0, 900.0);
-    final contentHeight = (screenSize.height - 190).clamp(360.0, 680.0);
+    final contentWidth = (screenSize.width - 64).clamp(640.0, 1280.0);
+    final contentHeight = (screenSize.height - 140).clamp(480.0, 860.0);
     return AlertDialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
       title: Text('批量导入原图 · ${widget.userName}'),
       content: ScrollConfiguration(
         behavior: ScrollConfiguration.of(context).copyWith(
@@ -1287,7 +1291,7 @@ class _OriginalAuthorImportDialogState
         item.state != OriginalImportItemState.committed &&
         item.state != OriginalImportItemState.skipped &&
         _committingItemId == null;
-    return _MappingComparisonTile(
+    return OriginalMappingComparisonTile(
       mapping: mapping,
       downloadPathFuture: _getMappingDownloadPath(item, mapping),
       originalPath: _getMappingOriginalPath(item, mapping),
@@ -1401,21 +1405,6 @@ class _OriginalAuthorImportDialogState
     if (mounted) setState(() {});
   }
 }
-
-const _mappingRelationItems = [
-  DropdownMenuItem(
-    value: OriginalRelationType.replacement,
-    child: Text('原图替换'),
-  ),
-  DropdownMenuItem(
-    value: OriginalRelationType.originalOnly,
-    child: Text('原图新增'),
-  ),
-  DropdownMenuItem(
-    value: OriginalRelationType.downloadFallback,
-    child: Text('下载补位'),
-  ),
-];
 
 int _downloadedPageCount(OriginalImportItemManifest item) {
   var count = 0;
@@ -1787,7 +1776,7 @@ class _OriginalPageMappingDialogState
                     cacheExtent: 396,
                     itemBuilder: (_, index) {
                       final mapping = widget.item.pageMappings[index];
-                      return _MappingComparisonTile(
+                      return OriginalMappingComparisonTile(
                         mapping: mapping,
                         downloadPathFuture: _downloadPath(mapping),
                         originalPath: _originalPath(mapping),
@@ -1821,150 +1810,15 @@ class _OriginalPageMappingDialogState
   }
 }
 
-class _MappingComparisonTile extends StatelessWidget {
-  final OriginalImportMappingManifest mapping;
-  final Future<String?> downloadPathFuture;
-  final String? originalPath;
-  final bool editable;
-  final VoidCallback? onEditDownloaded;
-  final VoidCallback? onEditOriginal;
-  final ValueChanged<OriginalRelationType> onRelationChanged;
-
-  const _MappingComparisonTile({
-    required this.mapping,
-    required this.downloadPathFuture,
-    required this.originalPath,
-    required this.editable,
-    this.onEditDownloaded,
-    this.onEditOriginal,
-    required this.onRelationChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final downloadLabel =
-        mapping.downloadedPart == null
-            ? '下载图 —'
-            : '下载图 ${mapping.downloadedPart! + 1}';
-    final originalLabel =
-        mapping.originalSourceOrder == null
-            ? '原图 —'
-            : '原图 ${mapping.originalSourceOrder! + 1}';
-    return Container(
-      height: 132,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: Theme.of(context).dividerColor),
-        ),
-      ),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 36,
-            child: Text(
-              '${mapping.displayOrder + 1}',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-          ),
-          _MappingImage(
-            label: downloadLabel,
-            pathFuture: downloadPathFuture,
-            icon: Icons.download_outlined,
-            onEdit: onEditDownloaded,
-          ),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 10),
-            child: Icon(Icons.compare_arrows),
-          ),
-          _MappingImage(
-            label: originalLabel,
-            pathFuture: Future<String?>.value(originalPath),
-            icon: Icons.photo_outlined,
-            onEdit: onEditOriginal,
-          ),
-          const Spacer(),
-          DropdownButton<OriginalRelationType>(
-            value: mapping.relationType,
-            onChanged:
-                editable
-                    ? (value) {
-                      if (value != null) onRelationChanged(value);
-                    }
-                    : null,
-            items: _mappingRelationItems,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MappingImage extends StatelessWidget {
-  final String label;
-  final Future<String?> pathFuture;
-  final IconData icon;
-  final VoidCallback? onEdit;
-
-  const _MappingImage({
-    required this.label,
-    required this.pathFuture,
-    required this.icon,
-    this.onEdit,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 104,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              if (onEdit != null)
-                InkWell(
-                  onTap: onEdit,
-                  borderRadius: BorderRadius.circular(12),
-                  child: const Padding(
-                    padding: EdgeInsets.all(2),
-                    child: Icon(Icons.edit_outlined, size: 16),
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Expanded(
-            child: Center(
-              child: _LocalCover(
-                pathFuture: pathFuture,
-                width: 96,
-                height: 88,
-                icon: icon,
-                title: label,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _OriginalWorkPickerDialog extends StatefulWidget {
   final List<DownloadedIllust> works;
   final int? selectedIllustId;
+  final String? initialQuery;
 
   const _OriginalWorkPickerDialog({
     required this.works,
     required this.selectedIllustId,
+    this.initialQuery,
   });
 
   @override
@@ -1973,10 +1827,17 @@ class _OriginalWorkPickerDialog extends StatefulWidget {
 }
 
 class _OriginalWorkPickerDialogState extends State<_OriginalWorkPickerDialog> {
-  final TextEditingController _searchController = TextEditingController();
+  late final TextEditingController _searchController;
   final ScrollController _scrollController = ScrollController();
   final Map<int, Future<String?>> _coverFutures = {};
-  String _query = '';
+  late String _query;
+
+  @override
+  void initState() {
+    super.initState();
+    _query = widget.initialQuery ?? '';
+    _searchController = TextEditingController(text: _query);
+  }
 
   Future<String?> _coverPath(DownloadedIllust work) => _coverFutures
       .putIfAbsent(work.illustId, () => _resolveDownloadedCoverPath(work));

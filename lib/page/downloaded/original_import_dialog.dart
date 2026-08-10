@@ -1,10 +1,15 @@
+import 'dart:io';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:path/path.dart' as p;
 import 'package:pixez/custom/log.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/models/download_record.dart';
 import 'package:pixez/models/original_image.dart';
+import 'package:pixez/page/downloaded/widgets/original_mapping_comparison_tile.dart';
 import 'package:pixez/store/original_import_service.dart';
+import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 
 class OriginalImportDialog extends StatefulWidget {
   final DownloadedIllust illust;
@@ -32,6 +37,8 @@ class _OriginalImportDialogState extends State<OriginalImportDialog> {
   OriginalImportProgress? _progress;
   int _lastProgressUpdate = 0;
   bool _cancelRequested = false;
+  bool _isDraggingDirectory = false;
+  final Map<int, Future<String?>> _downloadPathFutures = {};
 
   @override
   void dispose() {
@@ -80,6 +87,10 @@ class _OriginalImportDialogState extends State<OriginalImportDialog> {
       lockParentWindow: true,
     );
     if (selected == null) return;
+    await _prepareDirectory(selected);
+  }
+
+  Future<void> _prepareDirectory(String selected) async {
     final existingSets = await downloadStore.originalRepository
         .getSetsForIllust(widget.illust.illustId);
     var existingSetAction = OriginalExistingSetAction.addVersion;
@@ -136,6 +147,60 @@ class _OriginalImportDialogState extends State<OriginalImportDialog> {
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  DropOperation _onDirectoryDropOver(DropOverEvent event) {
+    if (_busy ||
+        !event.session.items.any((item) => item.canProvide(Formats.fileUri))) {
+      return DropOperation.none;
+    }
+    return DropOperation.copy;
+  }
+
+  Future<void> _handleDirectoryDrop(PerformDropEvent event) async {
+    for (final item in event.session.items) {
+      final reader = item.dataReader;
+      if (reader == null || !reader.canProvide(Formats.fileUri)) continue;
+      reader.getValue<Uri>(Formats.fileUri, (uri) async {
+        if (uri == null) return;
+        final path = uri.toFilePath();
+        if (!await Directory(path).exists()) {
+          if (mounted) {
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(const SnackBar(content: Text('请拖入作品目录，而不是单个文件')));
+          }
+          return;
+        }
+        if (mounted) setState(() => _isDraggingDirectory = false);
+        await _prepareDirectory(path);
+      });
+      return;
+    }
+  }
+
+  Future<String?> _downloadPath(OriginalImportMappingManifest mapping) {
+    final part = mapping.downloadedPart;
+    if (part == null) return Future<String?>.value();
+    return _downloadPathFutures.putIfAbsent(
+      part,
+      () => downloadStore.getLocalImagePath(
+        widget.illust.illustId,
+        part,
+        update: false,
+      ),
+    );
+  }
+
+  String? _originalPath(
+    OriginalImportItemManifest item,
+    OriginalImportMappingManifest mapping,
+  ) {
+    final sourceOrder = mapping.originalSourceOrder;
+    if (sourceOrder == null) return null;
+    final file = item.files.where((file) => file.sourceOrder == sourceOrder);
+    if (file.isEmpty) return null;
+    return p.join(item.sourceDirectory, file.first.sourceRelativePath);
   }
 
   Future<OriginalExistingSetAction?> _askExistingSetAction(
@@ -251,177 +316,182 @@ class _OriginalImportDialogState extends State<OriginalImportDialog> {
     final item = _manifest?.items.single;
     return AlertDialog(
       title: Text('导入原图 · ${widget.illust.title}'),
-      content: SizedBox(
-        width: 760,
-        height: 620,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            TextField(
-              controller: _editionController,
-              enabled: !_busy && item == null,
-              decoration: const InputDecoration(
-                labelText: '版本名称',
-                hintText: '例如：有字版、无字版',
-              ),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                FilledButton.icon(
-                  onPressed: _busy ? null : _selectDirectory,
-                  icon: const Icon(Icons.folder_open),
-                  label: Text(item == null ? '选择作品目录' : '重新选择目录'),
+      content: DropRegion(
+        formats: [Formats.fileUri],
+        onDropOver: _onDirectoryDropOver,
+        onDropEnter: (_) => setState(() => _isDraggingDirectory = true),
+        onDropLeave: (_) => setState(() => _isDraggingDirectory = false),
+        onDropEnded: (_) => setState(() => _isDraggingDirectory = false),
+        onPerformDrop: _handleDirectoryDrop,
+        child: SizedBox(
+          width: 760,
+          height: 620,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              TextField(
+                controller: _editionController,
+                enabled: !_busy && item == null,
+                decoration: const InputDecoration(
+                  labelText: '版本名称',
+                  hintText: '例如：有字版、无字版',
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    item?.sourceDirectory ?? '尚未选择目录',
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 12),
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color:
+                        _isDraggingDirectory
+                            ? Theme.of(context).colorScheme.primary
+                            : Colors.transparent,
+                    width: 2,
                   ),
+                  borderRadius: BorderRadius.circular(8),
+                  color:
+                      _isDraggingDirectory
+                          ? Theme.of(context).colorScheme.primaryContainer
+                          : null,
+                ),
+                child: Row(
+                  children: [
+                    FilledButton.icon(
+                      onPressed: _busy ? null : _selectDirectory,
+                      icon: const Icon(Icons.folder_open),
+                      label: Text(item == null ? '选择作品目录' : '重新选择目录'),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        _isDraggingDirectory
+                            ? '松开以导入此作品目录'
+                            : item?.sourceDirectory ?? '尚未选择目录（也可拖入目录）',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (_busy) ...[
+                const SizedBox(height: 16),
+                LinearProgressIndicator(value: _progress?.fraction),
+                const SizedBox(height: 8),
+                Text(
+                  _progress == null
+                      ? '正在扫描、计算哈希并生成页面对应关系…'
+                      : _progress!.description,
                 ),
               ],
-            ),
-            if (_busy) ...[
-              const SizedBox(height: 16),
-              LinearProgressIndicator(value: _progress?.fraction),
-              const SizedBox(height: 8),
-              Text(
-                _progress == null
-                    ? '正在扫描、计算哈希并生成页面对应关系…'
-                    : _progress!.description,
-              ),
-            ],
-            if (_error != null) ...[
-              const SizedBox(height: 12),
-              Text(
-                _error!,
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
-              ),
-            ],
-            if (item != null) ...[
-              const SizedBox(height: 16),
-              Text(
-                '下载 ${widget.illust.downloadedImageCount} · 原图 ${item.files.length} · 增强 ${item.pageMappings.length}',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _downloadStartController,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(labelText: '下载图从第几张开始'),
+              if (_error != null) ...[
+                const SizedBox(height: 12),
+                Text(
+                  _error!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              ],
+              if (item != null) ...[
+                const SizedBox(height: 16),
+                Text(
+                  '下载 ${widget.illust.downloadedImageCount} · 原图 ${item.files.length} · 增强 ${item.pageMappings.length}',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _downloadStartController,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: '下载图从第几张开始',
+                        ),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: TextField(
-                      controller: _originalStartController,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(labelText: '原图从第几张开始'),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextField(
+                        controller: _originalStartController,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: '原图从第几张开始',
+                        ),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  OutlinedButton(
-                    onPressed: _busy ? null : () => _applyStarts(item),
-                    child: const Text('按起点重排'),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Expanded(
-                child: Card(
-                  clipBehavior: Clip.antiAlias,
-                  child: ReorderableListView.builder(
-                    buildDefaultDragHandles: true,
-                    itemCount: item.pageMappings.length,
-                    onReorder: (oldIndex, newIndex) {
-                      setState(() {
-                        if (newIndex > oldIndex) newIndex--;
-                        final mapping = item.pageMappings.removeAt(oldIndex);
-                        item.pageMappings.insert(newIndex, mapping);
-                        for (var i = 0; i < item.pageMappings.length; i++) {
-                          item.pageMappings[i]
-                            ..displayOrder = i
-                            ..manuallyAdjusted = true;
-                        }
-                      });
-                    },
-                    itemBuilder: (_, index) {
-                      final mapping = item.pageMappings[index];
-                      return ListTile(
-                        key: ValueKey(
-                          '${mapping.downloadedPart}-${mapping.originalSourceOrder}-$index',
-                        ),
-                        leading: Text('${index + 1}'),
-                        title: Text(
-                          '下载 ${mapping.downloadedPart == null ? "—" : mapping.downloadedPart! + 1}  ↔  原图 ${mapping.originalSourceOrder == null ? "—" : mapping.originalSourceOrder! + 1}',
-                        ),
-                        subtitle: Text(mapping.relationType.value),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              tooltip: '忽略此显示页',
-                              onPressed:
-                                  _busy
-                                      ? null
-                                      : () {
-                                        setState(() {
-                                          item.pageMappings.removeAt(index);
-                                          for (
-                                            var i = 0;
-                                            i < item.pageMappings.length;
-                                            i++
-                                          ) {
-                                            item.pageMappings[i].displayOrder =
-                                                i;
-                                          }
-                                        });
-                                      },
-                              icon: const Icon(Icons.visibility_off_outlined),
-                            ),
-                            DropdownButton<OriginalRelationType>(
-                              value: mapping.relationType,
-                              onChanged:
-                                  _busy
-                                      ? null
-                                      : (value) {
-                                        if (value == null) return;
-                                        setState(() {
-                                          mapping.relationType = value;
-                                          mapping.manuallyAdjusted = true;
-                                        });
-                                      },
-                              items: const [
-                                DropdownMenuItem(
-                                  value: OriginalRelationType.replacement,
-                                  child: Text('原图替换'),
-                                ),
-                                DropdownMenuItem(
-                                  value: OriginalRelationType.originalOnly,
-                                  child: Text('原图新增'),
-                                ),
-                                DropdownMenuItem(
-                                  value: OriginalRelationType.downloadFallback,
-                                  child: Text('下载补位'),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      );
-                    },
+                    const SizedBox(width: 12),
+                    OutlinedButton(
+                      onPressed: _busy ? null : () => _applyStarts(item),
+                      child: const Text('按起点重排'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Expanded(
+                  child: Card(
+                    clipBehavior: Clip.antiAlias,
+                    child: ReorderableListView.builder(
+                      buildDefaultDragHandles: true,
+                      itemCount: item.pageMappings.length,
+                      onReorder: (oldIndex, newIndex) {
+                        setState(() {
+                          if (newIndex > oldIndex) newIndex--;
+                          final mapping = item.pageMappings.removeAt(oldIndex);
+                          item.pageMappings.insert(newIndex, mapping);
+                          for (var i = 0; i < item.pageMappings.length; i++) {
+                            item.pageMappings[i]
+                              ..displayOrder = i
+                              ..manuallyAdjusted = true;
+                          }
+                        });
+                      },
+                      itemBuilder: (_, index) {
+                        final mapping = item.pageMappings[index];
+                        return OriginalMappingComparisonTile(
+                          key: ValueKey(
+                            '${mapping.downloadedPart}-${mapping.originalSourceOrder}-$index',
+                          ),
+                          mapping: mapping,
+                          downloadPathFuture: _downloadPath(mapping),
+                          originalPath: _originalPath(item, mapping),
+                          editable: !_busy,
+                          onRemove:
+                              _busy
+                                  ? null
+                                  : () {
+                                    setState(() {
+                                      item.pageMappings.removeAt(index);
+                                      for (
+                                        var i = 0;
+                                        i < item.pageMappings.length;
+                                        i++
+                                      ) {
+                                        item.pageMappings[i].displayOrder = i;
+                                      }
+                                    });
+                                    downloadStore.originalImportService
+                                        .writeManifest(_manifest!);
+                                  },
+                          onRelationChanged: (value) {
+                            setState(() {
+                              mapping.relationType = value;
+                              mapping.manuallyAdjusted = true;
+                            });
+                            downloadStore.originalImportService.writeManifest(
+                              _manifest!,
+                            );
+                          },
+                        );
+                      },
+                    ),
                   ),
                 ),
-              ),
-              const Text('可拖动调整显示顺序；修改后的对应关系会写入暂存 Manifest。'),
-            ] else
-              const Expanded(child: Center(child: Text('选择目录后可预览每张图片的对应关系'))),
-          ],
+                const Text('可拖动调整显示顺序；修改后的对应关系会写入暂存 Manifest。'),
+              ] else
+                const Expanded(child: Center(child: Text('选择目录后可预览每张图片的对应关系'))),
+            ],
+          ),
         ),
       ),
       actions: [
