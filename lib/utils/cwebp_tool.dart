@@ -37,7 +37,24 @@ class CwebpTool {
           'executables',
           fileName,
         )
-      else
+      else ...[
+        // Flutter macOS 将 flutter_assets 放在 App.framework 的 Resources 中。
+        path.normalize(
+          path.join(
+            executableDir,
+            '..',
+            'Frameworks',
+            'App.framework',
+            'Versions',
+            'A',
+            'Resources',
+            'flutter_assets',
+            'assets',
+            'executables',
+            fileName,
+          ),
+        ),
+        // 兼容未来 Flutter 布局调整或手动分发时的传统 Resources 位置。
         path.normalize(
           path.join(
             executableDir,
@@ -49,6 +66,7 @@ class CwebpTool {
             fileName,
           ),
         ),
+      ],
       path.join(executableDir, 'assets', 'executables', fileName),
       path.join(Directory.current.path, 'assets', 'executables', fileName),
     ];

@@ -2,7 +2,7 @@
 
 set -eu
 
-TOOL_PATH="${TARGET_BUILD_DIR}/${CONTENTS_FOLDER_PATH}/Resources/flutter_assets/assets/executables/cwebp-macos"
+TOOL_PATH="${TARGET_BUILD_DIR}/${CONTENTS_FOLDER_PATH}/Frameworks/App.framework/Versions/A/Resources/flutter_assets/assets/executables/cwebp-macos"
 
 if [ ! -f "$TOOL_PATH" ]; then
   exit 0
