@@ -1,10 +1,13 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:bot_toast/bot_toast.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:pixez/custom/log.dart';
+import 'package:pixez/er/prefer.dart';
 import 'package:pixez/exts.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/page/downloaded/local_image_viewer_page.dart';
@@ -38,10 +41,60 @@ class WebpProcessingDialog extends StatefulWidget {
   State<WebpProcessingDialog> createState() => _WebpProcessingDialogState();
 }
 
+class _ResizePreset {
+  final String id;
+  String name;
+  String percentage = '100';
+  String maxWidth = '';
+  String maxHeight = '';
+
+  _ResizePreset({required this.id, required this.name});
+
+  String get summary {
+    final displayName = name.isEmpty ? '未命名配置' : name;
+    final limits = <String>[
+      '$percentage%',
+      if (maxWidth.isNotEmpty) '宽≤$maxWidth',
+      if (maxHeight.isNotEmpty) '高≤$maxHeight',
+    ];
+    return '$displayName（${limits.join('，')}）';
+  }
+
+  Map<String, String> toJson() => {
+    'id': id,
+    'name': name,
+    'percentage': percentage,
+    'maxWidth': maxWidth,
+    'maxHeight': maxHeight,
+  };
+
+  static _ResizePreset? fromJson(Object? value) {
+    if (value is! Map<String, dynamic>) return null;
+    final id = value['id'] as String?;
+    if (id == null || id.isEmpty) return null;
+    final preset = _ResizePreset(
+      id: id,
+      name: value['name'] as String? ?? '未命名配置',
+    );
+    preset
+      ..percentage = value['percentage'] as String? ?? '100'
+      ..maxWidth = value['maxWidth'] as String? ?? ''
+      ..maxHeight = value['maxHeight'] as String? ?? '';
+    return preset;
+  }
+}
+
 class _WebpProcessingDialogState extends State<WebpProcessingDialog> {
   static const _thumbnailExtent = 67.2;
+  static const _noResizePreset = '__no_resize_preset__';
+  static const _webpQualityPreferenceKey = 'webp_processing_quality_v1';
+  static const _resizePresetsPreferenceKey =
+      'webp_processing_resize_presets_v1';
+  static const _selectedResizePresetPreferenceKey =
+      'webp_processing_selected_resize_preset_v1';
 
   final _qualityController = TextEditingController(text: '80');
+  final _resizePresetNameController = TextEditingController();
   final _percentageController = TextEditingController(text: '100');
   final _maxWidthController = TextEditingController();
   final _maxHeightController = TextEditingController();
@@ -54,9 +107,25 @@ class _WebpProcessingDialogState extends State<WebpProcessingDialog> {
   var _completed = 0;
   var _processing = false;
   var _replacing = false;
+  final _resizePresets = <_ResizePreset>[];
+  String? _selectedResizePresetId;
+  var _nextResizePresetNumber = 1;
 
   bool get _showResults => _results != null;
   bool get _busy => _processing || _replacing;
+  _ResizePreset? get _selectedResizePreset {
+    final selectedId = _selectedResizePresetId;
+    if (selectedId == null) return null;
+    for (final preset in _resizePresets) {
+      if (preset.id == selectedId) return preset;
+    }
+    return null;
+  }
+
+  int get _scalePercentage {
+    final value = int.tryParse(_percentageController.text.trim()) ?? 100;
+    return value.clamp(1, 100);
+  }
 
   /// 少量处理结果不应撑满整个弹框；批量结果则保持可滚动的最大高度。
   double get _resultContentHeight {
@@ -67,6 +136,7 @@ class _WebpProcessingDialogState extends State<WebpProcessingDialog> {
   @override
   void initState() {
     super.initState();
+    _restorePreferences();
     _checkTool();
     _cleanupStaleSessions();
   }
@@ -74,6 +144,7 @@ class _WebpProcessingDialogState extends State<WebpProcessingDialog> {
   @override
   void dispose() {
     _qualityController.dispose();
+    _resizePresetNameController.dispose();
     _percentageController.dispose();
     _maxWidthController.dispose();
     _maxHeightController.dispose();
@@ -91,16 +162,131 @@ class _WebpProcessingDialogState extends State<WebpProcessingDialog> {
     await StaticWebpProcessor.cleanupStaleSessions(temporaryDirectory);
   }
 
+  void _restorePreferences() {
+    final savedQuality = Prefer.getInt(_webpQualityPreferenceKey);
+    final savedSelectedPresetId = Prefer.getString(
+      _selectedResizePresetPreferenceKey,
+    );
+    final savedPresets = <_ResizePreset>[];
+    final rawPresets = Prefer.getString(_resizePresetsPreferenceKey);
+    if (rawPresets != null) {
+      try {
+        final decoded = jsonDecode(rawPresets);
+        if (decoded is List) {
+          savedPresets.addAll(
+            decoded.map(_ResizePreset.fromJson).whereType<_ResizePreset>(),
+          );
+        }
+      } catch (e, stackTrace) {
+        Log.e('读取 WebP 缩放配置失败', error: e, stackTrace: stackTrace);
+      }
+    }
+    setState(() {
+      _quality = (savedQuality ?? 80).clamp(0, 100);
+      _qualityController.text = _quality.toString();
+      _resizePresets
+        ..clear()
+        ..addAll(savedPresets);
+      _selectedResizePresetId =
+          savedPresets.any((preset) => preset.id == savedSelectedPresetId)
+              ? savedSelectedPresetId
+              : null;
+      _loadResizePreset(_selectedResizePreset);
+      _nextResizePresetNumber = _resizePresets.length + 1;
+    });
+  }
+
+  Future<void> _persistQuality() =>
+      Prefer.setInt(_webpQualityPreferenceKey, _quality);
+
+  Future<void> _persistSelectedResizePreset() => Prefer.setString(
+    _selectedResizePresetPreferenceKey,
+    _selectedResizePresetId ?? '',
+  );
+
+  Future<void> _persistResizePresets() async {
+    try {
+      await Prefer.setString(
+        _resizePresetsPreferenceKey,
+        jsonEncode(_resizePresets.map((preset) => preset.toJson()).toList()),
+      );
+    } catch (e, stackTrace) {
+      Log.e('保存 WebP 缩放配置失败', error: e, stackTrace: stackTrace);
+    }
+  }
+
+  void _saveSelectedResizePreset() {
+    final preset = _selectedResizePreset;
+    if (preset == null) return;
+    preset
+      ..name = _resizePresetNameController.text.trim()
+      ..percentage = _percentageController.text.trim()
+      ..maxWidth = _maxWidthController.text.trim()
+      ..maxHeight = _maxHeightController.text.trim();
+  }
+
+  void _loadResizePreset(_ResizePreset? preset) {
+    _resizePresetNameController.text = preset?.name ?? '';
+    _percentageController.text = preset?.percentage ?? '100';
+    _maxWidthController.text = preset?.maxWidth ?? '';
+    _maxHeightController.text = preset?.maxHeight ?? '';
+  }
+
+  void _selectResizePreset(String value) {
+    setState(() {
+      _saveSelectedResizePreset();
+      _selectedResizePresetId = value == _noResizePreset ? null : value;
+      _loadResizePreset(_selectedResizePreset);
+    });
+    unawaited(_persistResizePresets());
+    unawaited(_persistSelectedResizePreset());
+  }
+
+  void _addResizePreset() {
+    setState(() {
+      _saveSelectedResizePreset();
+      final preset = _ResizePreset(
+        id: DateTime.now().microsecondsSinceEpoch.toString(),
+        name: '缩放配置 ${_nextResizePresetNumber++}',
+      );
+      _resizePresets.add(preset);
+      _selectedResizePresetId = preset.id;
+      _loadResizePreset(preset);
+    });
+    unawaited(_persistResizePresets());
+    unawaited(_persistSelectedResizePreset());
+  }
+
+  void _removeSelectedResizePreset() {
+    final preset = _selectedResizePreset;
+    if (preset == null) return;
+    setState(() {
+      _resizePresets.remove(preset);
+      _selectedResizePresetId = null;
+      _loadResizePreset(null);
+    });
+    unawaited(_persistResizePresets());
+    unawaited(_persistSelectedResizePreset());
+  }
+
   WebpProcessingOptions? _buildOptions() {
+    _saveSelectedResizePreset();
     final quality = int.tryParse(_qualityController.text.trim());
+    final resizePreset = _selectedResizePreset;
     final percentage = int.tryParse(_percentageController.text.trim());
     final maxWidthText = _maxWidthController.text.trim();
     final maxHeightText = _maxHeightController.text.trim();
     final options = WebpProcessingOptions(
       quality: quality ?? -1,
-      percentage: percentage ?? -1,
-      maxWidth: maxWidthText.isEmpty ? null : int.tryParse(maxWidthText),
-      maxHeight: maxHeightText.isEmpty ? null : int.tryParse(maxHeightText),
+      percentage: resizePreset == null ? 100 : percentage ?? -1,
+      maxWidth:
+          resizePreset == null || maxWidthText.isEmpty
+              ? null
+              : int.tryParse(maxWidthText),
+      maxHeight:
+          resizePreset == null || maxHeightText.isEmpty
+              ? null
+              : int.tryParse(maxHeightText),
     );
     final error = options.validate();
     if (error != null) {
@@ -289,6 +475,7 @@ class _WebpProcessingDialogState extends State<WebpProcessingDialog> {
                               _quality = value.round();
                               _qualityController.text = _quality.toString();
                             });
+                            unawaited(_persistQuality());
                           },
                 ),
               ),
@@ -301,6 +488,7 @@ class _WebpProcessingDialogState extends State<WebpProcessingDialog> {
                     final parsed = int.tryParse(value);
                     if (parsed != null && parsed >= 0 && parsed <= 100) {
                       setState(() => _quality = parsed);
+                      unawaited(_persistQuality());
                     }
                   },
                 ),
@@ -308,13 +496,125 @@ class _WebpProcessingDialogState extends State<WebpProcessingDialog> {
             ],
           ),
           const SizedBox(height: 12),
-          _numberField(
-            controller: _percentageController,
-            label: '缩放百分比',
-            suffix: '%',
-            helper: '1–100；与最大尺寸同时填写时，取缩小幅度最大的限制。',
+          _buildResizeSettings(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildResizeSettings() {
+    final preset = _selectedResizePreset;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: DropdownButtonFormField<String>(
+                key: ValueKey(_selectedResizePresetId ?? _noResizePreset),
+                initialValue: _selectedResizePresetId ?? _noResizePreset,
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  labelText: '缩放配置',
+                  isDense: true,
+                ),
+                items: [
+                  const DropdownMenuItem(
+                    value: _noResizePreset,
+                    child: Text('不缩放'),
+                  ),
+                  ..._resizePresets.map(
+                    (item) => DropdownMenuItem(
+                      value: item.id,
+                      child: Text(item.summary),
+                    ),
+                  ),
+                ],
+                onChanged:
+                    _busy || _processing
+                        ? null
+                        : (value) {
+                          if (value != null) _selectResizePreset(value);
+                        },
+              ),
+            ),
+            const SizedBox(width: 8),
+            OutlinedButton.icon(
+              onPressed: _busy ? null : _addResizePreset,
+              icon: const Icon(Icons.add, size: 18),
+              label: const Text('新增配置'),
+            ),
+            if (preset != null) ...[
+              const SizedBox(width: 4),
+              IconButton(
+                onPressed: _busy ? null : _removeSelectedResizePreset,
+                tooltip: '删除当前配置',
+                icon: const Icon(Icons.delete_outline),
+              ),
+            ],
+          ],
+        ),
+        const SizedBox(height: 8),
+        if (preset == null)
+          Text(
+            '当前不缩放。可新增多套缩放配置，再选择其中一套使用。',
+            style: Theme.of(context).textTheme.bodySmall,
+          )
+        else ...[
+          TextField(
+            controller: _resizePresetNameController,
+            enabled: !_busy,
+            decoration: const InputDecoration(
+              labelText: '配置名称',
+              hintText: '例如：笔记本屏幕、社交平台',
+              isDense: true,
+            ),
+            onChanged: (_) {
+              setState(_saveSelectedResizePreset);
+              unawaited(_persistResizePresets());
+            },
           ),
           const SizedBox(height: 12),
+          Text(
+            '缩放百分比：$_scalePercentage%',
+            style: Theme.of(context).textTheme.titleSmall,
+          ),
+          Row(
+            children: [
+              Expanded(
+                child: Slider(
+                  value: _scalePercentage.toDouble(),
+                  min: 1,
+                  max: 100,
+                  divisions: 99,
+                  label: '$_scalePercentage',
+                  onChanged:
+                      _busy
+                          ? null
+                          : (value) {
+                            setState(() {
+                              _percentageController.text =
+                                  value.round().toString();
+                              _saveSelectedResizePreset();
+                            });
+                            unawaited(_persistResizePresets());
+                          },
+                ),
+              ),
+              SizedBox(
+                width: 90,
+                child: _numberField(
+                  controller: _percentageController,
+                  suffix: '%',
+                  onChanged: (_) {
+                    setState(_saveSelectedResizePreset);
+                    unawaited(_persistResizePresets());
+                  },
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
           Row(
             children: [
               Expanded(
@@ -322,6 +622,10 @@ class _WebpProcessingDialogState extends State<WebpProcessingDialog> {
                   controller: _maxWidthController,
                   label: '最大宽度',
                   suffix: 'px',
+                  onChanged: (_) {
+                    setState(_saveSelectedResizePreset);
+                    unawaited(_persistResizePresets());
+                  },
                 ),
               ),
               const SizedBox(width: 12),
@@ -330,17 +634,21 @@ class _WebpProcessingDialogState extends State<WebpProcessingDialog> {
                   controller: _maxHeightController,
                   label: '最大高度',
                   suffix: 'px',
+                  onChanged: (_) {
+                    setState(_saveSelectedResizePreset);
+                    unawaited(_persistResizePresets());
+                  },
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           Text(
-            '默认不缩小。最多同时使用百分比、最大宽度和最大高度，始终保持原比例且不会放大。',
+            '百分比、最大宽度和最大高度可同时填写，取缩小幅度最大的限制；保持比例且不会放大。',
             style: Theme.of(context).textTheme.bodySmall,
           ),
         ],
-      ),
+      ],
     );
   }
 
