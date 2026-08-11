@@ -1889,9 +1889,10 @@ class DownloadDatabaseProvider {
     int part,
     int fileSize,
     int width,
-    int height,
-  ) async {
-    return await db.update(
+    int height, {
+    DatabaseExecutor? executor,
+  }) async {
+    return await (executor ?? db).update(
       DownloadedImageColumns.tableName,
       {
         DownloadedImageColumns.fileSize: fileSize,
@@ -1907,9 +1908,10 @@ class DownloadDatabaseProvider {
   Future<int> updateImageExtension(
     int illustId,
     int part,
-    String newExtension,
-  ) async {
-    return await db.update(
+    String newExtension, {
+    DatabaseExecutor? executor,
+  }) async {
+    return await (executor ?? db).update(
       DownloadedImageColumns.tableName,
       {DownloadedImageColumns.extension: newExtension},
       where:
@@ -1951,6 +1953,32 @@ class DownloadDatabaseProvider {
           '${DownloadedImageColumns.illustId} = ? AND ${DownloadedImageColumns.part} = ?',
       whereArgs: [illustId, part],
     );
+  }
+
+  /// 将一张已下载图片替换为 WebP 后，同步更新图片、作品和作者的物化统计。
+  /// 所有数据库变更在同一个事务中提交，以便文件替换失败时可以安全回滚。
+  Future<void> replaceImageWithWebpRecord({
+    required int illustId,
+    required int part,
+    required int userId,
+    required int fileSize,
+    required int width,
+    required int height,
+  }) async {
+    await db.transaction((txn) async {
+      await updateImageExtension(illustId, part, '.webp', executor: txn);
+      await updateImageFileSizeAndDimensions(
+        illustId,
+        part,
+        fileSize,
+        width,
+        height,
+        executor: txn,
+      );
+      await recalculateIllustStats(illustId, txn: txn);
+
+      await updateAuthorStats(userId, executor: txn);
+    });
   }
 
   /// 获取插画已下载的图片数量
@@ -2187,12 +2215,14 @@ class DownloadDatabaseProvider {
     int illustCount,
     int totalImageCount,
     int totalFileSize,
-    int lastDownloadTime,
-  ) async {
+    int lastDownloadTime, {
+    DatabaseExecutor? executor,
+  }) async {
+    final database = executor ?? db;
     // 获取现有的 bookmark 值，避免被覆盖
     int bookmark = 0;
     try {
-      final existing = await db.query(
+      final existing = await database.query(
         DownloadedAuthorColumns.tableName,
         columns: [DownloadedAuthorColumns.bookmark],
         where: '${DownloadedAuthorColumns.userId} = ?',
@@ -2206,7 +2236,7 @@ class DownloadDatabaseProvider {
       Log.w('获取旧作者 bookmark 失败: $e');
     }
 
-    await db.insert(
+    await database.insert(
       DownloadedAuthorColumns.tableName,
       {
         DownloadedAuthorColumns.userId: userId,
@@ -2445,9 +2475,13 @@ class DownloadDatabaseProvider {
   }
 
   /// 更新作者统计信息（从插画表重新计算）
-  Future<void> updateAuthorStats(int userId) async {
+  Future<void> updateAuthorStats(
+    int userId, {
+    DatabaseExecutor? executor,
+  }) async {
+    final database = executor ?? db;
     // 获取插画数量
-    final illustCount = await db.rawQuery(
+    final illustCount = await database.rawQuery(
       '''
       SELECT COUNT(*) as count 
       FROM ${DownloadedIllustColumns.tableName} 
@@ -2459,7 +2493,7 @@ class DownloadDatabaseProvider {
     final count = illustCount.first['count'] as int? ?? 0;
 
     // 获取最新下载时间
-    final latestTime = await db.rawQuery(
+    final latestTime = await database.rawQuery(
       '''
       SELECT MAX(${DownloadedIllustColumns.downloadTime}) as last_time
       FROM ${DownloadedIllustColumns.tableName}
@@ -2471,7 +2505,7 @@ class DownloadDatabaseProvider {
     final lastDownloadTime = latestTime.first['last_time'] as int? ?? 0;
 
     // 获取最新插画的 JSON 来解析用户名和头像
-    final latestIllust = await db.query(
+    final latestIllust = await database.query(
       DownloadedIllustColumns.tableName,
       where:
           '${DownloadedIllustColumns.userId} = ? AND '
@@ -2498,7 +2532,7 @@ class DownloadDatabaseProvider {
     }
 
     // 计算总图片数量和总文件大小（使用物化字段）
-    final statsResult = await db.rawQuery(
+    final statsResult = await database.rawQuery(
       '''
       SELECT 
         COALESCE(SUM(${DownloadedIllustColumns.downloadedImageCount}), 0) as total_image_count,
@@ -2521,6 +2555,7 @@ class DownloadDatabaseProvider {
       totalImageCount,
       totalFileSize,
       lastDownloadTime,
+      executor: database,
     );
   }
 

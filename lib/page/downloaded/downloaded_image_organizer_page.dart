@@ -17,6 +17,7 @@ import 'package:pixez/models/download_record.dart';
 import 'package:pixez/page/downloaded/downloaded_image_filter_conditions.dart';
 import 'package:pixez/page/downloaded/local_image_viewer_page.dart';
 import 'package:pixez/page/downloaded/update_illust_info_dialog.dart';
+import 'package:pixez/page/downloaded/webp_processing_dialog.dart';
 import 'package:pixez/page/picture/illust_store.dart';
 import 'package:pixez/page/picture/picture_list_page.dart';
 import 'package:pixez/store/downloaded_image_organizer_store.dart';
@@ -268,6 +269,22 @@ class _DownloadedImageOrganizerPageState
         store.loadData(forceReload: true);
       }
     });
+  }
+
+  Future<void> _showWebpProcessingDialog() async {
+    final selectedItems =
+        store.items
+            .where((item) => store.selectedItemIds.contains(item.id))
+            .toList();
+    if (selectedItems.isEmpty) {
+      BotToast.showText(text: '请先选择需要处理的图片');
+      return;
+    }
+    await WebpProcessingDialog.show(
+      context,
+      items: selectedItems,
+      onReplaced: () => store.loadData(forceReload: true),
+    );
   }
 
   // ============ Dialogs ============
@@ -645,15 +662,16 @@ class _DownloadedImageOrganizerPageState
                     tooltip: '清除作品 ID 过滤',
                     onPressed: () => store.clearIllustIdFilter(),
                   ),
-                IconButton(
-                  icon: Icon(
-                    store.isMultiSelectMode
-                        ? Icons.check_box
-                        : Icons.check_box_outline_blank,
+                if (Platform.isWindows || Platform.isMacOS)
+                  IconButton(
+                    icon: const Icon(Icons.image_aspect_ratio_outlined),
+                    tooltip:
+                        store.selectedItemIds.isEmpty ? '请选择图片后处理' : '图片格式处理',
+                    onPressed:
+                        store.loading || store.selectedItemIds.isEmpty
+                            ? null
+                            : _showWebpProcessingDialog,
                   ),
-                  tooltip: store.isMultiSelectMode ? '退出多选' : '进入多选',
-                  onPressed: () => store.toggleMultiSelectMode(),
-                ),
               ],
             ),
             body: _buildBody(),

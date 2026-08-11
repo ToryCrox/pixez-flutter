@@ -55,7 +55,7 @@ PODS:
   - webview_flutter_wkwebview (0.0.1):
     - Flutter
     - FlutterMacOS
-  - window_manager (0.2.0):
+  - window_manager (0.5.0):
     - FlutterMacOS
 
 DEPENDENCIES:
@@ -148,7 +148,7 @@ SPEC CHECKSUMS:
   file_picker: 7584aae6fa07a041af2b36a2655122d42f578c1a
   file_selector_macos: 6280b52b459ae6c590af5d78fc35c7267a3c4b31
   flutter_inappwebview_macos: c2d68649f9f8f1831bfcd98d73fd6256366d9d1d
-  FlutterMacOS: 8f6f14fa908a6fb3fba0cd85dbd81ec4b251fb24
+  FlutterMacOS: d0db08ddef1a9af05a5ec4b724367152bb0500b1
   in_app_purchase_storekit: d1a48cb0f8b29dbf5f85f782f5dd79b21b90a5e6
   irondash_engine_context: 893c7d96d20ce361d7e996f39d360c4c2f9869ba
   just_audio: 4e391f57b79cad2b0674030a00453ca5ce817eed
@@ -167,7 +167,7 @@ SPEC CHECKSUMS:
   video_player_avfoundation: 2cef49524dd1f16c5300b9cd6efd9611ce03639b
   wakelock_plus: 917609be14d812ddd9e9528876538b2263aaa03b
   webview_flutter_wkwebview: 1821ceac936eba6f7984d89a9f3bcb4dea99ebb2
-  window_manager: 1d01fa7ac65a6e6f83b965471b1a7fdd3f06166c
+  window_manager: b729e31d38fb04905235df9ea896128991cad99e
 
 PODFILE CHECKSUM: 9ebaf0ce3d369aaa26a9ea0e159195ed94724cf3
 
