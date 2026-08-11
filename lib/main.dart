@@ -26,7 +26,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:worker_manager/worker_manager.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:pixez/custom/window_frame.dart';
 import 'package:pixez/er/prefer.dart';
 
@@ -47,6 +46,7 @@ import 'package:pixez/store/tag_history_store.dart';
 import 'package:pixez/store/top_store.dart';
 import 'package:pixez/store/user_setting.dart';
 import 'package:pixez/store/tag_manager_store.dart';
+import 'package:pixez/utils/download_path.dart';
 import 'package:pixez/page/task/pending_download_dialog.dart';
 import 'package:pixez/custom/image_cache_manager.dart';
 import 'package:rhttp/rhttp.dart';
@@ -159,8 +159,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
     // 如果仍然没有设置目录，使用默认目录
     if (downloadPath == null || downloadPath.isEmpty) {
-      final docDir = await getApplicationDocumentsDirectory();
-      downloadPath = '${docDir.path}/pixez/downloads';
+      downloadPath = await getDefaultDownloadPath();
     }
 
     // 初始化 downloadStore

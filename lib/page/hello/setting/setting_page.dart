@@ -18,11 +18,9 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
-import 'package:pixez/component/new_version_chip.dart';
 import 'package:pixez/component/painter_avatar.dart';
 import 'package:pixez/constants.dart';
 import 'package:pixez/er/leader.dart';
-import 'package:pixez/er/updater.dart';
 import 'package:pixez/i18n.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/models/account.dart';
@@ -62,40 +60,10 @@ class _SettingPageState extends State<SettingPage> {
   @override
   void initState() {
     super.initState();
-    initMethod();
     fetchBoard();
   }
 
-  bool hasNewVersion = false;
   bool hideEmail = true;
-
-  initMethod() async {
-    if (Constants.isGooglePlay || Platform.isIOS) return;
-    if (Updater.result != Result.timeout) {
-      bool hasNew = Updater.result == Result.yes;
-      if (mounted)
-        setState(() {
-          hasNewVersion = hasNew;
-        });
-      return;
-    }
-    Result result = await Updater.check();
-    switch (result) {
-      case Result.yes:
-        if (mounted) {
-          setState(() {
-            hasNewVersion = true;
-          });
-        }
-        break;
-      default:
-        if (mounted) {
-          setState(() {
-            hasNewVersion = false;
-          });
-        }
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -357,15 +325,7 @@ class _SettingPageState extends State<SettingPage> {
                     ListTile(
                       leading: Icon(Icons.message),
                       title: Text(I18n.of(context).about),
-                      onTap:
-                          () => Leader.push(
-                            context,
-                            AboutPage(newVersion: hasNewVersion),
-                          ),
-                      trailing: Visibility(
-                        child: NewVersionChip(),
-                        visible: hasNewVersion,
-                      ),
+                      onTap: () => Leader.push(context, AboutPage()),
                     ),
                     if (_needBoardSection)
                       ListTile(

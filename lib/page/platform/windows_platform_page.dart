@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:bot_toast/bot_toast.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:pixez/main.dart';
+import 'package:pixez/utils/download_path.dart';
 
 class WindowsPlatformPage extends StatefulWidget {
   @override
@@ -16,6 +17,7 @@ class _WindowsPlatformPageState extends State<WindowsPlatformPage> {
   String? _pathError;
   bool _isValidating = false;
   Timer? _debounceTimer;
+  int _validationGeneration = 0;
 
   @override
   void initState() {
@@ -33,82 +35,65 @@ class _WindowsPlatformPageState extends State<WindowsPlatformPage> {
 
   Future<void> _initPath() async {
     // 优先从 userSetting.downloadPath 读取
-    String? path = userSetting.downloadPath;
+    String? configuredPath = userSetting.downloadPath;
 
-    // 如果 downloadPath 为空，尝试从 defaults 获取
-    if (path == null || path.isEmpty) {
-      path = userSetting.storePath;
+    // 如果 downloadPath 为空，尝试从旧配置获取
+    if (configuredPath == null || configuredPath.isEmpty) {
+      configuredPath = userSetting.storePath;
     }
 
-    if (mounted && path != null && path.isNotEmpty) {
+    final path =
+        configuredPath == null || configuredPath.isEmpty
+            ? await getDefaultDownloadPath()
+            : configuredPath;
+
+    if (mounted) {
       _pathController.text = path;
-      // 初始化时校验一次
       await _validatePath(path);
     }
   }
 
   /// 校验路径
-  Future<void> _validatePath(String path) async {
-    if (!mounted) return;
+  Future<bool> _validatePath(String path) async {
+    if (!mounted) return false;
+
+    final normalizedPath = path.trim();
+    final validationGeneration = ++_validationGeneration;
 
     setState(() {
       _isValidating = true;
       _pathError = null;
     });
 
-    try {
-      if (path.isEmpty) {
-        setState(() {
-          _pathError = '路径不能为空';
-          _isValidating = false;
-        });
-        return;
-      }
-
-      final dir = Directory(path);
-      final exists = await dir.exists();
-
-      if (!exists) {
-        setState(() {
-          _pathError = '目录不存在';
-          _isValidating = false;
-        });
-        return;
-      }
-
-      // 检查访问权限 - 尝试列出目录
-      try {
-        await dir
-            .list(followLinks: false)
-            .first
-            .timeout(
-              Duration(seconds: 2),
-              onTimeout: () => throw TimeoutException('访问超时'),
-            );
-      } catch (e) {
-        setState(() {
-          _pathError = '无法访问该目录';
-          _isValidating = false;
-        });
-        return;
-      }
-
-      // 校验通过
-      setState(() {
-        _pathError = null;
-        _isValidating = false;
-      });
-    } catch (e) {
-      setState(() {
-        _pathError = '校验失败: $e';
-        _isValidating = false;
-      });
+    final result = await validateDownloadPath(normalizedPath);
+    if (!mounted ||
+        validationGeneration != _validationGeneration ||
+        normalizedPath != _pathController.text.trim()) {
+      return false;
     }
+
+    final error = switch (result) {
+      DownloadPathValidationResult.valid => null,
+      DownloadPathValidationResult.empty => '路径不能为空',
+      DownloadPathValidationResult.notFound => '目录不存在',
+      DownloadPathValidationResult.inaccessible => '无法访问该目录',
+    };
+
+    setState(() {
+      _pathError = error;
+      _isValidating = false;
+    });
+    return result == DownloadPathValidationResult.valid;
   }
 
   /// 实时校验（带防抖）
   void _onPathChanged(String value) {
     _debounceTimer?.cancel();
+    _validationGeneration++;
+    setState(() {
+      _isValidating = true;
+      _pathError = null;
+    });
     _debounceTimer = Timer(Duration(milliseconds: 500), () {
       _validatePath(value);
     });
@@ -128,14 +113,31 @@ class _WindowsPlatformPageState extends State<WindowsPlatformPage> {
     }
   }
 
+  /// 恢复默认下载目录
+  Future<void> _restoreDefaultFolder() async {
+    _debounceTimer?.cancel();
+
+    try {
+      final path = await getDefaultDownloadPath();
+      await Directory(path).create(recursive: true);
+
+      if (mounted) {
+        _pathController.text = path;
+        await _validatePath(path);
+      }
+    } catch (e) {
+      BotToast.showText(text: '恢复默认目录失败: $e');
+    }
+  }
+
   /// 保存下载路径
   Future<void> _saveDownloadPath() async {
     final path = _pathController.text.trim();
 
     // 最终校验
-    await _validatePath(path);
+    final isValid = await _validatePath(path);
 
-    if (_pathError != null) {
+    if (!isValid) {
       BotToast.showText(text: '请先解决路径错误');
       return;
     }
@@ -332,9 +334,17 @@ class _WindowsPlatformPageState extends State<WindowsPlatformPage> {
                   label: Text('选择目录'),
                 ),
                 SizedBox(width: 12),
+                OutlinedButton.icon(
+                  onPressed: _restoreDefaultFolder,
+                  icon: Icon(Icons.restore),
+                  label: Text('恢复默认目录'),
+                ),
+                SizedBox(width: 12),
                 ElevatedButton.icon(
                   onPressed:
-                      _pathError == null && _pathController.text.isNotEmpty
+                      !_isValidating &&
+                              _pathError == null &&
+                              _pathController.text.isNotEmpty
                           ? _saveDownloadPath
                           : null,
                   icon: Icon(Icons.save),

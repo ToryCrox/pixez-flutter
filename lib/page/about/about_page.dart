@@ -23,34 +23,28 @@ import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:in_app_purchase_storekit/store_kit_wrappers.dart';
-import 'package:pixez/component/new_version_chip.dart';
 import 'package:pixez/constants.dart';
 import 'package:pixez/i18n.dart';
 import 'package:pixez/page/about/contributors.dart';
 import 'package:pixez/page/about/thanks_list.dart';
-import 'package:pixez/page/about/update_page.dart';
 import 'package:pixez/page/debug/network_log_page.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 class AboutPage extends StatefulWidget {
-  final bool? newVersion;
-
-  const AboutPage({Key? key, this.newVersion}) : super(key: key);
+  const AboutPage({Key? key}) : super(key: key);
 
   @override
   _AboutPageState createState() => _AboutPageState();
 }
 
 class _AboutPageState extends State<AboutPage> {
-  late bool hasNewVersion;
   StreamSubscription<List<PurchaseDetails>>? _subscription;
   List<ProductDetails> products = [];
 
   @override
   void initState() {
     initIap();
-    hasNewVersion = widget.newVersion ?? false;
     super.initState();
   }
 
@@ -253,10 +247,6 @@ class _AboutPageState extends State<AboutPage> {
                 leading: Icon(Icons.device_hub),
                 title: Text(I18n.of(context).repo_address),
                 subtitle: Text('github.com/Notsfsssf/pixez-flutter'),
-                trailing: Visibility(
-                  child: NewVersionChip(),
-                  visible: hasNewVersion,
-                ),
                 onTap: () {
                   if (!Constants.isGooglePlay)
                     showModalBottomSheet(
@@ -293,17 +283,6 @@ class _AboutPageState extends State<AboutPage> {
                                     } catch (e) {}
                                   },
                                 ),
-                              ),
-                              ListTile(
-                                title: Text(I18n.of(context).check_for_updates),
-                                onTap: () {
-                                  Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                      builder: (_) => UpdatePage(),
-                                    ),
-                                  );
-                                },
-                                trailing: Icon(Icons.update),
                               ),
                               ListTile(
                                 leading: CircleAvatar(
