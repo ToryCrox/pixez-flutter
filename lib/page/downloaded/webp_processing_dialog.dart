@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:bot_toast/bot_toast.dart';
 import 'package:flutter/material.dart';
@@ -56,6 +57,12 @@ class _WebpProcessingDialogState extends State<WebpProcessingDialog> {
 
   bool get _showResults => _results != null;
   bool get _busy => _processing || _replacing;
+
+  /// 少量处理结果不应撑满整个弹框；批量结果则保持可滚动的最大高度。
+  double get _resultContentHeight {
+    final resultCount = _results?.length ?? 0;
+    return math.min(680, math.max(250, 88 + resultCount * 104));
+  }
 
   @override
   void initState() {
@@ -215,7 +222,7 @@ class _WebpProcessingDialogState extends State<WebpProcessingDialog> {
         title: Text(_showResults ? '处理结果' : '图片格式处理'),
         content: SizedBox(
           width: 1100,
-          height: _showResults ? 680 : 500,
+          height: _showResults ? _resultContentHeight : 500,
           child:
               toolCheck == null
                   ? const Center(child: CircularProgressIndicator())
@@ -384,7 +391,7 @@ class _WebpProcessingDialogState extends State<WebpProcessingDialog> {
             '成功 ${success.length} 张，失败或跳过 ${results.length - success.length} 张；总大小 ${originalSize.formatFileSize()} → ${outputSize.formatFileSize()}（${_formatDelta(delta)}）',
             style: Theme.of(context).textTheme.bodySmall,
           ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
         Expanded(
           child: ListView.separated(
             itemCount: results.length,
@@ -412,8 +419,9 @@ class _WebpProcessingDialogState extends State<WebpProcessingDialog> {
         result.originalSize == 0 ? 0 : delta / result.originalSize * 100;
     final deltaColor = delta > 0 ? Colors.orange : Colors.green;
     return Card(
+      margin: EdgeInsets.zero,
       child: Padding(
-        padding: const EdgeInsets.all(10),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -431,26 +439,23 @@ class _WebpProcessingDialogState extends State<WebpProcessingDialog> {
                 ),
               ],
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 4),
             Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Expanded(
-                  child: _preview(
-                    result.input.sourcePath,
-                    '处理前',
-                    '${result.originalDimensions!.width}×${result.originalDimensions!.height}\n${result.originalSize.formatFileSize()}',
-                  ),
+                _preview(
+                  result.input.sourcePath,
+                  '处理前',
+                  '${result.originalDimensions!.width}×${result.originalDimensions!.height}\n${result.originalSize.formatFileSize()}',
                 ),
                 const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 10),
+                  padding: EdgeInsets.symmetric(horizontal: 8),
                   child: Icon(Icons.arrow_forward),
                 ),
-                Expanded(
-                  child: _preview(
-                    result.outputPath!,
-                    '处理后',
-                    '${result.outputDimensions!.width}×${result.outputDimensions!.height}\n${result.outputSize!.formatFileSize()}',
-                  ),
+                _preview(
+                  result.outputPath!,
+                  '处理后',
+                  '${result.outputDimensions!.width}×${result.outputDimensions!.height}\n${result.outputSize!.formatFileSize()}',
                 ),
               ],
             ),
@@ -469,32 +474,35 @@ class _WebpProcessingDialogState extends State<WebpProcessingDialog> {
             title: label,
             subtitle: detail,
           ),
-      child: Row(
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: Image.file(
-              File(filePath),
-              width: _thumbnailExtent,
-              height: _thumbnailExtent,
-              fit: BoxFit.cover,
-              errorBuilder:
-                  (_, _, _) => const SizedBox(
-                    width: _thumbnailExtent,
-                    height: _thumbnailExtent,
-                    child: Icon(Icons.broken_image),
-                  ),
+      child: SizedBox(
+        width: 210,
+        child: Row(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: Image.file(
+                File(filePath),
+                width: _thumbnailExtent,
+                height: _thumbnailExtent,
+                fit: BoxFit.cover,
+                errorBuilder:
+                    (_, _, _) => const SizedBox(
+                      width: _thumbnailExtent,
+                      height: _thumbnailExtent,
+                      child: Icon(Icons.broken_image),
+                    ),
+              ),
             ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              '$label\n$detail',
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                '$label\n$detail',
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
