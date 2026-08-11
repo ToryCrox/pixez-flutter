@@ -21,6 +21,7 @@ import 'package:crypto/crypto.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:dio/dio.dart';
 import 'package:dio_compatibility_layer/dio_compatibility_layer.dart';
+import 'package:dio/io.dart';
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import 'package:pixez/constants.dart';
@@ -47,14 +48,23 @@ class OAuthClient {
       "W9JZoJe00qPvJsiyCGT3CCtC6ZUtdpKpzMbNlUGP"; //这换行绝了
 
   String getIsoDate() {
-    DateTime dateTime = new DateTime.now();
-    DateFormat dateFormat = new DateFormat("yyyy-MM-dd'T'HH:mm:ss'+00:00'");
+    final dateTime = DateTime.now().toUtc();
+    final dateFormat = DateFormat("yyyy-MM-dd'T'HH:mm:ss'+00:00'");
     return dateFormat.format(dateTime);
+  }
+
+  Map<String, dynamic> get clientTimeHeaders {
+    final time = getIsoDate();
+    return {"X-Client-Time": time, "X-Client-Hash": getHash(time + hashSalt)};
   }
 
   static final String AUTHORIZATION = "Authorization";
 
   Future<Dio> createDioClient() async {
+    if (Platform.isMacOS) {
+      httpClient.httpClientAdapter = IOHttpClientAdapter();
+      return httpClient;
+    }
     final compatibleClient = await r.RhttpCompatibleClient.create(
       settings: Hoster.createOAuthClientSettings(),
     );
@@ -73,13 +83,11 @@ class OAuthClient {
   }
 
   OAuthClient() {
-    String time = getIsoDate();
     httpClient = Dio(
       BaseOptions(
         baseUrl: 'https://${BASE_OAUTH_URL_HOST}',
         headers: {
-          "X-Client-Time": time,
-          "X-Client-Hash": getHash(time + hashSalt),
+          ...clientTimeHeaders,
           "User-Agent": "PixivAndroidApp/5.0.155 (Android 6.0; Pixel C)",
           HttpHeaders.acceptLanguageHeader: "zh-CN",
           "App-OS": "Android",
@@ -87,6 +95,14 @@ class OAuthClient {
           "App-Version": "5.0.166",
         },
         contentType: Headers.formUrlEncodedContentType,
+      ),
+    );
+    httpClient.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          options.headers.addAll(clientTimeHeaders);
+          handler.next(options);
+        },
       ),
     );
     // 添加 Mana Dio 拦截器（网络请求追踪）

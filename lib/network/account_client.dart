@@ -42,9 +42,14 @@ class AccountClient {
   static const BASE_API_URL_HOST = 'accounts.pixiv.net';
 
   String getIsoDate() {
-    DateTime dateTime = new DateTime.now();
-    DateFormat dateFormat = new DateFormat("yyyy-MM-dd'T'HH:mm:ss'+00:00'");
+    final dateTime = DateTime.now().toUtc();
+    final dateFormat = DateFormat("yyyy-MM-dd'T'HH:mm:ss'+00:00'");
     return dateFormat.format(dateTime);
+  }
+
+  Map<String, dynamic> get clientTimeHeaders {
+    final time = getIsoDate();
+    return {"X-Client-Time": time, "X-Client-Hash": getHash(time + hashSalt)};
   }
 
   static String getHash(String string) {
@@ -106,13 +111,11 @@ class AccountClient {
   }
 
   Future<Dio> createDioClient() async {
-    String time = getIsoDate();
     final dio = Dio(
       BaseOptions(
         baseUrl: 'https://${BASE_API_URL_HOST}',
         headers: {
-          "X-Client-Time": time,
-          "X-Client-Hash": getHash(time + hashSalt),
+          ...clientTimeHeaders,
           "User-Agent": "PixivAndroidApp/5.0.155 (Android 6.0; Pixel C)",
           HttpHeaders.acceptLanguageHeader: "zh-CN",
           "App-OS": "Android",
@@ -121,6 +124,14 @@ class AccountClient {
           HttpHeaders.hostHeader: BASE_API_URL_HOST,
         },
         contentType: Headers.formUrlEncodedContentType,
+      ),
+    );
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          options.headers.addAll(clientTimeHeaders);
+          handler.next(options);
+        },
       ),
     );
     if (kDebugMode) {

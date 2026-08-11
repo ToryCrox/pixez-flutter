@@ -8,10 +8,7 @@ import 'package:pixez/main.dart';
 
 class WindowsPlatformPage extends StatefulWidget {
   @override
-  State<StatefulWidget> createState() {
-    if (Platform.isWindows) return _WindowsPlatformPageState();
-    throw UnimplementedError();
-  }
+  State<WindowsPlatformPage> createState() => _WindowsPlatformPageState();
 }
 
 class _WindowsPlatformPageState extends State<WindowsPlatformPage> {
@@ -196,10 +193,16 @@ class _WindowsPlatformPageState extends State<WindowsPlatformPage> {
 
   @override
   Widget build(BuildContext context) {
+    final platformName = Platform.isMacOS ? 'macOS' : 'Windows';
+    final platformColor = Platform.isMacOS ? Colors.grey : Colors.blue;
+
     return AlertDialog(
       title: ListTile(
         title: Text("Platform Setting"),
-        subtitle: Text("For Windows", style: TextStyle(color: Colors.blue)),
+        subtitle: Text(
+          "For $platformName",
+          style: TextStyle(color: platformColor),
+        ),
       ),
       content: Container(
         width: 500,
