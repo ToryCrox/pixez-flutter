@@ -38,6 +38,8 @@ class WebpProcessingDialog extends StatefulWidget {
 }
 
 class _WebpProcessingDialogState extends State<WebpProcessingDialog> {
+  static const _thumbnailExtent = 67.2;
+
   final _qualityController = TextEditingController(text: '80');
   final _percentageController = TextEditingController(text: '100');
   final _maxWidthController = TextEditingController();
@@ -212,8 +214,8 @@ class _WebpProcessingDialogState extends State<WebpProcessingDialog> {
       child: AlertDialog(
         title: Text(_showResults ? '处理结果' : '图片格式处理'),
         content: SizedBox(
-          width: 920,
-          height: _showResults ? 560 : null,
+          width: 1100,
+          height: _showResults ? 680 : 500,
           child:
               toolCheck == null
                   ? const Center(child: CircularProgressIndicator())
@@ -386,7 +388,7 @@ class _WebpProcessingDialogState extends State<WebpProcessingDialog> {
         Expanded(
           child: ListView.separated(
             itemCount: results.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 12),
+            separatorBuilder: (_, _) => const SizedBox(height: 8),
             itemBuilder: (context, index) => _buildResultRow(results[index]),
           ),
         ),
@@ -415,8 +417,21 @@ class _WebpProcessingDialogState extends State<WebpProcessingDialog> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: Theme.of(context).textTheme.titleSmall),
-            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    title,
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                ),
+                Text(
+                  '${_formatDelta(delta)}（${ratio >= 0 ? '+' : ''}${ratio.toStringAsFixed(1)}%）',
+                  style: TextStyle(color: deltaColor),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
             Row(
               children: [
                 Expanded(
@@ -439,11 +454,6 @@ class _WebpProcessingDialogState extends State<WebpProcessingDialog> {
                 ),
               ],
             ),
-            const SizedBox(height: 8),
-            Text(
-              '${_formatDelta(delta)}（${ratio >= 0 ? '+' : ''}${ratio.toStringAsFixed(1)}%）',
-              style: TextStyle(color: deltaColor),
-            ),
           ],
         ),
       ),
@@ -465,13 +475,13 @@ class _WebpProcessingDialogState extends State<WebpProcessingDialog> {
             borderRadius: BorderRadius.circular(4),
             child: Image.file(
               File(filePath),
-              width: 84,
-              height: 84,
+              width: _thumbnailExtent,
+              height: _thumbnailExtent,
               fit: BoxFit.cover,
               errorBuilder:
                   (_, _, _) => const SizedBox(
-                    width: 84,
-                    height: 84,
+                    width: _thumbnailExtent,
+                    height: _thumbnailExtent,
                     child: Icon(Icons.broken_image),
                   ),
             ),
