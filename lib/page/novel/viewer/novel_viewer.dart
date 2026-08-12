@@ -23,10 +23,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:mobx/mobx.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:pixez/ai/ai_translation_error_handler.dart';
 import 'package:pixez/component/painter_avatar.dart';
 import 'package:pixez/component/pixiv_image.dart';
 import 'package:pixez/component/selectable_html.dart';
-import 'package:pixez/ai/ai_models.dart';
 import 'package:pixez/er/leader.dart';
 import 'package:pixez/custom/log.dart';
 import 'package:pixez/exts.dart';
@@ -42,7 +42,6 @@ import 'package:pixez/page/novel/series/novel_series_page.dart';
 import 'package:pixez/page/novel/user/novel_users_page.dart';
 import 'package:pixez/page/novel/viewer/image_text.dart';
 import 'package:pixez/page/novel/viewer/novel_store.dart';
-import 'package:pixez/page/hello/setting/ai_settings_page.dart';
 import 'package:pixez/saf_plugin.dart';
 import 'package:pixez/supportor_plugin.dart';
 import 'package:share_plus/share_plus.dart';
@@ -382,39 +381,7 @@ class _NovelViewerPageState extends State<NovelViewerPage> {
     try {
       await _novelStore.translateAll(_targetLanguage(context));
     } catch (error) {
-      if (!mounted) return;
-      final message = error.toString();
-      if (error is AiConfigurationException ||
-          message.contains('AI 服务') ||
-          message.contains('AI 提示词')) {
-        await showDialog<void>(
-          context: context,
-          builder:
-              (dialogContext) => AlertDialog(
-                title: Text(I18n.of(context).ai_translation_not_configured),
-                content: Text(message),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(dialogContext),
-                    child: Text(I18n.of(context).cancel),
-                  ),
-                  FilledButton(
-                    onPressed: () {
-                      Navigator.pop(dialogContext);
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const AiSettingsPage(),
-                        ),
-                      );
-                    },
-                    child: Text(I18n.of(context).go_to_ai_settings),
-                  ),
-                ],
-              ),
-        );
-      } else {
-        BotToast.showText(text: message);
-      }
+      if (mounted) await showAiTranslationError(context, error);
     }
   }
 

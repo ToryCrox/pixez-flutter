@@ -4,6 +4,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
+import 'package:pixez/ai/ai_translation_error_handler.dart';
 import 'package:pixez/component/selectable_html.dart';
 import 'package:pixez/component/mouse_drag_blocker.dart';
 import 'package:pixez/er/leader.dart';
@@ -24,7 +25,6 @@ import 'package:pixez/component/painter_avatar.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:pixez/page/downloaded/downloaded_page.dart';
 import 'package:pixez/page/downloaded/tag_manager/tag_edit_dialog.dart';
-import 'package:pixez/page/hello/setting/ai_settings_page.dart';
 import 'package:bot_toast/bot_toast.dart';
 import 'package:pixez/models/download_record.dart';
 
@@ -674,7 +674,7 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
       await _persistTranslations(translatedTitle: translation);
       if (mounted) setState(() => _translatedTitle = translation);
     } catch (error) {
-      _showAiError(error);
+      await showAiTranslationError(context, error);
     } finally {
       if (mounted) setState(() => _isTranslatingTitle = false);
     }
@@ -691,7 +691,7 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
       await _persistTranslations(translatedCaption: translation);
       if (mounted) setState(() => _translatedCaption = translation);
     } catch (error) {
-      _showAiError(error);
+      await showAiTranslationError(context, error);
     } finally {
       if (mounted) setState(() => _isTranslatingCaption = false);
     }
@@ -720,38 +720,6 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
         translatedCaption: translatedCaption,
       );
     }
-  }
-
-  void _showAiError(Object error) {
-    if (!mounted) return;
-    final message = error.toString();
-    if (message.contains('请前往 AI 设置')) {
-      showDialog<void>(
-        context: context,
-        builder:
-            (dialogContext) => AlertDialog(
-              title: const Text('尚未配置 AI 服务'),
-              content: Text(message),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(dialogContext),
-                  child: const Text('取消'),
-                ),
-                FilledButton(
-                  onPressed: () {
-                    Navigator.pop(dialogContext);
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const AiSettingsPage()),
-                    );
-                  },
-                  child: const Text('前往设置'),
-                ),
-              ],
-            ),
-      );
-      return;
-    }
-    BotToast.showText(text: message);
   }
 
   /// 去除 HTML 标签，保留纯文本

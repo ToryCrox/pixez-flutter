@@ -18,6 +18,7 @@ import 'dart:io';
 
 import 'package:bot_toast/bot_toast.dart';
 import 'package:easy_refresh/easy_refresh.dart';
+import 'package:pixez/ai/ai_translation_error_handler.dart';
 import 'package:pixez/component/pixez_easy_refresh.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
@@ -32,7 +33,6 @@ import 'package:pixez/main.dart';
 import 'package:pixez/models/comment_response.dart';
 import 'package:pixez/network/api_client.dart';
 import 'package:pixez/page/comment/comment_store.dart';
-import 'package:pixez/page/hello/setting/ai_settings_page.dart';
 import 'package:pixez/page/report/report_items_page.dart';
 import 'package:pixez/supportor_plugin.dart';
 import 'package:share_plus/share_plus.dart';
@@ -675,44 +675,12 @@ class _CommentPageState extends State<CommentPage> {
         });
       }
     } catch (error) {
-      _showAiError(error);
+      await showAiTranslationError(context, error);
     } finally {
       if (mounted) {
         setState(() => _translatingCommentIds.remove(commentId));
       }
     }
-  }
-
-  void _showAiError(Object error) {
-    if (!mounted) return;
-    final message = error.toString();
-    if (message.contains('请前往 AI 设置')) {
-      showDialog<void>(
-        context: context,
-        builder:
-            (dialogContext) => AlertDialog(
-              title: const Text('尚未配置 AI 服务'),
-              content: Text(message),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(dialogContext),
-                  child: const Text('取消'),
-                ),
-                FilledButton(
-                  onPressed: () {
-                    Navigator.pop(dialogContext);
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const AiSettingsPage()),
-                    );
-                  },
-                  child: const Text('前往设置'),
-                ),
-              ],
-            ),
-      );
-      return;
-    }
-    BotToast.showText(text: message);
   }
 
   Future<void> _fetchComments() async {

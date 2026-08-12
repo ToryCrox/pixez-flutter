@@ -16,15 +16,14 @@
 
 import 'dart:io';
 
-import 'package:bot_toast/bot_toast.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:pixez/ai/ai_translation_error_handler.dart';
 import 'package:pixez/component/selectable_html.dart';
 import 'package:pixez/i18n.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/models/user_detail.dart';
 import 'package:pixez/page/follow/follow_list.dart';
-import 'package:pixez/page/hello/setting/ai_settings_page.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
@@ -113,42 +112,10 @@ class _UserDetailPageState extends State<UserDetailPage> {
         });
       }
     } catch (error) {
-      _showAiError(error);
+      await showAiTranslationError(context, error);
     } finally {
       if (mounted) setState(() => _isTranslatingComment = false);
     }
-  }
-
-  void _showAiError(Object error) {
-    if (!mounted) return;
-    final message = error.toString();
-    if (message.contains('请前往 AI 设置')) {
-      showDialog<void>(
-        context: context,
-        builder:
-            (dialogContext) => AlertDialog(
-              title: const Text('尚未配置 AI 服务'),
-              content: Text(message),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(dialogContext),
-                  child: const Text('取消'),
-                ),
-                FilledButton(
-                  onPressed: () {
-                    Navigator.pop(dialogContext);
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const AiSettingsPage()),
-                    );
-                  },
-                  child: const Text('前往设置'),
-                ),
-              ],
-            ),
-      );
-      return;
-    }
-    BotToast.showText(text: message);
   }
 
   @override

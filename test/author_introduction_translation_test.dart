@@ -4,6 +4,7 @@ import 'package:pixez/ai/ai_client.dart';
 import 'package:pixez/ai/ai_models.dart';
 import 'package:pixez/ai/ai_result_cache.dart';
 import 'package:pixez/ai/ai_settings_store.dart';
+import 'package:pixez/ai/ai_translation_error_handler.dart';
 import 'package:pixez/ai/ai_translation_service.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
@@ -36,6 +37,16 @@ void main() {
       '<a href="https://example.com">你好</a>',
     );
     expect(adapter.requestCount, 1);
+  });
+
+  test('AI 配置错误会使用统一的设置引导', () {
+    expect(
+      isAiTranslationConfigurationError(
+        const AiConfigurationException('该场景没有启用的 AI 提示词'),
+      ),
+      isTrue,
+    );
+    expect(isAiTranslationConfigurationError(Exception('网络错误')), isFalse);
   });
 }
 
