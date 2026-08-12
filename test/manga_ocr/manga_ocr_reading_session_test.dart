@@ -105,6 +105,36 @@ void main() {
     expect(session.controllerFor(1).stage, MangaOcrStage.idle);
   });
 
+  test('下一页进入视口后等待缓存文件可读并立即提前处理', () async {
+    final pipeline = _FakePipeline()..firstPageGate = Completer<void>();
+    final nextPagePath = Completer<String?>();
+    final session = MangaOcrReadingSession(
+      pipeline: pipeline,
+      resolvePagePath:
+          (page) async =>
+              page == 1 ? nextPagePath.future : '/tmp/page-$page.jpg',
+      resolveTargetLanguage: () => 'zh-CN',
+      pageSettleDuration: const Duration(seconds: 1),
+    );
+    addTearDown(() {
+      session.dispose();
+      pipeline.started.close();
+    });
+
+    session.open(0);
+    session.requestCurrent();
+    await pipeline.started.stream.firstWhere((page) => page == 0);
+    session.requestReadyVisiblePages([0, 1], forward: true);
+    pipeline.firstPageGate!.complete();
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+    expect(pipeline.calls, [0]);
+    nextPagePath.complete('/tmp/page-1.jpg');
+    await pipeline.started.stream.firstWhere((page) => page == 1);
+
+    expect(session.currentPage, 0);
+    expect(pipeline.calls, [0, 1]);
+  });
+
   test('关闭面板后切页不会自动处理', () async {
     final pipeline = _FakePipeline();
     final session = MangaOcrReadingSession(
@@ -158,5 +188,51 @@ void main() {
     expect(find.text('开始识别并翻译'), findsOneWidget);
     await tester.tap(find.text('开始识别并翻译'));
     expect(started, isTrue);
+  });
+
+  testWidgets('检测框悬浮提示优先显示译文', (tester) async {
+    final result = MangaPageOcrResult(
+      imageSha256: 'image',
+      pageIndex: 0,
+      imageWidth: 100,
+      imageHeight: 100,
+      preprocessorId: mangaOcrPreprocessorId,
+      preprocessorVersion: mangaOcrPreprocessorVersion,
+      detectorId: mangaOcrDefaultDetectorId,
+      detectorVersion: 'test',
+      recognizerId: mangaOcrDefaultRecognizerId,
+      recognizerVersion: 'test',
+      createdAt: DateTime.fromMillisecondsSinceEpoch(0),
+      blocks: const [
+        MangaTextBlock(
+          id: 'block',
+          bounds: MangaNormalizedRect(
+            left: 0.1,
+            top: 0.1,
+            right: 0.5,
+            bottom: 0.5,
+          ),
+          sourceText: 'こんにちは',
+          translatedText: '你好',
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox.square(
+          dimension: 400,
+          child: MangaOcrOverlay(
+            result: result,
+            selectedBlockId: null,
+            onSelected: (_) {},
+          ),
+        ),
+      ),
+    );
+
+    final tooltip = tester.widget<Tooltip>(find.byType(Tooltip));
+    expect(tooltip.message, '你好');
+    expect(tooltip.waitDuration, const Duration(milliseconds: 150));
   });
 }

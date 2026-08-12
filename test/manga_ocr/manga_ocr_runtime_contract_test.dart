@@ -24,7 +24,7 @@ void main() {
 
   test('helper 崩溃时终止请求并返回明确错误', () async {
     if (Platform.isWindows) return;
-    final helper = await _fakeHelper('exit 23');
+    final helper = await _fakeHelper('read line\nexit 23');
     final runtime = MangaOcrProcessRuntime(
       helperPath: helper.path,
       requestTimeout: const Duration(seconds: 2),

@@ -107,6 +107,9 @@ class _IllustRowPageState extends State<IllustRowPage>
   late final MangaOcrReadingSession _ocrSession;
   final MangaPageImageResolver _ocrImageResolver =
       const PixivMangaPageImageResolver();
+  Set<int> _visibleOcrPages = <int>{};
+  double? _lastOcrObserveOffset;
+  bool _ocrScrollForward = true;
 
   bool get _showComments => _sidebarOverlay == _IllustSidebarOverlay.comments;
   bool get _showMangaOcr => _sidebarOverlay == _IllustSidebarOverlay.mangaOcr;
@@ -173,6 +176,12 @@ class _IllustRowPageState extends State<IllustRowPage>
 
     // 选择实际可见高度最大的页面，避免下一页刚露出边缘时过早切换。
     final visiblePages = observeModel.displayingChildModelList;
+    final previousOffset = _lastOcrObserveOffset;
+    _lastOcrObserveOffset = observeModel.scrollOffset;
+    if (previousOffset != null && observeModel.scrollOffset != previousOffset) {
+      _ocrScrollForward = observeModel.scrollOffset > previousOffset;
+    }
+    _visibleOcrPages = visiblePages.map((item) => item.index).toSet();
     final firstVisibleIndex =
         visiblePages.isEmpty
             ? observeModel.firstChild?.index ?? 0
@@ -187,8 +196,9 @@ class _IllustRowPageState extends State<IllustRowPage>
 
     if (firstVisibleIndex != _illustStore.currentPage) {
       _illustStore.updateCurrentPage(firstVisibleIndex);
-      _ocrSession.setCurrentPage(firstVisibleIndex);
+      _ocrSession.setCurrentPage(firstVisibleIndex, schedule: false);
     }
+    _scheduleVisibleOcrPages();
   }
 
   @override
@@ -420,6 +430,31 @@ class _IllustRowPageState extends State<IllustRowPage>
       _sidebarOverlay = _IllustSidebarOverlay.mangaOcr;
     });
     _ocrSession.open(_illustStore.currentPage);
+  }
+
+  void _startMangaOcr() {
+    _ocrSession.requestCurrent();
+    _scheduleVisibleOcrPages();
+  }
+
+  void _setMangaOcrAutoFollow(bool value) {
+    _ocrSession.setAutoFollowEnabled(value);
+    if (value) _scheduleVisibleOcrPages();
+  }
+
+  void _scheduleVisibleOcrPages() {
+    if (!_showMangaOcr ||
+        !_ocrSession.panelActive ||
+        !_ocrSession.hasStarted ||
+        !_ocrSession.autoFollowEnabled) {
+      return;
+    }
+    // 页面进入视口后立即排队；路径解析器会等待同一个缓存文件可读，随后
+    // 直接开始 OCR，不依赖 Flutter 图片组件完成绘制。
+    _ocrSession.requestReadyVisiblePages(
+      _visibleOcrPages,
+      forward: _ocrScrollForward,
+    );
   }
 
   void _closeSidebarOverlay() {
@@ -758,9 +793,9 @@ class _IllustRowPageState extends State<IllustRowPage>
                         pageLabel:
                             '第 ${_ocrSession.currentPage + 1} / ${_illustStore.totalPages} 页',
                         autoFollowEnabled: _ocrSession.autoFollowEnabled,
-                        onAutoFollowChanged: _ocrSession.setAutoFollowEnabled,
+                        onAutoFollowChanged: _setMangaOcrAutoFollow,
                         recognitionStarted: _ocrSession.hasStarted,
-                        onStart: _ocrSession.requestCurrent,
+                        onStart: _startMangaOcr,
                         onClose: _closeSidebarOverlay,
                         onCancel: _ocrSession.cancelCurrent,
                         onRetryTranslation:

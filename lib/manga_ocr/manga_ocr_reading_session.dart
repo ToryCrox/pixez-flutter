@@ -136,6 +136,11 @@ class MangaOcrReadingSession extends ChangeNotifier {
       return;
     }
     if (_runningPage == pageIndex && controller.isRunning) return;
+    if (!forceOcr &&
+        !forceTranslation &&
+        _pendingRequest?.pageIndex == pageIndex) {
+      return;
+    }
 
     final previousPendingPage = _pendingRequest?.pageIndex;
     if (previousPendingPage != null &&
@@ -151,6 +156,21 @@ class MangaOcrReadingSession extends ChangeNotifier {
     controller.markQueued();
     _notifySafely();
     unawaited(_drain());
+  }
+
+  /// 页面进入视口后立即安排处理；路径解析器负责等待缓存文件可读，
+  /// 不需要等它成为占比最大的当前页或完成 Flutter 绘制。
+  void requestReadyVisiblePages(
+    Iterable<int> pageIndexes, {
+    required bool forward,
+  }) {
+    if (!_panelActive || !_hasStarted || !_autoFollowEnabled) return;
+    final pages = pageIndexes.toSet().toList()..sort();
+    if (pages.isEmpty) return;
+    if (pages.contains(_currentPage)) requestPage(_currentPage);
+    final adjacent = pages.where((page) => page != _currentPage).toList();
+    if (adjacent.isEmpty) return;
+    requestPage(forward ? adjacent.last : adjacent.first);
   }
 
   Future<void> cancelCurrent() async {

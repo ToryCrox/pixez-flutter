@@ -45,7 +45,12 @@ class MangaOcrOverlay extends StatelessWidget {
                 height: block.bounds.height * displayHeight,
                 child: Tooltip(
                   message:
-                      block.sourceText.isEmpty ? '识别失败/低置信度' : block.sourceText,
+                      block.translatedText.trim().isNotEmpty
+                          ? block.translatedText
+                          : block.sourceText.isEmpty
+                          ? '识别失败/低置信度'
+                          : block.sourceText,
+                  waitDuration: const Duration(milliseconds: 150),
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onTap: () => onSelected(block.id),
