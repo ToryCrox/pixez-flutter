@@ -15,6 +15,7 @@ import 'package:pixez/main.dart';
 import 'package:pixez/models/illust.dart';
 import 'package:pixez/page/picture/illust_store.dart';
 import 'package:pixez/manga_ocr/manga_ocr_controller.dart';
+import 'package:pixez/manga_ocr/manga_page_image_resolver.dart';
 import 'package:pixez/manga_ocr/manga_ocr_pipeline.dart';
 import 'package:pixez/manga_ocr/manga_ocr_widgets.dart';
 import 'package:pixez/manga_ocr/manga_ocr_preferences.dart';
@@ -44,6 +45,8 @@ class _PhotoZoomPageState extends State<PhotoZoomPage> {
   int _index = 0;
   Map<int, String?> _localPaths = {};
   late final MangaOcrController _ocrController;
+  final MangaPageImageResolver _ocrImageResolver =
+      const PixivMangaPageImageResolver();
   bool _ocrPanelVisible = false;
 
   int get _pageCount => widget.illustStore.displayPageCount;
@@ -340,18 +343,13 @@ class _PhotoZoomPageState extends State<PhotoZoomPage> {
   }) async {
     final targetLanguage = Localizations.localeOf(context).toLanguageTag();
     final preferences = await MangaOcrPreferences.load();
-    String? imagePath = _localPaths[_index];
-    if (imagePath == null || !await File(imagePath).exists()) {
-      final url = _urlFor(_index);
-      if (url.isEmpty) {
-        _ocrController.clearForPageChange();
-        return;
-      }
-      final file = await pixivCacheManager.getSingleFile(
-        url,
-        headers: Hoster.header(url: url),
-      );
-      imagePath = file.path;
+    final imagePath = await _ocrImageResolver.resolve(
+      localPath: _localPaths[_index],
+      imageUrl: _urlFor(_index),
+    );
+    if (imagePath == null) {
+      _ocrController.clearForPageChange();
+      return;
     }
     if (!mounted) return;
     await _ocrController.analyze(

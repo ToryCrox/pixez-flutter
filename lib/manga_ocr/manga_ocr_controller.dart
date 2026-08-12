@@ -87,6 +87,21 @@ class MangaOcrController extends ChangeNotifier {
     _update(MangaOcrStage.idle, 0, 0, '');
   }
 
+  void markQueued() {
+    error = null;
+    _update(MangaOcrStage.preparing, 0, 1, '等待处理当前页');
+  }
+
+  void markCancelled() {
+    _generation++;
+    _update(MangaOcrStage.cancelled, 0, 1, '已取消');
+  }
+
+  void failExternally(String reason) {
+    error = reason;
+    _update(MangaOcrStage.failed, 0, 1, '处理失败');
+  }
+
   void _update(
     MangaOcrStage nextStage,
     int nextCompleted,

@@ -44,6 +44,11 @@ import 'package:pixez/models/ban_tag.dart';
 import 'package:pixez/models/illust.dart';
 import 'package:pixez/models/original_image.dart';
 import 'package:pixez/models/ugoira_metadata_response.dart';
+import 'package:pixez/manga_ocr/manga_ocr_models.dart';
+import 'package:pixez/manga_ocr/manga_ocr_pipeline.dart';
+import 'package:pixez/manga_ocr/manga_ocr_reading_session.dart';
+import 'package:pixez/manga_ocr/manga_ocr_widgets.dart';
+import 'package:pixez/manga_ocr/manga_page_image_resolver.dart';
 
 import 'package:pixez/page/downloaded/bookmark_priority_dialog.dart';
 import 'package:pixez/page/picture/illust_about_store.dart';
@@ -61,6 +66,8 @@ import 'package:pixez/page/zoom/photo_zoom_page.dart';
 import 'package:pixez/utils/file_utils.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher_string.dart';
+
+enum _IllustSidebarOverlay { none, comments, mangaOcr }
 
 class IllustRowPage extends StatefulWidget {
   final int id;
@@ -94,9 +101,15 @@ class _IllustRowPageState extends State<IllustRowPage>
   bool _sidebarVisible = true; // 控制侧边栏显示/隐藏
   Ticker? _autoScrollTicker;
   bool _isAutoScrolling = false;
-  bool _showComments = false;
+  _IllustSidebarOverlay _sidebarOverlay = _IllustSidebarOverlay.none;
   bool _sidebarVisibleBeforeFullscreen = true;
   ReactionDisposer? _fullScreenReaction;
+  late final MangaOcrReadingSession _ocrSession;
+  final MangaPageImageResolver _ocrImageResolver =
+      const PixivMangaPageImageResolver();
+
+  bool get _showComments => _sidebarOverlay == _IllustSidebarOverlay.comments;
+  bool get _showMangaOcr => _sidebarOverlay == _IllustSidebarOverlay.mangaOcr;
 
   @override
   void initState() {
@@ -113,14 +126,24 @@ class _IllustRowPageState extends State<IllustRowPage>
     _illustStore = widget.store ?? IllustStore(widget.id, null);
     _illustStore.fetch(force: true);
     _aboutStore = IllustAboutStore(widget.id, _refreshController);
+    _ocrSession = MangaOcrReadingSession(
+      pipeline: MangaOcrPipeline(translationService: aiTranslationService),
+      resolvePagePath: _resolveOcrPagePath,
+      resolveTargetLanguage:
+          () => Localizations.localeOf(context).toLanguageTag(),
+    );
 
     _fullScreenReaction = reaction((_) => fullScreenStore.fullscreen, (
       bool isFullscreen,
     ) {
       if (isFullscreen) {
         _sidebarVisibleBeforeFullscreen = _sidebarVisible;
+        if (_showMangaOcr) _ocrSession.close();
         setState(() {
           _sidebarVisible = false;
+          if (_showMangaOcr) {
+            _sidebarOverlay = _IllustSidebarOverlay.none;
+          }
         });
       } else {
         setState(() {
@@ -148,11 +171,23 @@ class _IllustRowPageState extends State<IllustRowPage>
       _illustStore.updateTotalPages(illusts.pageCount);
     }
 
-    // 获取第一个可见的元素索引作为当前页
-    final firstVisibleIndex = observeModel.firstChild?.index ?? 0;
+    // 选择实际可见高度最大的页面，避免下一页刚露出边缘时过早切换。
+    final visiblePages = observeModel.displayingChildModelList;
+    final firstVisibleIndex =
+        visiblePages.isEmpty
+            ? observeModel.firstChild?.index ?? 0
+            : visiblePages
+                .reduce(
+                  (current, next) =>
+                      next.visibleMainAxisSize > current.visibleMainAxisSize
+                          ? next
+                          : current,
+                )
+                .index;
 
     if (firstVisibleIndex != _illustStore.currentPage) {
       _illustStore.updateCurrentPage(firstVisibleIndex);
+      _ocrSession.setCurrentPage(firstVisibleIndex);
     }
   }
 
@@ -184,6 +219,7 @@ class _IllustRowPageState extends State<IllustRowPage>
     _focusNode.dispose();
     _refreshController.dispose();
     _fullScreenReaction?.call();
+    _ocrSession.dispose();
     super.dispose();
   }
 
@@ -340,13 +376,6 @@ class _IllustRowPageState extends State<IllustRowPage>
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if ((Platform.isMacOS || Platform.isWindows) &&
-                      _illustStore.illusts != null)
-                    IconButton(
-                      tooltip: '识别并翻译当前页',
-                      icon: const Icon(Icons.document_scanner_outlined),
-                      onPressed: _openMangaOcr,
-                    ),
                   IconButton(
                     icon: Icon(Icons.more_vert),
                     onPressed: () {
@@ -362,33 +391,61 @@ class _IllustRowPageState extends State<IllustRowPage>
     );
   }
 
-  void _openMangaOcr() {
+  Future<String?> _resolveOcrPagePath(int pageIndex) async {
     final illust = _illustStore.illusts;
-    if (illust == null) return;
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder:
-            (_) => PhotoZoomPage(
-              index: _illustStore.currentPage,
-              illusts: illust,
-              illustStore: _illustStore,
-              initiallyOpenMangaOcr: true,
-            ),
-      ),
-    );
+    if (illust == null || pageIndex < 0) return null;
+    final localPath = _illustStore.getLocalImageInfo(pageIndex)?.path;
+    String imageUrl = '';
+    if (pageIndex < illust.pageCount) {
+      if (illust.pageCount == 1 && pageIndex == 0) {
+        imageUrl =
+            illust.type == 'manga'
+                ? illust.managaDetailUrl
+                : illust.illustDetailUrl;
+      } else {
+        imageUrl =
+            illust.type == 'manga'
+                ? illust.managaDetailImageUrl(pageIndex)
+                : illust.illustDetailImageUrl(pageIndex);
+      }
+    }
+    return _ocrImageResolver.resolve(localPath: localPath, imageUrl: imageUrl);
+  }
+
+  void _openMangaOcr() {
+    if (_illustStore.illusts == null) return;
+    if (fullScreenStore.fullscreen) fullScreenStore.setFullScreen(false);
+    setState(() {
+      _sidebarVisible = true;
+      _sidebarOverlay = _IllustSidebarOverlay.mangaOcr;
+    });
+    _ocrSession.open(_illustStore.currentPage);
+  }
+
+  void _closeSidebarOverlay() {
+    if (_sidebarOverlay == _IllustSidebarOverlay.mangaOcr) {
+      _ocrSession.close();
+    }
+    setState(() => _sidebarOverlay = _IllustSidebarOverlay.none);
+  }
+
+  void _openComments() {
+    if (_showMangaOcr) _ocrSession.close();
+    setState(() {
+      _sidebarVisible = true;
+      _sidebarOverlay = _IllustSidebarOverlay.comments;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     super.build(context);
     return PopScope(
-      canPop: !_showComments,
+      canPop: _sidebarOverlay == _IllustSidebarOverlay.none,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
-        if (_showComments) {
-          setState(() {
-            _showComments = false;
-          });
+        if (_sidebarOverlay != _IllustSidebarOverlay.none) {
+          _closeSidebarOverlay();
         }
       },
       child: Scaffold(
@@ -548,15 +605,19 @@ class _IllustRowPageState extends State<IllustRowPage>
                     behavior: HitTestBehavior.translucent,
                     onTap: () {
                       if (_showComments) {
-                        setState(() {
-                          _showComments = false;
-                        });
+                        _closeSidebarOverlay();
                       }
                     },
                     onDoubleTap: () {
                       // 双击切换侧边栏显示/隐藏
+                      if (_sidebarVisible && _showMangaOcr) {
+                        _ocrSession.close();
+                      }
                       setState(() {
                         _sidebarVisible = !_sidebarVisible;
+                        if (!_sidebarVisible) {
+                          _sidebarOverlay = _IllustSidebarOverlay.none;
+                        }
                       });
                     },
                     child: Focus(
@@ -669,9 +730,7 @@ class _IllustRowPageState extends State<IllustRowPage>
                                 _loadAbout();
                               },
                               onCommentClick: () {
-                                setState(() {
-                                  _showComments = true;
-                                });
+                                _openComments();
                               },
                             ),
                           ),
@@ -679,6 +738,39 @@ class _IllustRowPageState extends State<IllustRowPage>
                         ],
                       ),
                     ),
+                  ),
+                ),
+                // OCR 与翻译侧边栏，与评论一样覆盖在作品详情之上。
+                AnimatedPositioned(
+                  duration: animationDuration,
+                  curve: Curves.easeInOut,
+                  right: (_sidebarVisible && _showMangaOcr) ? 0 : -sidebarWidth,
+                  top: 0,
+                  bottom: 0,
+                  width: sidebarWidth,
+                  child: AnimatedBuilder(
+                    animation: _ocrSession,
+                    builder: (context, _) {
+                      return MangaOcrSidePanel(
+                        key: ValueKey(_ocrSession.currentPage),
+                        controller: _ocrSession.currentController,
+                        title: '漫画 OCR 与翻译',
+                        pageLabel:
+                            '第 ${_ocrSession.currentPage + 1} / ${_illustStore.totalPages} 页',
+                        autoFollowEnabled: _ocrSession.autoFollowEnabled,
+                        onAutoFollowChanged: _ocrSession.setAutoFollowEnabled,
+                        recognitionStarted: _ocrSession.hasStarted,
+                        onStart: _ocrSession.requestCurrent,
+                        onClose: _closeSidebarOverlay,
+                        onCancel: _ocrSession.cancelCurrent,
+                        onRetryTranslation:
+                            () => _ocrSession.requestCurrent(
+                              forceTranslation: true,
+                            ),
+                        onForceOcr:
+                            () => _ocrSession.requestCurrent(forceOcr: true),
+                      );
+                    },
                   ),
                 ),
                 // 评论侧边栏，覆盖在详情侧边栏之上
@@ -699,9 +791,7 @@ class _IllustRowPageState extends State<IllustRowPage>
                       id: data.id,
                       embedded: true,
                       onBack: () {
-                        setState(() {
-                          _showComments = false;
-                        });
+                        _closeSidebarOverlay();
                       },
                     ),
                   ),
@@ -736,8 +826,15 @@ class _IllustRowPageState extends State<IllustRowPage>
                     children: [
                       if (data.pageCount > 1)
                         Observer(builder: (_) => _buildPageIndicator()),
+                      if (Platform.isMacOS || Platform.isWindows) ...[
+                        if (data.pageCount > 1) const SizedBox(width: 8),
+                        _buildMangaOcrButton(),
+                      ],
                       if (fullScreenStore.canFullScreen) ...[
-                        if (data.pageCount > 1) SizedBox(width: 8),
+                        if (data.pageCount > 1 ||
+                            Platform.isMacOS ||
+                            Platform.isWindows)
+                          const SizedBox(width: 8),
                         _buildFullScreenButton(),
                       ],
                     ],
@@ -760,6 +857,10 @@ class _IllustRowPageState extends State<IllustRowPage>
       if (event.logicalKey == LogicalKeyboardKey.escape) {
         if (fullScreenStore.fullscreen) {
           fullScreenStore.setFullScreen(false);
+          return KeyEventResult.handled;
+        }
+        if (_sidebarOverlay != _IllustSidebarOverlay.none) {
+          _closeSidebarOverlay();
           return KeyEventResult.handled;
         }
       }
@@ -1073,6 +1174,58 @@ class _IllustRowPageState extends State<IllustRowPage>
     );
   }
 
+  Widget _buildMangaOcrButton() {
+    return AnimatedBuilder(
+      animation: _ocrSession,
+      builder: (context, _) {
+        final controller = _ocrSession.currentController;
+        final active = _showMangaOcr;
+        final color =
+            controller.stage == MangaOcrStage.failed
+                ? Colors.orangeAccent
+                : active || controller.result != null
+                ? Theme.of(context).colorScheme.primary
+                : Colors.white;
+        return Tooltip(
+          message: active ? '关闭 OCR 与翻译' : '识别并翻译当前页',
+          child: Material(
+            color: Colors.black.withValues(alpha: 0.6),
+            borderRadius: BorderRadius.circular(20),
+            child: InkWell(
+              mouseCursor: SystemMouseCursors.click,
+              borderRadius: BorderRadius.circular(20),
+              onTap: active ? _closeSidebarOverlay : _openMangaOcr,
+              child: SizedBox(
+                width: 30,
+                height: 30,
+                child: Center(
+                  child:
+                      controller.isRunning
+                          ? SizedBox(
+                            width: 15,
+                            height: 15,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              value: controller.progress,
+                              color: color,
+                            ),
+                          )
+                          : Icon(
+                            controller.stage == MangaOcrStage.failed
+                                ? Icons.error_outline
+                                : Icons.translate,
+                            color: color,
+                            size: 16,
+                          ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildPageIndicator() {
     return Observer(
       builder: (context) {
@@ -1141,9 +1294,7 @@ class _IllustRowPageState extends State<IllustRowPage>
                   onTap: () {
                     // 点击左侧区域关闭评论区
                     if (_showComments) {
-                      setState(() {
-                        _showComments = false;
-                      });
+                      _closeSidebarOverlay();
                     }
                   },
                   onLongPress: () {
@@ -1178,32 +1329,33 @@ class _IllustRowPageState extends State<IllustRowPage>
             onTap: () {
               // 点击左侧区域关闭评论区
               if (_showComments) {
-                setState(() {
-                  _showComments = false;
-                });
+                _closeSidebarOverlay();
               }
             },
             onLongPress: () {
               _pressSave(data, 0);
             },
-            child: NullHero(
-              tag: widget.heroString,
-              child: PixivImage(
-                url,
-                localImageInfo: _illustStore.getLocalImageInfo(0),
-                fade: false,
-                placeWidget:
-                    (url != data.previewUrl)
-                        ? PixivImage(
-                          data.previewUrl,
-                          placeWidget: placeWidget,
-                          fade: false,
-                          httpHeaders: {
-                            'cover': '${data.id}',
-                            'quality': quality,
-                          },
-                        )
-                        : placeWidget,
+            child: _withMangaOcrOverlay(
+              index: 0,
+              child: NullHero(
+                tag: widget.heroString,
+                child: PixivImage(
+                  url,
+                  localImageInfo: _illustStore.getLocalImageInfo(0),
+                  fade: false,
+                  placeWidget:
+                      (url != data.previewUrl)
+                          ? PixivImage(
+                            data.previewUrl,
+                            placeWidget: placeWidget,
+                            fade: false,
+                            httpHeaders: {
+                              'cover': '${data.id}',
+                              'quality': quality,
+                            },
+                          )
+                          : placeWidget,
+                ),
               ),
             ),
           );
@@ -1298,7 +1450,33 @@ class _IllustRowPageState extends State<IllustRowPage>
     if (index == 0) {
       child = NullHero(child: child, tag: widget.heroString);
     }
-    return child;
+    return _withMangaOcrOverlay(index: index, child: child);
+  }
+
+  Widget _withMangaOcrOverlay({required int index, required Widget child}) {
+    return AnimatedBuilder(
+      animation: _ocrSession,
+      child: child,
+      builder: (context, image) {
+        if (!_showMangaOcr || _ocrSession.currentPage != index) return image!;
+        final controller = _ocrSession.currentController;
+        final result = controller.result;
+        return Stack(
+          fit: StackFit.passthrough,
+          children: [
+            image!,
+            if (result != null)
+              Positioned.fill(
+                child: MangaOcrOverlay(
+                  result: result,
+                  selectedBlockId: controller.selectedBlockId,
+                  onSelected: controller.selectBlock,
+                ),
+              ),
+          ],
+        );
+      },
+    );
   }
 
   Future _longPressTag(BuildContext context, Tags f) async {

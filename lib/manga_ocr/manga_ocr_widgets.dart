@@ -81,6 +81,13 @@ class MangaOcrSidePanel extends StatefulWidget {
   final VoidCallback onClose;
   final VoidCallback onRetryTranslation;
   final VoidCallback onForceOcr;
+  final VoidCallback? onCancel;
+  final String title;
+  final String? pageLabel;
+  final bool? autoFollowEnabled;
+  final ValueChanged<bool>? onAutoFollowChanged;
+  final VoidCallback? onStart;
+  final bool recognitionStarted;
 
   const MangaOcrSidePanel({
     super.key,
@@ -88,6 +95,13 @@ class MangaOcrSidePanel extends StatefulWidget {
     required this.onClose,
     required this.onRetryTranslation,
     required this.onForceOcr,
+    this.onCancel,
+    this.title = '当前页 OCR 与翻译',
+    this.pageLabel,
+    this.autoFollowEnabled,
+    this.onAutoFollowChanged,
+    this.onStart,
+    this.recognitionStarted = true,
   });
 
   @override
@@ -144,9 +158,16 @@ class _MangaOcrSidePanelState extends State<MangaOcrSidePanel> {
           children: [
             ListTile(
               leading: const Icon(Icons.document_scanner_outlined),
-              title: const Text('当前页 OCR 与翻译'),
+              title: Text(widget.title),
               subtitle:
-                  controller.message.isEmpty ? null : Text(controller.message),
+                  controller.message.isEmpty && widget.pageLabel == null
+                      ? null
+                      : Text(
+                        [
+                          if (widget.pageLabel != null) widget.pageLabel!,
+                          if (controller.message.isNotEmpty) controller.message,
+                        ].join(' · '),
+                      ),
               trailing: IconButton(
                 tooltip: '关闭',
                 onPressed: widget.onClose,
@@ -155,6 +176,15 @@ class _MangaOcrSidePanelState extends State<MangaOcrSidePanel> {
             ),
             if (controller.isRunning)
               LinearProgressIndicator(value: controller.progress),
+            if (widget.autoFollowEnabled != null &&
+                widget.onAutoFollowChanged != null)
+              SwitchListTile.adaptive(
+                dense: true,
+                title: const Text('随页面自动识别翻译'),
+                subtitle: const Text('滚动到下一页并停稳后自动处理'),
+                value: widget.autoFollowEnabled!,
+                onChanged: widget.onAutoFollowChanged,
+              ),
             if (controller.error != null)
               Padding(
                 padding: const EdgeInsets.all(12),
@@ -168,7 +198,15 @@ class _MangaOcrSidePanelState extends State<MangaOcrSidePanel> {
                   blocks.isEmpty
                       ? Center(
                         child: Text(
-                          controller.isRunning ? '正在自动检测整页文字…' : '当前页未检测到文字',
+                          !widget.recognitionStarted
+                              ? '点击下方按钮开始识别当前页\n图片只在本地进行 OCR'
+                              : controller.isRunning
+                              ? '正在自动检测整页文字…'
+                              : controller.stage == MangaOcrStage.idle ||
+                                  controller.stage == MangaOcrStage.cancelled
+                              ? '当前页等待识别'
+                              : '当前页未检测到文字',
+                          textAlign: TextAlign.center,
                         ),
                       )
                       : ListView.separated(
@@ -274,11 +312,23 @@ class _MangaOcrSidePanelState extends State<MangaOcrSidePanel> {
                 spacing: 8,
                 alignment: WrapAlignment.center,
                 children: [
-                  if (controller.isRunning)
+                  if (!widget.recognitionStarted && widget.onStart != null)
+                    FilledButton.icon(
+                      onPressed: widget.onStart,
+                      icon: const Icon(Icons.document_scanner_outlined),
+                      label: const Text('开始识别并翻译'),
+                    )
+                  else if (controller.isRunning)
                     OutlinedButton.icon(
-                      onPressed: controller.cancel,
+                      onPressed: widget.onCancel ?? controller.cancel,
                       icon: const Icon(Icons.stop),
                       label: const Text('取消'),
+                    )
+                  else if (controller.result == null && widget.onStart != null)
+                    FilledButton.icon(
+                      onPressed: widget.onStart,
+                      icon: const Icon(Icons.document_scanner_outlined),
+                      label: const Text('识别当前页'),
                     )
                   else ...[
                     OutlinedButton.icon(
