@@ -37,6 +37,7 @@ import 'package:pixez/page/hello/recom/recom_manga_page.dart';
 import 'package:pixez/page/hello/setting/data_export_page.dart';
 import 'package:pixez/page/hello/setting/setting_quality_page.dart';
 import 'package:pixez/page/hello/setting/ai_settings_page.dart';
+import 'package:pixez/page/hello/setting/manga_ocr_settings_page.dart';
 import 'package:pixez/page/history/history_page.dart';
 import 'package:pixez/page/login/login_page.dart';
 import 'package:pixez/page/novel/history/novel_history_page.dart';
@@ -248,6 +249,17 @@ class _SettingPageState extends State<SettingPage> {
                       subtitle: const Text('翻译服务与提示词'),
                       onTap: () => Leader.push(context, const AiSettingsPage()),
                     ),
+                    if (Platform.isMacOS || Platform.isWindows)
+                      ListTile(
+                        leading: const Icon(Icons.document_scanner_outlined),
+                        title: const Text('漫画 OCR 模型'),
+                        subtitle: const Text('本地检测、识别与模型管理'),
+                        onTap:
+                            () => Leader.push(
+                              context,
+                              const MangaOcrSettingsPage(),
+                            ),
+                      ),
                     ListTile(
                       leading: Icon(Icons.bookmark),
                       title: Text(I18n.of(context).favorited_tag),

@@ -1,0 +1,53 @@
+{
+  "manifestVersion": 1,
+  "packages": [
+    {
+      "engineId": "ctd_onnx",
+      "version": "beta-0.3",
+      "architecture": "ONNX",
+      "license": "GPL-3.0 code; model provenance requires distribution review",
+      "upstream": "https://github.com/dmMaze/comic-text-detector",
+      "files": [
+        {
+          "name": "comictextdetector.pt.onnx",
+          "downloadUrl": "https://github.com/zyddnys/manga-image-translator/releases/download/beta-0.3/comictextdetector.pt.onnx",
+          "size": 94669756,
+          "sha256": "1a86ace74961413cbd650002e7bb4dcec4980ffa21b2f19b86933372071d718f"
+        }
+      ]
+    },
+    {
+      "engineId": "baberu_ocr_int4",
+      "version": "step295000-int4-int8",
+      "architecture": "ONNX",
+      "license": "Apache-2.0",
+      "upstream": "https://huggingface.co/genshiai-daichi/baberu-ocr",
+      "files": [
+        {
+          "name": "vision_int4.onnx",
+          "downloadUrl": "https://huggingface.co/genshiai-daichi/baberu-ocr/resolve/main/onnx/vision_int4.onnx",
+          "size": 52293486,
+          "sha256": "9526bcf99eb8de805df7ea2f66b385cfcbcb5dff0e99a5dcfb02bdb2d4182bde"
+        },
+        {
+          "name": "decoder_prefill_int8.onnx",
+          "downloadUrl": "https://huggingface.co/genshiai-daichi/baberu-ocr/resolve/main/onnx/decoder_prefill_int8.onnx",
+          "size": 35133596,
+          "sha256": "4f8d28d4e5e8b6c7f3a4510663aa0a9199a7eec06bcb1dc0afb3ca571494e97f"
+        },
+        {
+          "name": "decoder_step_int8.onnx",
+          "downloadUrl": "https://huggingface.co/genshiai-daichi/baberu-ocr/resolve/main/onnx/decoder_step_int8.onnx",
+          "size": 33929034,
+          "sha256": "2eaf792ca70b67e55140ef0bcfbfc3c3b1e07d72ca277dcc46aae27c81f27ac8"
+        },
+        {
+          "name": "vocab.json",
+          "downloadUrl": "https://huggingface.co/genshiai-daichi/baberu-ocr/resolve/main/tokenizer/vocab.json",
+          "size": 130761,
+          "sha256": "681de4eb83154a397af49e2ddae4705041b12a22e16fe00860b829e889e5f47c"
+        }
+      ]
+    }
+  ]
+}

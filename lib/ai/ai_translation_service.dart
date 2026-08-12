@@ -4,6 +4,7 @@ import 'package:pixez/ai/ai_result_cache.dart';
 import 'package:pixez/ai/ai_settings_store.dart';
 import 'package:pixez/custom/log.dart';
 import 'package:pixez/ai/html_tag_protector.dart';
+import 'package:pixez/manga_ocr/manga_translation_segments.dart';
 
 class IllustTranslation {
   final String title;
@@ -201,6 +202,41 @@ class AiTranslationService {
           '\n\n输入由形如 ⟪PXEZ_NOVEL_SEGMENT_0000⟫ 的不可变分段标记和正文构成。每个标记必须恰好保留一次，字符和顺序完全不变；每个标记后的内容只翻译对应的一行正文。不要合并、删除、添加或移动标记，不要输出 Markdown 代码块或解释。',
     );
     return _restoreNovelBatch(_stripCodeFence(translated), markers);
+  }
+
+  /// 批量翻译漫画整页文字。每个块使用稳定 ID 标记；模型漏掉的块会单独补译。
+  Future<Map<String, String>> translateMangaPage({
+    required String imageSha256,
+    required int pageIndex,
+    required String targetLanguage,
+    required Map<String, String> blocks,
+    bool forceRefresh = false,
+  }) async {
+    if (blocks.isEmpty) return const {};
+    final batch = MangaTranslationBatch.fromBlocks(blocks);
+    final sourceText = batch.sourceText;
+    final translated = await translateCached(
+      sceneId: AiPromptScenes.mangaPageTranslation,
+      resourceKey: 'manga:$imageSha256:$pageIndex:$targetLanguage:page-batch',
+      sourceText: sourceText,
+      variables: {'text': sourceText, 'target_language': targetLanguage},
+      systemSuffix:
+          '\n\n形如 ⟪PXEZ_MANGA_BLOCK_ID⟫ 的文本是不可变分段标记。每个标记必须恰好保留一次、字符完全一致且顺序不变；只翻译标记后的对应文字。不要输出 Markdown 代码块或解释。',
+      forceRefresh: forceRefresh,
+    );
+    final result = batch.restore(_stripCodeFence(translated));
+    for (final entry in blocks.entries) {
+      if ((result[entry.key] ?? '').trim().isNotEmpty) continue;
+      result[entry.key] = await translateCached(
+        sceneId: AiPromptScenes.mangaPageTranslation,
+        resourceKey:
+            'manga:$imageSha256:$pageIndex:$targetLanguage:block:${entry.key}',
+        sourceText: entry.value,
+        variables: {'text': entry.value, 'target_language': targetLanguage},
+        forceRefresh: forceRefresh,
+      );
+    }
+    return result;
   }
 
   /// 读取已完成的小说片段翻译，不会发起新的 AI 请求。

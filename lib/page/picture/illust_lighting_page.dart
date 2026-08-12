@@ -353,6 +353,13 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  if ((Platform.isMacOS || Platform.isWindows) &&
+                      _illustStore.illusts != null)
+                    IconButton(
+                      tooltip: '识别并翻译当前页',
+                      icon: const Icon(Icons.document_scanner_outlined),
+                      onPressed: _openMangaOcr,
+                    ),
                   Observer(
                     builder: (_) {
                       if (!_illustStore.hasOriginal) {
@@ -442,6 +449,22 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
           ),
         ),
       ],
+    );
+  }
+
+  void _openMangaOcr() {
+    final illust = _illustStore.illusts;
+    if (illust == null) return;
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder:
+            (_) => PhotoZoomPage(
+              index: _illustStore.currentPage,
+              illusts: illust,
+              illustStore: _illustStore,
+              initiallyOpenMangaOcr: true,
+            ),
+      ),
     );
   }
 

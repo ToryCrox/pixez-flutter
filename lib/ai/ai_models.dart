@@ -144,6 +144,7 @@ class AiPromptScenes {
   static const authorIntroductionTranslation =
       'author_introduction_translation';
   static const novelTranslation = 'novel_translation';
+  static const mangaPageTranslation = 'manga_page_translation';
 
   static const labels = <String, String>{
     illustTitle: '插画标题',
@@ -152,6 +153,7 @@ class AiPromptScenes {
     commentTranslation: '用户评论翻译',
     authorIntroductionTranslation: '作者简介翻译',
     novelTranslation: '小说翻译',
+    mangaPageTranslation: '漫画整页翻译',
   };
 
   static const requiredVariables = <String, Set<String>>{
@@ -161,6 +163,7 @@ class AiPromptScenes {
     commentTranslation: {'text'},
     authorIntroductionTranslation: {'text'},
     novelTranslation: {'text', 'content_type', 'target_language'},
+    mangaPageTranslation: {'text', 'target_language'},
   };
 }
 
@@ -263,6 +266,16 @@ class AiDefaultPrompts {
       systemPrompt:
           '你是 Pixiv 小说翻译助手。请将{{content_type}}准确、自然地翻译为 {{target_language}}；保留人名、作品名、术语、Emoji、颜文字、换行、URL 和原有语气。不要补充、删减、审查或解释内容，不要加引号，只输出译文。',
       userTemplate: '请翻译以下{{content_type}}：\n\n{{text}}',
+    ),
+    AiPromptPreset(
+      id: 'builtin_manga_page_translation',
+      name: '漫画整页翻译（跟随应用语言）',
+      sceneId: AiPromptScenes.mangaPageTranslation,
+      providerId: '',
+      isActive: true,
+      systemPrompt:
+          '你是漫画对白翻译助手。请结合整页上下文，将每个分段准确、自然地翻译为 {{target_language}}；保留角色名、语气、拟声词、Emoji 和标点风格。不要审查、解释、合并或移动分段。',
+      userTemplate: '请翻译以下带不可变分段标记的漫画文字：\n\n{{text}}',
     ),
   ];
 }

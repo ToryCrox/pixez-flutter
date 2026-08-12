@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:bot_toast/bot_toast.dart';
@@ -13,6 +14,10 @@ import 'package:pixez/er/hoster.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/models/illust.dart';
 import 'package:pixez/page/picture/illust_store.dart';
+import 'package:pixez/manga_ocr/manga_ocr_controller.dart';
+import 'package:pixez/manga_ocr/manga_ocr_pipeline.dart';
+import 'package:pixez/manga_ocr/manga_ocr_widgets.dart';
+import 'package:pixez/manga_ocr/manga_ocr_preferences.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path/path.dart' as p;
 
@@ -20,12 +25,14 @@ class PhotoZoomPage extends StatefulWidget {
   final int index;
   final Illusts illusts;
   final IllustStore illustStore;
+  final bool initiallyOpenMangaOcr;
 
   const PhotoZoomPage({
     Key? key,
     required this.index,
     required this.illusts,
     required this.illustStore,
+    this.initiallyOpenMangaOcr = false,
   }) : super(key: key);
 
   @override
@@ -36,6 +43,8 @@ class _PhotoZoomPageState extends State<PhotoZoomPage> {
   late Illusts _illusts;
   int _index = 0;
   Map<int, String?> _localPaths = {};
+  late final MangaOcrController _ocrController;
+  bool _ocrPanelVisible = false;
 
   int get _pageCount => widget.illustStore.displayPageCount;
 
@@ -56,6 +65,9 @@ class _PhotoZoomPageState extends State<PhotoZoomPage> {
 
   @override
   void initState() {
+    _ocrController = MangaOcrController(
+      MangaOcrPipeline(translationService: aiTranslationService),
+    );
     _loadSource = userSetting.zoomQuality == 1;
     _illusts = widget.illusts;
     _index = widget.index;
@@ -67,6 +79,12 @@ class _PhotoZoomPageState extends State<PhotoZoomPage> {
     super.initState();
     initCache();
     _loadLocalPaths();
+    if (widget.initiallyOpenMangaOcr &&
+        (Platform.isMacOS || Platform.isWindows)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _openOcrPanel();
+      });
+    }
   }
 
   Future<void> _loadLocalPaths() async {
@@ -103,6 +121,8 @@ class _PhotoZoomPageState extends State<PhotoZoomPage> {
 
   @override
   void dispose() {
+    if (_ocrController.isRunning) unawaited(_ocrController.cancel());
+    _ocrController.dispose();
     if (_fullScreen)
       SystemChrome.setEnabledSystemUIMode(
         SystemUiMode.manual,
@@ -181,6 +201,7 @@ class _PhotoZoomPageState extends State<PhotoZoomPage> {
                     ),
                   ),
                 ),
+                ..._buildOcrLayers(),
               ],
             ),
           );
@@ -219,6 +240,7 @@ class _PhotoZoomPageState extends State<PhotoZoomPage> {
                       _index = index;
                       shareShow = false;
                     });
+                    _ocrController.clearForPageChange();
                     var file = await pixivCacheManager.getFileFromCache(nowUrl);
                     if (file != null && mounted)
                       setState(() {
@@ -256,6 +278,7 @@ class _PhotoZoomPageState extends State<PhotoZoomPage> {
                     ),
                   ),
                 ),
+                ..._buildOcrLayers(),
               ],
             ),
           );
@@ -270,6 +293,78 @@ class _PhotoZoomPageState extends State<PhotoZoomPage> {
   bool shareShow = false;
   bool _loadSource = false;
   bool _fullScreen = false;
+
+  List<Widget> _buildOcrLayers() {
+    if (!_ocrPanelVisible) return const [];
+    return [
+      AnimatedBuilder(
+        animation: _ocrController,
+        builder: (context, _) {
+          final result = _ocrController.result;
+          if (result == null) return const SizedBox.shrink();
+          return Positioned.fill(
+            right: MediaQuery.of(context).size.width > 700 ? 420 : 0,
+            child: MangaOcrOverlay(
+              result: result,
+              selectedBlockId: _ocrController.selectedBlockId,
+              onSelected: _ocrController.selectBlock,
+            ),
+          );
+        },
+      ),
+      Positioned(
+        right: 0,
+        top: 0,
+        bottom: 0,
+        width: MediaQuery.of(context).size.width.clamp(280, 420).toDouble(),
+        child: MangaOcrSidePanel(
+          controller: _ocrController,
+          onClose: () => setState(() => _ocrPanelVisible = false),
+          onRetryTranslation: () => _startOcr(forceTranslation: true),
+          onForceOcr: () => _startOcr(forceOcr: true),
+        ),
+      ),
+    ];
+  }
+
+  Future<void> _openOcrPanel() async {
+    setState(() => _ocrPanelVisible = true);
+    if (_ocrController.result == null && !_ocrController.isRunning) {
+      await _startOcr();
+    }
+  }
+
+  Future<void> _startOcr({
+    bool forceOcr = false,
+    bool forceTranslation = false,
+  }) async {
+    final targetLanguage = Localizations.localeOf(context).toLanguageTag();
+    final preferences = await MangaOcrPreferences.load();
+    String? imagePath = _localPaths[_index];
+    if (imagePath == null || !await File(imagePath).exists()) {
+      final url = _urlFor(_index);
+      if (url.isEmpty) {
+        _ocrController.clearForPageChange();
+        return;
+      }
+      final file = await pixivCacheManager.getSingleFile(
+        url,
+        headers: Hoster.header(url: url),
+      );
+      imagePath = file.path;
+    }
+    if (!mounted) return;
+    await _ocrController.analyze(
+      imagePath: imagePath,
+      pageIndex: _index,
+      targetLanguage: targetLanguage,
+      forceOcr: forceOcr,
+      forceTranslation: forceTranslation,
+      detectorId: preferences.detectorId,
+      recognizerId: preferences.recognizerId,
+      options: preferences.options,
+    );
+  }
 
   Widget _buildBottom(BuildContext context) {
     if (_fullScreen) {
@@ -328,6 +423,15 @@ class _PhotoZoomPageState extends State<PhotoZoomPage> {
                     Navigator.of(context).pop();
                   },
                 ),
+                if (Platform.isMacOS || Platform.isWindows)
+                  IconButton(
+                    tooltip: '识别并翻译当前页',
+                    icon: const Icon(
+                      Icons.document_scanner_outlined,
+                      color: Colors.white,
+                    ),
+                    onPressed: _openOcrPanel,
+                  ),
                 IconButton(
                   icon: Icon(Icons.fullscreen, color: Colors.white),
                   onPressed: () {
