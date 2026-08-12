@@ -100,6 +100,37 @@ class AiTranslationService {
     forceRefresh: forceRefresh,
   );
 
+  Future<String> translateAuthorIntroduction({
+    required int userId,
+    required String html,
+    bool forceRefresh = false,
+  }) async {
+    final protection = HtmlTagProtection.protect(html);
+    final translated = await translateCached(
+      sceneId: AiPromptScenes.authorIntroductionTranslation,
+      resourceKey: 'user:$userId:introduction',
+      sourceText: protection.protectedText,
+      variables: {'text': protection.protectedText},
+      systemSuffix:
+          '\n\n输入中形如 ⟪PXEZ_HTML_TAG_0000⟫ 的文本是不可变 HTML 标签占位符。必须让每个占位符恰好出现一次、字符完全一致且顺序不变；只翻译占位符之外的可见文本。不要输出 Markdown 代码块。',
+      forceRefresh: forceRefresh,
+    );
+    return protection.restore(_stripCodeFence(translated));
+  }
+
+  Future<String?> cachedAuthorIntroduction({
+    required int userId,
+    required String html,
+  }) async {
+    final protection = HtmlTagProtection.protect(html);
+    final cached = await _readCachedResult(
+      sceneId: AiPromptScenes.authorIntroductionTranslation,
+      resourceKey: 'user:$userId:introduction',
+      sourceText: protection.protectedText,
+    );
+    return cached == null ? null : protection.restore(_stripCodeFence(cached));
+  }
+
   Future<void> ensureSceneReady(String sceneId) async {
     if (!settings.initialized) await settings.init();
     settings.requireActivePrompt(sceneId);

@@ -141,6 +141,8 @@ class AiPromptScenes {
   static const illustCaption = 'illust_caption';
   static const tagTranslation = 'tag_translation';
   static const commentTranslation = 'comment_translation';
+  static const authorIntroductionTranslation =
+      'author_introduction_translation';
   static const novelTranslation = 'novel_translation';
 
   static const labels = <String, String>{
@@ -148,6 +150,7 @@ class AiPromptScenes {
     illustCaption: '插画介绍',
     tagTranslation: '标签翻译',
     commentTranslation: '用户评论翻译',
+    authorIntroductionTranslation: '作者简介翻译',
     novelTranslation: '小说翻译',
   };
 
@@ -156,6 +159,7 @@ class AiPromptScenes {
     illustCaption: {'text'},
     tagTranslation: {'tag_name', 'official_translation'},
     commentTranslation: {'text'},
+    authorIntroductionTranslation: {'text'},
     novelTranslation: {'text', 'content_type', 'target_language'},
   };
 }
@@ -239,6 +243,16 @@ class AiDefaultPrompts {
       systemPrompt:
           '你是 Pixiv 用户评论翻译助手。请判断原文语言并将评论准确、自然地翻译为简体中文；保留用户名、作品名、角色名、网络用语、颜文字、Emoji、换行和原有语气；对于俚语、省略和口语表达，优先传达其真实含义。不要补充、删减、审查或解释内容。若原文已经是简体中文，请原样输出。不要加引号，只输出译文。',
       userTemplate: '请翻译以下用户评论：\n\n{{text}}',
+    ),
+    AiPromptPreset(
+      id: 'builtin_author_introduction_translation_zh_cn',
+      name: '作者简介翻译（简体中文）',
+      sceneId: AiPromptScenes.authorIntroductionTranslation,
+      providerId: '',
+      isActive: true,
+      systemPrompt:
+          '你是 Pixiv 作者简介翻译助手。请判断原文语言并将简介准确、自然地翻译为简体中文；保留作者名、作品名、角色名、URL、Emoji、颜文字、换行和原有语气。不要补充、删减、审查或解释内容。若原文已经是简体中文，请原样输出。不要加引号，只输出译文。',
+      userTemplate: '请翻译以下作者简介：\n\n{{text}}',
     ),
     AiPromptPreset(
       id: 'builtin_novel_translation',

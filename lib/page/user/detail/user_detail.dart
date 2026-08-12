@@ -16,12 +16,15 @@
 
 import 'dart:io';
 
+import 'package:bot_toast/bot_toast.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:pixez/component/selectable_html.dart';
 import 'package:pixez/i18n.dart';
+import 'package:pixez/main.dart';
 import 'package:pixez/models/user_detail.dart';
 import 'package:pixez/page/follow/follow_list.dart';
+import 'package:pixez/page/hello/setting/ai_settings_page.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
@@ -44,12 +47,108 @@ class UserDetailPage extends StatefulWidget {
 class _UserDetailPageState extends State<UserDetailPage> {
   bool _isNovel = false;
   bool _isNewNested = false;
+  String _translatedComment = '';
+  String _translationSource = '';
+  bool _isTranslatingComment = false;
 
   @override
   void initState() {
     _isNewNested = widget.isNewNested;
     _isNovel = widget.isNovel ?? false;
     super.initState();
+    _hydrateCachedComment();
+  }
+
+  @override
+  void didUpdateWidget(covariant UserDetailPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.userDetail?.user.id != widget.userDetail?.user.id ||
+        oldWidget.userDetail?.user.comment != widget.userDetail?.user.comment) {
+      _translatedComment = '';
+      _translationSource = '';
+      _hydrateCachedComment();
+    }
+  }
+
+  String get _comment => widget.userDetail?.user.comment?.trim() ?? '';
+
+  Future<void> _hydrateCachedComment() async {
+    final detail = widget.userDetail;
+    final comment = _comment;
+    if (detail == null || comment.isEmpty) return;
+    final translation = await aiTranslationService.cachedAuthorIntroduction(
+      userId: detail.user.id,
+      html: comment,
+    );
+    if (mounted &&
+        widget.userDetail?.user.id == detail.user.id &&
+        _comment == comment &&
+        translation != null) {
+      setState(() {
+        _translatedComment = translation;
+        _translationSource = comment;
+      });
+    }
+  }
+
+  Future<void> _translateComment() async {
+    final detail = widget.userDetail;
+    final comment = _comment;
+    if (detail == null || comment.isEmpty || _isTranslatingComment) return;
+    setState(() => _isTranslatingComment = true);
+    try {
+      final translation = await aiTranslationService
+          .translateAuthorIntroduction(
+            userId: detail.user.id,
+            html: comment,
+            forceRefresh:
+                _translatedComment.isNotEmpty && _translationSource == comment,
+          );
+      if (mounted &&
+          widget.userDetail?.user.id == detail.user.id &&
+          _comment == comment) {
+        setState(() {
+          _translatedComment = translation;
+          _translationSource = comment;
+        });
+      }
+    } catch (error) {
+      _showAiError(error);
+    } finally {
+      if (mounted) setState(() => _isTranslatingComment = false);
+    }
+  }
+
+  void _showAiError(Object error) {
+    if (!mounted) return;
+    final message = error.toString();
+    if (message.contains('请前往 AI 设置')) {
+      showDialog<void>(
+        context: context,
+        builder:
+            (dialogContext) => AlertDialog(
+              title: const Text('尚未配置 AI 服务'),
+              content: Text(message),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: const Text('取消'),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    Navigator.pop(dialogContext);
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const AiSettingsPage()),
+                    );
+                  },
+                  child: const Text('前往设置'),
+                ),
+              ],
+            ),
+      );
+      return;
+    }
+    BotToast.showText(text: message);
   }
 
   @override
@@ -97,13 +196,49 @@ class _UserDetailPageState extends State<UserDetailPage> {
                 child: Padding(
                   padding: const EdgeInsets.all(8.0),
                   child:
-                      widget.userDetail?.user.comment != null &&
-                              widget.userDetail?.user.comment!.isNotEmpty ==
-                                  true
-                          ? SelectableHtml(
-                            data: widget.userDetail!.user.comment!,
-                          )
-                          : SelectableHtml(data: '~'),
+                      _comment.isEmpty
+                          ? SelectableHtml(data: '~')
+                          : Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: TextButton.icon(
+                                  style: TextButton.styleFrom(
+                                    visualDensity: VisualDensity.compact,
+                                  ),
+                                  onPressed:
+                                      _isTranslatingComment
+                                          ? null
+                                          : _translateComment,
+                                  icon:
+                                      _isTranslatingComment
+                                          ? const SizedBox.square(
+                                            dimension: 14,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                            ),
+                                          )
+                                          : const Icon(
+                                            Icons.auto_awesome_outlined,
+                                            size: 16,
+                                          ),
+                                  label: Text(
+                                    _translatedComment.isNotEmpty &&
+                                            _translationSource == _comment
+                                        ? '重新 AI ${I18n.of(context).translate}'
+                                        : 'AI ${I18n.of(context).translate}',
+                                  ),
+                                ),
+                              ),
+                              SelectableHtml(data: _comment),
+                              if (_translatedComment.isNotEmpty &&
+                                  _translationSource == _comment) ...[
+                                const Divider(),
+                                SelectableHtml(data: _translatedComment),
+                              ],
+                            ],
+                          ),
                 ),
               ),
             ),
