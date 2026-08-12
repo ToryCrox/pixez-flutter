@@ -14,7 +14,7 @@
 
 `manga-ocr-helper` 是 PixEz 源码内构建的本地 Rust 子进程，使用 JSON Lines 协议调用 ONNX Runtime。helper 本身不包含 CTD 或 Baberu 权重；模型依据 `assets/manga_ocr/model_manifest.json` 首次使用时下载。
 
-- `manga-ocr-helper-macos-arm64`：Apple Silicon arm64，签名前 SHA-256 `deed71845a2a5baca44361ed894c369ca8c11986ccb409995493724f3b90b336`（应用包内副本签名后哈希会变化）
+- `manga-ocr-helper-macos-arm64`：Apple Silicon arm64，签名前 SHA-256 `0065c7402c3d16b04afcfafd46a6e16dcd72d4e0fbfa0755c62148997f464c75`（应用包内副本签名后哈希会变化）
 - 构建来源：`native/manga_ocr_helper/`，命令 `./tool/build_manga_ocr_helper.sh`
 - Rust/ONNX Runtime：Rust 1.92.0，`ort 2.0.0-rc.12`；当前产物静态包含 ONNX Runtime，不依赖外置 dylib
 - 签名：Flutter embed 后由 `macos/Runner/sign_manga_ocr_helper.sh` 使用 Xcode 的 `EXPANDED_CODE_SIGN_IDENTITY` 签 helper 并重新签 `App.framework`，随后由 Xcode 签外层 app

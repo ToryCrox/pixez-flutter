@@ -85,6 +85,17 @@ impl NormalizedRect {
             intersection / union
         }
     }
+    fn overlap_smaller_ratio(self, other: Self) -> f32 {
+        let w = (self.right.min(other.right) - self.left.max(other.left)).max(0.0);
+        let h = (self.bottom.min(other.bottom) - self.top.max(other.top)).max(0.0);
+        let intersection = w * h;
+        let smaller_area = self.area().min(other.area());
+        if smaller_area <= 0.0 {
+            0.0
+        } else {
+            intersection / smaller_area
+        }
+    }
     fn union(self, other: Self) -> Self {
         Self {
             left: self.left.min(other.left),
@@ -342,6 +353,20 @@ fn analyze_page(
         .get("tileOverlap")
         .and_then(Value::as_f64)
         .unwrap_or(0.10) as f32;
+    let detector_confidence = (pre
+        .get("detectorConfidenceThreshold")
+        .and_then(Value::as_f64)
+        .unwrap_or(0.28) as f32)
+        .clamp(0.05, 0.95);
+    let high_recall_detection = pre
+        .get("highRecallDetection")
+        .and_then(Value::as_bool)
+        .unwrap_or(true);
+    let high_recall_max_tiles = pre
+        .get("highRecallMaxTiles")
+        .and_then(Value::as_u64)
+        .unwrap_or(4)
+        .clamp(1, 9) as usize;
     let padding = pre
         .get("cropPadding")
         .and_then(Value::as_f64)
@@ -355,14 +380,23 @@ fn analyze_page(
         .and_then(Value::as_f64)
         .unwrap_or(0.55) as f32;
 
-    let tiles = make_tile_specs(width, height, max_edge, long_ratio, overlap);
+    let mut tiles = make_tile_specs(width, height, max_edge, long_ratio, overlap);
+    let rescue_tiles = if high_recall_detection && width.max(height) > CTD_INPUT {
+        make_high_recall_tile_specs(width, height, overlap, high_recall_max_tiles)
+    } else {
+        Vec::new()
+    };
+    let rescue_tile_count = rescue_tiles.len();
+    tiles.extend(rescue_tiles);
     progress(
         stdout,
         &request.request_id,
         "tiling",
         tiles.len(),
         tiles.len(),
-        if tiles.len() > 1 {
+        if rescue_tile_count > 0 {
+            "高召回检测补扫分块完成"
+        } else if tiles.len() > 1 {
             "长图分块完成"
         } else {
             "工作图完成"
@@ -381,7 +415,11 @@ fn analyze_page(
         );
         // 一次只保留一个工作分块，检测完成后立即释放。
         let tile = materialize_tile(&original, *tile_spec, max_edge);
-        detections.extend(detect_tile(&mut models.detector, &tile)?);
+        detections.extend(detect_tile(
+            &mut models.detector,
+            &tile,
+            detector_confidence,
+        )?);
     }
     detections = merge_detections(detections, duplicate_iou);
     progress(
@@ -560,6 +598,64 @@ fn make_tile_specs(
     result
 }
 
+/// 将页面分成少量重叠网格，以更大的实际字形尺寸补扫 CTD。
+///
+/// 常规整页检测仍然保留，用来覆盖跨格的大型文字；补扫最多四块，
+/// 在提升小字/竖排召回率的同时限制额外推理成本。
+fn make_high_recall_tile_specs(
+    width: u32,
+    height: u32,
+    overlap: f32,
+    max_tiles: usize,
+) -> Vec<TileSpec> {
+    if max_tiles <= 1 || (width <= CTD_INPUT && height <= CTD_INPUT) {
+        return Vec::new();
+    }
+    let mut best = (1usize, 1usize, f32::INFINITY);
+    for columns in 1..=max_tiles {
+        for rows in 1..=(max_tiles / columns).max(1) {
+            let longest_tile_edge =
+                (width as f32 / columns as f32).max(height as f32 / rows as f32);
+            if longest_tile_edge < best.2 {
+                best = (columns, rows, longest_tile_edge);
+            }
+        }
+    }
+    if best.0 == 1 && best.1 == 1 {
+        return Vec::new();
+    }
+    let overlap = overlap.clamp(0.0, 0.3);
+    let mut result = Vec::with_capacity(best.0 * best.1);
+    for row in 0..best.1 {
+        for column in 0..best.0 {
+            let cell_left = column as f32 / best.0 as f32;
+            let cell_top = row as f32 / best.1 as f32;
+            let cell_right = (column + 1) as f32 / best.0 as f32;
+            let cell_bottom = (row + 1) as f32 / best.1 as f32;
+            let expand_x = (cell_right - cell_left) * overlap / 2.0;
+            let expand_y = (cell_bottom - cell_top) * overlap / 2.0;
+            let bounds = NormalizedRect {
+                left: (cell_left - expand_x).max(0.0),
+                top: (cell_top - expand_y).max(0.0),
+                right: (cell_right + expand_x).min(1.0),
+                bottom: (cell_bottom + expand_y).min(1.0),
+            };
+            let x = (bounds.left * width as f32).floor() as u32;
+            let y = (bounds.top * height as f32).floor() as u32;
+            let right = (bounds.right * width as f32).ceil() as u32;
+            let bottom = (bounds.bottom * height as f32).ceil() as u32;
+            result.push(TileSpec {
+                bounds,
+                x,
+                y,
+                width: right.saturating_sub(x).max(1),
+                height: bottom.saturating_sub(y).max(1),
+            });
+        }
+    }
+    result
+}
+
 fn materialize_tile(original: &DynamicImage, spec: TileSpec, max_edge: u32) -> Tile {
     let crop = original.crop_imm(spec.x, spec.y, spec.width, spec.height);
     let scale = (max_edge as f32 / spec.width.max(spec.height) as f32).min(1.0);
@@ -573,7 +669,11 @@ fn materialize_tile(original: &DynamicImage, spec: TileSpec, max_edge: u32) -> T
     }
 }
 
-fn detect_tile(session: &mut Session, tile: &Tile) -> Result<Vec<Detection>> {
+fn detect_tile(
+    session: &mut Session,
+    tile: &Tile,
+    confidence_threshold: f32,
+) -> Result<Vec<Detection>> {
     let (width, height) = tile.image.dimensions();
     let ratio = (CTD_INPUT as f32 / width.max(height) as f32).min(1.0);
     let resized_width = ((width as f32 * ratio).round() as u32).max(1);
@@ -613,7 +713,7 @@ fn detect_tile(session: &mut Session, tile: &Tile) -> Result<Vec<Detection>> {
     let mut candidates = Vec::new();
     for row in 0..rows {
         let values = &raw[row * columns..(row + 1) * columns];
-        if values[4] <= 0.4 {
+        if values[4] <= confidence_threshold {
             continue;
         }
         let (class_id, class_score) = values[5..]
@@ -623,7 +723,7 @@ fn detect_tile(session: &mut Session, tile: &Tile) -> Result<Vec<Detection>> {
             .max_by(|a, b| a.1.total_cmp(&b.1))
             .unwrap();
         let confidence = values[4] * class_score;
-        if confidence <= 0.4 {
+        if confidence <= confidence_threshold {
             continue;
         }
         let x1 = (values[0] - values[2] / 2.0).clamp(0.0, resized_width as f32);
@@ -671,7 +771,9 @@ fn merge_detections(mut values: Vec<Detection>, threshold: f32) -> Vec<Detection
     let mut result: Vec<Detection> = Vec::new();
     for value in values {
         if let Some(existing) = result.iter_mut().find(|existing| {
-            existing.class_id == value.class_id && existing.bounds.iou(value.bounds) >= threshold
+            existing.class_id == value.class_id
+                && (existing.bounds.iou(value.bounds) >= threshold
+                    || existing.bounds.overlap_smaller_ratio(value.bounds) >= 0.75)
         }) {
             existing.bounds = existing.bounds.union(value.bounds);
             existing.confidence = existing.confidence.max(value.confidence);
@@ -937,4 +1039,71 @@ fn emit(stdout: &Arc<Mutex<io::Stdout>>, value: Value) {
     let mut stdout = stdout.lock().unwrap();
     let _ = writeln!(stdout, "{}", value);
     let _ = stdout.flush();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn high_recall_tiles_split_a_regular_large_page_into_a_bounded_grid() {
+        let tiles = make_high_recall_tile_specs(1434, 1747, 0.10, 4);
+        assert_eq!(tiles.len(), 4);
+        assert!(
+            tiles
+                .iter()
+                .all(|tile| tile.width < 900 && tile.height < 1000)
+        );
+        assert!(tiles.iter().any(|tile| tile.x == 0 && tile.y == 0));
+        assert!(
+            tiles
+                .iter()
+                .any(|tile| { tile.x + tile.width == 1434 && tile.y + tile.height == 1747 })
+        );
+    }
+
+    #[test]
+    fn high_recall_tiles_are_not_needed_for_a_small_page() {
+        assert!(make_high_recall_tile_specs(800, 1000, 0.10, 4).is_empty());
+    }
+
+    #[test]
+    fn high_recall_tiles_keep_overlap_between_neighbours() {
+        let tiles = make_high_recall_tile_specs(1600, 1200, 0.10, 4);
+        let left = tiles.iter().find(|tile| tile.x == 0).unwrap();
+        let right = tiles.iter().find(|tile| tile.x > 0).unwrap();
+        assert!(left.x + left.width > right.x);
+    }
+
+    #[test]
+    fn merge_detections_combines_a_small_full_page_box_with_its_rescan_box() {
+        let merged = merge_detections(
+            vec![
+                Detection {
+                    bounds: NormalizedRect {
+                        left: 0.45,
+                        top: 0.30,
+                        right: 0.50,
+                        bottom: 0.45,
+                    },
+                    confidence: 0.70,
+                    class_id: 1,
+                },
+                Detection {
+                    bounds: NormalizedRect {
+                        left: 0.40,
+                        top: 0.25,
+                        right: 0.55,
+                        bottom: 0.55,
+                    },
+                    confidence: 0.90,
+                    class_id: 1,
+                },
+            ],
+            0.55,
+        );
+        assert_eq!(merged.len(), 1);
+        assert_eq!(merged[0].bounds.left, 0.40);
+        assert_eq!(merged[0].bounds.bottom, 0.55);
+    }
 }

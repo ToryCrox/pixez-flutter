@@ -81,7 +81,7 @@ Flutter 启动一个持久化 `manga-ocr-helper` 子进程，每行一个 UTF-8 
 请求示例：
 
 ```json
-{"protocolVersion":1,"requestId":"dart-3","method":"analyzePage","payload":{"imagePath":"/path/page.jpg","imageSha256":"…","pageIndex":0,"preprocessor":{"id":"adaptive_page_preprocessor","version":"1","maxWorkingEdge":2048,"longPageAspectRatio":3.0,"tileOverlap":0.1,"cropPadding":0.12,"lowConfidenceThreshold":0.45,"duplicateIouThreshold":0.55}}}
+{"protocolVersion":1,"requestId":"dart-3","method":"analyzePage","payload":{"imagePath":"/path/page.jpg","imageSha256":"…","pageIndex":0,"preprocessor":{"id":"adaptive_page_preprocessor","version":"1","maxWorkingEdge":2048,"longPageAspectRatio":3.0,"tileOverlap":0.1,"detectorConfidenceThreshold":0.28,"highRecallDetection":true,"highRecallMaxTiles":4,"cropPadding":0.12,"lowConfidenceThreshold":0.45,"duplicateIouThreshold":0.55}}}
 ```
 
 命令：
@@ -102,13 +102,14 @@ Flutter 启动一个持久化 `manga-ocr-helper` 子进程，每行一个 UTF-8 
 2. 流式读取文件计算 SHA-256，不一次性把文件读入 Dart 内存。
 3. helper 解码后生成最长边不超过 2048px 的工作图。
 4. CTD 使用右侧/底部留黑的 1024px letterbox 输入，输出框映射为整页 0–1 坐标。
-5. 每个框增加 12% 上下文，从局部裁剪送入 Baberu。
+5. 当原页任一边超过 1024px 时，默认再以最多 4 个、10% 重叠的局部块进行 CTD 补扫；全页缩小检测负责大文字和总体布局，补扫负责细小竖排、靠近分镜边缘的文字。候选阈值默认 0.28，优先召回而非静默漏字。
+6. 合并重复框后，每个框增加 12% 上下文，从局部裁剪送入 Baberu。
 
 ### 超大页面与长条漫
 
 宽高比大于 3:1 时，不生成一张被严重压缩的整页图。沿长轴生成最长边不超过 2048px 的块，步长为块长的 90%，即 10% 重叠。helper 一次只物化一个工作分块，检测后立即释放；不会同时保留全部分块或全部 OCR 裁剪。
 
-每个 tile 内的框先映射到 tile 归一化坐标，再按 tile 在整页的位置反算。跨块结果要求方向相同，并以默认 IoU 0.55 合并；保留较高 OCR 置信度文本与较高检测置信度。
+每个 tile 内的框先映射到 tile 归一化坐标，再按 tile 在整页的位置反算。跨块结果要求方向相同，并以默认 IoU 0.55 合并；当补扫框完整包含整页检测到的小框时，也按 75% 的小框覆盖率合并，避免同一段对白重复出现。保留较高 OCR 置信度文本与较高检测置信度。
 
 ### 裁剪、补边和高清重试
 
@@ -118,7 +119,7 @@ Flutter 启动一个持久化 `manga-ocr-helper` 子进程，每行一个 UTF-8 
 - 原文为空或 OCR 置信度低于 0.45 时只重试一次，并扩大少量上下文。仍失败的框保留，标记“识别失败/低置信度”。
 - 当前跨平台 Rust 解码器会保留一份源页像素，再顺序创建单个工作 tile 和单个 OCR crop；不会保留“源页 + 全部 tile + 全部高清 crop”。benchmark 必须记录峰值。若超大 PNG 的源页解码峰值仍不可接受，下一步在 `MangaImagePreprocessor` 后增加 macOS ImageIO / Windows WIC 区域解码 adapter，不改变协议和页面。
 
-这种方式回答了“大图是否应该先缩小”的问题：检测一定先用缩小工作图；只有小框或低置信度区域才回看局部高清内容，而不是整页都用原分辨率推理。
+这种方式回答了“大图是否应该先缩小”的问题：检测一定先用缩小工作图；缩小能抑制噪点并适配模型输入，但不能把整页过度缩小到细小笔画消失。因此默认先做一次整页缩小检测，再用数量受限的局部补扫提升召回率；只有已检测到的小框或低置信度区域才回看局部高清内容，而不是整页都用原分辨率推理。
 
 ## 6. 方向、排序与显示
 

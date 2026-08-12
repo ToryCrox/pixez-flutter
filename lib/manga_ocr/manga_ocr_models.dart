@@ -298,6 +298,15 @@ class MangaOcrOptions {
   final int maxWorkingEdge;
   final double longPageAspectRatio;
   final double tileOverlap;
+
+  /// CTD 的最低候选分数。较低的值会优先保留漫画中的细小对白。
+  final double detectorConfidenceThreshold;
+
+  /// 对超过 CTD 输入尺寸的页面额外进行高分辨率检测补扫。
+  final bool highRecallDetection;
+
+  /// 高分辨率补扫最多使用的分块数，避免单页检测失控。
+  final int highRecallMaxTiles;
   final double cropPadding;
   final double lowConfidenceThreshold;
   final double duplicateIouThreshold;
@@ -307,6 +316,9 @@ class MangaOcrOptions {
     this.maxWorkingEdge = 2048,
     this.longPageAspectRatio = 3,
     this.tileOverlap = 0.10,
+    this.detectorConfidenceThreshold = 0.28,
+    this.highRecallDetection = true,
+    this.highRecallMaxTiles = 4,
     this.cropPadding = 0.12,
     this.lowConfidenceThreshold = 0.45,
     this.duplicateIouThreshold = 0.55,
@@ -317,6 +329,9 @@ class MangaOcrOptions {
     'maxWorkingEdge': maxWorkingEdge,
     'longPageAspectRatio': longPageAspectRatio,
     'tileOverlap': tileOverlap,
+    'detectorConfidenceThreshold': detectorConfidenceThreshold,
+    'highRecallDetection': highRecallDetection,
+    'highRecallMaxTiles': highRecallMaxTiles,
     'cropPadding': cropPadding,
     'lowConfidenceThreshold': lowConfidenceThreshold,
     'duplicateIouThreshold': duplicateIouThreshold,

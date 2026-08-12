@@ -46,7 +46,11 @@ void main() {
       detectorVersion: '1',
       recognizerId: mangaOcrDefaultRecognizerId,
       recognizerVersion: '1',
-      options: const MangaOcrOptions(maxWorkingEdge: 1024),
+      options: const MangaOcrOptions(
+        maxWorkingEdge: 1024,
+        detectorConfidenceThreshold: 0.20,
+        highRecallMaxTiles: 2,
+      ),
     );
     expect(key().value, isNot(changedOptions.value));
   });
