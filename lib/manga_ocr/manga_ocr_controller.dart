@@ -27,6 +27,14 @@ class MangaOcrController extends ChangeNotifier {
     _ => false,
   };
 
+  bool get isOcrRunning => switch (stage) {
+    MangaOcrStage.preparing ||
+    MangaOcrStage.tiling ||
+    MangaOcrStage.detecting ||
+    MangaOcrStage.recognizing => true,
+    _ => false,
+  };
+
   double? get progress => total <= 0 ? null : completed / total;
 
   Future<void> analyze({
@@ -49,7 +57,7 @@ class MangaOcrController extends ChangeNotifier {
         pageIndex: pageIndex,
         targetLanguage: targetLanguage,
         forceOcr: forceOcr,
-        forceTranslation: forceTranslation,
+        translate: false,
         detectorId: detectorId,
         recognizerId: recognizerId,
         options: options,
@@ -60,7 +68,15 @@ class MangaOcrController extends ChangeNotifier {
       );
       if (generation != _generation) return;
       result = value;
-      _update(MangaOcrStage.completed, 1, 1, message);
+      _update(MangaOcrStage.translating, 0, 1, '等待 AI 翻译队列');
+      unawaited(
+        _translate(
+          value,
+          generation: generation,
+          targetLanguage: targetLanguage,
+          forceTranslation: forceTranslation,
+        ),
+      );
     } catch (exception) {
       if (generation != _generation) return;
       error = exception.toString();
@@ -70,8 +86,36 @@ class MangaOcrController extends ChangeNotifier {
 
   Future<void> cancel() async {
     _generation++;
-    await pipeline.cancel();
+    if (isOcrRunning) await pipeline.cancel();
     _update(MangaOcrStage.cancelled, 0, 1, '已取消');
+  }
+
+  Future<void> _translate(
+    MangaPageOcrResult ocrResult, {
+    required int generation,
+    required String targetLanguage,
+    required bool forceTranslation,
+  }) async {
+    try {
+      final translated = await pipeline.translateResult(
+        ocrResult,
+        targetLanguage: targetLanguage,
+        forceTranslation: forceTranslation,
+        onProgress: (nextStage, nextCompleted, nextTotal, nextMessage) {
+          if (generation != _generation) return;
+          _update(nextStage, nextCompleted, nextTotal, nextMessage);
+        },
+      );
+      if (generation != _generation) return;
+      result = translated;
+      if (stage != MangaOcrStage.completed) {
+        _update(MangaOcrStage.completed, 1, 1, message);
+      }
+    } catch (exception) {
+      if (generation != _generation) return;
+      error = exception.toString();
+      _update(MangaOcrStage.failed, 0, 1, '翻译失败');
+    }
   }
 
   void selectBlock(String? id) {
@@ -113,5 +157,12 @@ class MangaOcrController extends ChangeNotifier {
     total = nextTotal;
     message = nextMessage;
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    // AI 请求无法可靠地从客户端中止；递增代次可阻止迟到响应回写已关闭页面。
+    _generation++;
+    super.dispose();
   }
 }

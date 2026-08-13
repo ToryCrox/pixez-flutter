@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
@@ -18,13 +19,57 @@ typedef MangaOcrProgressCallback =
       String message,
     );
 
+/// 限制远端翻译请求数；本地 OCR 与翻译队列互不阻塞。
+class MangaOcrTranslationQueue {
+  final int maxConcurrent;
+  int _running = 0;
+  final List<_MangaOcrTranslationTask<dynamic>> _pending = [];
+
+  MangaOcrTranslationQueue({this.maxConcurrent = 2})
+    : assert(maxConcurrent > 0);
+
+  Future<T> schedule<T>(Future<T> Function() action) {
+    final completer = Completer<T>();
+    _pending.add(_MangaOcrTranslationTask<T>(action, completer));
+    _drain();
+    return completer.future;
+  }
+
+  void _drain() {
+    while (_running < maxConcurrent && _pending.isNotEmpty) {
+      final task = _pending.removeAt(0);
+      _running++;
+      unawaited(() async {
+        try {
+          task.completer.complete(await task.action());
+        } catch (error, stackTrace) {
+          task.completer.completeError(error, stackTrace);
+        } finally {
+          _running--;
+          _drain();
+        }
+      }());
+    }
+  }
+}
+
+class _MangaOcrTranslationTask<T> {
+  final Future<T> Function() action;
+  final Completer<T> completer;
+
+  const _MangaOcrTranslationTask(this.action, this.completer);
+}
+
 class MangaOcrPipeline {
+  static final sharedTranslationQueue = MangaOcrTranslationQueue();
+
   final MangaImagePreprocessor preprocessor;
   final MangaOcrEngineRegistry registry;
   final MangaOcrRuntime runtime;
   final MangaOcrModelManager modelManager;
   final MangaOcrCache cache;
   final AiTranslationService? translationService;
+  final MangaOcrTranslationQueue translationQueue;
 
   MangaOcrPipeline({
     MangaImagePreprocessor? preprocessor,
@@ -33,11 +78,13 @@ class MangaOcrPipeline {
     MangaOcrModelManager? modelManager,
     MangaOcrCache? cache,
     this.translationService,
+    MangaOcrTranslationQueue? translationQueue,
   }) : preprocessor = preprocessor ?? AdaptivePagePreprocessor(),
        registry = registry ?? MangaOcrEngineRegistry.instance,
        runtime = runtime ?? MangaOcrProcessRuntime(),
        modelManager = modelManager ?? MangaOcrModelManager(),
-       cache = cache ?? MangaOcrCache();
+       cache = cache ?? MangaOcrCache(),
+       translationQueue = translationQueue ?? sharedTranslationQueue;
 
   Future<MangaPageOcrResult> analyze({
     required String imagePath,
@@ -120,7 +167,26 @@ class MangaOcrPipeline {
       onProgress?.call(MangaOcrStage.recognizing, 1, 1, '已载入本地 OCR 缓存');
     }
 
-    if (!translate || result.blocks.every((item) => item.sourceText.isEmpty)) {
+    if (!translate) {
+      onProgress?.call(MangaOcrStage.completed, 1, 1, 'OCR 完成');
+      return result;
+    }
+    return translateResult(
+      result,
+      targetLanguage: targetLanguage,
+      forceTranslation: forceTranslation,
+      onProgress: onProgress,
+    );
+  }
+
+  /// 翻译仅接收 OCR 文本；通过独立限流队列执行，因而不占用本地 OCR helper。
+  Future<MangaPageOcrResult> translateResult(
+    MangaPageOcrResult result, {
+    required String targetLanguage,
+    bool forceTranslation = false,
+    MangaOcrProgressCallback? onProgress,
+  }) async {
+    if (result.blocks.every((item) => item.sourceText.isEmpty)) {
       onProgress?.call(MangaOcrStage.completed, 1, 1, 'OCR 完成');
       return result;
     }
@@ -129,34 +195,39 @@ class MangaOcrPipeline {
       onProgress?.call(MangaOcrStage.completed, 1, 1, 'OCR 完成，未配置翻译服务');
       return result;
     }
-    onProgress?.call(MangaOcrStage.translating, 0, 1, '正在发送 OCR 文本给 AI 翻译');
-    try {
-      final translations = await service.translateMangaPage(
-        imageSha256: result.imageSha256,
-        pageIndex: pageIndex,
-        targetLanguage: targetLanguage,
-        blocks: {
-          for (final block in result.blocks)
-            if (block.sourceText.trim().isNotEmpty) block.id: block.sourceText,
-        },
-        forceRefresh: forceTranslation,
-      );
-      result = result.copyWith(
-        blocks:
-            result.blocks
-                .map(
-                  (block) => block.copyWith(
-                    translatedText: translations[block.id] ?? '',
-                  ),
-                )
-                .toList(),
-      );
-      onProgress?.call(MangaOcrStage.completed, 1, 1, '识别与翻译完成');
-    } catch (error, stackTrace) {
-      Log.w('漫画 OCR 翻译失败，保留原文', error: error, stackTrace: stackTrace);
-      onProgress?.call(MangaOcrStage.completed, 1, 1, 'OCR 完成，翻译暂不可用');
-    }
-    return result!;
+    onProgress?.call(MangaOcrStage.translating, 0, 1, '等待 AI 翻译队列');
+    return translationQueue.schedule(() async {
+      onProgress?.call(MangaOcrStage.translating, 0, 1, '正在发送 OCR 文本给 AI 翻译');
+      try {
+        final translations = await service.translateMangaPage(
+          imageSha256: result.imageSha256,
+          pageIndex: result.pageIndex,
+          targetLanguage: targetLanguage,
+          blocks: {
+            for (final block in result.blocks)
+              if (block.sourceText.trim().isNotEmpty)
+                block.id: block.sourceText,
+          },
+          forceRefresh: forceTranslation,
+        );
+        final translated = result.copyWith(
+          blocks:
+              result.blocks
+                  .map(
+                    (block) => block.copyWith(
+                      translatedText: translations[block.id] ?? '',
+                    ),
+                  )
+                  .toList(),
+        );
+        onProgress?.call(MangaOcrStage.completed, 1, 1, '识别与翻译完成');
+        return translated;
+      } catch (error, stackTrace) {
+        Log.w('漫画 OCR 翻译失败，保留原文', error: error, stackTrace: stackTrace);
+        onProgress?.call(MangaOcrStage.completed, 1, 1, 'OCR 完成，翻译暂不可用');
+        return result;
+      }
+    });
   }
 
   Future<void> cancel() => runtime.shutdown();

@@ -20,10 +20,10 @@ class _MangaOcrPageRequest {
   });
 }
 
-/// 连续阅读场景下的单任务协调器。
+/// 连续阅读场景下的本地 OCR 单任务协调器。
 ///
-/// 正在执行的页面不会与下一页并发；等待队列只保留最后一次请求，从而避免
-/// 快速滚动时对经过的每一页都启动下载和推理。
+/// helper 同时只处理一页；AI 翻译由 controller 的独立队列后台执行。等待队列
+/// 只保留最后一次请求，从而避免快速滚动时对经过的每一页都启动下载和推理。
 class MangaOcrReadingSession extends ChangeNotifier {
   final MangaOcrPipeline pipeline;
   final MangaOcrPagePathResolver resolvePagePath;
@@ -179,7 +179,10 @@ class MangaOcrReadingSession extends ChangeNotifier {
       _pendingRequest = null;
       controllerFor(page).markCancelled();
     }
-    if (_runningPage == page) await controllerFor(page).cancel();
+    final controller = controllerFor(page);
+    if (_runningPage == page || controller.isRunning) {
+      await controller.cancel();
+    }
     _notifySafely();
   }
 

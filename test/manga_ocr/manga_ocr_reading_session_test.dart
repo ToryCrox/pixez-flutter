@@ -12,6 +12,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class _FakePipeline extends MangaOcrPipeline {
   final calls = <int>[];
   final started = StreamController<int>.broadcast();
+  final translationStarted = StreamController<int>.broadcast();
   Completer<void>? firstPageGate;
   Completer<void>? translationGate;
 
@@ -33,10 +34,6 @@ class _FakePipeline extends MangaOcrPipeline {
     if (pageIndex == 0 && firstPageGate != null) {
       await firstPageGate!.future;
     }
-    if (translationGate != null) {
-      onProgress?.call(MangaOcrStage.translating, 0, 1, '正在发送 OCR 文本给 AI 翻译');
-      await translationGate!.future;
-    }
     return MangaPageOcrResult(
       imageSha256: 'page-$pageIndex',
       pageIndex: pageIndex,
@@ -55,6 +52,20 @@ class _FakePipeline extends MangaOcrPipeline {
 
   @override
   Future<void> cancel() async {}
+
+  @override
+  Future<MangaPageOcrResult> translateResult(
+    MangaPageOcrResult result, {
+    required String targetLanguage,
+    bool forceTranslation = false,
+    MangaOcrProgressCallback? onProgress,
+  }) async {
+    onProgress?.call(MangaOcrStage.translating, 0, 1, '正在发送 OCR 文本给 AI 翻译');
+    translationStarted.add(result.pageIndex);
+    if (translationGate != null) await translationGate!.future;
+    onProgress?.call(MangaOcrStage.completed, 1, 1, '识别与翻译完成');
+    return result;
+  }
 }
 
 void main() {
@@ -71,6 +82,7 @@ void main() {
     addTearDown(() {
       session.dispose();
       pipeline.started.close();
+      pipeline.translationStarted.close();
     });
 
     session.open(0);
@@ -95,6 +107,7 @@ void main() {
     addTearDown(() {
       session.dispose();
       pipeline.started.close();
+      pipeline.translationStarted.close();
     });
 
     session.open(0);
@@ -124,6 +137,7 @@ void main() {
     addTearDown(() {
       session.dispose();
       pipeline.started.close();
+      pipeline.translationStarted.close();
     });
 
     session.open(0);
@@ -151,6 +165,7 @@ void main() {
     addTearDown(() {
       session.dispose();
       pipeline.started.close();
+      pipeline.translationStarted.close();
     });
 
     session.open(0);
@@ -172,6 +187,7 @@ void main() {
     addTearDown(() {
       controller.dispose();
       pipeline.started.close();
+      pipeline.translationStarted.close();
     });
 
     await tester.pumpWidget(
@@ -247,6 +263,7 @@ void main() {
     addTearDown(() {
       controller.dispose();
       pipeline.started.close();
+      pipeline.translationStarted.close();
     });
 
     await tester.pumpWidget(
@@ -276,5 +293,31 @@ void main() {
     expect(find.text('正在扫描文字区域…'), findsNothing);
     pipeline.translationGate!.complete();
     await tester.pumpAndSettle();
+  });
+
+  test('AI 翻译进行时不会阻塞下一页本地 OCR', () async {
+    final pipeline = _FakePipeline()..translationGate = Completer<void>();
+    final session = MangaOcrReadingSession(
+      pipeline: pipeline,
+      resolvePagePath: (page) async => '/tmp/page-$page.jpg',
+      resolveTargetLanguage: () => 'zh-CN',
+    );
+    addTearDown(() async {
+      pipeline.translationGate!.complete();
+      session.dispose();
+      await pipeline.started.close();
+      await pipeline.translationStarted.close();
+    });
+
+    session.open(0);
+    session.requestCurrent();
+    await pipeline.started.stream.firstWhere((page) => page == 0);
+    await pipeline.translationStarted.stream.firstWhere((page) => page == 0);
+
+    session.requestPage(1);
+    await pipeline.started.stream.firstWhere((page) => page == 1);
+
+    expect(pipeline.calls, [0, 1]);
+    expect(session.controllerFor(0).stage, MangaOcrStage.translating);
   });
 }

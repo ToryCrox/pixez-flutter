@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pixez/manga_ocr/manga_ocr_models.dart';
 import 'package:pixez/manga_ocr/manga_ocr_pipeline.dart';
@@ -70,5 +72,31 @@ void main() {
 
     final missing = batch.restore('${batch.markers['block-a']}你好');
     expect(missing.containsKey('block-b'), isFalse);
+  });
+
+  test('翻译队列限制并发但不阻塞后续任务', () async {
+    final queue = MangaOcrTranslationQueue(maxConcurrent: 2);
+    final gates = List.generate(3, (_) => Completer<void>());
+    final started = <int>[];
+    final completed = <int>[];
+    final futures = [
+      for (var index = 0; index < 3; index++)
+        queue.schedule(() async {
+          started.add(index);
+          await gates[index].future;
+          completed.add(index);
+          return index;
+        }),
+    ];
+
+    await Future<void>.delayed(Duration.zero);
+    expect(started, [0, 1]);
+    gates[0].complete();
+    await Future<void>.delayed(Duration.zero);
+    expect(started, [0, 1, 2]);
+    gates[1].complete();
+    gates[2].complete();
+    expect(await Future.wait(futures), [0, 1, 2]);
+    expect(completed, containsAll([0, 1, 2]));
   });
 }
