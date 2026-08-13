@@ -206,7 +206,7 @@ class _MangaOcrSidePanelState extends State<MangaOcrSidePanel> {
                           !widget.recognitionStarted
                               ? '点击下方按钮开始识别当前页\n图片只在本地进行 OCR'
                               : controller.isRunning
-                              ? '正在自动检测整页文字…'
+                              ? _runningStateText(controller)
                               : controller.stage == MangaOcrStage.idle ||
                                   controller.stage == MangaOcrStage.cancelled
                               ? '当前页等待识别'
@@ -361,5 +361,15 @@ class _MangaOcrSidePanelState extends State<MangaOcrSidePanel> {
         MangaTextDirection.horizontal => '横排',
         MangaTextDirection.vertical => '竖排',
         MangaTextDirection.unknown => '方向未知',
+      };
+
+  static String _runningStateText(MangaOcrController controller) =>
+      switch (controller.stage) {
+        MangaOcrStage.preparing => '正在准备图片…',
+        MangaOcrStage.tiling => '正在分块准备检测…',
+        MangaOcrStage.detecting => '正在扫描文字区域…',
+        MangaOcrStage.recognizing => '正在识别检测到的文字…',
+        MangaOcrStage.translating => '正在将 OCR 文本发送给 AI 翻译…',
+        _ => controller.message.isEmpty ? '正在处理当前页…' : controller.message,
       };
 }

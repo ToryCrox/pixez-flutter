@@ -129,7 +129,7 @@ class MangaOcrPipeline {
       onProgress?.call(MangaOcrStage.completed, 1, 1, 'OCR 完成，未配置翻译服务');
       return result;
     }
-    onProgress?.call(MangaOcrStage.translating, 0, 1, '翻译整页文字');
+    onProgress?.call(MangaOcrStage.translating, 0, 1, '正在发送 OCR 文本给 AI 翻译');
     try {
       final translations = await service.translateMangaPage(
         imageSha256: result.imageSha256,

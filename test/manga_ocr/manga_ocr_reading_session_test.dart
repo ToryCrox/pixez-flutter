@@ -13,6 +13,7 @@ class _FakePipeline extends MangaOcrPipeline {
   final calls = <int>[];
   final started = StreamController<int>.broadcast();
   Completer<void>? firstPageGate;
+  Completer<void>? translationGate;
 
   @override
   Future<MangaPageOcrResult> analyze({
@@ -31,6 +32,10 @@ class _FakePipeline extends MangaOcrPipeline {
     started.add(pageIndex);
     if (pageIndex == 0 && firstPageGate != null) {
       await firstPageGate!.future;
+    }
+    if (translationGate != null) {
+      onProgress?.call(MangaOcrStage.translating, 0, 1, '正在发送 OCR 文本给 AI 翻译');
+      await translationGate!.future;
     }
     return MangaPageOcrResult(
       imageSha256: 'page-$pageIndex',
@@ -234,5 +239,42 @@ void main() {
     final tooltip = tester.widget<Tooltip>(find.byType(Tooltip));
     expect(tooltip.message, '你好');
     expect(tooltip.waitDuration, const Duration(milliseconds: 150));
+  });
+
+  testWidgets('翻译阶段显示 AI 翻译状态而不是扫描文字', (tester) async {
+    final pipeline = _FakePipeline()..translationGate = Completer<void>();
+    final controller = MangaOcrController(pipeline);
+    addTearDown(() {
+      controller.dispose();
+      pipeline.started.close();
+    });
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 420,
+          child: MangaOcrSidePanel(
+            controller: controller,
+            onClose: () {},
+            onRetryTranslation: () {},
+            onForceOcr: () {},
+          ),
+        ),
+      ),
+    );
+
+    unawaited(
+      controller.analyze(
+        imagePath: '/tmp/page.jpg',
+        pageIndex: 0,
+        targetLanguage: 'zh-CN',
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('正在将 OCR 文本发送给 AI 翻译…'), findsOneWidget);
+    expect(find.text('正在扫描文字区域…'), findsNothing);
+    pipeline.translationGate!.complete();
+    await tester.pumpAndSettle();
   });
 }
