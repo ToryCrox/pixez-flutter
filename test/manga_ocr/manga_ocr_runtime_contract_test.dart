@@ -8,7 +8,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test('Rust helper 支持 capabilities 与 shutdown 契约', () async {
-    final helper = File('assets/executables/manga-ocr-helper-macos-arm64');
+    final helper = File(_bundledHelperPath());
     if (!helper.existsSync()) return;
     final runtime = MangaOcrProcessRuntime(
       helperPath: helper.absolute.path,
@@ -60,6 +60,16 @@ void main() {
 
     await expectLater(runtime.capabilities(), throwsA(isA<TimeoutException>()));
   });
+}
+
+String _bundledHelperPath() {
+  if (Platform.isWindows) {
+    return 'assets/executables/manga-ocr-helper-windows-x64.exe';
+  }
+  if (Platform.isMacOS) {
+    return 'assets/executables/manga-ocr-helper-macos-arm64';
+  }
+  return 'assets/executables/manga-ocr-helper-unsupported';
 }
 
 Future<File> _fakeHelper(String body) async {
