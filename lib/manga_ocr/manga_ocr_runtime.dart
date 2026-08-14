@@ -110,17 +110,39 @@ class MangaOcrProcessRuntime implements MangaOcrRuntime {
     final requestId = 'dart-${++_nextRequestId}';
     final completer = Completer<Map<String, dynamic>>();
     _pending[requestId] = completer;
-    process.stdin.writeln(
-      jsonEncode({
-        'protocolVersion': mangaOcrProtocolVersion,
-        'requestId': requestId,
-        'method': method,
-        'payload': payload,
-      }),
-    );
+    Log.d(() => '漫画 OCR helper 发送请求: method=$method, requestId=$requestId');
     try {
-      return await completer.future.timeout(timeout ?? requestTimeout);
+      process.stdin.writeln(
+        jsonEncode({
+          'protocolVersion': mangaOcrProtocolVersion,
+          'requestId': requestId,
+          'method': method,
+          'payload': payload,
+        }),
+      );
+      // Windows 下 pipe 写入不能依赖下一次事件循环触发，显式刷新可以让
+      // helper 立即开始处理，也便于把卡顿稳定定位为 helper 内部的问题。
+      await process.stdin.flush();
+    } catch (error, stackTrace) {
+      Log.e(
+        '漫画 OCR helper 请求写入失败: method=$method, requestId=$requestId',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      await _resetProcess(
+        MangaOcrRuntimeException('无法向 OCR helper 发送请求：$method'),
+      );
+      rethrow;
+    }
+    try {
+      final result = await completer.future.timeout(timeout ?? requestTimeout);
+      Log.d(() => '漫画 OCR helper 请求完成: method=$method, requestId=$requestId');
+      return result;
     } on TimeoutException {
+      Log.e(
+        '漫画 OCR helper 请求超时: method=$method, requestId=$requestId, '
+        'timeout=${timeout ?? requestTimeout}',
+      );
       await _resetProcess(MangaOcrRuntimeException('OCR helper 请求超时：$method'));
       rethrow;
     } finally {
@@ -133,6 +155,7 @@ class MangaOcrProcessRuntime implements MangaOcrRuntime {
     if (current != null) return current;
     final resolved = helperPath ?? await resolveHelperPath();
     if (resolved == null) {
+      Log.e('未找到漫画 OCR helper 可执行文件');
       throw const MangaOcrRuntimeException(
         '未找到 OCR helper。请先构建并打包 manga-ocr-helper。',
       );
@@ -140,6 +163,7 @@ class MangaOcrProcessRuntime implements MangaOcrRuntime {
     if (!Platform.isWindows) {
       await Process.run('chmod', ['755', resolved], runInShell: false);
     }
+    Log.i(() => '启动漫画 OCR helper: $resolved');
     final process = await Process.start(resolved, const [
       '--jsonl',
     ], runInShell: false);
@@ -155,6 +179,7 @@ class MangaOcrProcessRuntime implements MangaOcrRuntime {
     unawaited(
       process.exitCode.then((code) {
         if (identical(_process, process)) {
+          Log.e(() => '漫画 OCR helper 异常退出: code=$code');
           _resetProcess(MangaOcrRuntimeException('OCR helper 异常退出：$code'));
         }
       }),
@@ -170,6 +195,13 @@ class MangaOcrProcessRuntime implements MangaOcrRuntime {
       }
       final requestId = message['requestId'] as String? ?? '';
       if (message['type'] == 'progress') {
+        Log.d(
+          () =>
+              '漫画 OCR helper 进度: requestId=$requestId, '
+              'stage=${message['stage']}, '
+              '${message['completed']}/${message['total']}, '
+              'message=${message['message']}',
+        );
         _progressController.add(
           MangaOcrRuntimeProgress(
             requestId: requestId,
@@ -191,13 +223,23 @@ class MangaOcrProcessRuntime implements MangaOcrRuntime {
           Map<String, dynamic>.from(message['result'] as Map? ?? const {}),
         );
       } else {
+        Log.e(
+          () =>
+              '漫画 OCR helper 返回错误: requestId=$requestId, '
+              'error=${message['error']}',
+        );
         completer.completeError(
           MangaOcrRuntimeException(
             message['error'] as String? ?? 'OCR helper 返回未知错误',
           ),
         );
       }
-    } catch (error) {
+    } catch (error, stackTrace) {
+      Log.e(
+        '漫画 OCR helper 输出解析失败: line=$line',
+        error: error,
+        stackTrace: stackTrace,
+      );
       unawaited(
         _resetProcess(MangaOcrRuntimeException('OCR helper 输出无效：$error')),
       );
@@ -206,6 +248,7 @@ class MangaOcrProcessRuntime implements MangaOcrRuntime {
 
   Future<void> _resetProcess(Object error) async {
     final process = _process;
+    Log.w(() => '重置漫画 OCR helper: reason=$error, pending=${_pending.length}');
     _process = null;
     process?.kill();
     await _stdoutSubscription?.cancel();

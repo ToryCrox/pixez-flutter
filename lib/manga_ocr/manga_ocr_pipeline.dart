@@ -98,6 +98,11 @@ class MangaOcrPipeline {
     bool forceTranslation = false,
     MangaOcrProgressCallback? onProgress,
   }) async {
+    Log.i(
+      () =>
+          '漫画 OCR 管线开始: page=$pageIndex, detector=$detectorId, '
+          'recognizer=$recognizerId, forceOcr=$forceOcr',
+    );
     onProgress?.call(MangaOcrStage.preparing, 0, 1, '计算图片指纹');
     final imageHash = await MangaOcrCache.hashFile(imagePath);
     final detector = registry.detector(detectorId);
@@ -117,8 +122,10 @@ class MangaOcrPipeline {
     MangaPageOcrResult? result;
     if (!forceOcr) result = await cache.get(key);
     if (result == null) {
+      Log.d(() => '漫画 OCR 缓存未命中: page=$pageIndex');
       await _ensureModels([detector.id, recognizer.id], onProgress: onProgress);
       final modelDirectory = await modelManager.modelDirectory();
+      Log.d(() => '加载漫画 OCR 模型: directory=$modelDirectory');
       await runtime.loadModels(
         modelDirectory: modelDirectory,
         detector: detector.runtimeConfiguration,
@@ -137,6 +144,11 @@ class MangaOcrPipeline {
         'detector': detector.runtimeConfiguration,
         'recognizer': recognizer.runtimeConfiguration,
       });
+      Log.i(
+        () =>
+            '漫画 OCR helper 返回结果: page=$pageIndex, '
+            'blocks=${(response['blocks'] as List?)?.length ?? 0}',
+      );
       final blocks = _normalizeAndSort(
         (response['blocks'] as List<dynamic>? ?? const [])
             .whereType<Map>()
@@ -164,6 +176,9 @@ class MangaOcrPipeline {
       );
       await cache.put(key, result);
     } else {
+      Log.d(
+        () => '漫画 OCR 缓存命中: page=$pageIndex, blocks=${result!.blocks.length}',
+      );
       onProgress?.call(MangaOcrStage.recognizing, 1, 1, '已载入本地 OCR 缓存');
     }
 
@@ -238,7 +253,11 @@ class MangaOcrPipeline {
   }) async {
     for (var index = 0; index < engineIds.length; index++) {
       final engineId = engineIds[index];
-      if (await modelManager.isInstalled(engineId)) continue;
+      if (await modelManager.isInstalled(engineId)) {
+        Log.d(() => '漫画 OCR 模型已安装: $engineId');
+        continue;
+      }
+      Log.i(() => '漫画 OCR 模型未安装，开始下载: $engineId');
       onProgress?.call(
         MangaOcrStage.preparing,
         index,

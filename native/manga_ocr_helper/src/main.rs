@@ -8,6 +8,7 @@ use std::{
         atomic::{AtomicBool, Ordering},
     },
     thread,
+    time::Instant,
 };
 
 use anyhow::{Context, Result, anyhow, bail};
@@ -199,6 +200,8 @@ fn main() -> Result<()> {
     let current_request = Arc::new(Mutex::new(None::<String>));
     let stdout = Arc::new(Mutex::new(io::stdout()));
 
+    eprintln!("[manga-ocr-helper] started, protocolVersion={PROTOCOL_VERSION}");
+
     for line in io::stdin().lock().lines() {
         let line = line?;
         if line.trim().is_empty() {
@@ -207,6 +210,7 @@ fn main() -> Result<()> {
         let request: Request = match serde_json::from_str(&line) {
             Ok(value) => value,
             Err(error) => {
+                eprintln!("[manga-ocr-helper] invalid request JSON: {error}");
                 emit(
                     &stdout,
                     json!({"protocolVersion": PROTOCOL_VERSION, "requestId": "", "ok": false, "error": format!("无效 JSON：{error}")}),
@@ -215,9 +219,17 @@ fn main() -> Result<()> {
             }
         };
         if request.protocol_version != PROTOCOL_VERSION {
+            eprintln!(
+                "[manga-ocr-helper] protocol mismatch: requestId={}, version={}",
+                request.request_id, request.protocol_version
+            );
             emit_error(&stdout, &request.request_id, "协议版本不匹配");
             continue;
         }
+        eprintln!(
+            "[manga-ocr-helper] request received: requestId={}, method={}",
+            request.request_id, request.method
+        );
         match request.method.as_str() {
             "capabilities" => emit_ok(
                 &stdout,
@@ -231,21 +243,39 @@ fn main() -> Result<()> {
                 }),
             ),
             "loadModels" => {
+                eprintln!(
+                    "[manga-ocr-helper] loading models: requestId={}",
+                    request.request_id
+                );
                 let result = load_models(&request.payload);
                 match result {
                     Ok(loaded) => {
                         *models.lock().unwrap() = Some(loaded);
+                        eprintln!(
+                            "[manga-ocr-helper] models loaded: requestId={}",
+                            request.request_id
+                        );
                         emit_ok(&stdout, &request.request_id, json!({"loaded": true}));
                     }
-                    Err(error) => emit_error(
-                        &stdout,
-                        &request.request_id,
-                        &format!("加载模型失败：{error:#}"),
-                    ),
+                    Err(error) => {
+                        eprintln!(
+                            "[manga-ocr-helper] model loading failed: requestId={}, error={error:#}",
+                            request.request_id
+                        );
+                        emit_error(
+                            &stdout,
+                            &request.request_id,
+                            &format!("加载模型失败：{error:#}"),
+                        );
+                    }
                 }
             }
             "analyzePage" => {
                 if current_request.lock().unwrap().is_some() {
+                    eprintln!(
+                        "[manga-ocr-helper] analysis rejected because another page is active: requestId={}",
+                        request.request_id
+                    );
                     emit_error(&stdout, &request.request_id, "已有页面正在处理");
                     continue;
                 }
@@ -256,6 +286,10 @@ fn main() -> Result<()> {
                 let cancelled = Arc::clone(&cancelled);
                 let current_request = Arc::clone(&current_request);
                 thread::spawn(move || {
+                    eprintln!(
+                        "[manga-ocr-helper] analysis started: requestId={}",
+                        request.request_id
+                    );
                     let result = {
                         let mut guard = models.lock().unwrap();
                         match guard.as_mut() {
@@ -264,8 +298,18 @@ fn main() -> Result<()> {
                         }
                     };
                     match result {
-                        Ok(value) => emit_ok(&stdout, &request.request_id, value),
+                        Ok(value) => {
+                            eprintln!(
+                                "[manga-ocr-helper] analysis completed: requestId={}",
+                                request.request_id
+                            );
+                            emit_ok(&stdout, &request.request_id, value)
+                        }
                         Err(error) => {
+                            eprintln!(
+                                "[manga-ocr-helper] analysis failed: requestId={}, error={error:#}",
+                                request.request_id
+                            );
                             emit_error(&stdout, &request.request_id, &format!("{error:#}"))
                         }
                     }
@@ -280,21 +324,56 @@ fn main() -> Result<()> {
                     .unwrap_or_default();
                 if current_request.lock().unwrap().as_deref() == Some(target) || target.is_empty() {
                     cancelled.store(true, Ordering::Relaxed);
+                    eprintln!(
+                        "[manga-ocr-helper] cancellation requested: requestId={}, target={target}",
+                        request.request_id
+                    );
                 }
                 emit_ok(&stdout, &request.request_id, json!({"cancelled": true}));
             }
             "shutdown" => {
                 cancelled.store(true, Ordering::Relaxed);
+                eprintln!(
+                    "[manga-ocr-helper] shutdown requested: requestId={}",
+                    request.request_id
+                );
                 emit_ok(&stdout, &request.request_id, json!({"shutdown": true}));
                 break;
             }
-            _ => emit_error(&stdout, &request.request_id, "不支持的命令"),
+            _ => {
+                eprintln!(
+                    "[manga-ocr-helper] unsupported method: requestId={}, method={}",
+                    request.request_id, request.method
+                );
+                emit_error(&stdout, &request.request_id, "不支持的命令")
+            }
         }
     }
     Ok(())
 }
 
 fn load_models(payload: &Value) -> Result<LoadedModels> {
+    #[cfg(windows)]
+    if std::env::var_os("MANGA_OCR_FORCE_CPU").is_none() {
+        eprintln!("[manga-ocr-helper] attempting DirectML model sessions");
+        match load_models_with_provider(payload, true) {
+            Ok(models) => {
+                eprintln!("[manga-ocr-helper] DirectML model sessions ready");
+                return Ok(models);
+            }
+            Err(error) => {
+                // DML 缺少可用显卡、驱动或模型算子支持时，仍可回退至 CPU，
+                // 让用户保有可用（但较慢）的 OCR 路径。
+                eprintln!(
+                    "[manga-ocr-helper] DirectML unavailable, falling back to CPU: {error:#}"
+                );
+            }
+        }
+    }
+    load_models_with_provider(payload, false)
+}
+
+fn load_models_with_provider(payload: &Value, use_directml: bool) -> Result<LoadedModels> {
     let root = PathBuf::from(required_str(payload, "modelDirectory")?);
     let detector_id = payload
         .pointer("/detector/engineId")
@@ -304,23 +383,71 @@ fn load_models(payload: &Value) -> Result<LoadedModels> {
         .pointer("/recognizer/engineId")
         .and_then(Value::as_str)
         .unwrap_or("baberu_ocr_int4");
+    eprintln!(
+        "[manga-ocr-helper] model paths: root={}, detector={}, recognizer={}",
+        root.display(),
+        detector_id,
+        recognizer_id
+    );
     let detector_path = root.join(detector_id).join("comictextdetector.pt.onnx");
     let recognizer_dir = root.join(recognizer_id);
-    let build = |path: &Path| -> Result<Session> {
+    let build = |name: &str, path: &Path| -> Result<Session> {
+        let metadata = fs::metadata(path)
+            .with_context(|| format!("无法读取 {name} 模型文件元数据：{}", path.display()))?;
+        let started = Instant::now();
+        eprintln!(
+            "[manga-ocr-helper] session loading started: model={name}, bytes={}, path={}",
+            metadata.len(),
+            path.display()
+        );
         let builder = Session::builder().map_err(|error| anyhow!(error.to_string()))?;
         let mut builder = builder
             .with_optimization_level(GraphOptimizationLevel::Level3)
             .map_err(|error| anyhow!(error.to_string()))?;
-        builder
+        #[cfg(windows)]
+        if use_directml {
+            use ort::ep::{DirectML, directml::PerformancePreference};
+
+            builder = builder
+                .with_execution_providers([DirectML::default()
+                    .with_performance_preference(PerformancePreference::HighPerformance)
+                    .build()])
+                .and_then(|builder| builder.with_parallel_execution(false))
+                .and_then(|builder| builder.with_memory_pattern(false))
+                .map_err(|error| anyhow!("无法启用 DirectML：{error}"))?;
+        }
+        #[cfg(not(windows))]
+        let _ = use_directml;
+        let session = builder
             .commit_from_file(path)
-            .map_err(|error| anyhow!("无法打开 {}：{}", path.display(), error))
+            .map_err(|error| anyhow!("无法打开 {}：{}", path.display(), error))?;
+        eprintln!(
+            "[manga-ocr-helper] session loading completed: model={name}, provider={}, elapsedMs={}",
+            if use_directml { "directml" } else { "cpu" },
+            started.elapsed().as_millis(),
+        );
+        Ok(session)
     };
+    let vocab_path = recognizer_dir.join("vocab.json");
+    let vocab_started = Instant::now();
     Ok(LoadedModels {
-        detector: build(&detector_path)?,
-        vision: build(&recognizer_dir.join("vision_int4.onnx"))?,
-        prefill: build(&recognizer_dir.join("decoder_prefill_int8.onnx"))?,
-        step: build(&recognizer_dir.join("decoder_step_int8.onnx"))?,
-        vocab: Vocab::load(&recognizer_dir.join("vocab.json"))?,
+        detector: build("detector", &detector_path)?,
+        vision: build("vision", &recognizer_dir.join("vision_int4.onnx"))?,
+        prefill: build(
+            "decoder-prefill",
+            &recognizer_dir.join("decoder_prefill_int8.onnx"),
+        )?,
+        step: build(
+            "decoder-step",
+            &recognizer_dir.join("decoder_step_int8.onnx"),
+        )?,
+        vocab: Vocab::load(&vocab_path)?,
+    })
+    .inspect(|_| {
+        eprintln!(
+            "[manga-ocr-helper] vocabulary loaded: elapsedMs={}",
+            vocab_started.elapsed().as_millis()
+        );
     })
 }
 
@@ -335,6 +462,10 @@ fn analyze_page(
     let original =
         image::open(&image_path).with_context(|| format!("无法读取 {}", image_path.display()))?;
     let (width, height) = original.dimensions();
+    eprintln!(
+        "[manga-ocr-helper] image decoded: requestId={}, width={}, height={}",
+        request.request_id, width, height
+    );
     check_cancel(cancelled)?;
     let pre = request
         .payload
@@ -388,6 +519,13 @@ fn analyze_page(
     };
     let rescue_tile_count = rescue_tiles.len();
     tiles.extend(rescue_tiles);
+    eprintln!(
+        "[manga-ocr-helper] detection plan: requestId={}, tiles={}, rescueTiles={}, maxEdge={}",
+        request.request_id,
+        tiles.len(),
+        rescue_tile_count,
+        max_edge
+    );
     progress(
         stdout,
         &request.request_id,
@@ -415,13 +553,31 @@ fn analyze_page(
         );
         // 一次只保留一个工作分块，检测完成后立即释放。
         let tile = materialize_tile(&original, *tile_spec, max_edge);
-        detections.extend(detect_tile(
-            &mut models.detector,
-            &tile,
-            detector_confidence,
-        )?);
+        let tile_detections = detect_tile(&mut models.detector, &tile, detector_confidence)
+            .with_context(|| {
+                format!(
+                    "第 {} / {} 个检测分块推理失败 ({}x{})",
+                    index + 1,
+                    tiles.len(),
+                    tile.image.width(),
+                    tile.image.height()
+                )
+            })?;
+        eprintln!(
+            "[manga-ocr-helper] tile detection completed: requestId={}, tile={}/{}, detections={}",
+            request.request_id,
+            index + 1,
+            tiles.len(),
+            tile_detections.len()
+        );
+        detections.extend(tile_detections);
     }
     detections = merge_detections(detections, duplicate_iou);
+    eprintln!(
+        "[manga-ocr-helper] detection completed: requestId={}, detections={}",
+        request.request_id,
+        detections.len()
+    );
     progress(
         stdout,
         &request.request_id,

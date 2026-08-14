@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pixez/manga_ocr/manga_ocr_controller.dart';
 import 'package:pixez/manga_ocr/manga_ocr_models.dart';
@@ -69,6 +71,22 @@ class _FakePipeline extends MangaOcrPipeline {
 }
 
 void main() {
+  setUpAll(() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+          const MethodChannel('plugins.flutter.io/path_provider'),
+          (call) async => Directory.systemTemp.path,
+        );
+  });
+
+  tearDownAll(() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+          const MethodChannel('plugins.flutter.io/path_provider'),
+          null,
+        );
+  });
+
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
   test('打开面板不会开始 OCR，面板内确认后才处理', () async {

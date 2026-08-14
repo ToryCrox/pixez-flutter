@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:pixez/custom/log.dart';
 import 'package:pixez/manga_ocr/manga_ocr_models.dart';
 import 'package:pixez/manga_ocr/manga_ocr_pipeline.dart';
 
@@ -48,6 +49,11 @@ class MangaOcrController extends ChangeNotifier {
     MangaOcrOptions options = const MangaOcrOptions(),
   }) async {
     final generation = ++_generation;
+    Log.i(
+      () =>
+          '开始漫画 OCR: page=$pageIndex, detector=$detectorId, '
+          'recognizer=$recognizerId, forceOcr=$forceOcr',
+    );
     error = null;
     selectedBlockId = null;
     _update(MangaOcrStage.preparing, 0, 1, '准备图片');
@@ -77,8 +83,13 @@ class MangaOcrController extends ChangeNotifier {
           forceTranslation: forceTranslation,
         ),
       );
-    } catch (exception) {
+    } catch (exception, stackTrace) {
       if (generation != _generation) return;
+      Log.e(
+        '漫画 OCR 失败: page=$pageIndex, stage=${stage.name}',
+        error: exception,
+        stackTrace: stackTrace,
+      );
       error = exception.toString();
       _update(MangaOcrStage.failed, 0, 1, '处理失败');
     }
@@ -86,6 +97,7 @@ class MangaOcrController extends ChangeNotifier {
 
   Future<void> cancel() async {
     _generation++;
+    Log.i(() => '取消漫画 OCR: stage=${stage.name}');
     if (isOcrRunning) await pipeline.cancel();
     _update(MangaOcrStage.cancelled, 0, 1, '已取消');
   }
@@ -111,8 +123,9 @@ class MangaOcrController extends ChangeNotifier {
       if (stage != MangaOcrStage.completed) {
         _update(MangaOcrStage.completed, 1, 1, message);
       }
-    } catch (exception) {
+    } catch (exception, stackTrace) {
       if (generation != _generation) return;
+      Log.e('漫画 OCR 翻译失败', error: exception, stackTrace: stackTrace);
       error = exception.toString();
       _update(MangaOcrStage.failed, 0, 1, '翻译失败');
     }

@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:pixez/component/pixiv_image.dart';
 import 'package:pixez/er/hoster.dart';
+import 'package:pixez/custom/log.dart';
 
 abstract interface class MangaPageImageResolver {
   Future<String?> resolve({String? localPath, required String imageUrl});
@@ -14,17 +15,32 @@ class PixivMangaPageImageResolver implements MangaPageImageResolver {
   @override
   Future<String?> resolve({String? localPath, required String imageUrl}) async {
     if (localPath != null && await File(localPath).exists()) {
+      Log.d(() => '漫画 OCR 使用本地图片: $localPath');
       return localPath;
     }
-    if (imageUrl.isEmpty) return null;
+    if (imageUrl.isEmpty) {
+      Log.w('漫画 OCR 无法解析图片：图片 URL 为空');
+      return null;
+    }
 
     final cached = await pixivCacheManager.getFileFromCache(imageUrl);
-    if (cached != null && await cached.file.exists()) return cached.file.path;
+    if (cached != null && await cached.file.exists()) {
+      Log.d(() => '漫画 OCR 使用图片缓存: ${cached.file.path}');
+      return cached.file.path;
+    }
 
-    final downloaded = await pixivCacheManager.getSingleFile(
-      imageUrl,
-      headers: Hoster.header(url: imageUrl),
-    );
-    return await downloaded.exists() ? downloaded.path : null;
+    try {
+      Log.i('漫画 OCR 图片缓存未命中，开始下载当前页');
+      final downloaded = await pixivCacheManager.getSingleFile(
+        imageUrl,
+        headers: Hoster.header(url: imageUrl),
+      );
+      if (await downloaded.exists()) return downloaded.path;
+      Log.w('漫画 OCR 图片下载后文件不存在');
+      return null;
+    } catch (error, stackTrace) {
+      Log.e('漫画 OCR 图片解析失败', error: error, stackTrace: stackTrace);
+      rethrow;
+    }
   }
 }
