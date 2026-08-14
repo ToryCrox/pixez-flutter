@@ -51,9 +51,12 @@ import 'package:pixez/manga_ocr/manga_ocr_widgets.dart';
 import 'package:pixez/manga_ocr/manga_page_image_resolver.dart';
 
 import 'package:pixez/page/downloaded/bookmark_priority_dialog.dart';
+import 'package:pixez/page/downloaded/original_import_dialog.dart';
+import 'package:pixez/page/downloaded/original_version_manager_dialog.dart';
 import 'package:pixez/page/picture/illust_about_store.dart';
 import 'package:pixez/page/picture/illust_detail_content.dart';
 import 'package:pixez/page/picture/illust_store.dart';
+import 'package:pixez/page/picture/original_version_switch_button.dart';
 import 'package:pixez/page/picture/picture_list_page.dart';
 import 'package:pixez/page/comment/comment_page.dart';
 import 'package:pixez/page/picture/tag_for_illust_page.dart';
@@ -237,12 +240,8 @@ class _IllustRowPageState extends State<IllustRowPage>
     fullScreenStore.toggle();
   }
 
-  Future<void> _toggleImageDisplayMode() async {
-    final target =
-        _illustStore.displayMode == OriginalDisplayMode.downloaded
-            ? OriginalDisplayMode.originalPreferred
-            : OriginalDisplayMode.downloaded;
-    final targetIndex = await _illustStore.selectDisplayMode(target);
+  Future<void> _selectImageDisplayMode(OriginalDisplayMode mode) async {
+    final targetIndex = await _illustStore.selectDisplayMode(mode);
     if (mounted) {
       await _observerController.animateTo(
         index: targetIndex,
@@ -250,6 +249,68 @@ class _IllustRowPageState extends State<IllustRowPage>
         curve: Curves.easeOut,
       );
     }
+  }
+
+  Future<void> _selectOriginalSet(int setId) async {
+    final targetIndex = await _illustStore.selectOriginalSet(setId);
+    if (mounted) {
+      await _observerController.animateTo(
+        index: targetIndex,
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOut,
+      );
+    }
+  }
+
+  Future<void> _toggleImageDisplayMode() async {
+    final target =
+        _illustStore.displayMode == OriginalDisplayMode.downloaded
+            ? OriginalDisplayMode.originalPreferred
+            : OriginalDisplayMode.downloaded;
+    await _selectImageDisplayMode(target);
+  }
+
+  Future<void> _reloadOriginalVersions() async {
+    final targetIndex = await _illustStore.reloadOriginalVersions();
+    if (!mounted) return;
+    if (!_illustStore.hasOriginal &&
+        _illustStore.illusts?.id.isNegative == true) {
+      Navigator.of(context).pop();
+      return;
+    }
+    if (_illustStore.totalPages > 0) {
+      await _observerController.animateTo(
+        index: targetIndex,
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOut,
+      );
+    }
+  }
+
+  Future<void> _importOriginalVersion() async {
+    final record = await downloadStore.getDownloadedIllust(widget.id);
+    if (!mounted) return;
+    if (record == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('未找到可更新的本地作品记录')));
+      return;
+    }
+    final changed = await OriginalImportDialog.show(context, record);
+    if (changed == true) await _reloadOriginalVersions();
+  }
+
+  Future<void> _manageOriginalVersions() async {
+    final record = await downloadStore.getDownloadedIllust(widget.id);
+    if (!mounted) return;
+    if (record == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('未找到可管理的本地作品记录')));
+      return;
+    }
+    final changed = await OriginalVersionManagerDialog.show(context, record);
+    if (changed == true) await _reloadOriginalVersions();
   }
 
   Future<void> _removeAllOriginals() async {
@@ -848,10 +909,35 @@ class _IllustRowPageState extends State<IllustRowPage>
                   ),
                 // 跳转到上次阅读位置提示
                 Positioned(
-                  bottom: 60, // 在页数指示器上方
+                  bottom:
+                      _illustStore.hasOriginal
+                          ? ((_illustStore.displayPageCount > 1 ||
+                                  fullScreenStore.canFullScreen)
+                              ? 100
+                              : 60)
+                          : 60,
                   left: 10,
                   child: Observer(builder: (_) => _buildJumpHint()),
                 ),
+                if (_illustStore.hasOriginal)
+                  Positioned(
+                    bottom:
+                        (_illustStore.displayPageCount > 1 ||
+                                fullScreenStore.canFullScreen)
+                            ? 60
+                            : 20,
+                    left: 10,
+                    child: Observer(
+                      builder:
+                          (_) => OriginalVersionSwitchButton(
+                            store: _illustStore,
+                            onModeSelected: _selectImageDisplayMode,
+                            onSetSelected: _selectOriginalSet,
+                            onImport: _importOriginalVersion,
+                            onManage: _manageOriginalVersions,
+                          ),
+                    ),
+                  ),
                 // 页数指示器及全屏按钮
                 Positioned(
                   bottom: 20,
@@ -859,17 +945,15 @@ class _IllustRowPageState extends State<IllustRowPage>
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      if (data.pageCount > 1)
+                      if (_illustStore.displayPageCount > 1)
                         Observer(builder: (_) => _buildPageIndicator()),
                       if (Platform.isMacOS || Platform.isWindows) ...[
                         if (data.pageCount > 1) const SizedBox(width: 8),
                         _buildMangaOcrButton(),
                       ],
                       if (fullScreenStore.canFullScreen) ...[
-                        if (data.pageCount > 1 ||
-                            Platform.isMacOS ||
-                            Platform.isWindows)
-                          const SizedBox(width: 8),
+                        if (_illustStore.displayPageCount > 1)
+                          SizedBox(width: 8),
                         _buildFullScreenButton(),
                       ],
                     ],

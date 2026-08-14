@@ -25,6 +25,7 @@ class AiProviderConfig {
   final String apiKey;
   final String model;
   final String? reasoningEffort;
+  final int maxRetries;
 
   const AiProviderConfig({
     required this.id,
@@ -34,6 +35,7 @@ class AiProviderConfig {
     required this.apiKey,
     required this.model,
     this.reasoningEffort,
+    this.maxRetries = 3,
   });
 
   AiProviderConfig copyWith({
@@ -44,6 +46,7 @@ class AiProviderConfig {
     String? apiKey,
     String? model,
     String? reasoningEffort,
+    int? maxRetries,
     bool clearReasoningEffort = false,
   }) => AiProviderConfig(
     id: id ?? this.id,
@@ -54,6 +57,7 @@ class AiProviderConfig {
     model: model ?? this.model,
     reasoningEffort:
         clearReasoningEffort ? null : reasoningEffort ?? this.reasoningEffort,
+    maxRetries: maxRetries ?? this.maxRetries,
   );
 
   Map<String, dynamic> toJson() => {
@@ -64,6 +68,7 @@ class AiProviderConfig {
     'api_key': apiKey,
     'model': model,
     'reasoning_effort': reasoningEffort,
+    'max_retries': maxRetries,
   };
 
   factory AiProviderConfig.fromJson(Map<String, dynamic> json) =>
@@ -75,6 +80,8 @@ class AiProviderConfig {
         apiKey: json['api_key'] as String? ?? '',
         model: json['model'] as String? ?? '',
         reasoningEffort: json['reasoning_effort'] as String?,
+        maxRetries:
+            ((json['max_retries'] as num?)?.toInt() ?? 3).clamp(0, 10).toInt(),
       );
 }
 

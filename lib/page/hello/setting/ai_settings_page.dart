@@ -289,6 +289,7 @@ class _ProviderEditorDialogState extends State<_ProviderEditorDialog> {
   late final TextEditingController _model;
   late AiProtocolType _protocol;
   String? _reasoningEffort;
+  late int _maxRetries;
   bool _obscureKey = true;
 
   @override
@@ -300,6 +301,7 @@ class _ProviderEditorDialogState extends State<_ProviderEditorDialog> {
     _model = TextEditingController(text: widget.provider.model);
     _protocol = widget.provider.protocol;
     _reasoningEffort = widget.provider.reasoningEffort;
+    _maxRetries = widget.provider.maxRetries;
   }
 
   @override
@@ -364,6 +366,22 @@ class _ProviderEditorDialogState extends State<_ProviderEditorDialog> {
                 ],
                 onChanged: (value) => setState(() => _reasoningEffort = value),
               ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<int>(
+                initialValue: _maxRetries,
+                decoration: const InputDecoration(
+                  labelText: '失败重试次数',
+                  helperText: '仅重试超时、连接失败、限流和服务端错误，并使用指数退避',
+                ),
+                items: [
+                  for (var count = 0; count <= 10; count++)
+                    DropdownMenuItem(
+                      value: count,
+                      child: Text(count == 0 ? '不重试' : '$count 次'),
+                    ),
+                ],
+                onChanged: (value) => setState(() => _maxRetries = value ?? 3),
+              ),
             ],
           ),
         ),
@@ -406,6 +424,7 @@ class _ProviderEditorDialogState extends State<_ProviderEditorDialog> {
       apiKey: _apiKey.text.trim(),
       model: _model.text.trim(),
       reasoningEffort: _reasoningEffort,
+      maxRetries: _maxRetries,
       clearReasoningEffort: _reasoningEffort == null,
     ),
   );

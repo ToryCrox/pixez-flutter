@@ -437,7 +437,9 @@ abstract class _IllustStoreBase with Store {
       ..clear()
       ..addAll(sets);
     if (sets.isNotEmpty) {
-      selectedOriginalSetId ??= sets.first.id;
+      if (!sets.any((set) => set.id == selectedOriginalSetId)) {
+        selectedOriginalSetId = sets.first.id;
+      }
       displayManifest = await downloadStore.buildDisplayManifest(
         id,
         setId: selectedOriginalSetId,
@@ -460,6 +462,7 @@ abstract class _IllustStoreBase with Store {
     final imageInfos = await downloadStore.getLocalImageInfos(id);
     localImageInfos.clear();
     localImageInfos.addAll(imageInfos);
+    updateTotalPages(illusts?.pageCount ?? 1);
     Log.d(
       'loadLocalImageInfos time1: ${DateTime.now().difference(t1).inMilliseconds}ms, illusts.id: $id, length: ${imageInfos.length}',
     );
@@ -491,6 +494,14 @@ abstract class _IllustStoreBase with Store {
     final anchorPart = _currentDownloadedAnchor();
     selectedOriginalSetId = null;
     displayMode = OriginalDisplayMode.downloaded;
+    await _loadLocalImageInfos();
+    return _restoreDisplayAnchor(anchorPart);
+  }
+
+  /// 导入、更新或管理原图版本后刷新显示清单，并尽量保持当前下载页锚点。
+  @action
+  Future<int> reloadOriginalVersions() async {
+    final anchorPart = _currentDownloadedAnchor();
     await _loadLocalImageInfos();
     return _restoreDisplayAnchor(anchorPart);
   }

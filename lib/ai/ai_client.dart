@@ -1,6 +1,13 @@
 import 'package:dio/dio.dart';
 import 'package:pixez/ai/ai_models.dart';
+import 'package:pixez/custom/log.dart';
 import 'package:pixez/debug/network_logger.dart';
+
+typedef AiRetryDelay = Future<void> Function(Duration duration);
+typedef AiRetryLogger = void Function(String message);
+
+Future<void> _defaultRetryDelay(Duration duration) => Future.delayed(duration);
+void _defaultRetryLogger(String message) => Log.w(message);
 
 class AiCompletionInput {
   final String systemPrompt;
@@ -31,17 +38,24 @@ class AiRequestException implements Exception {
 
 class AiClient {
   final Map<AiProtocolType, AiProtocolAdapter> _adapters;
+  final AiRetryDelay _retryDelay;
+  final AiRetryLogger _retryLogger;
 
-  AiClient({Iterable<AiProtocolAdapter>? adapters})
-    : _adapters = {
-        for (final adapter
-            in adapters ??
-                const [
-                  OpenAiChatCompletionsAdapter(),
-                  OpenAiResponsesAdapter(),
-                ])
-          adapter.protocol: adapter,
-      };
+  AiClient({
+    Iterable<AiProtocolAdapter>? adapters,
+    AiRetryDelay retryDelay = _defaultRetryDelay,
+    AiRetryLogger retryLogger = _defaultRetryLogger,
+  }) : _retryDelay = retryDelay,
+       _retryLogger = retryLogger,
+       _adapters = {
+         for (final adapter
+             in adapters ??
+                 const [
+                   OpenAiChatCompletionsAdapter(),
+                   OpenAiResponsesAdapter(),
+                 ])
+           adapter.protocol: adapter,
+       };
 
   void register(AiProtocolAdapter adapter) =>
       _adapters[adapter.protocol] = adapter;
@@ -73,34 +87,70 @@ class AiClient {
         responseType: ResponseType.json,
       ),
     )..interceptors.add(NetworkLogInterceptor());
-    try {
-      final result = await adapter.complete(dio, config, input);
-      if (result.trim().isEmpty) throw const AiRequestException('AI 未返回可用文本');
-      return result.trim();
-    } on AiRequestException {
-      rethrow;
-    } on DioException catch (error) {
-      if (error.type == DioExceptionType.connectionTimeout ||
-          error.type == DioExceptionType.receiveTimeout ||
-          error.type == DioExceptionType.sendTimeout) {
-        throw const AiRequestException('AI 请求超时，请稍后重试');
+    var retries = 0;
+    while (true) {
+      try {
+        final result = await adapter.complete(dio, config, input);
+        if (result.trim().isEmpty) {
+          throw const AiRequestException('AI 未返回可用文本');
+        }
+        return result.trim();
+      } on AiRequestException {
+        rethrow;
+      } on DioException catch (error) {
+        if (retries < config.maxRetries && _isRetryable(error)) {
+          final delay = _backoffDelay(retries);
+          retries++;
+          _retryLogger(
+            'AI 请求临时失败，将在 ${delay.inMilliseconds}ms 后进行第 $retries/${config.maxRetries} 次重试',
+          );
+          await _retryDelay(delay);
+          continue;
+        }
+        _throwRequestException(error);
+      } catch (_) {
+        throw const AiRequestException('AI 响应格式无法识别');
       }
-      final body = error.response?.data;
-      final apiError = body is Map ? body['error'] : null;
-      final message =
-          apiError is Map
-              ? apiError['message']
-              : body is Map
-              ? body['message']
-              : null;
-      throw AiRequestException(
-        message is String && message.isNotEmpty
-            ? 'AI 请求失败：$message'
-            : 'AI 请求失败（HTTP ${error.response?.statusCode ?? '网络错误'}）',
-      );
-    } catch (_) {
-      throw const AiRequestException('AI 响应格式无法识别');
     }
+  }
+
+  static bool _isRetryable(DioException error) {
+    if (error.type == DioExceptionType.cancel ||
+        error.type == DioExceptionType.badCertificate) {
+      return false;
+    }
+    final statusCode = error.response?.statusCode;
+    if (statusCode == null) return true;
+    return statusCode == 408 ||
+        statusCode == 425 ||
+        statusCode == 429 ||
+        statusCode >= 500;
+  }
+
+  static Duration _backoffDelay(int retryIndex) {
+    final milliseconds = (500 * (1 << retryIndex)).clamp(500, 8000);
+    return Duration(milliseconds: milliseconds.toInt());
+  }
+
+  static Never _throwRequestException(DioException error) {
+    if (error.type == DioExceptionType.connectionTimeout ||
+        error.type == DioExceptionType.receiveTimeout ||
+        error.type == DioExceptionType.sendTimeout) {
+      throw const AiRequestException('AI 请求超时，请稍后重试');
+    }
+    final body = error.response?.data;
+    final apiError = body is Map ? body['error'] : null;
+    final message =
+        apiError is Map
+            ? apiError['message']
+            : body is Map
+            ? body['message']
+            : null;
+    throw AiRequestException(
+      message is String && message.isNotEmpty
+          ? 'AI 请求失败：$message'
+          : 'AI 请求失败（HTTP ${error.response?.statusCode ?? '网络错误'}）',
+    );
   }
 
   Future<void> testConfig(AiProviderConfig config) async {

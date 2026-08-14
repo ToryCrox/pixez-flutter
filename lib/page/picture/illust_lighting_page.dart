@@ -42,10 +42,13 @@ import 'package:pixez/models/ban_illust_id.dart';
 import 'package:pixez/models/ban_tag.dart';
 import 'package:pixez/models/illust.dart';
 import 'package:pixez/models/original_image.dart';
+import 'package:pixez/page/downloaded/original_import_dialog.dart';
+import 'package:pixez/page/downloaded/original_version_manager_dialog.dart';
 import 'package:pixez/page/picture/illust_about_store.dart';
 import 'package:pixez/page/picture/illust_detail_content.dart';
 import 'package:pixez/page/picture/illust_row_page.dart';
 import 'package:pixez/page/picture/illust_store.dart';
+import 'package:pixez/page/picture/original_version_switch_button.dart';
 import 'package:pixez/page/picture/tag_for_illust_page.dart';
 import 'package:pixez/page/picture/ugoira_loader.dart';
 import 'package:pixez/page/picture/user_follow_button.dart';
@@ -220,6 +223,60 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
         curve: Curves.easeOut,
       );
     }
+  }
+
+  Future<void> _selectOriginalSet(int setId) async {
+    final targetIndex = await _illustStore.selectOriginalSet(setId);
+    if (mounted) {
+      await _observerController.animateTo(
+        index: targetIndex,
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOut,
+      );
+    }
+  }
+
+  Future<void> _reloadOriginalVersions() async {
+    final targetIndex = await _illustStore.reloadOriginalVersions();
+    if (!mounted) return;
+    if (!_illustStore.hasOriginal &&
+        _illustStore.illusts?.id.isNegative == true) {
+      Navigator.of(context).pop();
+      return;
+    }
+    if (_illustStore.totalPages > 0) {
+      await _observerController.animateTo(
+        index: targetIndex,
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOut,
+      );
+    }
+  }
+
+  Future<void> _importOriginalVersion() async {
+    final record = await downloadStore.getDownloadedIllust(widget.id);
+    if (!mounted) return;
+    if (record == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('未找到可更新的本地作品记录')));
+      return;
+    }
+    final changed = await OriginalImportDialog.show(context, record);
+    if (changed == true) await _reloadOriginalVersions();
+  }
+
+  Future<void> _manageOriginalVersions() async {
+    final record = await downloadStore.getDownloadedIllust(widget.id);
+    if (!mounted) return;
+    if (record == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('未找到可管理的本地作品记录')));
+      return;
+    }
+    final changed = await OriginalVersionManagerDialog.show(context, record);
+    if (changed == true) await _reloadOriginalVersions();
   }
 
   Future<void> _toggleImageDisplayMode() async {
@@ -574,10 +631,28 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
                     _buildContent(context, data),
                     _buildAppbar(),
                     Positioned(
-                      bottom: 60,
+                      bottom:
+                          _illustStore.hasOriginal
+                              ? (_illustStore.displayPageCount > 1 ? 100 : 60)
+                              : 60,
                       left: 10,
                       child: Observer(builder: (_) => _buildJumpHint()),
                     ),
+                    if (_illustStore.hasOriginal)
+                      Positioned(
+                        bottom: _illustStore.displayPageCount > 1 ? 60 : 20,
+                        left: 10,
+                        child: Observer(
+                          builder:
+                              (_) => OriginalVersionSwitchButton(
+                                store: _illustStore,
+                                onModeSelected: _selectImageDisplayMode,
+                                onSetSelected: _selectOriginalSet,
+                                onImport: _importOriginalVersion,
+                                onManage: _manageOriginalVersions,
+                              ),
+                        ),
+                      ),
                     if (data != null && _illustStore.displayPageCount > 1)
                       Positioned(
                         bottom: 20,

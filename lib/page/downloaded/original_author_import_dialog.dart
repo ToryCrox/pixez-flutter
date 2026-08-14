@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:pixez/custom/log.dart';
 import 'package:pixez/ai/ai_client.dart';
+import 'package:pixez/er/prefer.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/models/download_record.dart';
 import 'package:pixez/models/original_image.dart';
@@ -85,6 +86,10 @@ class _OriginalAuthorImportDialogState
   int _batchSize = 20;
   bool _hasMoreDirectories = false;
   int _currentDirectoryCount = 0;
+  String? _lastRoot;
+
+  String get _lastRootKey =>
+      'original_author_import_last_root_${widget.userId}';
 
   List<OriginalImportItemManifest> get _remainingItems =>
       _manifest?.items
@@ -102,11 +107,34 @@ class _OriginalAuthorImportDialogState
   }
 
   @override
+  void initState() {
+    super.initState();
+    _loadLastRoot();
+  }
+
+  @override
   void dispose() {
     _matchScrollController.dispose();
     _previewScrollController.dispose();
     _batchSizeController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadLastRoot() async {
+    final preferences = await Prefer.getInstance();
+    final saved = preferences.getString(_lastRootKey);
+    if (saved == null || saved.isEmpty) return;
+    if (!await Directory(saved).exists()) {
+      await preferences.remove(_lastRootKey);
+      return;
+    }
+    if (mounted) setState(() => _lastRoot = saved);
+  }
+
+  Future<void> _rememberRoot(String root) async {
+    final preferences = await Prefer.getInstance();
+    await preferences.setString(_lastRootKey, root);
+    if (mounted) setState(() => _lastRoot = root);
   }
 
   Future<void> _selectRoot() async {
@@ -115,6 +143,15 @@ class _OriginalAuthorImportDialogState
       lockParentWindow: true,
     );
     if (root == null) return;
+    await _rememberRoot(root);
+    await _scanRoot(root);
+  }
+
+  Future<void> _scanRoot(String root) async {
+    if (!await Directory(root).exists()) {
+      if (mounted) setState(() => _error = '上次选择的原图目录已不存在');
+      return;
+    }
     setState(() {
       _busy = true;
       _error = null;
@@ -869,6 +906,17 @@ class _OriginalAuthorImportDialogState
                     icon: const Icon(Icons.folder_open),
                     label: const Text('选择作者目录'),
                   ),
+                  if (_lastRoot != null) ...[
+                    const SizedBox(width: 8),
+                    Tooltip(
+                      message: _lastRoot!,
+                      child: OutlinedButton.icon(
+                        onPressed: _busy ? null : () => _scanRoot(_lastRoot!),
+                        icon: const Icon(Icons.history),
+                        label: const Text('使用上次目录'),
+                      ),
+                    ),
+                  ],
                   const SizedBox(width: 10),
                   const Text('每批处理'),
                   const SizedBox(width: 6),
@@ -1389,6 +1437,7 @@ class _OriginalAuthorImportDialogState
             title: downloaded ? '选择下载图' : '选择原图',
             pageCount: count,
             selectedIndex: current,
+            thumbnailPaths: downloaded ? null : _originalPagePaths(item),
           ),
     );
     if (!mounted || selected == null) return;
@@ -1480,6 +1529,19 @@ int _automaticOriginalShiftCount(OriginalImportItemManifest item) {
   return difference > 0 ? difference : 0;
 }
 
+List<String?> _originalPagePaths(OriginalImportItemManifest item) {
+  final paths = List<String?>.filled(item.files.length, null);
+  for (final file in item.files) {
+    if (file.sourceOrder >= 0 && file.sourceOrder < paths.length) {
+      paths[file.sourceOrder] = p.join(
+        item.sourceDirectory,
+        file.sourceRelativePath,
+      );
+    }
+  }
+  return paths;
+}
+
 void _normalizeMappingRelation(OriginalImportMappingManifest mapping) {
   if (mapping.downloadedPart != null && mapping.originalSourceOrder != null) {
     mapping.relationType = OriginalRelationType.replacement;
@@ -1494,11 +1556,13 @@ class _PageIndexPickerDialog extends StatefulWidget {
   final String title;
   final int pageCount;
   final int? selectedIndex;
+  final List<String?>? thumbnailPaths;
 
   const _PageIndexPickerDialog({
     required this.title,
     required this.pageCount,
     required this.selectedIndex,
+    this.thumbnailPaths,
   });
 
   @override
@@ -1528,12 +1592,47 @@ class _PageIndexPickerDialogState extends State<_PageIndexPickerDialog> {
           child: ListView.builder(
             controller: _scrollController,
             itemCount: widget.pageCount + 1,
-            itemExtent: 48,
+            itemExtent: 60,
             itemBuilder: (_, index) {
               final pageIndex = index - 1;
               final selected = widget.selectedIndex == pageIndex;
+              final thumbnailPath =
+                  pageIndex >= 0 &&
+                          pageIndex < (widget.thumbnailPaths?.length ?? 0)
+                      ? widget.thumbnailPaths![pageIndex]
+                      : null;
               return ListTile(
                 selected: selected,
+                leading:
+                    index == 0
+                        ? const SizedBox(width: 48)
+                        : ClipRRect(
+                          borderRadius: BorderRadius.circular(6),
+                          child: SizedBox(
+                            width: 48,
+                            height: 48,
+                            child:
+                                thumbnailPath == null
+                                    ? const ColoredBox(
+                                      color: Colors.black12,
+                                      child: Icon(
+                                        Icons.image_not_supported_outlined,
+                                      ),
+                                    )
+                                    : Image.file(
+                                      File(thumbnailPath),
+                                      fit: BoxFit.cover,
+                                      cacheWidth: 96,
+                                      errorBuilder:
+                                          (_, _, _) => const ColoredBox(
+                                            color: Colors.black12,
+                                            child: Icon(
+                                              Icons.broken_image_outlined,
+                                            ),
+                                          ),
+                                    ),
+                          ),
+                        ),
                 title: Text(index == 0 ? '无' : '第 $index 页'),
                 trailing: selected ? const Icon(Icons.check) : null,
                 onTap: () => Navigator.pop(context, pageIndex),
@@ -1640,6 +1739,7 @@ class _OriginalPageMappingDialogState
                 downloaded
                     ? mapping.downloadedPart
                     : mapping.originalSourceOrder,
+            thumbnailPaths: downloaded ? null : _originalPagePaths(widget.item),
           ),
     );
     if (!mounted || selected == null) return;

@@ -194,6 +194,9 @@ class AiSettingsStore extends ChangeNotifier {
     }
     if (provider.model.trim().isEmpty)
       throw const AiConfigurationException('请输入模型名称');
+    if (provider.maxRetries < 0 || provider.maxRetries > 10) {
+      throw const AiConfigurationException('失败重试次数必须在 0 到 10 之间');
+    }
   }
 }
 
