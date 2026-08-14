@@ -93,16 +93,28 @@ class _PhotoZoomPageState extends State<PhotoZoomPage> {
   Future<void> _loadLocalPaths() async {
     if (!downloadStore.isInitialized) return;
 
+    final localPaths = <int, String?>{};
     for (int i = 0; i < _pageCount; i++) {
-      final path =
-          widget.illustStore.getLocalImageInfo(i)?.path ??
-          await downloadStore.getLocalImagePath(_illusts.id, i);
-      if (mounted) {
-        setState(() {
-          _localPaths[i] = path;
-        });
-      }
+      localPaths[i] = await _resolveLocalPath(i);
     }
+    if (mounted) {
+      setState(() {
+        _localPaths.addAll(localPaths);
+      });
+    }
+  }
+
+  Future<String?> _resolveLocalPath(int pageIndex) async {
+    var localPath =
+        _localPaths[pageIndex] ??
+        widget.illustStore.getLocalImageInfo(pageIndex)?.path;
+    if (localPath != null && await File(localPath).exists()) {
+      return localPath;
+    }
+    if (downloadStore.isInitialized) {
+      return downloadStore.getLocalImagePath(_illusts.id, pageIndex);
+    }
+    return localPath;
   }
 
   ImageProvider _getImageProvider(int index, String url) {
@@ -135,6 +147,16 @@ class _PhotoZoomPageState extends State<PhotoZoomPage> {
   }
 
   initCache() async {
+    final localPath = await _resolveLocalPath(_index);
+    if (localPath != null && await File(localPath).exists()) {
+      if (mounted) {
+        setState(() {
+          _localPaths[_index] = localPath;
+          shareShow = true;
+        });
+      }
+      return;
+    }
     if (nowUrl.isEmpty) {
       if (mounted) setState(() => shareShow = _localPaths[_index] != null);
       return;
@@ -341,20 +363,26 @@ class _PhotoZoomPageState extends State<PhotoZoomPage> {
     bool forceOcr = false,
     bool forceTranslation = false,
   }) async {
+    final pageIndex = _index;
+    final imageUrl = _urlFor(pageIndex);
     final targetLanguage = Localizations.localeOf(context).toLanguageTag();
     final preferences = await MangaOcrPreferences.load();
+    final localPath = await _resolveLocalPath(pageIndex);
+    if (mounted && localPath != null && _localPaths[pageIndex] != localPath) {
+      setState(() => _localPaths[pageIndex] = localPath);
+    }
     final imagePath = await _ocrImageResolver.resolve(
-      localPath: _localPaths[_index],
-      imageUrl: _urlFor(_index),
+      localPath: localPath,
+      imageUrl: imageUrl,
     );
     if (imagePath == null) {
       _ocrController.clearForPageChange();
       return;
     }
-    if (!mounted) return;
+    if (!mounted || _index != pageIndex) return;
     await _ocrController.analyze(
       imagePath: imagePath,
-      pageIndex: _index,
+      pageIndex: pageIndex,
       targetLanguage: targetLanguage,
       forceOcr: forceOcr,
       forceTranslation: forceTranslation,

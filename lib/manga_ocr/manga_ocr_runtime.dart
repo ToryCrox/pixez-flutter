@@ -54,6 +54,7 @@ class MangaOcrProcessRuntime implements MangaOcrRuntime {
   final _progressController =
       StreamController<MangaOcrRuntimeProgress>.broadcast();
   int _nextRequestId = 0;
+  String? _loadedModelSignature;
 
   MangaOcrProcessRuntime({
     this.helperPath,
@@ -73,11 +74,21 @@ class MangaOcrProcessRuntime implements MangaOcrRuntime {
     required Map<String, dynamic> detector,
     required Map<String, dynamic> recognizer,
   }) async {
+    final signature = jsonEncode({
+      'modelDirectory': modelDirectory,
+      'detector': detector,
+      'recognizer': recognizer,
+    });
+    if (_process != null && _loadedModelSignature == signature) {
+      Log.d(() => '复用已加载的漫画 OCR 模型');
+      return;
+    }
     await _request('loadModels', {
       'modelDirectory': modelDirectory,
       'detector': detector,
       'recognizer': recognizer,
     });
+    _loadedModelSignature = signature;
   }
 
   @override
@@ -250,6 +261,7 @@ class MangaOcrProcessRuntime implements MangaOcrRuntime {
     final process = _process;
     Log.w(() => '重置漫画 OCR helper: reason=$error, pending=${_pending.length}');
     _process = null;
+    _loadedModelSignature = null;
     process?.kill();
     await _stdoutSubscription?.cancel();
     await _stderrSubscription?.cancel();

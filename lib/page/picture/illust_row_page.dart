@@ -465,7 +465,11 @@ class _IllustRowPageState extends State<IllustRowPage>
   Future<String?> _resolveOcrPagePath(int pageIndex) async {
     final illust = _illustStore.illusts;
     if (illust == null || pageIndex < 0) return null;
-    final localPath = _illustStore.getLocalImageInfo(pageIndex)?.path;
+    var localPath = _illustStore.getLocalImageInfo(pageIndex)?.path;
+    if ((localPath == null || !await File(localPath).exists()) &&
+        downloadStore.isInitialized) {
+      localPath = await downloadStore.getLocalImagePath(illust.id, pageIndex);
+    }
     String imageUrl = '';
     if (pageIndex < illust.pageCount) {
       if (illust.pageCount == 1 && pageIndex == 0) {
@@ -491,6 +495,8 @@ class _IllustRowPageState extends State<IllustRowPage>
       _sidebarOverlay = _IllustSidebarOverlay.mangaOcr;
     });
     _ocrSession.open(_illustStore.currentPage);
+    // 打开阅读页 OCR 面板后立即处理当前页；默认流程包含 AI 翻译。
+    _startMangaOcr();
   }
 
   void _startMangaOcr() {
