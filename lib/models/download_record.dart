@@ -1981,6 +1981,33 @@ class DownloadDatabaseProvider {
     });
   }
 
+  /// 替换已下载图片后，同步更新图片、作品和作者的物化统计。
+  ///
+  /// 文件替换由调用方负责；本方法只在文件已经安全落盘后更新数据库。
+  Future<void> replaceImageWithTranslationRecord({
+    required int illustId,
+    required int part,
+    required int userId,
+    required String extension,
+    required int fileSize,
+    required int width,
+    required int height,
+  }) async {
+    await db.transaction((txn) async {
+      await updateImageExtension(illustId, part, extension, executor: txn);
+      await updateImageFileSizeAndDimensions(
+        illustId,
+        part,
+        fileSize,
+        width,
+        height,
+        executor: txn,
+      );
+      await recalculateIllustStats(illustId, txn: txn);
+      await updateAuthorStats(userId, executor: txn);
+    });
+  }
+
   /// 获取插画已下载的图片数量
   /// @deprecated 使用物化字段 DownloadedIllust.downloadedImageCount 替代
   @Deprecated('使用物化字段 DownloadedIllust.downloadedImageCount 替代')

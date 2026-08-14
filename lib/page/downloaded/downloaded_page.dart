@@ -37,6 +37,7 @@ import 'package:pixez/page/downloaded/original_import_recovery_dialog.dart';
 import 'package:pixez/page/downloaded/local_original_work_dialog.dart';
 import 'package:pixez/page/downloaded/link_local_work_dialog.dart';
 import 'package:pixez/page/downloaded/edit_local_work_dialog.dart';
+import 'package:pixez/page/downloaded/translation_result_replace_dialog.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/component/pixez_default_header.dart';
 import 'package:pixez/page/picture/illust_store.dart';
@@ -46,6 +47,7 @@ import 'package:pixez/store/download_store.dart';
 import 'package:pixez/component/sort_group.dart';
 import 'package:pixez/page/downloaded/widgets/downloaded_illust_card.dart';
 import 'package:pixez/page/user/users_page.dart';
+import 'package:pixez/utils/translation_result_replacer.dart';
 
 class DownloadedPage extends StatefulWidget {
   final int? initialUserId;
@@ -957,11 +959,11 @@ class _DownloadedPageState extends State<DownloadedPage> {
 
   // ============ 右键菜单 ============
 
-  void _showContextMenu(
+  Future<void> _showContextMenu(
     BuildContext context,
     DownloadedIllust illust,
     Offset? tapPosition,
-  ) {
+  ) async {
     final RenderBox overlay =
         Overlay.of(context).context.findRenderObject() as RenderBox;
 
@@ -981,6 +983,13 @@ class _DownloadedPageState extends State<DownloadedPage> {
                 .toList()
             : [illust];
 
+    final hasTranslationResult =
+        !isMulti &&
+        await TranslationResultReplacer(
+          downloadStore.dbProvider,
+        ).hasReplacementCandidate(illust);
+    if (!mounted) return;
+
     showMenu(
       context: context,
       position: RelativeRect.fromRect(
@@ -988,6 +997,13 @@ class _DownloadedPageState extends State<DownloadedPage> {
         Offset.zero & overlay.size,
       ),
       items: [
+        if (!isMulti && hasTranslationResult)
+          _buildContextMenuItem(
+            icon: Icons.translate,
+            label: '应用翻译结果',
+            labelColor: Theme.of(context).colorScheme.primary,
+            onTap: () => _showTranslationResultDialog(illust),
+          ),
         if (isMulti)
           PopupMenuItem(child: Text('已选择 $selectedCount 项'), enabled: false),
 
@@ -1199,6 +1215,34 @@ class _DownloadedPageState extends State<DownloadedPage> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('路径已复制到剪贴板')));
+    }
+  }
+
+  Future<void> _showTranslationResultDialog(DownloadedIllust illust) async {
+    final replacer = TranslationResultReplacer(downloadStore.dbProvider);
+    try {
+      final plan = await replacer.prepare(illust);
+      if (!mounted) return;
+      if (plan.pairs.isEmpty) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('result 目录中没有可替换的翻译图片')));
+        return;
+      }
+      await TranslationResultReplaceDialog.show(
+        context,
+        plan: plan,
+        replacer: replacer,
+        onReplaced: () async {
+          await _store.loadData();
+          await _store.loadStats();
+        },
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('读取翻译结果失败：$e')));
     }
   }
 
