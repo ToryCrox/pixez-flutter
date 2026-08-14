@@ -31,7 +31,11 @@ class HtmlTagProtection {
         ).allMatches(translated).map((match) => match.group(0)!).toList();
     if (!_sameSequence(found, _tokens) ||
         RegExp(r'<!--[\s\S]*?-->|</?[A-Za-z][^>]*>').hasMatch(translated)) {
-      throw const AiRequestException('AI 未能完整保留介绍中的 HTML 标签，请重新翻译');
+      // 兼容服务有时会以 HTTP 200 返回一段拒绝/错误文案。该文案缺少占位符
+      // 会触发这里的校验；直接抛出原始内容，避免用本地的 HTML 标签错误掩盖
+      // 服务端真正的错误原因。
+      final apiMessage = AiRequestException.messageFromApiResponse(translated);
+      throw AiRequestException(apiMessage ?? 'AI 未能完整保留介绍中的 HTML 标签，请重新翻译');
     }
     var result = translated;
     for (final token in _tokens) {

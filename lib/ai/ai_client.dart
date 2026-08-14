@@ -32,6 +32,24 @@ class AiRequestException implements Exception {
   final String message;
   const AiRequestException(this.message);
 
+  /// 从兼容 OpenAI 协议的错误载荷中提取服务端消息。
+  ///
+  /// 部分第三方服务会在 HTTP 200 的响应正文中返回错误对象，因此此处也
+  /// 会被翻译结果校验流程复用，避免用本地的格式错误覆盖服务端拒绝原因。
+  static String? messageFromApiResponse(dynamic payload) {
+    if (payload is String) {
+      final message = payload.trim();
+      return message.isEmpty ? null : message;
+    }
+    if (payload is! Map) return null;
+
+    for (final key in const ['refusal', 'message', 'detail', 'error']) {
+      final message = messageFromApiResponse(payload[key]);
+      if (message != null) return message;
+    }
+    return null;
+  }
+
   @override
   String toString() => message;
 }
@@ -138,16 +156,11 @@ class AiClient {
         error.type == DioExceptionType.sendTimeout) {
       throw const AiRequestException('AI 请求超时，请稍后重试');
     }
-    final body = error.response?.data;
-    final apiError = body is Map ? body['error'] : null;
-    final message =
-        apiError is Map
-            ? apiError['message']
-            : body is Map
-            ? body['message']
-            : null;
+    final message = AiRequestException.messageFromApiResponse(
+      error.response?.data,
+    );
     throw AiRequestException(
-      message is String && message.isNotEmpty
+      message != null
           ? 'AI 请求失败：$message'
           : 'AI 请求失败（HTTP ${error.response?.statusCode ?? '网络错误'}）',
     );
@@ -206,6 +219,10 @@ class OpenAiChatCompletionsAdapter implements AiProtocolAdapter {
       throw const AiRequestException('Chat 响应中没有可用结果');
     }
     final message = (choices.first as Map)['message'];
+    final refusal = AiRequestException.messageFromApiResponse(
+      message is Map ? message['refusal'] : null,
+    );
+    if (refusal != null) throw AiRequestException(refusal);
     final content = message is Map ? message['content'] : null;
     final text = _contentToText(content);
     if (text == null || text.trim().isEmpty) {
@@ -242,11 +259,9 @@ class OpenAiResponsesAdapter implements AiProtocolAdapter {
     );
     final data = response.data;
     if (data is! Map) throw const AiRequestException('Responses 响应格式无效');
-    if (data['error'] != null) {
-      final error = data['error'];
-      throw AiRequestException(
-        error is Map ? (error['message'] as String? ?? 'AI 拒绝请求') : 'AI 拒绝请求',
-      );
+    final apiError = AiRequestException.messageFromApiResponse(data['error']);
+    if (apiError != null) {
+      throw AiRequestException(apiError);
     }
     final direct = data['output_text'];
     if (direct is String && direct.trim().isNotEmpty) return direct;
@@ -258,7 +273,10 @@ class OpenAiResponsesAdapter implements AiProtocolAdapter {
       if (content is! List) continue;
       for (final part in content.whereType<Map>()) {
         if (part['type'] == 'refusal') {
-          throw AiRequestException(part['refusal'] as String? ?? 'AI 拒绝生成译文');
+          throw AiRequestException(
+            AiRequestException.messageFromApiResponse(part['refusal']) ??
+                'AI 拒绝生成译文',
+          );
         }
         if (part['type'] == 'output_text' && part['text'] is String) {
           buffer.write(part['text']);

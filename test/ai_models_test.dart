@@ -45,6 +45,31 @@ void main() {
     );
   });
 
+  test('HTML tag protection keeps the API refusal message', () {
+    final protection = HtmlTagProtection.protect('<b>a</b>');
+    const refusal = '该内容不符合服务策略，无法翻译。';
+
+    expect(
+      () => protection.restore(refusal),
+      throwsA(
+        isA<AiRequestException>().having(
+          (error) => error.message,
+          'message',
+          refusal,
+        ),
+      ),
+    );
+  });
+
+  test('API error payload extracts its message', () {
+    expect(
+      AiRequestException.messageFromApiResponse(const {
+        'error': {'message': '服务拒绝翻译'},
+      }),
+      '服务拒绝翻译',
+    );
+  });
+
   test('endpoint accepts a full endpoint and trims trailing slash', () {
     expect(
       AiClient.endpoint('https://api.openai.com/v1/', 'responses'),
