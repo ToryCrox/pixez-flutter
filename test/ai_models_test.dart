@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:pixez/ai/ai_client.dart';
 import 'package:pixez/ai/ai_models.dart';
 import 'package:pixez/ai/html_tag_protector.dart';
+import 'package:pixez/ai/illust_caption_line_pair.dart';
 
 void main() {
   test('default prompts contain all required variables', () {
@@ -31,6 +32,58 @@ void main() {
       '<p>你好 <a href="https://example.com">世界</a><br>!</p>',
     );
   });
+
+  test('HTML tag protection preserves caption line breaks when requested', () {
+    const html = 'Hello\n<a href="https://example.com">world</a><br>!';
+    final protection = HtmlTagProtection.protect(
+      html,
+      preserveLineBreaks: true,
+    );
+    final translated = protection.protectedText
+        .replaceAll('Hello', '你好')
+        .replaceAll('world', '世界');
+
+    expect(
+      protection.restore(translated),
+      '你好\n<a href="https://example.com">世界</a><br>!',
+    );
+  });
+
+  test('caption lines pair original and translation without blank rows', () {
+    final lines = IllustCaptionLinePair.fromHtml(
+      'first<br>second\nthird',
+      '第一行<br>第二行\n第三行',
+    );
+
+    expect(lines, hasLength(3));
+    expect(lines[0].source, 'first');
+    expect(lines[0].translation, '第一行');
+    expect(lines[2].source, 'third');
+    expect(lines[2].translation, '第三行');
+  });
+
+  test('caption blank lines and unchanged text do not create translations', () {
+    final lines = IllustCaptionLinePair.fromHtml(
+      '无需翻译<br><br>second',
+      '无需翻译<br><br>第二行',
+    );
+
+    expect(lines, hasLength(3));
+    expect(lines[0].hasDistinctTranslation, isFalse);
+    expect(lines[1].isSourceBlank, isTrue);
+    expect(lines[2].hasDistinctTranslation, isTrue);
+  });
+
+  test(
+    'caption lines fall back to a whole paragraph when separators differ',
+    () {
+      final lines = IllustCaptionLinePair.fromHtml('first<br>second', '整段译文');
+
+      expect(lines, hasLength(1));
+      expect(lines.single.source, 'first<br>second');
+      expect(lines.single.translation, '整段译文');
+    },
+  );
 
   test('HTML tag protection rejects reordered tokens', () {
     final protection = HtmlTagProtection.protect('<b>a</b>');

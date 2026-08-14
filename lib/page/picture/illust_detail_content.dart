@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:pixez/ai/ai_translation_error_handler.dart';
+import 'package:pixez/ai/illust_caption_line_pair.dart';
 import 'package:pixez/component/selectable_html.dart';
 import 'package:pixez/component/mouse_drag_blocker.dart';
 import 'package:pixez/er/leader.dart';
@@ -448,6 +449,10 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
     if (caption.isEmpty) {
       return Container(height: 1);
     }
+    final captionLines =
+        _translatedCaption.isEmpty
+            ? const <IllustCaptionLinePair>[]
+            : IllustCaptionLinePair.fromHtml(caption, _translatedCaption);
     return Container(
       margin: EdgeInsets.only(top: 4),
       child: Padding(
@@ -485,39 +490,55 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
                             context,
                           );
                         },
-                        child: SelectableHtml(
-                          data: caption.isEmpty ? "~" : caption,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children:
+                              _translatedCaption.isEmpty
+                                  ? [SelectableHtml(data: caption)]
+                                  : [
+                                    for (final line in captionLines) ...[
+                                      if (line.isSourceBlank)
+                                        SizedBox(
+                                          height: _captionBlankLineHeight(),
+                                        )
+                                      else if (line.source.isNotEmpty)
+                                        SelectableHtml(data: line.source),
+                                      if (!line.isSourceBlank &&
+                                          line.translation.isNotEmpty &&
+                                          line.hasDistinctTranslation)
+                                        Opacity(
+                                          opacity: 0.72,
+                                          child: DefaultTextStyle.merge(
+                                            style: TextStyle(
+                                              color:
+                                                  Theme.of(context)
+                                                      .colorScheme
+                                                      .onSurfaceVariant,
+                                            ),
+                                            child: SelectableHtml(
+                                              data: line.translation,
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  ],
                         ),
                       ),
                     ),
                   ),
                 ),
-                if (_translatedCaption.isNotEmpty) ...[
-                  const Padding(
-                    padding: EdgeInsets.only(top: 12),
-                    child: Divider(height: 1),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.only(top: 12),
-                    child: Opacity(
-                      opacity: 0.72,
-                      child: DefaultTextStyle.merge(
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                        child: SelectionArea(
-                          child: SelectableHtml(data: _translatedCaption),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
               ],
             ),
           ),
         ),
       ),
     );
+  }
+
+  double _captionBlankLineHeight() {
+    final textStyle = DefaultTextStyle.of(context).style;
+    return (textStyle.fontSize ?? 14) * (textStyle.height ?? 1.2);
   }
 
   Widget _buildTitleTranslationButton() {

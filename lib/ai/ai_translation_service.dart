@@ -67,12 +67,15 @@ class AiTranslationService {
   }
 
   Future<String> translateIllustCaption(int illustId, String html) async {
-    final protection = HtmlTagProtection.protect(html);
+    final protection = HtmlTagProtection.protect(
+      html,
+      preserveLineBreaks: true,
+    );
     final translated = await translate(
       AiPromptScenes.illustCaption,
       {'text': protection.protectedText},
       systemSuffix:
-          '\n\n输入中形如 ⟪PXEZ_HTML_TAG_0000⟫ 的文本是不可变 HTML 标签占位符。必须让每个占位符恰好出现一次、字符完全一致且顺序不变；只翻译占位符之外的可见文本。不要输出 Markdown 代码块。',
+          '\n\n输入中形如 ⟪PXEZ_HTML_TAG_0000⟫ 的文本是不可变 HTML 标签或换行分隔符占位符。必须让每个占位符恰好出现一次、字符完全一致且顺序不变；只翻译占位符之外的可见文本。不要输出 Markdown 代码块。',
     );
     final restored = protection.restore(_stripCodeFence(translated));
     final current = _illustTranslations[illustId] ?? const IllustTranslation();

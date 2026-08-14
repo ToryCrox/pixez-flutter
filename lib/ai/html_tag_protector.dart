@@ -7,12 +7,19 @@ class HtmlTagProtection {
 
   const HtmlTagProtection(this.protectedText, this._tokens, this._originalTags);
 
-  factory HtmlTagProtection.protect(String html) {
+  factory HtmlTagProtection.protect(
+    String html, {
+    bool preserveLineBreaks = false,
+  }) {
     final originalTags = <String, String>{};
     final tokens = <String>[];
     var index = 0;
     final protectedText = html.replaceAllMapped(
-      RegExp(r'<!--[\s\S]*?-->|</?[A-Za-z][^>]*>'),
+      RegExp(
+        preserveLineBreaks
+            ? r'<!--[\s\S]*?-->|</?[A-Za-z][^>]*>|\r\n|\r|\n'
+            : r'<!--[\s\S]*?-->|</?[A-Za-z][^>]*>',
+      ),
       (match) {
         final token = '⟪PXEZ_HTML_TAG_${index.toString().padLeft(4, '0')}⟫';
         originalTags[token] = match.group(0)!;
