@@ -8,7 +8,7 @@
 PixEz 是一个使用 Flutter 构建的第三方 Pixiv 客户端，支持 Android、iOS、Windows 和 Linux 平台。该应用支持中国大陆地区直连。
 
 ## 构建命令
-flutter的构建版本为3.38.5
+flutter的构建版本为3.38.10
 
 ```bash
 # 获取依赖

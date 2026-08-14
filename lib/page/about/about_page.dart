@@ -14,15 +14,11 @@
  *
  */
 
-import 'dart:async';
 import 'dart:io';
 
-import 'package:bot_toast/bot_toast.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:in_app_purchase/in_app_purchase.dart';
-import 'package:in_app_purchase_storekit/store_kit_wrappers.dart';
 import 'package:pixez/constants.dart';
 import 'package:pixez/i18n.dart';
 import 'package:pixez/page/about/contributors.dart';
@@ -39,69 +35,6 @@ class AboutPage extends StatefulWidget {
 }
 
 class _AboutPageState extends State<AboutPage> {
-  StreamSubscription<List<PurchaseDetails>>? _subscription;
-  List<ProductDetails> products = [];
-
-  @override
-  void initState() {
-    initIap();
-    super.initState();
-  }
-
-  initIap() async {
-    if (!Constants.isGooglePlay && !Platform.isIOS) return;
-    final Stream purchaseUpdated = InAppPurchase.instance.purchaseStream;
-    _subscription =
-        purchaseUpdated.listen(
-              (purchaseDetailsList) {
-                _listenToPurchaseUpdated(purchaseDetailsList);
-              },
-              onDone: () {
-                _subscription?.cancel();
-              },
-              onError: (error) {},
-            )
-            as StreamSubscription<List<PurchaseDetails>>?;
-    const Set<String> _kIds = <String>{'support', 'support1'};
-    final ProductDetailsResponse response = await InAppPurchase.instance
-        .queryProductDetails(_kIds);
-    if (response.notFoundIDs.isNotEmpty) {}
-    List<ProductDetails> pDetails = response.productDetails;
-    products.clear();
-    products.addAll(pDetails);
-    if (Platform.isIOS && products.isNotEmpty) {
-      try {
-        var transactions = await SKPaymentQueueWrapper().transactions();
-        transactions.forEach((skPaymentTransactionWrapper) {
-          SKPaymentQueueWrapper().finishTransaction(
-            skPaymentTransactionWrapper,
-          );
-        });
-      } catch (e) {}
-    }
-  }
-
-  void _listenToPurchaseUpdated(List<PurchaseDetails> purchaseDetailsList) {
-    purchaseDetailsList.forEach((PurchaseDetails purchaseDetails) async {
-      if (purchaseDetails.status == PurchaseStatus.pending) {
-      } else {
-        if (purchaseDetails.status == PurchaseStatus.error) {
-        } else if (purchaseDetails.status == PurchaseStatus.purchased ||
-            purchaseDetails.status == PurchaseStatus.restored) {
-          BotToast.showText(text: "Thanks");
-        }
-        if (purchaseDetails.pendingCompletePurchase) {
-          await InAppPurchase.instance.completePurchase(purchaseDetails);
-        }
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
     return SelectionArea(
@@ -394,72 +327,6 @@ class _AboutPageState extends State<AboutPage> {
                 ),
               ),
             ],
-            if (Platform.isIOS) ...[
-              Card(
-                child: ListTile(
-                  subtitle: Text('如果你觉得这个应用还不错，支持一下开发者吧!'),
-                  title: Text('支持开发者工作'),
-                  trailing: Text('12￥'),
-                  onTap: () async {
-                    BotToast.showText(text: 'try to Purchase');
-                    for (var p in products) {
-                      if (p.id == "support") {
-                        final PurchaseParam purchaseParam = PurchaseParam(
-                          productDetails: p,
-                        );
-                        InAppPurchase.instance.buyConsumable(
-                          purchaseParam: purchaseParam,
-                        );
-                        break;
-                      }
-                    }
-                  },
-                ),
-              ),
-              Card(
-                child: ListTile(
-                  subtitle: Text('如果你觉得这个应用非常不错，支持一下开发者吧！'),
-                  title: Text('支持开发者工作'),
-                  trailing: Text('25￥'),
-                  onTap: () async {
-                    BotToast.showText(text: 'try to Purchase');
-                    for (var p in products) {
-                      if (p.id == "support1") {
-                        final PurchaseParam purchaseParam = PurchaseParam(
-                          productDetails: p,
-                        );
-                        InAppPurchase.instance.buyConsumable(
-                          purchaseParam: purchaseParam,
-                        );
-                        break;
-                      }
-                    }
-                  },
-                ),
-              ),
-            ],
-            if (!Platform.isIOS &&
-                products.isNotEmpty &&
-                Constants.isGooglePlay)
-              for (var i in products)
-                Card(
-                  margin: EdgeInsets.all(8.0),
-                  elevation: 1.0,
-                  child: ListTile(
-                    leading: Icon(FontAwesomeIcons.mugSaucer),
-                    title: Text(i.description),
-                    subtitle: Text(i.price),
-                    onTap: () {
-                      BotToast.showText(text: 'try to Purchase');
-                      final PurchaseParam purchaseParam = PurchaseParam(
-                        productDetails: i,
-                      );
-                      InAppPurchase.instance.buyConsumable(
-                        purchaseParam: purchaseParam,
-                      );
-                    },
-                  ),
-                ),
           ],
         );
       },
