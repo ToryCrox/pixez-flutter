@@ -56,6 +56,53 @@ if (-not (Test-Path $sourceDir)) {
 }
 Write-Host "Source directory exists: OK" -ForegroundColor Green
 
+# Close the installed application before copying files, otherwise pixez.exe
+# may keep files in the destination directory locked.
+Write-Host ""
+Write-Host "Checking whether PixEz is running..." -ForegroundColor Yellow
+$runningProcesses = @(Get-Process -Name "pixez" -ErrorAction SilentlyContinue)
+if ($runningProcesses.Count -eq 0) {
+    Write-Host "PixEz is not running: OK" -ForegroundColor Green
+} else {
+    Write-Host "PixEz is running. Requesting it to close..." -ForegroundColor Yellow
+    foreach ($process in $runningProcesses) {
+        try {
+            if ($process.MainWindowHandle -ne 0) {
+                [void]$process.CloseMainWindow()
+            }
+        } catch {
+            Write-Host "WARNING: Failed to request PixEz to close (PID $($process.Id)): $_" -ForegroundColor Yellow
+        }
+    }
+
+    $waitUntil = (Get-Date).AddSeconds(5)
+    do {
+        Start-Sleep -Milliseconds 500
+        $runningProcesses = @(Get-Process -Name "pixez" -ErrorAction SilentlyContinue)
+    } while ($runningProcesses.Count -gt 0 -and (Get-Date) -lt $waitUntil)
+
+    if ($runningProcesses.Count -gt 0) {
+        Write-Host "PixEz did not close in time. Stopping remaining process(es)..." -ForegroundColor Yellow
+        try {
+            $runningProcesses | Stop-Process -Force -ErrorAction Stop
+            Start-Sleep -Milliseconds 500
+            $runningProcesses = @(Get-Process -Name "pixez" -ErrorAction SilentlyContinue)
+        } catch {
+            Write-Host "ERROR: Failed to stop PixEz. File copy cannot continue." -ForegroundColor Red
+            Write-Host "Error: $_" -ForegroundColor Red
+            Read-Host "Press Enter to exit"
+            exit 1
+        }
+    }
+
+    if ($runningProcesses.Count -gt 0) {
+        Write-Host "ERROR: PixEz is still running. File copy cannot continue." -ForegroundColor Red
+        Read-Host "Press Enter to exit"
+        exit 1
+    }
+    Write-Host "PixEz closed: OK" -ForegroundColor Green
+}
+
 # Create destination directory if it doesn't exist
 if (-not (Test-Path $destinationDir)) {
     Write-Host "Creating destination directory..." -ForegroundColor Yellow

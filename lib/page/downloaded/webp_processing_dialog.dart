@@ -88,12 +88,16 @@ class _WebpProcessingDialogState extends State<WebpProcessingDialog> {
   static const _thumbnailExtent = 67.2;
   static const _noResizePreset = '__no_resize_preset__';
   static const _webpQualityPreferenceKey = 'webp_processing_quality_v1';
+  static const _concurrencyPreferenceKey = 'webp_processing_concurrency_v1';
   static const _resizePresetsPreferenceKey =
       'webp_processing_resize_presets_v1';
   static const _selectedResizePresetPreferenceKey =
       'webp_processing_selected_resize_preset_v1';
 
   final _qualityController = TextEditingController(text: '80');
+  final _concurrencyController = TextEditingController(
+    text: '${StaticWebpProcessor.defaultConcurrency}',
+  );
   final _resizePresetNameController = TextEditingController();
   final _percentageController = TextEditingController(text: '100');
   final _maxWidthController = TextEditingController();
@@ -104,6 +108,7 @@ class _WebpProcessingDialogState extends State<WebpProcessingDialog> {
   WebpToolCheck? _toolCheck;
   List<WebpProcessingResult>? _results;
   var _quality = 80;
+  var _concurrency = StaticWebpProcessor.defaultConcurrency;
   var _completed = 0;
   var _processing = false;
   var _replacing = false;
@@ -144,6 +149,7 @@ class _WebpProcessingDialogState extends State<WebpProcessingDialog> {
   @override
   void dispose() {
     _qualityController.dispose();
+    _concurrencyController.dispose();
     _resizePresetNameController.dispose();
     _percentageController.dispose();
     _maxWidthController.dispose();
@@ -164,6 +170,7 @@ class _WebpProcessingDialogState extends State<WebpProcessingDialog> {
 
   void _restorePreferences() {
     final savedQuality = Prefer.getInt(_webpQualityPreferenceKey);
+    final savedConcurrency = Prefer.getInt(_concurrencyPreferenceKey);
     final savedSelectedPresetId = Prefer.getString(
       _selectedResizePresetPreferenceKey,
     );
@@ -184,6 +191,10 @@ class _WebpProcessingDialogState extends State<WebpProcessingDialog> {
     setState(() {
       _quality = (savedQuality ?? 80).clamp(0, 100);
       _qualityController.text = _quality.toString();
+      _concurrency = _normalizeConcurrency(
+        savedConcurrency ?? StaticWebpProcessor.defaultConcurrency,
+      );
+      _concurrencyController.text = _concurrency.toString();
       _resizePresets
         ..clear()
         ..addAll(savedPresets);
@@ -198,6 +209,17 @@ class _WebpProcessingDialogState extends State<WebpProcessingDialog> {
 
   Future<void> _persistQuality() =>
       Prefer.setInt(_webpQualityPreferenceKey, _quality);
+
+  Future<void> _persistConcurrency() =>
+      Prefer.setInt(_concurrencyPreferenceKey, _concurrency);
+
+  int _normalizeConcurrency(int value) {
+    if (value < 1) return 1;
+    if (value > StaticWebpProcessor.maxConcurrency) {
+      return StaticWebpProcessor.maxConcurrency;
+    }
+    return value;
+  }
 
   Future<void> _persistSelectedResizePreset() => Prefer.setString(
     _selectedResizePresetPreferenceKey,
@@ -299,6 +321,17 @@ class _WebpProcessingDialogState extends State<WebpProcessingDialog> {
   Future<void> _startProcessing() async {
     final options = _buildOptions();
     if (options == null || _toolCheck?.isAvailable != true) return;
+    final concurrency = int.tryParse(_concurrencyController.text.trim());
+    if (concurrency == null ||
+        concurrency < 1 ||
+        concurrency > StaticWebpProcessor.maxConcurrency) {
+      BotToast.showText(
+        text: '并发数必须是 1～${StaticWebpProcessor.maxConcurrency} 的整数',
+      );
+      return;
+    }
+    _concurrency = concurrency;
+    unawaited(_persistConcurrency());
     final temporaryDirectory = await getTemporaryDirectory();
     await StaticWebpProcessor.cleanupSession(_sessionDirectory);
     await StaticWebpProcessor.cleanupStaleSessions(temporaryDirectory);
@@ -332,6 +365,7 @@ class _WebpProcessingDialogState extends State<WebpProcessingDialog> {
                 .toList(),
         options: options,
         sessionDirectory: sessionDirectory,
+        concurrency: concurrency,
         onProgress: (completed, _) {
           if (mounted) setState(() => _completed = completed);
         },
@@ -491,6 +525,35 @@ class _WebpProcessingDialogState extends State<WebpProcessingDialog> {
                       unawaited(_persistQuality());
                     }
                   },
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              SizedBox(
+                width: 180,
+                child: _numberField(
+                  controller: _concurrencyController,
+                  label: '并发转换数',
+                  suffix: '个',
+                  onChanged: (value) {
+                    final parsed = int.tryParse(value);
+                    if (parsed != null &&
+                        parsed >= 1 &&
+                        parsed <= StaticWebpProcessor.maxConcurrency) {
+                      setState(() => _concurrency = parsed);
+                      unawaited(_persistConcurrency());
+                    }
+                  },
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  '同时运行的 cwebp 进程数，默认 ${StaticWebpProcessor.defaultConcurrency}，建议设置为 2～4。',
+                  style: Theme.of(context).textTheme.bodySmall,
                 ),
               ),
             ],

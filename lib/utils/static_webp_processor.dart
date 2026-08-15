@@ -63,6 +63,9 @@ class WebpReplacementResult {
 
 /// 使用应用随附 cwebp 工具处理静态图片。
 class StaticWebpProcessor {
+  static const defaultConcurrency = 3;
+  static const maxConcurrency = 16;
+
   static const _supportedExtensions = {
     '.jpg',
     '.jpeg',
@@ -119,17 +122,28 @@ class StaticWebpProcessor {
     required List<WebpProcessingInput> inputs,
     required WebpProcessingOptions options,
     required Directory sessionDirectory,
+    int concurrency = defaultConcurrency,
     void Function(int completed, int total)? onProgress,
   }) async {
     final error = options.validate();
     if (error != null) throw ArgumentError(error);
+    if (concurrency < 1) {
+      throw ArgumentError.value(concurrency, 'concurrency', '必须大于等于 1');
+    }
     final tool = await CwebpTool.resolve(preferredPath: executablePath);
     if (tool == null) throw StateError('未找到随应用提供的 cwebp 工具');
 
-    final results = <WebpProcessingResult>[];
-    for (var index = 0; index < inputs.length; index++) {
-      results.add(
-        await _processOne(
+    if (inputs.isEmpty) return const [];
+
+    final results = List<WebpProcessingResult?>.filled(inputs.length, null);
+    var nextIndex = 0;
+    var completed = 0;
+
+    Future<void> worker() async {
+      while (true) {
+        final index = nextIndex++;
+        if (index >= inputs.length) return;
+        results[index] = await _processOne(
           input: inputs[index],
           options: options,
           tool: tool,
@@ -137,11 +151,15 @@ class StaticWebpProcessor {
             sessionDirectory.path,
             '${index.toString().padLeft(4, '0')}.webp',
           ),
-        ),
-      );
-      onProgress?.call(index + 1, inputs.length);
+        );
+        completed++;
+        onProgress?.call(completed, inputs.length);
+      }
     }
-    return results;
+
+    final workerCount = math.min(concurrency, inputs.length).toInt();
+    await Future.wait(List.generate(workerCount, (_) => worker()));
+    return List.generate(inputs.length, (index) => results[index]!);
   }
 
   Future<WebpProcessingResult> _processOne({

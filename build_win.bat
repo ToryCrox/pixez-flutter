@@ -57,6 +57,34 @@ if not exist "%source_dir%" (
 )
 echo Source directory exists: OK
 
+REM Close the installed application before copying files, otherwise pixez.exe
+REM may keep files in the destination directory locked.
+echo.
+echo Checking whether PixEz is running...
+tasklist /FI "IMAGENAME eq pixez.exe" | find /I "pixez.exe" >nul
+if errorlevel 1 (
+    echo PixEz is not running: OK
+) else (
+    echo PixEz is running. Requesting it to close...
+    taskkill /IM pixez.exe /T >nul 2>&1
+    timeout /t 5 /nobreak >nul
+
+    tasklist /FI "IMAGENAME eq pixez.exe" | find /I "pixez.exe" >nul
+    if not errorlevel 1 (
+        echo PixEz did not close in time. Stopping remaining process(es)...
+        taskkill /F /IM pixez.exe /T >nul 2>&1
+        timeout /t 1 /nobreak >nul
+    )
+
+    tasklist /FI "IMAGENAME eq pixez.exe" | find /I "pixez.exe" >nul
+    if not errorlevel 1 (
+        echo ERROR: PixEz is still running. File copy cannot continue.
+        pause
+        exit /b 1
+    )
+    echo PixEz closed: OK
+)
+
 REM Create destination directory if it doesn't exist
 if not exist "%destination_dir%" (
     echo Creating destination directory...
