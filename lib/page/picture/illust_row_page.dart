@@ -16,6 +16,7 @@
 
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:bot_toast/bot_toast.dart';
 import 'package:easy_refresh/easy_refresh.dart';
@@ -32,6 +33,7 @@ import 'package:pixez/component/local_or_cached_image.dart';
 import 'package:pixez/component/null_hero.dart';
 import 'package:pixez/component/painter_avatar.dart';
 import 'package:pixez/component/pixiv_image.dart';
+import 'package:pixez/component/resizable_panel_divider.dart';
 import 'package:pixez/component/star_icon.dart';
 import 'package:pixez/constants.dart';
 import 'package:pixez/er/leader.dart';
@@ -113,12 +115,21 @@ class _IllustRowPageState extends State<IllustRowPage>
   Set<int> _visibleOcrPages = <int>{};
   double? _lastOcrObserveOffset;
   bool _ocrScrollForward = true;
+  static const _defaultSidebarRatio = 0.35;
+  static const _minSidebarWidth = 320.0;
+  static const _minImageWidth = 360.0;
+  static const _twoPaneMinWidth = 760.0;
+  static const _sidebarSnapRatios = <double>[0.33, 0.4, 0.5];
+
+  late double _sidebarRatio;
+  bool _isResizingSidebar = false;
 
   bool get _showComments => _sidebarOverlay == _IllustSidebarOverlay.comments;
   bool get _showMangaOcr => _sidebarOverlay == _IllustSidebarOverlay.mangaOcr;
 
   @override
   void initState() {
+    _sidebarRatio = userSetting.illustDetailSidebarRatio;
     _refreshController = EasyRefreshController(
       controlFinishLoad: true,
       controlFinishRefresh: true,
@@ -238,6 +249,27 @@ class _IllustRowPageState extends State<IllustRowPage>
 
   void _toggleFullScreen() {
     fullScreenStore.toggle();
+  }
+
+  double _sidebarWidthFor(double viewportWidth, {required bool twoPane}) {
+    if (!twoPane) return math.min(viewportWidth, 420.0);
+    final maxWidth = math.max(_minSidebarWidth, viewportWidth - _minImageWidth);
+    return (viewportWidth * _sidebarRatio)
+        .clamp(_minSidebarWidth, maxWidth)
+        .toDouble();
+  }
+
+  void _updateSidebarWidth(double width, double viewportWidth) {
+    setState(() => _sidebarRatio = width / viewportWidth);
+  }
+
+  void _commitSidebarWidth(double width, double viewportWidth) {
+    userSetting.setIllustDetailSidebarRatio(width / viewportWidth);
+  }
+
+  void _resetSidebarWidth() {
+    setState(() => _sidebarRatio = _defaultSidebarRatio);
+    userSetting.setIllustDetailSidebarRatio(_defaultSidebarRatio);
   }
 
   Future<void> _selectImageDisplayMode(OriginalDisplayMode mode) async {
@@ -649,22 +681,30 @@ class _IllustRowPageState extends State<IllustRowPage>
           ),
         ),
       );
-    var expectWidth =
-        MediaQuery.of(context).size.width * 0.7 + userSetting.dragStartX;
-    var leftWidth = MediaQuery.of(context).size.width - expectWidth;
-    final atLeastWidth = 320.0;
-    if (leftWidth < atLeastWidth) {
-      leftWidth = atLeastWidth;
-      expectWidth = MediaQuery.of(context).size.width - leftWidth;
-    }
+    final viewportWidth = MediaQuery.sizeOf(context).width;
+    final twoPane = viewportWidth >= _twoPaneMinWidth;
+    final sidebarWidth = _sidebarWidthFor(viewportWidth, twoPane: twoPane);
+    final maxSidebarWidth = math.max(
+      _minSidebarWidth,
+      viewportWidth - _minImageWidth,
+    );
+    final sidebarSnapPoints = _sidebarSnapRatios
+        .map((ratio) => ratio * viewportWidth)
+        .where((width) => width >= _minSidebarWidth && width <= maxSidebarWidth)
+        .toList(growable: false);
+    final imageWidth =
+        (_sidebarVisible && twoPane)
+            ? viewportWidth - sidebarWidth
+            : viewportWidth;
     final radio = (data.height.toDouble() / data.width);
     final screenHeight = MediaQuery.of(context).size.height;
-    final height = (radio * expectWidth);
+    final height = radio * imageWidth;
     final centerType = height <= screenHeight;
     if (userStore == null) userStore = UserStore(data.user.id, null, data.user);
     final dividerWidth = 28.0;
-    // 动画持续时间
     const animationDuration = Duration(milliseconds: 300);
+    final positionedDuration =
+        _isResizingSidebar ? Duration.zero : animationDuration;
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
       onTap: () {
@@ -689,20 +729,17 @@ class _IllustRowPageState extends State<IllustRowPage>
             }
           }
 
-          // 计算侧边栏宽度
-          final sidebarWidth = leftWidth;
-
           return Container(
             child: Stack(
               children: [
                 // 图片区域，使用 AnimatedPositioned 实现平滑过渡
                 AnimatedPositioned(
-                  duration: animationDuration,
+                  duration: positionedDuration,
                   curve: Curves.easeInOut,
                   left: 0,
                   top: 0,
                   bottom: 0,
-                  right: _sidebarVisible ? sidebarWidth : 0,
+                  right: (_sidebarVisible && twoPane) ? sidebarWidth : 0,
                   child: GestureDetector(
                     behavior: HitTestBehavior.translucent,
                     onTap: () {
@@ -802,7 +839,7 @@ class _IllustRowPageState extends State<IllustRowPage>
                 ),
                 // 侧边栏，使用 AnimatedPositioned 实现从右侧滑入/滑出
                 AnimatedPositioned(
-                  duration: animationDuration,
+                  duration: positionedDuration,
                   curve: Curves.easeInOut,
                   right: _sidebarVisible ? 0 : -sidebarWidth,
                   top: 0,
@@ -844,7 +881,7 @@ class _IllustRowPageState extends State<IllustRowPage>
                 ),
                 // OCR 与翻译侧边栏，与评论一样覆盖在作品详情之上。
                 AnimatedPositioned(
-                  duration: animationDuration,
+                  duration: positionedDuration,
                   curve: Curves.easeInOut,
                   right: (_sidebarVisible && _showMangaOcr) ? 0 : -sidebarWidth,
                   top: 0,
@@ -877,7 +914,7 @@ class _IllustRowPageState extends State<IllustRowPage>
                 ),
                 // 评论侧边栏，覆盖在详情侧边栏之上
                 AnimatedPositioned(
-                  duration: animationDuration,
+                  duration: positionedDuration,
                   curve: Curves.easeInOut,
                   right: (_sidebarVisible && _showComments) ? 0 : -sidebarWidth,
                   top: 0,
@@ -899,18 +936,25 @@ class _IllustRowPageState extends State<IllustRowPage>
                   ),
                 ),
                 // 拖拽调整宽度的分隔条，只在侧边栏可见时显示
-                if (_sidebarVisible)
+                if (_sidebarVisible && twoPane)
                   Positioned(
                     right: sidebarWidth - (dividerWidth * 0.5),
                     top: 0,
                     bottom: 0,
-                    child: GestureDetector(
-                      onTap: () {},
-                      onHorizontalDragUpdate: (details) {
-                        userSetting.setDragStartX(details.localPosition.dx);
-                      },
-                      behavior: HitTestBehavior.translucent,
-                      child: Container(width: dividerWidth),
+                    child: ResizablePanelDivider(
+                      panelWidth: sidebarWidth,
+                      minPanelWidth: _minSidebarWidth,
+                      maxPanelWidth: maxSidebarWidth,
+                      snapPoints: sidebarSnapPoints,
+                      hitWidth: dividerWidth,
+                      onWidthChanged:
+                          (width) => _updateSidebarWidth(width, viewportWidth),
+                      onWidthCommitted:
+                          (width) => _commitSidebarWidth(width, viewportWidth),
+                      onResizingChanged:
+                          (resizing) =>
+                              setState(() => _isResizingSidebar = resizing),
+                      onReset: _resetSidebarWidth,
                     ),
                   ),
                 // 跳转到上次阅读位置提示

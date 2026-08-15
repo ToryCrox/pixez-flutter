@@ -87,7 +87,8 @@ abstract class _UserSetting with Store {
   static const String FEED_AI_BADGE_KEY = "feed_ai_badge";
   static const String ILLUST_DETAIL_SAVE_SKIP_LONG_PRESS_KEY =
       "illust_detail_save_skip_long_press";
-  static const String DRAG_START_X_KEY = "drag_start_x";
+  static const String ILLUST_DETAIL_SIDEBAR_RATIO_KEY =
+      "illust_detail_sidebar_ratio";
   static const String USE_WATERFALL_FLOW_KEY = "use_waterfall_flow";
   static const String GRID_ASPECT_RATIO_KEY = "grid_aspect_ratio";
   static const String ILLUST_AUTO_SCROLL_SPEED_KEY = "illust_auto_scroll_speed";
@@ -101,7 +102,7 @@ abstract class _UserSetting with Store {
       "is_network_log_collecting";
 
   @observable
-  double dragStartX = 0;
+  double illustDetailSidebarRatio = 0.35;
   @observable
   bool useWaterfallFlow = true;
   @observable
@@ -572,7 +573,8 @@ abstract class _UserSetting with Store {
     imagePickerType = prefs.getInt(IMAGE_PICKER_TYPE_KEY) ?? 0;
     swipeChangeArtwork = prefs.getBool(SWIPE_CHANGE_ARTWORK_KEY) ?? true;
     useSaunceNaoWebview = prefs.getBool(USE_SAUNCE_NAO_WEBVIEW) ?? false;
-    dragStartX = prefs.getDouble(DRAG_START_X_KEY) ?? 0;
+    illustDetailSidebarRatio =
+        prefs.getDouble(ILLUST_DETAIL_SIDEBAR_RATIO_KEY) ?? 0.35;
     useWaterfallFlow = prefs.getBool(USE_WATERFALL_FLOW_KEY) ?? true;
     gridAspectRatio = prefs.getDouble(GRID_ASPECT_RATIO_KEY) ?? 0.7;
     illustDetailSaveSkipLongPress =
@@ -615,9 +617,9 @@ abstract class _UserSetting with Store {
   }
 
   @action
-  setDragStartX(double value) async {
-    dragStartX = value;
-    prefs.setDouble(DRAG_START_X_KEY, value);
+  Future<void> setIllustDetailSidebarRatio(double value) async {
+    illustDetailSidebarRatio = value;
+    await prefs.setDouble(ILLUST_DETAIL_SIDEBAR_RATIO_KEY, value);
   }
 
   @action
