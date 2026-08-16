@@ -90,6 +90,7 @@ class AiPromptPreset {
   final String name;
   final String sceneId;
   final String providerId;
+  final bool useDefaultProvider;
   final String systemPrompt;
   final String userTemplate;
   final bool isActive;
@@ -99,6 +100,7 @@ class AiPromptPreset {
     required this.name,
     required this.sceneId,
     required this.providerId,
+    this.useDefaultProvider = false,
     required this.systemPrompt,
     required this.userTemplate,
     required this.isActive,
@@ -109,6 +111,7 @@ class AiPromptPreset {
     String? name,
     String? sceneId,
     String? providerId,
+    bool? useDefaultProvider,
     String? systemPrompt,
     String? userTemplate,
     bool? isActive,
@@ -117,6 +120,7 @@ class AiPromptPreset {
     name: name ?? this.name,
     sceneId: sceneId ?? this.sceneId,
     providerId: providerId ?? this.providerId,
+    useDefaultProvider: useDefaultProvider ?? this.useDefaultProvider,
     systemPrompt: systemPrompt ?? this.systemPrompt,
     userTemplate: userTemplate ?? this.userTemplate,
     isActive: isActive ?? this.isActive,
@@ -127,6 +131,7 @@ class AiPromptPreset {
     'name': name,
     'scene_id': sceneId,
     'provider_id': providerId,
+    'use_default_provider': useDefaultProvider,
     'system_prompt': systemPrompt,
     'user_template': userTemplate,
     'is_active': isActive,
@@ -137,6 +142,7 @@ class AiPromptPreset {
     name: json['name'] as String? ?? '',
     sceneId: json['scene_id'] as String? ?? '',
     providerId: json['provider_id'] as String? ?? '',
+    useDefaultProvider: json['use_default_provider'] as bool? ?? false,
     systemPrompt: json['system_prompt'] as String? ?? '',
     userTemplate: json['user_template'] as String? ?? '',
     isActive: json['is_active'] as bool? ?? false,
@@ -218,6 +224,7 @@ class AiDefaultPrompts {
       name: '插画标题（简体中文）',
       sceneId: AiPromptScenes.illustTitle,
       providerId: '',
+      useDefaultProvider: true,
       isActive: true,
       systemPrompt:
           '你是 Pixiv 插画元数据翻译助手。请准确、自然地翻译为简体中文；保留人名、作品名、型号、颜文字、Emoji、特殊符号和原有语气。不要解释、不要加引号，只输出译文。',
@@ -228,6 +235,7 @@ class AiDefaultPrompts {
       name: '插画介绍（简体中文）',
       sceneId: AiPromptScenes.illustCaption,
       providerId: '',
+      useDefaultProvider: true,
       isActive: true,
       systemPrompt:
           '你是 Pixiv 插画介绍翻译助手。请将可见文案准确、自然地翻译为简体中文；保留专有名词、Emoji、换行和原有语气。不要补充或删减信息，不要解释，只输出译文。',
@@ -238,6 +246,7 @@ class AiDefaultPrompts {
       name: '标签翻译（简体中文）',
       sceneId: AiPromptScenes.tagTranslation,
       providerId: '',
+      useDefaultProvider: true,
       isActive: true,
       systemPrompt:
           '你是 Pixiv 标签本地化助手。请结合标签原名和官方翻译，输出最常用、简洁、准确的简体中文标签。优先使用作品、角色和术语已有的官方中文名；不要解释、不要加引号，只输出一个标签译名。',
@@ -249,6 +258,7 @@ class AiDefaultPrompts {
       name: '用户评论翻译（简体中文）',
       sceneId: AiPromptScenes.commentTranslation,
       providerId: '',
+      useDefaultProvider: true,
       isActive: true,
       systemPrompt:
           '你是 Pixiv 用户评论翻译助手。请判断原文语言并将评论准确、自然地翻译为简体中文；保留用户名、作品名、角色名、网络用语、颜文字、Emoji、换行和原有语气；对于俚语、省略和口语表达，优先传达其真实含义。不要补充、删减、审查或解释内容。若原文已经是简体中文，请原样输出。不要加引号，只输出译文。',
@@ -259,6 +269,7 @@ class AiDefaultPrompts {
       name: '作者简介翻译（简体中文）',
       sceneId: AiPromptScenes.authorIntroductionTranslation,
       providerId: '',
+      useDefaultProvider: true,
       isActive: true,
       systemPrompt:
           '你是 Pixiv 作者简介翻译助手。请判断原文语言并将简介准确、自然地翻译为简体中文；保留作者名、作品名、角色名、URL、Emoji、颜文字、换行和原有语气。不要补充、删减、审查或解释内容。若原文已经是简体中文，请原样输出。不要加引号，只输出译文。',
@@ -269,6 +280,7 @@ class AiDefaultPrompts {
       name: '小说翻译（跟随应用语言）',
       sceneId: AiPromptScenes.novelTranslation,
       providerId: '',
+      useDefaultProvider: true,
       isActive: true,
       systemPrompt:
           '你是 Pixiv 小说翻译助手。请将{{content_type}}准确、自然地翻译为 {{target_language}}；保留人名、作品名、术语、Emoji、颜文字、换行、URL 和原有语气。不要补充、删减、审查或解释内容，不要加引号，只输出译文。',
@@ -279,6 +291,7 @@ class AiDefaultPrompts {
       name: '漫画整页翻译（跟随应用语言）',
       sceneId: AiPromptScenes.mangaPageTranslation,
       providerId: '',
+      useDefaultProvider: true,
       isActive: true,
       systemPrompt:
           '你是漫画对白翻译助手。请结合整页上下文，将每个分段准确、自然地翻译为 {{target_language}}；保留角色名、语气、拟声词、Emoji 和标点风格。不要审查、解释、合并或移动分段。',
@@ -290,11 +303,17 @@ class AiDefaultPrompts {
 class AiSettingsDocument {
   final List<AiProviderConfig> providers;
   final List<AiPromptPreset> prompts;
+  final String? defaultProviderId;
 
-  const AiSettingsDocument({required this.providers, required this.prompts});
+  const AiSettingsDocument({
+    required this.providers,
+    required this.prompts,
+    this.defaultProviderId,
+  });
 
   Map<String, dynamic> toJson() => {
-    'version': 1,
+    'version': 2,
+    'default_provider_id': defaultProviderId,
     'providers': providers.map((item) => item.toJson()).toList(),
     'prompts': prompts.map((item) => item.toJson()).toList(),
   };
@@ -312,6 +331,7 @@ class AiSettingsDocument {
     return AiSettingsDocument(
       providers: providerJson.map(AiProviderConfig.fromJson).toList(),
       prompts: promptJson.map(AiPromptPreset.fromJson).toList(),
+      defaultProviderId: json['default_provider_id'] as String?,
     );
   }
 }

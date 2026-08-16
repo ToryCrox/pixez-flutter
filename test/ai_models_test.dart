@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pixez/ai/ai_client.dart';
@@ -11,8 +14,29 @@ void main() {
     expect(prompts, hasLength(AiPromptScenes.labels.length));
     for (final prompt in prompts) {
       expect(AiTemplateRenderer.validate(prompt), isNull);
+      expect(prompt.useDefaultProvider, isTrue);
     }
   });
+
+  test(
+    'prompt default binding survives serialization and legacy data stays manual',
+    () {
+      final prompt = AiDefaultPrompts.create().first;
+      final restored = AiPromptPreset.fromJson(prompt.toJson());
+      expect(restored.useDefaultProvider, isTrue);
+
+      final legacy = AiPromptPreset.fromJson(const {
+        'id': 'legacy',
+        'name': 'Legacy',
+        'scene_id': AiPromptScenes.illustTitle,
+        'provider_id': 'provider',
+        'system_prompt': '{{text}}',
+        'user_template': '{{text}}',
+        'is_active': true,
+      });
+      expect(legacy.useDefaultProvider, isFalse);
+    },
+  );
 
   test('template validation rejects unknown and missing variables', () {
     final prompt = AiDefaultPrompts.create().first.copyWith(
@@ -132,6 +156,67 @@ void main() {
       AiClient.endpoint('https://api.openai.com/v1/responses', 'responses'),
       'https://api.openai.com/v1/responses',
     );
+  });
+
+  test('model response keeps distinct non-empty IDs in sorted order', () {
+    expect(
+      AiClient.parseModelIds(const {
+        'data': [
+          {'id': 'z-model'},
+          {'id': ' '},
+          {'id': 'a-model'},
+          {'id': 'z-model'},
+          {'name': 'missing-id'},
+        ],
+      }),
+      ['a-model', 'z-model'],
+    );
+  });
+
+  test('model response rejects an invalid payload', () {
+    expect(
+      () => AiClient.parseModelIds(const {'models': []}),
+      throwsA(isA<AiRequestException>()),
+    );
+  });
+
+  test('fetchModels requests the OpenAI-compatible models endpoint', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    HttpRequest? receivedRequest;
+    server.listen((request) {
+      receivedRequest = request;
+      request.response.headers.contentType = ContentType.json;
+      request.response
+        ..write(
+          jsonEncode(const {
+            'data': [
+              {'id': 'model-b'},
+              {'id': 'model-a'},
+            ],
+          }),
+        )
+        ..close();
+    });
+
+    try {
+      final models = await AiClient().fetchModels(
+        _provider.copyWith(
+          baseUrl: 'http://127.0.0.1:${server.port}/v1',
+          apiKey: 'secret',
+          maxRetries: 0,
+        ),
+      );
+
+      expect(models, ['model-a', 'model-b']);
+      expect(receivedRequest?.method, 'GET');
+      expect(receivedRequest?.uri.path, '/v1/models');
+      expect(
+        receivedRequest?.headers.value(HttpHeaders.authorizationHeader),
+        'Bearer secret',
+      );
+    } finally {
+      await server.close(force: true);
+    }
   });
 
   test(

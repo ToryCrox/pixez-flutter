@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:pixez/ai/ai_models.dart';
 import 'package:pixez/main.dart';
 
+const _defaultProviderBinding = '__default_provider__';
+const _unboundProviderBinding = '__unbound_provider__';
+
 class AiSettingsPage extends StatefulWidget {
   const AiSettingsPage({super.key});
 
@@ -79,6 +82,7 @@ class _AiSettingsPageState extends State<AiSettingsPage>
         const Padding(
           padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
           child: Text(
+            '选择一个服务作为默认服务，提示词选择“使用默认服务”后会跟随此设置。\n'
             'API Key 将以明文保存在本机应用偏好设置中，请仅在可信设备上使用。',
             style: TextStyle(color: Colors.orange),
           ),
@@ -87,8 +91,14 @@ class _AiSettingsPageState extends State<AiSettingsPage>
           Card(
             margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
             child: ListTile(
+              leading: Radio<String>(
+                value: provider.id,
+                groupValue: aiSettings.defaultProviderId,
+                onChanged: (_) => _setDefaultProvider(provider.id),
+              ),
               title: Text(provider.name),
               subtitle: Text(
+                '${aiSettings.defaultProviderId == provider.id ? '默认服务 · ' : ''}'
                 '${provider.protocol.label}\n${provider.model} · ${provider.baseUrl}',
               ),
               isThreeLine: true,
@@ -137,7 +147,7 @@ class _AiSettingsPageState extends State<AiSettingsPage>
               title: Text(prompt.name),
               subtitle: Text(
                 '${AiPromptScenes.labels[prompt.sceneId] ?? prompt.sceneId} · '
-                '${aiSettings.providerById(prompt.providerId)?.name ?? '未绑定服务'}',
+                '${_promptBindingLabel(prompt)}',
               ),
               trailing: PopupMenuButton<String>(
                 onSelected: (value) => _handlePromptAction(value, prompt),
@@ -153,6 +163,23 @@ class _AiSettingsPageState extends State<AiSettingsPage>
           ),
       ],
     );
+  }
+
+  String _promptBindingLabel(AiPromptPreset prompt) {
+    if (prompt.useDefaultProvider) {
+      final provider = aiSettings.defaultProvider;
+      return provider == null ? '使用默认服务（未设置）' : '使用默认服务：${provider.name}';
+    }
+    if (prompt.providerId.isEmpty) return '暂不绑定服务';
+    return aiSettings.providerById(prompt.providerId)?.name ?? '服务不存在';
+  }
+
+  Future<void> _setDefaultProvider(String providerId) async {
+    try {
+      await aiSettings.setDefaultProvider(providerId);
+    } catch (error) {
+      _showError(error);
+    }
   }
 
   Future<void> _handleProviderAction(
@@ -233,10 +260,8 @@ class _AiSettingsPageState extends State<AiSettingsPage>
                   id: aiSettings.newId('prompt'),
                   name: '',
                   sceneId: AiPromptScenes.illustTitle,
-                  providerId:
-                      aiSettings.providers.isEmpty
-                          ? ''
-                          : aiSettings.providers.first.id,
+                  providerId: '',
+                  useDefaultProvider: true,
                   systemPrompt: '',
                   userTemplate: '请翻译：{{text}}',
                   isActive: false,
@@ -290,6 +315,9 @@ class _ProviderEditorDialogState extends State<_ProviderEditorDialog> {
   late AiProtocolType _protocol;
   String? _reasoningEffort;
   late int _maxRetries;
+  late final FocusNode _modelFocusNode;
+  List<String> _models = const [];
+  bool _loadingModels = false;
   bool _obscureKey = true;
 
   @override
@@ -302,6 +330,7 @@ class _ProviderEditorDialogState extends State<_ProviderEditorDialog> {
     _protocol = widget.provider.protocol;
     _reasoningEffort = widget.provider.reasoningEffort;
     _maxRetries = widget.provider.maxRetries;
+    _modelFocusNode = FocusNode();
   }
 
   @override
@@ -310,6 +339,7 @@ class _ProviderEditorDialogState extends State<_ProviderEditorDialog> {
     _baseUrl.dispose();
     _apiKey.dispose();
     _model.dispose();
+    _modelFocusNode.dispose();
     super.dispose();
   }
 
@@ -350,7 +380,7 @@ class _ProviderEditorDialogState extends State<_ProviderEditorDialog> {
                   onPressed: () => setState(() => _obscureKey = !_obscureKey),
                 ),
               ),
-              _field(_model, '模型', hint: 'gpt-4o-mini'),
+              _modelField(),
               DropdownButtonFormField<String?>(
                 value: _reasoningEffort,
                 decoration: const InputDecoration(labelText: '思考强度'),
@@ -415,6 +445,107 @@ class _ProviderEditorDialogState extends State<_ProviderEditorDialog> {
     ),
   );
 
+  Widget _modelField() => Padding(
+    padding: const EdgeInsets.only(bottom: 12),
+    child: RawAutocomplete<String>(
+      textEditingController: _model,
+      focusNode: _modelFocusNode,
+      optionsBuilder: (value) {
+        final query = value.text.trim().toLowerCase();
+        if (query.isEmpty) return _models;
+        return _models.where((model) => model.toLowerCase().contains(query));
+      },
+      onSelected: (value) => _model.text = value,
+      optionsViewBuilder: (context, onSelected, options) {
+        return Align(
+          alignment: Alignment.topLeft,
+          child: Material(
+            elevation: 4,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 240),
+              child: ListView.builder(
+                padding: EdgeInsets.zero,
+                shrinkWrap: true,
+                itemCount: options.length,
+                itemBuilder: (context, index) {
+                  final option = options.elementAt(index);
+                  return InkWell(
+                    onTap: () => onSelected(option),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      child: Text(option),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        );
+      },
+      fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
+        return TextField(
+          controller: controller,
+          focusNode: focusNode,
+          decoration: InputDecoration(
+            labelText: '模型',
+            hintText: 'gpt-4o-mini',
+            suffixIcon: IconButton(
+              tooltip: '从上游获取模型',
+              icon:
+                  _loadingModels
+                      ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                      : const Icon(Icons.refresh),
+              onPressed: _loadingModels ? null : _fetchModels,
+            ),
+          ),
+          onSubmitted: (_) => onFieldSubmitted(),
+        );
+      },
+    ),
+  );
+
+  Future<void> _fetchModels() async {
+    setState(() => _loadingModels = true);
+    try {
+      final models = await aiClient.fetchModels(
+        AiProviderConfig(
+          id: widget.provider.id,
+          name: _name.text.trim(),
+          protocol: _protocol,
+          baseUrl: _baseUrl.text.trim(),
+          apiKey: _apiKey.text.trim(),
+          model: _model.text.trim(),
+          reasoningEffort: _reasoningEffort,
+          maxRetries: _maxRetries,
+        ),
+      );
+      if (!mounted) return;
+      setState(() => _models = models);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            models.isEmpty ? '上游没有返回可用模型' : '已获取 ${models.length} 个模型',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.toString())));
+      }
+    } finally {
+      if (mounted) setState(() => _loadingModels = false);
+    }
+  }
+
   void _save() => Navigator.pop(
     context,
     widget.provider.copyWith(
@@ -444,6 +575,7 @@ class _PromptEditorDialogState extends State<_PromptEditorDialog> {
   late final TextEditingController _user;
   late String _scene;
   late String _providerId;
+  late bool _useDefaultProvider;
   late bool _active;
 
   @override
@@ -454,6 +586,7 @@ class _PromptEditorDialogState extends State<_PromptEditorDialog> {
     _user = TextEditingController(text: widget.prompt.userTemplate);
     _scene = widget.prompt.sceneId;
     _providerId = widget.prompt.providerId;
+    _useDefaultProvider = widget.prompt.useDefaultProvider;
     _active = widget.prompt.isActive;
   }
 
@@ -493,20 +626,7 @@ class _PromptEditorDialogState extends State<_PromptEditorDialog> {
                         .toList(),
                 onChanged: (value) => setState(() => _scene = value!),
               ),
-              DropdownButtonFormField<String>(
-                value: _providerId,
-                decoration: const InputDecoration(labelText: 'AI 服务'),
-                items: [
-                  const DropdownMenuItem(value: '', child: Text('暂不绑定')),
-                  ...aiSettings.providers.map(
-                    (item) => DropdownMenuItem(
-                      value: item.id,
-                      child: Text(item.name),
-                    ),
-                  ),
-                ],
-                onChanged: (value) => setState(() => _providerId = value ?? ''),
-              ),
+              _providerBindingDropdown(),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
                 title: const Text('启用此提示词'),
@@ -555,12 +675,65 @@ class _PromptEditorDialogState extends State<_PromptEditorDialog> {
     ),
   );
 
+  Widget _providerBindingDropdown() {
+    final bindingValue =
+        _useDefaultProvider
+            ? _defaultProviderBinding
+            : (_providerId.isEmpty ? _unboundProviderBinding : _providerId);
+    final items = <DropdownMenuItem<String>>[
+      const DropdownMenuItem(
+        value: _defaultProviderBinding,
+        child: Text('使用默认服务'),
+      ),
+      const DropdownMenuItem(
+        value: _unboundProviderBinding,
+        child: Text('暂不绑定'),
+      ),
+    ];
+    if (!_useDefaultProvider &&
+        _providerId.isNotEmpty &&
+        aiSettings.providerById(_providerId) == null) {
+      items.add(
+        DropdownMenuItem(value: _providerId, child: const Text('服务不存在')),
+      );
+    }
+    items.addAll(
+      aiSettings.providers.map(
+        (item) => DropdownMenuItem(value: item.id, child: Text(item.name)),
+      ),
+    );
+    return DropdownButtonFormField<String>(
+      value: bindingValue,
+      decoration: const InputDecoration(labelText: 'AI 服务绑定'),
+      items: items,
+      onChanged: (value) {
+        if (value == _defaultProviderBinding) {
+          setState(() {
+            _useDefaultProvider = true;
+            _providerId = '';
+          });
+        } else if (value == _unboundProviderBinding) {
+          setState(() {
+            _useDefaultProvider = false;
+            _providerId = '';
+          });
+        } else if (value != null) {
+          setState(() {
+            _useDefaultProvider = false;
+            _providerId = value;
+          });
+        }
+      },
+    );
+  }
+
   void _save() => Navigator.pop(
     context,
     widget.prompt.copyWith(
       name: _name.text.trim(),
       sceneId: _scene,
-      providerId: _providerId,
+      providerId: _useDefaultProvider ? '' : _providerId,
+      useDefaultProvider: _useDefaultProvider,
       systemPrompt: _system.text.trim(),
       userTemplate: _user.text.trim(),
       isActive: _active,

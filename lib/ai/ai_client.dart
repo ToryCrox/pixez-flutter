@@ -92,11 +92,51 @@ class AiClient {
     if (adapter == null) {
       throw AiConfigurationException('尚未支持协议：${config.protocol.label}');
     }
+    final dio = _createDio(config);
+    final result = await _withRetries(
+      config,
+      () => adapter.complete(dio, config, input),
+    );
+    if (result.trim().isEmpty) {
+      throw const AiRequestException('AI 未返回可用文本');
+    }
+    return result.trim();
+  }
+
+  Future<List<String>> fetchModels(AiProviderConfig config) async {
+    if (config.baseUrl.trim().isEmpty) {
+      throw const AiConfigurationException('请设置 Base URL');
+    }
+    final dio = _createDio(config);
+    final response = await _withRetries(
+      config,
+      () => dio.get<dynamic>(AiClient.endpoint(config.baseUrl, 'models')),
+    );
+    return parseModelIds(response.data);
+  }
+
+  static List<String> parseModelIds(dynamic payload) {
+    if (payload is! Map || payload['data'] is! List) {
+      throw const AiRequestException('模型列表响应格式无效');
+    }
+    final modelIds = <String>{};
+    for (final item in payload['data'] as List) {
+      if (item is! Map) continue;
+      final id = item['id'];
+      if (id is String && id.trim().isNotEmpty) {
+        modelIds.add(id.trim());
+      }
+    }
+    final result = modelIds.toList()..sort();
+    return result;
+  }
+
+  Dio _createDio(AiProviderConfig config) {
     final headers = <String, dynamic>{'Content-Type': 'application/json'};
     if (config.apiKey.trim().isNotEmpty) {
       headers['Authorization'] = 'Bearer ${config.apiKey.trim()}';
     }
-    final dio = Dio(
+    return Dio(
       BaseOptions(
         headers: headers,
         connectTimeout: const Duration(seconds: 15),
@@ -105,14 +145,16 @@ class AiClient {
         responseType: ResponseType.json,
       ),
     )..interceptors.add(NetworkLogInterceptor());
+  }
+
+  Future<T> _withRetries<T>(
+    AiProviderConfig config,
+    Future<T> Function() action,
+  ) async {
     var retries = 0;
     while (true) {
       try {
-        final result = await adapter.complete(dio, config, input);
-        if (result.trim().isEmpty) {
-          throw const AiRequestException('AI 未返回可用文本');
-        }
-        return result.trim();
+        return await action();
       } on AiRequestException {
         rethrow;
       } on DioException catch (error) {

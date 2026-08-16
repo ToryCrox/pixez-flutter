@@ -240,7 +240,9 @@ class _OriginalAuthorImportDialogState
     List<_AuthorImportRow> rows,
     List<DownloadedIllust> works,
   ) async {
-    if (aiSettings.providers.isEmpty) return;
+    if (!aiSettings.initialized) await aiSettings.init();
+    final provider = aiSettings.defaultProvider;
+    if (provider == null) return;
     final unmatched = rows.where((row) => row.targetIllustId == null).toList();
     if (unmatched.isEmpty) return;
     final validIds = works.map((work) => work.illustId).toSet();
@@ -271,7 +273,7 @@ class _OriginalAuthorImportDialogState
       ];
       try {
         final response = await aiClient.complete(
-          aiSettings.providers.first,
+          provider,
           AiCompletionInput(
             systemPrompt:
                 '根据目录名、日期和图片数量，从各自 candidates 中选择同一作品。优先选择页数更接近且不是少页预告的候选。只返回 JSON 数组，元素格式 {"directory":"原值","illust_id":整数或null}。不得返回候选外 ID。',
