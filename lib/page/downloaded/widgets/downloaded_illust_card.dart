@@ -40,6 +40,7 @@ class DownloadedIllustCard extends StatelessWidget {
   final VoidCallback onOpenFolder;
   final VoidCallback onOpenOriginalFolder;
   final VoidCallback onRefreshData;
+  final VoidCallback? onApplyTranslationResult;
   final VoidCallback? onAuthorTap;
 
   const DownloadedIllustCard({
@@ -52,6 +53,7 @@ class DownloadedIllustCard extends StatelessWidget {
     required this.onOpenFolder,
     required this.onOpenOriginalFolder,
     required this.onRefreshData,
+    this.onApplyTranslationResult,
     this.onAuthorTap,
   });
 
@@ -147,6 +149,45 @@ class DownloadedIllustCard extends StatelessWidget {
               Icons.folder_copy_outlined,
               color: Colors.white,
               size: 18,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTranslationResultBadge(BuildContext context) {
+    final onTap = onApplyTranslationResult;
+    if (onTap == null) return const SizedBox.shrink();
+    return Positioned(
+      top: 72,
+      left: 4,
+      child: Tooltip(
+        message: '应用翻译结果',
+        child: Material(
+          color: Colors.green.shade700,
+          borderRadius: BorderRadius.circular(16),
+          elevation: 2,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(16),
+            child: const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.translate, color: Colors.white, size: 15),
+                  SizedBox(width: 4),
+                  Text(
+                    '可替换',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -298,6 +339,8 @@ class DownloadedIllustCard extends StatelessWidget {
         if ((store.originalImageCounts[illust.illustId] ?? 0) > 0)
           _buildOriginalFolderButton(context),
         if (!illust.isLocal) _buildOrganizerButton(context),
+        if (store.hasTranslationResult(illust.illustId))
+          _buildTranslationResultBadge(context),
         if (illust.isUgoira) _buildUgoiraBadge(context),
         if ((store.originalImageCounts[illust.illustId] ?? 0) > 0)
           Positioned(

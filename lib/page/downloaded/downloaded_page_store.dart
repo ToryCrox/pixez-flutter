@@ -24,6 +24,7 @@ import 'package:pixez/er/prefer.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/models/download_record.dart';
 import 'package:pixez/store/download_store.dart';
+import 'package:pixez/utils/translation_result_replacer.dart';
 
 part 'downloaded_page_store.g.dart';
 
@@ -164,6 +165,10 @@ abstract class _DownloadedPageStoreBase with Store {
   @readonly
   ObservableSet<int> _unprocessedIllustIds = ObservableSet();
 
+  /// 当前已发现存在可替换翻译结果的作品。
+  final ObservableSet<int> translationResultIllustIds = ObservableSet();
+  int _translationScanGeneration = 0;
+
   // ===== 收藏状态 =====
 
   @readonly
@@ -284,6 +289,8 @@ abstract class _DownloadedPageStoreBase with Store {
 
   /// 销毁 Store
   void dispose() {
+    _translationScanGeneration++;
+    translationResultIllustIds.clear();
     _downloadStatusSubscription?.cancel();
     _downloadStatusSubscription = null;
     _searchDebounce?.cancel();
@@ -334,6 +341,7 @@ abstract class _DownloadedPageStoreBase with Store {
     if (status.status == DownloadTaskStatus.deleted) {
       _illusts.removeWhere((e) => e.illustId == status.illusts.illustId);
       _illustDownloadStatus.remove(status.illusts.illustId);
+      translationResultIllustIds.remove(status.illusts.illustId);
       _refreshStatsWithDebounce();
       return;
     }
@@ -343,6 +351,7 @@ abstract class _DownloadedPageStoreBase with Store {
       // 不属于当前作者，不添加到列表，但更新状态信息（如果已存在）
       if (_illusts.any((e) => e.illustId == status.illusts.illustId)) {
         _illustDownloadStatus[status.illusts.illustId] = status.status;
+        unawaited(scanTranslationResults());
       }
       return;
     }
@@ -358,6 +367,7 @@ abstract class _DownloadedPageStoreBase with Store {
     }
     _illustDownloadStatus[status.illusts.illustId] = status.status;
     _refreshStatsWithDebounce();
+    unawaited(scanTranslationResults());
   }
 
   /// 使用防抖刷新统计信息
@@ -455,6 +465,7 @@ abstract class _DownloadedPageStoreBase with Store {
 
       // 并行加载关键信息
       await _loadCriticalInfo(illusts);
+      unawaited(scanTranslationResults());
     } catch (e) {
       _loading = false;
     }
@@ -534,10 +545,60 @@ abstract class _DownloadedPageStoreBase with Store {
       await _checkUnprocessedIllusts(moreIllusts);
 
       await _loadCriticalInfo(moreIllusts);
+      unawaited(scanTranslationResults());
     } catch (e) {
       _loadingMore = false;
       easyRefreshController?.finishLoad(IndicatorResult.fail);
     }
+  }
+
+  bool hasTranslationResult(int illustId) =>
+      translationResultIllustIds.contains(illustId);
+
+  /// 扫描当前下载页已加载的作品，返回发现可替换结果的作品数量。
+  Future<int> scanTranslationResults() async {
+    final generation = ++_translationScanGeneration;
+    final targets = _illusts.toList(growable: false);
+    if (targets.isEmpty) {
+      translationResultIllustIds.clear();
+      return 0;
+    }
+
+    final replacer = TranslationResultReplacer(downloadStore.dbProvider);
+    final rootDirectory = userSetting.translationResultDirectory;
+    final found = <int>{};
+    var nextIndex = 0;
+
+    Future<void> worker() async {
+      while (generation == _translationScanGeneration) {
+        final index = nextIndex++;
+        if (index >= targets.length) return;
+        final illust = targets[index];
+        try {
+          if (await replacer.hasReplacementCandidate(
+            illust,
+            translationResultRootDirectory: rootDirectory,
+          )) {
+            found.add(illust.illustId);
+          }
+        } catch (e, stackTrace) {
+          Log.w(
+            '扫描翻译结果失败: ${illust.illustId}',
+            error: e,
+            stackTrace: stackTrace,
+          );
+        }
+      }
+    }
+
+    final workerCount = targets.length < 4 ? targets.length : 4;
+    await Future.wait(List.generate(workerCount, (_) => worker()));
+    if (generation != _translationScanGeneration) return found.length;
+
+    translationResultIllustIds
+      ..clear()
+      ..addAll(found);
+    return found.length;
   }
 
   /// 加载统计信息

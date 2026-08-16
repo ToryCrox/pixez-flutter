@@ -348,7 +348,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
     );
   }
 
-  void _onMenuSelected(String value) {
+  Future<void> _onMenuSelected(String value) async {
     switch (value) {
       case 'filter_all':
         _store.onFilterChanged(DownloadFilter.all);
@@ -380,8 +380,19 @@ class _DownloadedPageState extends State<DownloadedPage> {
       case 'sync_bookmarks':
         SyncBookmarksDialog.show(context);
         break;
+      case 'scan_translation_results':
+        final count = await _store.scanTranslationResults();
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('扫描完成，发现 $count 个可替换作品')));
+        }
+        break;
       case 'translation_result_directory':
-        TranslationResultDirectoryDialog.show(context);
+        final changed = await TranslationResultDirectoryDialog.show(context);
+        if (changed == true) {
+          await _store.scanTranslationResults();
+        }
         break;
       case 'optimize_json':
         OptimizeJsonDialog.show(context, downloadStore);
@@ -540,6 +551,16 @@ class _DownloadedPageState extends State<DownloadedPage> {
             Icon(Icons.translate, color: Colors.deepPurple),
             SizedBox(width: 8),
             Text('漫画翻译结果目录'),
+          ],
+        ),
+      ),
+      PopupMenuItem(
+        value: 'scan_translation_results',
+        child: Row(
+          children: [
+            Icon(Icons.manage_search, color: Colors.green),
+            SizedBox(width: 8),
+            Text('扫描翻译结果'),
           ],
         ),
       ),
@@ -727,6 +748,8 @@ class _DownloadedPageState extends State<DownloadedPage> {
               _store.loadData();
               _store.loadStats();
             },
+            onApplyTranslationResult:
+                () => _showTranslationResultDialog(filteredList[index]),
             onAuthorTap:
                 () => _navigateToAuthorDownloadedPage(filteredList[index]),
           );

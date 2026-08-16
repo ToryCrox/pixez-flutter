@@ -124,6 +124,7 @@ class TranslationResultReplacer {
       final plan = await prepare(
         illust,
         translationResultRootDirectory: translationResultRootDirectory,
+        includeDimensions: false,
       );
       return plan.pairs.isNotEmpty;
     } catch (e, stackTrace) {
@@ -135,6 +136,7 @@ class TranslationResultReplacer {
   Future<TranslationReplacementPlan> prepare(
     DownloadedIllust illust, {
     String? translationResultRootDirectory,
+    bool includeDimensions = true,
   }) async {
     final workDirectory = databaseProvider.getIllustAbsolutePath(
       illust.relativePath,
@@ -271,10 +273,14 @@ class TranslationResultReplacer {
               translatedPath: translatedPath,
               originalSize: await File(originalPath).length(),
               translatedSize: await File(translatedPath).length(),
-              originalDimensions: await ImageUtils.parseImageSize(originalPath),
-              translatedDimensions: await ImageUtils.parseImageSize(
-                translatedPath,
-              ),
+              originalDimensions:
+                  includeDimensions
+                      ? await ImageUtils.parseImageSize(originalPath)
+                      : null,
+              translatedDimensions:
+                  includeDimensions
+                      ? await ImageUtils.parseImageSize(translatedPath)
+                      : null,
             ),
           );
           continue;

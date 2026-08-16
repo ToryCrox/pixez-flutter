@@ -6,8 +6,8 @@ import 'package:pixez/main.dart';
 class TranslationResultDirectoryDialog extends StatefulWidget {
   const TranslationResultDirectoryDialog({super.key});
 
-  static Future<void> show(BuildContext context) {
-    return showDialog<void>(
+  static Future<bool?> show(BuildContext context) {
+    return showDialog<bool>(
       context: context,
       builder: (_) => const TranslationResultDirectoryDialog(),
     );
@@ -47,7 +47,7 @@ class _TranslationResultDirectoryDialogState
 
   Future<void> _save() async {
     await userSetting.setTranslationResultDirectory(_controller.text);
-    if (mounted) Navigator.of(context).pop();
+    if (mounted) Navigator.of(context).pop(true);
   }
 
   @override
