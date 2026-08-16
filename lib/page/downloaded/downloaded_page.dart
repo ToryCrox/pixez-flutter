@@ -828,6 +828,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
     return Observer(
       builder:
           (_) => FloatingActionButton(
+            heroTag: 'downloaded_page_refresh_fab',
             onPressed:
                 _store.isRefreshing
                     ? null

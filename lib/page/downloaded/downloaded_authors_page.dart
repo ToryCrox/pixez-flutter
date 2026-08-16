@@ -396,6 +396,7 @@ class _DownloadedAuthorsPageState extends State<DownloadedAuthorsPage> {
     return Observer(
       builder:
           (_) => FloatingActionButton(
+            heroTag: 'downloaded_authors_refresh_fab',
             onPressed:
                 _store.isRefreshing
                     ? null
