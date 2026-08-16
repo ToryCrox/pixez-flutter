@@ -38,6 +38,7 @@ import 'package:pixez/page/downloaded/local_original_work_dialog.dart';
 import 'package:pixez/page/downloaded/link_local_work_dialog.dart';
 import 'package:pixez/page/downloaded/edit_local_work_dialog.dart';
 import 'package:pixez/page/downloaded/translation_result_replace_dialog.dart';
+import 'package:pixez/page/downloaded/translation_result_directory_dialog.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/component/pixez_default_header.dart';
 import 'package:pixez/page/picture/illust_store.dart';
@@ -379,6 +380,9 @@ class _DownloadedPageState extends State<DownloadedPage> {
       case 'sync_bookmarks':
         SyncBookmarksDialog.show(context);
         break;
+      case 'translation_result_directory':
+        TranslationResultDirectoryDialog.show(context);
+        break;
       case 'optimize_json':
         OptimizeJsonDialog.show(context, downloadStore);
         break;
@@ -526,6 +530,16 @@ class _DownloadedPageState extends State<DownloadedPage> {
             Icon(Icons.sync, color: Colors.blue),
             SizedBox(width: 8),
             Text('同步在线收藏'),
+          ],
+        ),
+      ),
+      PopupMenuItem(
+        value: 'translation_result_directory',
+        child: Row(
+          children: [
+            Icon(Icons.translate, color: Colors.deepPurple),
+            SizedBox(width: 8),
+            Text('漫画翻译结果目录'),
           ],
         ),
       ),
@@ -988,7 +1002,11 @@ class _DownloadedPageState extends State<DownloadedPage> {
         !isMulti &&
         await TranslationResultReplacer(
           downloadStore.dbProvider,
-        ).hasReplacementCandidate(illust);
+        ).hasReplacementCandidate(
+          illust,
+          translationResultRootDirectory:
+              userSetting.translationResultDirectory,
+        );
     if (!mounted) return;
 
     showMenu(
@@ -1222,12 +1240,15 @@ class _DownloadedPageState extends State<DownloadedPage> {
   Future<void> _showTranslationResultDialog(DownloadedIllust illust) async {
     final replacer = TranslationResultReplacer(downloadStore.dbProvider);
     try {
-      final plan = await replacer.prepare(illust);
+      final plan = await replacer.prepare(
+        illust,
+        translationResultRootDirectory: userSetting.translationResultDirectory,
+      );
       if (!mounted) return;
       if (plan.pairs.isEmpty) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text('result 目录中没有可替换的翻译图片')));
+        ).showSnackBar(const SnackBar(content: Text('翻译结果目录中没有可替换的翻译图片')));
         return;
       }
       await TranslationResultReplaceDialog.show(

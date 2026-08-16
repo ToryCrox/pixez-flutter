@@ -54,6 +54,8 @@ abstract class _UserSetting with Store {
   static const String IS_TOPMODE_KEY = "is_top_mode";
   static const String STORE_PATH_KEY = "save_store";
   static const String DOWNLOAD_PATH_KEY = "download_path";
+  static const String TRANSLATION_RESULT_DIRECTORY_KEY =
+      "translation_result_directory";
   static const String PICTURE_SOURCE_KEY = "picture_source";
   static const String ISHELPLESSWAY_KEY = "is_helplessway";
   static const String THEME_MODE_KEY = "theme_mode";
@@ -369,6 +371,15 @@ abstract class _UserSetting with Store {
   setDownloadPath(String path) async {
     await prefs.setString(DOWNLOAD_PATH_KEY, path);
     downloadPath = path;
+  }
+
+  /// 外部漫画翻译结果根目录。为空时仅扫描漫画目录内的 `result` 目录。
+  String get translationResultDirectory =>
+      prefs.getString(TRANSLATION_RESULT_DIRECTORY_KEY) ?? '';
+
+  @action
+  Future<void> setTranslationResultDirectory(String value) async {
+    await prefs.setString(TRANSLATION_RESULT_DIRECTORY_KEY, value.trim());
   }
 
   @action

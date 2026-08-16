@@ -49,14 +49,16 @@ class TranslationUnmatchedFile {
 class TranslationReplacementPlan {
   final DownloadedIllust illust;
   final String workDirectory;
-  final String resultDirectory;
+  final List<String> resultDirectories;
+  final String? externalComicDirectory;
   final List<TranslationReplacementPair> pairs;
   final List<TranslationUnmatchedFile> unmatched;
 
   const TranslationReplacementPlan({
     required this.illust,
     required this.workDirectory,
-    required this.resultDirectory,
+    required this.resultDirectories,
+    required this.externalComicDirectory,
     required this.pairs,
     required this.unmatched,
   });
@@ -89,73 +91,111 @@ class TranslationReplacementSummary {
   int get failureCount => results.length - successCount;
 }
 
-/// 将作品目录下 result/ 中的翻译图片安全替换到下载图片中。
+class _TranslationResultDirectoryEntry {
+  const _TranslationResultDirectoryEntry({
+    required this.translationDirectory,
+    required this.originalDirectory,
+  });
+
+  final Directory translationDirectory;
+  final Directory originalDirectory;
+}
+
+/// 将作品目录下或外部目录中的翻译图片安全替换到下载图片中。
 class TranslationResultReplacer {
   static const resultDirectoryName = 'result';
-  static const _intermediateDirectoryNames = ['inpainted', 'mask'];
+  static const _intermediateDirectoryNames = [
+    'inpainted',
+    'mask',
+    'manga_translator_work',
+  ];
 
   final DownloadDatabaseProvider databaseProvider;
 
   const TranslationResultReplacer(this.databaseProvider);
 
-  /// 快速判断 result/ 中是否有可能对应当前作品的译图，用于决定是否显示菜单项。
-  Future<bool> hasReplacementCandidate(DownloadedIllust illust) async {
+  /// 快速判断是否有可能对应当前作品的译图，用于决定是否显示菜单项。
+  Future<bool> hasReplacementCandidate(
+    DownloadedIllust illust, {
+    String? translationResultRootDirectory,
+  }) async {
     try {
       if (illust.isUgoira) return false;
-      final workDirectory = databaseProvider.getIllustAbsolutePath(
-        illust.relativePath,
+      final plan = await prepare(
+        illust,
+        translationResultRootDirectory: translationResultRootDirectory,
       );
-      final resultDir = Directory(
-        path.join(workDirectory, resultDirectoryName),
-      );
-      if (!await resultDir.exists()) return false;
-      final images = await databaseProvider.getImagesByIllustId(
-        illust.illustId,
-      );
-      final originalBaseNames =
-          images
-              .where((image) => image.part != DownloadedImage.partUgoiraWebP)
-              .map((image) => image.fileName.toLowerCase())
-              .toSet();
-      if (originalBaseNames.isEmpty) return false;
-      await for (final entity in resultDir.list(followLinks: false)) {
-        if (entity is! File) continue;
-        if (!kImageExtensions.contains(
-          path.extension(entity.path).toLowerCase(),
-        )) {
-          continue;
-        }
-        if (originalBaseNames.contains(
-          path.basenameWithoutExtension(entity.path).toLowerCase(),
-        )) {
-          return true;
-        }
-      }
-      return false;
+      return plan.pairs.isNotEmpty;
     } catch (e, stackTrace) {
       Log.e('检查翻译结果目录失败', error: e, stackTrace: stackTrace);
       return false;
     }
   }
 
-  Future<TranslationReplacementPlan> prepare(DownloadedIllust illust) async {
+  Future<TranslationReplacementPlan> prepare(
+    DownloadedIllust illust, {
+    String? translationResultRootDirectory,
+  }) async {
     final workDirectory = databaseProvider.getIllustAbsolutePath(
       illust.relativePath,
     );
-    final resultDirectory = path.join(workDirectory, resultDirectoryName);
-    final resultDir = Directory(resultDirectory);
-    if (!await resultDir.exists()) {
+    final rootDirectory = Directory(workDirectory);
+    final entries = <_TranslationResultDirectoryEntry>[];
+    final legacyDirectories = await _findLegacyResultDirectories(rootDirectory);
+    entries.addAll(
+      legacyDirectories.map(
+        (directory) => _TranslationResultDirectoryEntry(
+          translationDirectory: directory,
+          originalDirectory: directory.parent,
+        ),
+      ),
+    );
+
+    String? externalComicDirectory;
+    final customRoot = translationResultRootDirectory?.trim() ?? '';
+    if (customRoot.isNotEmpty) {
+      final customComic = Directory(
+        path.join(customRoot, path.basename(path.normalize(workDirectory))),
+      );
+      if (await customComic.exists()) {
+        externalComicDirectory = customComic.path;
+        final customEntries = await _findMirroredResultDirectories(
+          customComic,
+          rootDirectory,
+        );
+        final existingPaths =
+            entries
+                .map((entry) => path.normalize(entry.translationDirectory.path))
+                .toSet();
+        entries.addAll(
+          customEntries.where(
+            (entry) =>
+                !existingPaths.contains(
+                  path.normalize(entry.translationDirectory.path),
+                ),
+          ),
+        );
+      }
+    }
+
+    final resultDirectories =
+        entries
+            .map((entry) => entry.translationDirectory.path)
+            .toSet()
+            .toList();
+    if (entries.isEmpty) {
       return TranslationReplacementPlan(
         illust: illust,
         workDirectory: workDirectory,
-        resultDirectory: resultDirectory,
+        resultDirectories: resultDirectories,
+        externalComicDirectory: externalComicDirectory,
         pairs: const [],
         unmatched: const [],
       );
     }
 
     final unmatched = <TranslationUnmatchedFile>[];
-    final originalByBaseName = <String, List<(DownloadedImage, String)>>{};
+    final originalByKey = <String, List<(DownloadedImage, String)>>{};
     final images = await databaseProvider.getImagesByIllustId(illust.illustId);
     for (final image in images) {
       if (illust.isUgoira || image.part == DownloadedImage.partUgoiraWebP) {
@@ -177,68 +217,92 @@ class TranslationResultReplacer {
         );
         continue;
       }
-      final key = path.basenameWithoutExtension(imagePath).toLowerCase();
-      originalByBaseName.putIfAbsent(key, () => []).add((image, imagePath));
-    }
-
-    final translatedByBaseName = <String, List<String>>{};
-    await for (final entity in resultDir.list(followLinks: false)) {
-      if (entity is! File) continue;
-      if (!kImageExtensions.contains(
-        path.extension(entity.path).toLowerCase(),
-      )) {
-        continue;
-      }
-      final key = path.basenameWithoutExtension(entity.path).toLowerCase();
-      translatedByBaseName.putIfAbsent(key, () => []).add(entity.path);
+      final key = _imageKey(
+        workDirectory,
+        path.dirname(imagePath),
+        path.basenameWithoutExtension(imagePath),
+      );
+      originalByKey.putIfAbsent(key, () => []).add((image, imagePath));
     }
 
     final pairs = <TranslationReplacementPair>[];
-    final allKeys = <String>{
-      ...originalByBaseName.keys,
-      ...translatedByBaseName.keys,
-    };
-    for (final key in allKeys) {
-      final originals = originalByBaseName[key] ?? const [];
-      final translations = translatedByBaseName[key] ?? const [];
-      if (originals.length == 1 && translations.length == 1) {
-        final (image, originalPath) = originals.single;
-        final translatedPath = translations.single;
-        pairs.add(
-          TranslationReplacementPair(
-            image: image,
-            originalPath: originalPath,
-            translatedPath: translatedPath,
-            originalSize: await File(originalPath).length(),
-            translatedSize: await File(translatedPath).length(),
-            originalDimensions: await ImageUtils.parseImageSize(originalPath),
-            translatedDimensions: await ImageUtils.parseImageSize(
-              translatedPath,
-            ),
-          ),
+    final matchedOriginalPaths = <String>{};
+    final matchedTranslationPaths = <String>{};
+    for (final entry in entries) {
+      final translatedByKey = <String, List<String>>{};
+      for (final file in await _readImages(entry.translationDirectory)) {
+        final key = _imageKey(
+          workDirectory,
+          entry.originalDirectory.path,
+          path.basenameWithoutExtension(file.path),
         );
-        continue;
+        translatedByKey.putIfAbsent(key, () => []).add(file.path);
       }
 
-      final duplicateOriginal = originals.length > 1;
-      final duplicateTranslation = translations.length > 1;
-      for (final (_, originalPath) in originals) {
-        unmatched.add(
-          TranslationUnmatchedFile(
-            path: originalPath,
-            isOriginal: true,
-            reason: duplicateOriginal ? '存在同名原图，无法确定替换目标' : 'result 中没有同名译图',
-          ),
-        );
-      }
-      for (final translatedPath in translations) {
-        unmatched.add(
-          TranslationUnmatchedFile(
-            path: translatedPath,
-            isOriginal: false,
-            reason: duplicateTranslation ? 'result 中存在同名译图，无法确定替换目标' : '没有同名原图',
-          ),
-        );
+      final keys = translatedByKey.keys.toSet();
+      final originalDirectoryKey = _relativeDirectoryKey(
+        workDirectory,
+        entry.originalDirectory.path,
+      );
+      keys.addAll(
+        originalByKey.keys.where(
+          (key) =>
+              originalDirectoryKey.isEmpty
+                  ? !key.contains('/')
+                  : key.startsWith('$originalDirectoryKey/'),
+        ),
+      );
+      for (final key in keys) {
+        final originals = originalByKey[key] ?? const [];
+        final translations = translatedByKey[key] ?? const [];
+        if (originals.length == 1 && translations.length == 1) {
+          final (image, originalPath) = originals.single;
+          final translatedPath = translations.single;
+          if (matchedOriginalPaths.contains(originalPath) ||
+              matchedTranslationPaths.contains(translatedPath)) {
+            continue;
+          }
+          matchedOriginalPaths.add(originalPath);
+          matchedTranslationPaths.add(translatedPath);
+          pairs.add(
+            TranslationReplacementPair(
+              image: image,
+              originalPath: originalPath,
+              translatedPath: translatedPath,
+              originalSize: await File(originalPath).length(),
+              translatedSize: await File(translatedPath).length(),
+              originalDimensions: await ImageUtils.parseImageSize(originalPath),
+              translatedDimensions: await ImageUtils.parseImageSize(
+                translatedPath,
+              ),
+            ),
+          );
+          continue;
+        }
+
+        final duplicateOriginal = originals.length > 1;
+        final duplicateTranslation = translations.length > 1;
+        for (final (_, originalPath) in originals) {
+          if (matchedOriginalPaths.contains(originalPath)) continue;
+          unmatched.add(
+            TranslationUnmatchedFile(
+              path: originalPath,
+              isOriginal: true,
+              reason: duplicateOriginal ? '存在同名原图，无法确定替换目标' : '翻译结果目录中没有同名译图',
+            ),
+          );
+        }
+        for (final translatedPath in translations) {
+          if (matchedTranslationPaths.contains(translatedPath)) continue;
+          unmatched.add(
+            TranslationUnmatchedFile(
+              path: translatedPath,
+              isOriginal: false,
+              reason:
+                  duplicateTranslation ? '翻译结果目录中存在同名译图，无法确定替换目标' : '没有同名原图',
+            ),
+          );
+        }
       }
     }
 
@@ -246,7 +310,8 @@ class TranslationResultReplacer {
     return TranslationReplacementPlan(
       illust: illust,
       workDirectory: workDirectory,
-      resultDirectory: resultDirectory,
+      resultDirectories: resultDirectories,
+      externalComicDirectory: externalComicDirectory,
       pairs: pairs,
       unmatched: unmatched,
     );
@@ -268,10 +333,17 @@ class TranslationResultReplacer {
       (item) => !item.isOriginal,
     );
     var intermediateDirectoriesCleaned = false;
-    await _removeEmptyResultDirectory(plan.resultDirectory);
+    for (final resultDirectory in plan.resultDirectories) {
+      await _removeEmptyDirectory(resultDirectory);
+    }
     if (allSucceeded && !hasUnmatchedTranslation) {
       for (final name in _intermediateDirectoryNames) {
         await _deleteDirectoryIfExists(path.join(plan.workDirectory, name));
+      }
+      if (plan.externalComicDirectory != null) {
+        await _removeEmptyDirectoryTree(
+          Directory(plan.externalComicDirectory!),
+        );
       }
       intermediateDirectoriesCleaned = true;
     }
@@ -280,6 +352,114 @@ class TranslationResultReplacer {
       intermediateDirectoriesCleaned: intermediateDirectoriesCleaned,
     );
   }
+
+  String _imageKey(
+    String workDirectory,
+    String imageDirectory,
+    String baseName,
+  ) {
+    final directoryKey = _relativeDirectoryKey(workDirectory, imageDirectory);
+    return directoryKey.isEmpty
+        ? baseName.toLowerCase()
+        : '$directoryKey/${baseName.toLowerCase()}';
+  }
+
+  String _relativeDirectoryKey(String rootDirectory, String directory) {
+    final relative = path.relative(
+      path.normalize(directory),
+      from: path.normalize(rootDirectory),
+    );
+    if (relative == '.') return '';
+    return path.normalize(relative).replaceAll('\\', '/').toLowerCase();
+  }
+
+  Future<List<Directory>> _findLegacyResultDirectories(
+    Directory rootDirectory,
+  ) async {
+    final result = <Directory>[];
+    Future<void> visit(Directory directory) async {
+      if (!await directory.exists()) return;
+      await for (final entity in directory.list(followLinks: false)) {
+        if (entity is! Directory) continue;
+        final name = path.basename(entity.path).toLowerCase();
+        if (_isIgnoredDirectoryName(name)) continue;
+        if (name == resultDirectoryName) result.add(entity);
+        await visit(entity);
+      }
+    }
+
+    await visit(rootDirectory);
+    return result;
+  }
+
+  Future<List<_TranslationResultDirectoryEntry>> _findMirroredResultDirectories(
+    Directory translationRoot,
+    Directory originalRoot,
+  ) async {
+    final entries = <_TranslationResultDirectoryEntry>[];
+    Future<void> visit(Directory directory) async {
+      if (!await directory.exists()) return;
+      if (await _containsImages(directory)) {
+        final relativePath = path.relative(
+          directory.path,
+          from: translationRoot.path,
+        );
+        final originalPath =
+            relativePath == '.'
+                ? originalRoot.path
+                : path.join(originalRoot.path, relativePath);
+        entries.add(
+          _TranslationResultDirectoryEntry(
+            translationDirectory: directory,
+            originalDirectory: Directory(originalPath),
+          ),
+        );
+      }
+      await for (final entity in directory.list(followLinks: false)) {
+        if (entity is Directory &&
+            !_isIgnoredDirectoryName(
+              path.basename(entity.path).toLowerCase(),
+            )) {
+          await visit(entity);
+        }
+      }
+    }
+
+    await visit(translationRoot);
+    return entries;
+  }
+
+  Future<bool> _containsImages(Directory directory) async {
+    await for (final entity in directory.list(followLinks: false)) {
+      if (entity is File && _isTranslationImage(entity.path)) return true;
+    }
+    return false;
+  }
+
+  Future<List<File>> _readImages(Directory directory) async {
+    final files = <File>[];
+    if (!await directory.exists()) return files;
+    await for (final entity in directory.list(followLinks: false)) {
+      if (entity is File && _isTranslationImage(entity.path)) {
+        files.add(entity);
+      }
+    }
+    return files;
+  }
+
+  bool _isTranslationImage(String filePath) {
+    final fileName = path.basename(filePath).toLowerCase();
+    if (fileName == 'cover.jpg' ||
+        fileName == 'cover.jpeg' ||
+        fileName == 'cover.png' ||
+        fileName == 'cover.webp') {
+      return false;
+    }
+    return kImageExtensions.contains(path.extension(fileName));
+  }
+
+  bool _isIgnoredDirectoryName(String name) =>
+      _intermediateDirectoryNames.contains(name);
 
   Future<TranslationReplacementResult> _replaceOne(
     DownloadedIllust illust,
@@ -371,15 +551,35 @@ class TranslationResultReplacer {
     }
   }
 
-  Future<void> _removeEmptyResultDirectory(String resultDirectory) async {
-    final directory = Directory(resultDirectory);
+  Future<void> _removeEmptyDirectory(String directoryPath) async {
+    final directory = Directory(directoryPath);
     if (!await directory.exists()) return;
     try {
       if (await directory.list(followLinks: false).isEmpty) {
         await directory.delete();
       }
     } catch (e, stackTrace) {
-      Log.e('清理空 result 目录失败', error: e, stackTrace: stackTrace);
+      Log.e('清理空翻译结果目录失败: $directoryPath', error: e, stackTrace: stackTrace);
+    }
+  }
+
+  Future<void> _removeEmptyDirectoryTree(Directory directory) async {
+    if (!await directory.exists()) return;
+    try {
+      await for (final entity in directory.list(followLinks: false)) {
+        if (entity is Directory) {
+          await _removeEmptyDirectoryTree(entity);
+        }
+      }
+      if (await directory.list(followLinks: false).isEmpty) {
+        await directory.delete();
+      }
+    } catch (e, stackTrace) {
+      Log.e(
+        '清理空翻译结果目录树失败: ${directory.path}',
+        error: e,
+        stackTrace: stackTrace,
+      );
     }
   }
 
