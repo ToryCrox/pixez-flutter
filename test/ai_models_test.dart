@@ -229,6 +229,15 @@ void main() {
         'model': 'model',
       });
       expect(legacy.maxRetries, 3);
+      expect(legacy.ignoreCertificateErrors, isFalse);
+      expect(legacy.bypassSni, isFalse);
+      expect(
+        legacy
+            .copyWith(ignoreCertificateErrors: true)
+            .toJson()['ignore_certificate_errors'],
+        isTrue,
+      );
+      expect(legacy.copyWith(bypassSni: true).toJson()['bypass_sni'], isTrue);
       expect(legacy.copyWith(maxRetries: 5).toJson()['max_retries'], 5);
     },
   );

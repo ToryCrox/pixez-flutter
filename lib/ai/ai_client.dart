@@ -1,7 +1,12 @@
+import 'dart:io';
+
 import 'package:dio/dio.dart';
+import 'package:dio/io.dart';
+import 'package:dio_compatibility_layer/dio_compatibility_layer.dart';
 import 'package:pixez/ai/ai_models.dart';
 import 'package:pixez/custom/log.dart';
 import 'package:pixez/debug/network_logger.dart';
+import 'package:rhttp/rhttp.dart' as r;
 
 typedef AiRetryDelay = Future<void> Function(Duration duration);
 typedef AiRetryLogger = void Function(String message);
@@ -92,7 +97,7 @@ class AiClient {
     if (adapter == null) {
       throw AiConfigurationException('尚未支持协议：${config.protocol.label}');
     }
-    final dio = _createDio(config);
+    final dio = await _createDio(config);
     final result = await _withRetries(
       config,
       () => adapter.complete(dio, config, input),
@@ -107,7 +112,7 @@ class AiClient {
     if (config.baseUrl.trim().isEmpty) {
       throw const AiConfigurationException('请设置 Base URL');
     }
-    final dio = _createDio(config);
+    final dio = await _createDio(config);
     final response = await _withRetries(
       config,
       () => dio.get<dynamic>(AiClient.endpoint(config.baseUrl, 'models')),
@@ -131,12 +136,12 @@ class AiClient {
     return result;
   }
 
-  Dio _createDio(AiProviderConfig config) {
+  Future<Dio> _createDio(AiProviderConfig config) async {
     final headers = <String, dynamic>{'Content-Type': 'application/json'};
     if (config.apiKey.trim().isNotEmpty) {
       headers['Authorization'] = 'Bearer ${config.apiKey.trim()}';
     }
-    return Dio(
+    final dio = Dio(
       BaseOptions(
         headers: headers,
         connectTimeout: const Duration(seconds: 15),
@@ -144,7 +149,31 @@ class AiClient {
         sendTimeout: const Duration(seconds: 30),
         responseType: ResponseType.json,
       ),
-    )..interceptors.add(NetworkLogInterceptor());
+    );
+    final useSniBypass = config.bypassSni;
+    if (useSniBypass) {
+      final compatibleClient = await r.RhttpCompatibleClient.create(
+        settings: r.ClientSettings(
+          tlsSettings: r.TlsSettings(
+            // SNI bypass connects without the hostname, so the returned
+            // certificate cannot be verified against the original hostname.
+            verifyCertificates: false,
+            sni: false,
+          ),
+        ),
+      );
+      dio.httpClientAdapter = ConversionLayerAdapter(compatibleClient);
+    } else if (config.ignoreCertificateErrors) {
+      dio.httpClientAdapter = IOHttpClientAdapter(
+        createHttpClient: () {
+          final client = HttpClient();
+          client.badCertificateCallback = (_, __, ___) => true;
+          return client;
+        },
+      );
+    }
+    dio.interceptors.add(NetworkLogInterceptor());
+    return dio;
   }
 
   Future<T> _withRetries<T>(

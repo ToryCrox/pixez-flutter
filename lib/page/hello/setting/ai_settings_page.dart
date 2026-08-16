@@ -99,7 +99,9 @@ class _AiSettingsPageState extends State<AiSettingsPage>
               title: Text(provider.name),
               subtitle: Text(
                 '${aiSettings.defaultProviderId == provider.id ? '默认服务 · ' : ''}'
-                '${provider.protocol.label}\n${provider.model} · ${provider.baseUrl}',
+                '${provider.protocol.label}\n${provider.model} · ${provider.baseUrl}'
+                '${provider.ignoreCertificateErrors ? '\n⚠️ 已忽略 HTTPS 证书校验（诊断）' : ''}'
+                '${provider.bypassSni ? '\n⚠️ 已启用 SNI 绕过（仅此服务）' : ''}',
               ),
               isThreeLine: true,
               trailing: PopupMenuButton<String>(
@@ -315,6 +317,8 @@ class _ProviderEditorDialogState extends State<_ProviderEditorDialog> {
   late AiProtocolType _protocol;
   String? _reasoningEffort;
   late int _maxRetries;
+  late bool _ignoreCertificateErrors;
+  late bool _bypassSni;
   late final FocusNode _modelFocusNode;
   List<String> _models = const [];
   bool _loadingModels = false;
@@ -330,6 +334,8 @@ class _ProviderEditorDialogState extends State<_ProviderEditorDialog> {
     _protocol = widget.provider.protocol;
     _reasoningEffort = widget.provider.reasoningEffort;
     _maxRetries = widget.provider.maxRetries;
+    _ignoreCertificateErrors = widget.provider.ignoreCertificateErrors;
+    _bypassSni = widget.provider.bypassSni;
     _modelFocusNode = FocusNode();
   }
 
@@ -379,6 +385,30 @@ class _ProviderEditorDialogState extends State<_ProviderEditorDialog> {
                   ),
                   onPressed: () => setState(() => _obscureKey = !_obscureKey),
                 ),
+              ),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                secondary: const Icon(
+                  Icons.warning_amber_rounded,
+                  color: Colors.orange,
+                ),
+                title: const Text('忽略 HTTPS 证书校验（仅诊断）'),
+                subtitle: const Text(
+                  '仅用于排查 TLS 握手问题。开启后会关闭该服务的证书安全校验，确认结果后请关闭。',
+                ),
+                value: _ignoreCertificateErrors,
+                onChanged:
+                    (value) => setState(() => _ignoreCertificateErrors = value),
+              ),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                secondary: const Icon(Icons.alt_route),
+                title: const Text('绕过 SNI（仅当前服务）'),
+                subtitle: const Text(
+                  '不向该服务发送目标域名 SNI，并使用兼容模式连接。仅用于异常 TLS 服务，默认关闭。',
+                ),
+                value: _bypassSni,
+                onChanged: (value) => setState(() => _bypassSni = value),
               ),
               _modelField(),
               DropdownButtonFormField<String?>(
@@ -524,6 +554,8 @@ class _ProviderEditorDialogState extends State<_ProviderEditorDialog> {
           model: _model.text.trim(),
           reasoningEffort: _reasoningEffort,
           maxRetries: _maxRetries,
+          ignoreCertificateErrors: _ignoreCertificateErrors,
+          bypassSni: _bypassSni,
         ),
       );
       if (!mounted) return;
@@ -556,6 +588,8 @@ class _ProviderEditorDialogState extends State<_ProviderEditorDialog> {
       model: _model.text.trim(),
       reasoningEffort: _reasoningEffort,
       maxRetries: _maxRetries,
+      ignoreCertificateErrors: _ignoreCertificateErrors,
+      bypassSni: _bypassSni,
       clearReasoningEffort: _reasoningEffort == null,
     ),
   );

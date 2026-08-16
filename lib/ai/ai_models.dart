@@ -26,6 +26,8 @@ class AiProviderConfig {
   final String model;
   final String? reasoningEffort;
   final int maxRetries;
+  final bool ignoreCertificateErrors;
+  final bool bypassSni;
 
   const AiProviderConfig({
     required this.id,
@@ -36,6 +38,8 @@ class AiProviderConfig {
     required this.model,
     this.reasoningEffort,
     this.maxRetries = 3,
+    this.ignoreCertificateErrors = false,
+    this.bypassSni = false,
   });
 
   AiProviderConfig copyWith({
@@ -47,6 +51,8 @@ class AiProviderConfig {
     String? model,
     String? reasoningEffort,
     int? maxRetries,
+    bool? ignoreCertificateErrors,
+    bool? bypassSni,
     bool clearReasoningEffort = false,
   }) => AiProviderConfig(
     id: id ?? this.id,
@@ -58,6 +64,9 @@ class AiProviderConfig {
     reasoningEffort:
         clearReasoningEffort ? null : reasoningEffort ?? this.reasoningEffort,
     maxRetries: maxRetries ?? this.maxRetries,
+    ignoreCertificateErrors:
+        ignoreCertificateErrors ?? this.ignoreCertificateErrors,
+    bypassSni: bypassSni ?? this.bypassSni,
   );
 
   Map<String, dynamic> toJson() => {
@@ -69,6 +78,8 @@ class AiProviderConfig {
     'model': model,
     'reasoning_effort': reasoningEffort,
     'max_retries': maxRetries,
+    'ignore_certificate_errors': ignoreCertificateErrors,
+    'bypass_sni': bypassSni,
   };
 
   factory AiProviderConfig.fromJson(Map<String, dynamic> json) =>
@@ -82,6 +93,9 @@ class AiProviderConfig {
         reasoningEffort: json['reasoning_effort'] as String?,
         maxRetries:
             ((json['max_retries'] as num?)?.toInt() ?? 3).clamp(0, 10).toInt(),
+        ignoreCertificateErrors:
+            json['ignore_certificate_errors'] as bool? ?? false,
+        bypassSni: json['bypass_sni'] as bool? ?? false,
       );
 }
 
