@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/services.dart';
 import 'package:image/image.dart' as image_lib;
 import 'package:path/path.dart' as path;
 import 'package:pixez/models/download_record.dart';
@@ -13,6 +14,11 @@ void main() {
   setUpAll(() {
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+          const MethodChannel('plugins.flutter.io/path_provider'),
+          (call) async => Directory.systemTemp.path,
+        );
   });
 
   group('TranslationResultReplacer', () {
@@ -41,7 +47,7 @@ void main() {
       if (await temporary.exists()) await temporary.delete(recursive: true);
     });
 
-    test('仅替换同名译图并保留未匹配及中间目录', () async {
+    test('仅替换同名译图并清理本次翻译结果目录', () async {
       final originalOne = File(path.join(workDirectory.path, '1.webp'));
       final originalTwo = File(path.join(workDirectory.path, '2.jpg'));
       await originalOne.writeAsBytes(_pngBytes(8, 8));
@@ -74,7 +80,11 @@ void main() {
       final summary = await replacer.apply(plan);
       expect(summary.successCount, 1);
       expect(summary.failureCount, 0);
-      expect(summary.intermediateDirectoriesCleaned, isFalse);
+      final translatedIllust = await provider.getIllustByIllustId(100);
+      expect(translatedIllust?.isTranslated, isTrue);
+      expect(translatedIllust?.title, illust.title);
+      expect(summary.translationResultDirectoriesCleaned, isTrue);
+      expect(summary.intermediateDirectoriesCleaned, isTrue);
       expect(await originalOne.exists(), isFalse);
       expect(
         await File(path.join(workDirectory.path, '1.png')).exists(),
@@ -84,10 +94,11 @@ void main() {
       expect(await File(path.join(resultDir.path, '1.png')).exists(), isFalse);
       expect(
         await File(path.join(resultDir.path, 'extra.png')).exists(),
-        isTrue,
+        isFalse,
       );
-      expect(await inpaintedDir.exists(), isTrue);
-      expect(await maskDir.exists(), isTrue);
+      expect(await resultDir.exists(), isFalse);
+      expect(await inpaintedDir.exists(), isFalse);
+      expect(await maskDir.exists(), isFalse);
 
       final image = await provider.getImage(100, 0);
       expect(image?.extension, '.png');
@@ -97,6 +108,29 @@ void main() {
         image?.fileSize,
         await File(path.join(workDirectory.path, '1.png')).length(),
       );
+    });
+
+    test('翻译标记可以单独更新并支持序列化', () async {
+      final marked = illust.copyWith(isTranslated: true);
+      final restored = DownloadedIllust.fromJson(marked.toJson());
+      expect(restored.isTranslated, isTrue);
+
+      await provider.updateIllustTranslationStatus(100, true);
+      expect((await provider.getIllustByIllustId(100))?.isTranslated, isTrue);
+      await provider.updateIllustTranslationStatus(100, false);
+      final updated = await provider.getIllustByIllustId(100);
+      expect(updated?.isTranslated, isFalse);
+      expect(updated?.title, illust.title);
+
+      final refreshed = DownloadedIllust.fromIllusts(
+        _illust(100).copyWith(title: '更新后的标题'),
+        illust.relativePath,
+        isTranslated: true,
+      );
+      await provider.updateIllust(refreshed);
+      final afterRefresh = await provider.getIllustByIllustId(100);
+      expect(afterRefresh?.isTranslated, isTrue);
+      expect(afterRefresh?.title, '更新后的标题');
     });
 
     test('全部替换成功后清理 result、inpainted 与 mask', () async {
@@ -331,6 +365,137 @@ void main() {
       expect(plan.pairs, isEmpty);
     });
 
+    test('跳过指定图片时保留原图并删除对应译图', () async {
+      final originalOne = File(path.join(workDirectory.path, '1.webp'));
+      final originalTwo = File(path.join(workDirectory.path, '2.webp'));
+      await _writeImage(originalOne.path, _pngBytes(8, 8));
+      await _writeImage(originalTwo.path, _pngBytes(8, 8));
+      await _insertImage(provider, 100, 0, '1', '.webp', originalOne);
+      await _insertImage(provider, 100, 1, '2', '.webp', originalTwo);
+      final resultDir = Directory(path.join(workDirectory.path, 'result'));
+      await _writeImage(path.join(resultDir.path, '1.png'), _pngBytes(9, 7));
+      await _writeImage(path.join(resultDir.path, '2.png'), _pngBytes(9, 7));
+
+      final replacer = TranslationResultReplacer(provider);
+      final plan = await replacer.prepare(illust);
+      final summary = await replacer.apply(
+        plan,
+        skippedOriginalPaths: {originalTwo.path},
+      );
+
+      expect(summary.successCount, 1);
+      expect(summary.skippedCount, 1);
+      expect((await provider.getIllustByIllustId(100))?.isTranslated, isTrue);
+      expect(summary.translationResultDirectoriesCleaned, isTrue);
+      expect(await originalOne.exists(), isFalse);
+      expect(
+        await File(path.join(workDirectory.path, '1.png')).exists(),
+        isTrue,
+      );
+      expect(await originalTwo.exists(), isTrue);
+      expect(await File(path.join(resultDir.path, '2.png')).exists(), isFalse);
+      expect(await resultDir.exists(), isFalse);
+    });
+
+    test('全部跳过时仍删除翻译结果目录', () async {
+      final original = File(path.join(workDirectory.path, '1.webp'));
+      await _writeImage(original.path, _pngBytes(8, 8));
+      await _insertImage(provider, 100, 0, '1', '.webp', original);
+      final resultDir = Directory(path.join(workDirectory.path, 'result'));
+      final translated = File(path.join(resultDir.path, '1.png'));
+      await _writeImage(translated.path, _pngBytes(9, 7));
+
+      final replacer = TranslationResultReplacer(provider);
+      final plan = await replacer.prepare(illust);
+      final summary = await replacer.apply(
+        plan,
+        skippedOriginalPaths: {original.path},
+      );
+
+      expect(summary.successCount, 0);
+      expect(summary.skippedCount, 1);
+      expect((await provider.getIllustByIllustId(100))?.isTranslated, isFalse);
+      expect(summary.translationResultDirectoriesCleaned, isTrue);
+      expect(await original.exists(), isTrue);
+      expect(await translated.exists(), isFalse);
+      expect(await resultDir.exists(), isFalse);
+    });
+
+    test('清理当前外部作品目录时保留同级其他作品目录', () async {
+      final original = File(path.join(workDirectory.path, '1.webp'));
+      await _writeImage(original.path, _pngBytes(8, 8));
+      await _insertImage(provider, 100, 0, '1', '.webp', original);
+
+      final translationRoot = Directory(
+        path.join(temporary.path, 'translation-output'),
+      );
+      final translationComic = Directory(
+        path.join(translationRoot.path, path.basename(workDirectory.path)),
+      );
+      final otherComic = Directory(path.join(translationRoot.path, '[200]其他'));
+      await _writeImage(
+        path.join(translationComic.path, '1.png'),
+        _pngBytes(9, 7),
+      );
+      final otherFile = File(path.join(otherComic.path, '1.png'));
+      await _writeImage(otherFile.path, _pngBytes(9, 7));
+
+      final replacer = TranslationResultReplacer(provider);
+      final plan = await replacer.prepare(
+        illust,
+        translationResultRootDirectory: translationRoot.path,
+      );
+      final summary = await replacer.apply(plan);
+
+      expect(summary.translationResultDirectoriesCleaned, isTrue);
+      expect(await translationComic.exists(), isFalse);
+      expect(await otherFile.exists(), isTrue);
+      expect(await otherComic.exists(), isTrue);
+    });
+
+    test('清理结果目录时不影响当前作品的其他翻译目录', () async {
+      final original = File(path.join(workDirectory.path, '1.webp'));
+      await _writeImage(original.path, _pngBytes(8, 8));
+      await _insertImage(provider, 100, 0, '1', '.webp', original);
+      final resultDir = Directory(path.join(workDirectory.path, 'result'));
+      await _writeImage(path.join(resultDir.path, '1.png'), _pngBytes(9, 7));
+      final otherDirectory = Directory(
+        path.join(workDirectory.path, 'other-translation'),
+      );
+      final otherFile = File(path.join(otherDirectory.path, 'keep.txt'));
+      await otherFile.create(recursive: true);
+      await otherFile.writeAsString('keep');
+
+      final replacer = TranslationResultReplacer(provider);
+      final plan = await replacer.prepare(illust);
+      final summary = await replacer.apply(plan);
+
+      expect(summary.translationResultDirectoriesCleaned, isTrue);
+      expect(await resultDir.exists(), isFalse);
+      expect(await otherFile.exists(), isTrue);
+    });
+
+    test('替换失败时保留目标目录和失败译图', () async {
+      final original = File(path.join(workDirectory.path, '1.webp'));
+      await _writeImage(original.path, _pngBytes(8, 8));
+      await _insertImage(provider, 100, 0, '1', '.webp', original);
+      final resultDir = Directory(path.join(workDirectory.path, 'result'));
+      final translated = File(path.join(resultDir.path, '1.png'));
+      await translated.create(recursive: true);
+      await translated.writeAsString('not an image');
+
+      final replacer = TranslationResultReplacer(provider);
+      final plan = await replacer.prepare(illust);
+      final summary = await replacer.apply(plan);
+
+      expect(summary.failureCount, 1);
+      expect((await provider.getIllustByIllustId(100))?.isTranslated, isFalse);
+      expect(summary.translationResultDirectoriesCleaned, isFalse);
+      expect(await resultDir.exists(), isTrue);
+      expect(await translated.exists(), isTrue);
+      expect(await original.exists(), isTrue);
+    });
+
     test('一次扫描外部根目录并按插画目录 ID 返回结果', () async {
       final translationRoot = Directory(
         path.join(temporary.path, 'translation-output'),
@@ -357,7 +522,7 @@ void main() {
       expect(ids, isNot(contains(0)));
     });
 
-    test('外部目录存在未匹配译图时保留目录和中间目录', () async {
+    test('外部目录存在未匹配译图时仍清理本次目标目录', () async {
       final original = File(path.join(workDirectory.path, '1.webp'));
       await _writeImage(original.path, _pngBytes(8, 8));
       await _insertImage(provider, 100, 0, '1', '.webp', original);
@@ -388,17 +553,18 @@ void main() {
       final summary = await replacer.apply(plan);
 
       expect(summary.successCount, 1);
-      expect(summary.intermediateDirectoriesCleaned, isFalse);
+      expect(summary.translationResultDirectoriesCleaned, isTrue);
+      expect(summary.intermediateDirectoriesCleaned, isTrue);
       expect(
         await File(path.join(translationComic.path, 'extra.png')).exists(),
-        isTrue,
+        isFalse,
       );
-      expect(await translationComic.exists(), isTrue);
+      expect(await translationComic.exists(), isFalse);
       expect(
         await Directory(
           path.join(workDirectory.path, 'manga_translator_work'),
         ).exists(),
-        isTrue,
+        isFalse,
       );
     });
   });

@@ -743,6 +743,7 @@ class OriginalImageRepository {
       downloadTime: existing.downloadTime,
       downloadedImageCount: 0,
       totalFileSize: 0,
+      isTranslated: existing.isTranslated,
       sourceType: DownloadedIllust.sourceLocal,
       downloadRemovedAt: existing.downloadRemovedAt,
     );

@@ -4,11 +4,27 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+class LocalImageViewerItem {
+  final String imagePath;
+  final String? title;
+  final String? subtitle;
+  final String? heroTag;
+
+  const LocalImageViewerItem({
+    required this.imagePath,
+    this.title,
+    this.subtitle,
+    this.heroTag,
+  });
+}
+
 class LocalImageViewerPage extends StatefulWidget {
   final String imagePath;
   final String? title;
   final String? subtitle;
   final String? heroTag;
+  final List<LocalImageViewerItem> gallery;
+  final int initialIndex;
 
   const LocalImageViewerPage({
     super.key,
@@ -16,6 +32,8 @@ class LocalImageViewerPage extends StatefulWidget {
     this.title,
     this.subtitle,
     this.heroTag,
+    this.gallery = const [],
+    this.initialIndex = 0,
   });
 
   static Future<T?> open<T>(
@@ -24,6 +42,8 @@ class LocalImageViewerPage extends StatefulWidget {
     String? title,
     String? subtitle,
     String? heroTag,
+    List<LocalImageViewerItem> gallery = const [],
+    int initialIndex = 0,
   }) {
     return Navigator.of(context).push<T>(
       PageRouteBuilder(
@@ -36,6 +56,8 @@ class LocalImageViewerPage extends StatefulWidget {
             title: title,
             subtitle: subtitle,
             heroTag: heroTag,
+            gallery: gallery,
+            initialIndex: initialIndex,
           );
         },
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
@@ -53,6 +75,14 @@ class _ToggleScaleIntent extends Intent {
   const _ToggleScaleIntent();
 }
 
+class _PreviousImageIntent extends Intent {
+  const _PreviousImageIntent();
+}
+
+class _NextImageIntent extends Intent {
+  const _NextImageIntent();
+}
+
 class _LocalImageViewerPageState extends State<LocalImageViewerPage> {
   static const double _minScale = 0.1;
   static const double _maxScale = 8.0;
@@ -62,7 +92,10 @@ class _LocalImageViewerPageState extends State<LocalImageViewerPage> {
   final FocusNode _focusNode = FocusNode();
   final TransformationController _transformController =
       TransformationController();
-  late final File _file;
+  late File _file;
+
+  int _currentIndex = 0;
+  int _loadGeneration = 0;
 
   Size? _imagePixelSize;
   Size? _viewportSize;
@@ -76,9 +109,31 @@ class _LocalImageViewerPageState extends State<LocalImageViewerPage> {
   @override
   void initState() {
     super.initState();
-    _file = File(widget.imagePath);
+    _currentIndex = _initialIndex;
+    _file = File(_currentItem.imagePath);
     _resolveImageInfo();
   }
+
+  List<LocalImageViewerItem> get _items =>
+      widget.gallery.isEmpty
+          ? [
+            LocalImageViewerItem(
+              imagePath: widget.imagePath,
+              title: widget.title,
+              subtitle: widget.subtitle,
+              heroTag: widget.heroTag,
+            ),
+          ]
+          : widget.gallery;
+
+  int get _initialIndex =>
+      widget.initialIndex.clamp(0, _items.length - 1).toInt();
+
+  LocalImageViewerItem get _currentItem => _items[_currentIndex];
+
+  bool get _hasPrevious => _currentIndex > 0;
+
+  bool get _hasNext => _currentIndex < _items.length - 1;
 
   @override
   void dispose() {
@@ -88,21 +143,25 @@ class _LocalImageViewerPageState extends State<LocalImageViewerPage> {
   }
 
   Future<void> _resolveImageInfo() async {
-    if (!await _file.exists()) {
+    final generation = _loadGeneration;
+    final file = _file;
+    if (!await file.exists()) {
       if (!mounted) return;
+      if (generation != _loadGeneration) return;
       setState(() {
         _loadError = '文件不存在';
       });
       return;
     }
 
-    final provider = FileImage(_file);
+    final provider = FileImage(file);
     final stream = provider.resolve(const ImageConfiguration());
     ImageStreamListener? listener;
     listener = ImageStreamListener(
       (ImageInfo info, bool synchronousCall) {
         stream.removeListener(listener!);
         if (!mounted) return;
+        if (generation != _loadGeneration) return;
         setState(() {
           _imagePixelSize = Size(
             info.image.width.toDouble(),
@@ -114,6 +173,7 @@ class _LocalImageViewerPageState extends State<LocalImageViewerPage> {
       onError: (Object error, StackTrace? stackTrace) {
         stream.removeListener(listener!);
         if (!mounted) return;
+        if (generation != _loadGeneration) return;
         setState(() {
           _loadError = '读取图片失败: $error';
         });
@@ -121,6 +181,26 @@ class _LocalImageViewerPageState extends State<LocalImageViewerPage> {
     );
     stream.addListener(listener);
   }
+
+  void _showImageAt(int index) {
+    if (index < 0 || index >= _items.length || index == _currentIndex) return;
+    _loadGeneration++;
+    setState(() {
+      _currentIndex = index;
+      _file = File(_currentItem.imagePath);
+      _imagePixelSize = null;
+      _loadError = null;
+      _initialScaleReady = false;
+      _isFitMode = false;
+      _currentDesiredScale = 1.0;
+      _transformController.value = Matrix4.identity();
+    });
+    _resolveImageInfo();
+  }
+
+  void _showPreviousImage() => _showImageAt(_currentIndex - 1);
+
+  void _showNextImage() => _showImageAt(_currentIndex + 1);
 
   Size? _actualLogicalImageSize() {
     final pixel = _imagePixelSize;
@@ -278,12 +358,28 @@ class _LocalImageViewerPageState extends State<LocalImageViewerPage> {
       shortcuts: const <ShortcutActivator, Intent>{
         SingleActivator(LogicalKeyboardKey.digit1): _ToggleScaleIntent(),
         SingleActivator(LogicalKeyboardKey.numpad1): _ToggleScaleIntent(),
+        SingleActivator(LogicalKeyboardKey.arrowLeft): _PreviousImageIntent(),
+        SingleActivator(LogicalKeyboardKey.arrowUp): _PreviousImageIntent(),
+        SingleActivator(LogicalKeyboardKey.arrowRight): _NextImageIntent(),
+        SingleActivator(LogicalKeyboardKey.arrowDown): _NextImageIntent(),
       },
       child: Actions(
         actions: <Type, Action<Intent>>{
           _ToggleScaleIntent: CallbackAction<_ToggleScaleIntent>(
             onInvoke: (_) {
               _toggleFitAndActual();
+              return null;
+            },
+          ),
+          _PreviousImageIntent: CallbackAction<_PreviousImageIntent>(
+            onInvoke: (_) {
+              _showPreviousImage();
+              return null;
+            },
+          ),
+          _NextImageIntent: CallbackAction<_NextImageIntent>(
+            onInvoke: (_) {
+              _showNextImage();
               return null;
             },
           ),
@@ -372,7 +468,7 @@ class _LocalImageViewerPageState extends State<LocalImageViewerPage> {
                                       width: image.width,
                                       height: image.height,
                                       child:
-                                          widget.heroTag == null
+                                          _currentItem.heroTag == null
                                               ? Image.file(
                                                 _file,
                                                 fit: BoxFit.fill,
@@ -380,7 +476,7 @@ class _LocalImageViewerPageState extends State<LocalImageViewerPage> {
                                                     FilterQuality.high,
                                               )
                                               : Hero(
-                                                tag: widget.heroTag!,
+                                                tag: _currentItem.heroTag!,
                                                 child: Image.file(
                                                   _file,
                                                   fit: BoxFit.fill,
@@ -403,13 +499,42 @@ class _LocalImageViewerPageState extends State<LocalImageViewerPage> {
                         onTap: () => Navigator.of(context).pop(),
                       ),
                     ),
-                    if (widget.title != null || widget.subtitle != null)
+                    if (_currentItem.title != null ||
+                        _currentItem.subtitle != null)
                       Positioned(
                         top: MediaQuery.of(context).padding.top + 10,
                         left: 56,
                         right: 20,
                         child: _buildTitle(),
                       ),
+                    if (_items.length > 1) ...[
+                      Positioned(
+                        left: 16,
+                        top: 0,
+                        bottom: 0,
+                        child: Center(
+                          child: _buildNavigationButton(
+                            icon: Icons.chevron_left,
+                            tooltip: '上一张（← / ↑）',
+                            enabled: _hasPrevious,
+                            onTap: _showPreviousImage,
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        right: 16,
+                        top: 0,
+                        bottom: 0,
+                        child: Center(
+                          child: _buildNavigationButton(
+                            icon: Icons.chevron_right,
+                            tooltip: '下一张（→ / ↓）',
+                            enabled: _hasNext,
+                            onTap: _showNextImage,
+                          ),
+                        ),
+                      ),
+                    ],
                     Positioned(
                       left: 16,
                       bottom: MediaQuery.of(context).padding.bottom + 18,
@@ -472,9 +597,9 @@ class _LocalImageViewerPageState extends State<LocalImageViewerPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (widget.title != null)
+          if (_currentItem.title != null)
             Text(
-              widget.title!,
+              _currentItem.title!,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
@@ -483,9 +608,9 @@ class _LocalImageViewerPageState extends State<LocalImageViewerPage> {
                 fontWeight: FontWeight.w600,
               ),
             ),
-          if (widget.subtitle != null)
+          if (_currentItem.subtitle != null)
             Text(
-              widget.subtitle!,
+              _currentItem.subtitle!,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(color: Colors.white70, fontSize: 11),
@@ -539,6 +664,40 @@ class _LocalImageViewerPageState extends State<LocalImageViewerPage> {
           color: Colors.white,
           fontSize: 12,
           fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNavigationButton({
+    required IconData icon,
+    required String tooltip,
+    required bool enabled,
+    required VoidCallback onTap,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(22),
+          onTap: enabled ? onTap : null,
+          child: Container(
+            width: 44,
+            height: 64,
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: enabled ? 0.55 : 0.25),
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(
+                color: enabled ? Colors.white24 : Colors.white12,
+              ),
+            ),
+            child: Icon(
+              icon,
+              size: 32,
+              color: enabled ? Colors.white : Colors.white38,
+            ),
+          ),
         ),
       ),
     );

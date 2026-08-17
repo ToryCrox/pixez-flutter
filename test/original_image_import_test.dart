@@ -458,6 +458,7 @@ void main() {
       'PRAGMA table_info(downloaded_illusts)',
     );
     expect(columns.any((row) => row['name'] == 'source_type'), isTrue);
+    expect(columns.any((row) => row['name'] == 'is_translated'), isTrue);
     final tables = await provider.db.rawQuery(
       "SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'original_%'",
     );

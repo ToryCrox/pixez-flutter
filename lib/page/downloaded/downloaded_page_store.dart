@@ -916,4 +916,13 @@ abstract class _DownloadedPageStoreBase with Store {
       }
     }
   }
+
+  @action
+  Future<void> updateTranslationStatus(int illustId, bool isTranslated) async {
+    await downloadStore.updateIllustTranslationStatus(illustId, isTranslated);
+    final index = _illusts.indexWhere((e) => e.illustId == illustId);
+    if (index != -1) {
+      _illusts[index] = _illusts[index].copyWith(isTranslated: isTranslated);
+    }
+  }
 }

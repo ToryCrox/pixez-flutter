@@ -183,7 +183,7 @@ class DownloadDatabaseProvider {
       await _backupBeforeV19Migration(dbPath);
       db = await openDatabase(
         dbPath,
-        version: 19,
+        version: 20,
         onConfigure: (database) async {
           await database.execute('PRAGMA foreign_keys = ON');
         },
@@ -216,6 +216,7 @@ class DownloadDatabaseProvider {
             ${DownloadedIllustColumns.bookmark} INTEGER DEFAULT 0,
             ${DownloadedIllustColumns.translatedTitle} TEXT NOT NULL DEFAULT '',
             ${DownloadedIllustColumns.translatedCaption} TEXT NOT NULL DEFAULT '',
+            ${DownloadedIllustColumns.isTranslated} INTEGER NOT NULL DEFAULT 0,
             ${DownloadedIllustColumns.sourceType} TEXT NOT NULL DEFAULT '${DownloadedIllust.sourcePixiv}',
             ${DownloadedIllustColumns.downloadRemovedAt} INTEGER
           )
@@ -399,6 +400,11 @@ class DownloadDatabaseProvider {
               'ALTER TABLE ${DownloadedIllustColumns.tableName} ADD COLUMN ${DownloadedIllustColumns.downloadRemovedAt} INTEGER',
             );
             await _createOriginalTables(db);
+          }
+          if (oldVersion < 20) {
+            await db.execute(
+              "ALTER TABLE ${DownloadedIllustColumns.tableName} ADD COLUMN ${DownloadedIllustColumns.isTranslated} INTEGER NOT NULL DEFAULT 0",
+            );
           }
         },
       );
@@ -604,6 +610,19 @@ class DownloadDatabaseProvider {
     await db.update(
       DownloadedIllustColumns.tableName,
       values,
+      where: '${DownloadedIllustColumns.illustId} = ?',
+      whereArgs: [illustId],
+    );
+  }
+
+  /// 更新插画是否已完成翻译标记。
+  Future<void> updateIllustTranslationStatus(
+    int illustId,
+    bool isTranslated,
+  ) async {
+    await db.update(
+      DownloadedIllustColumns.tableName,
+      {DownloadedIllustColumns.isTranslated: isTranslated ? 1 : 0},
       where: '${DownloadedIllustColumns.illustId} = ?',
       whereArgs: [illustId],
     );

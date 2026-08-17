@@ -491,6 +491,14 @@ abstract class _DownloadStoreBase with Store {
     );
   }
 
+  Future<void> updateIllustTranslationStatus(
+    int illustId,
+    bool isTranslated,
+  ) async {
+    if (!isInitialized) return;
+    await _dbProvider.updateIllustTranslationStatus(illustId, isTranslated);
+  }
+
   Future<List<DownloadedIllust>> getDownloadedIllustsByIds(
     List<int> illustIds,
   ) async {
@@ -1631,6 +1639,7 @@ abstract class _DownloadStoreBase with Store {
       totalFileSize: existingIllust?.totalFileSize,
       translatedTitle: existingIllust?.translatedTitle,
       translatedCaption: existingIllust?.translatedCaption,
+      isTranslated: existingIllust?.isTranslated,
     );
 
     if (existingIllust == null) {
@@ -1967,6 +1976,7 @@ abstract class _DownloadStoreBase with Store {
         bookmark: existingIllust.bookmark,
         translatedTitle: existingIllust.translatedTitle,
         translatedCaption: existingIllust.translatedCaption,
+        isTranslated: existingIllust.isTranslated,
         sourceType: existingIllust.sourceType,
         downloadRemovedAt: existingIllust.downloadRemovedAt,
       );

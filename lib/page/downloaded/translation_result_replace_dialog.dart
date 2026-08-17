@@ -47,6 +47,7 @@ class _TranslationResultReplaceDialogState
     extends State<TranslationResultReplaceDialog> {
   static const _thumbnailExtent = 67.2;
   var _replacing = false;
+  final Set<String> _skippedOriginalPaths = <String>{};
 
   int get _itemCount => widget.plan.pairs.length + widget.plan.unmatched.length;
 
@@ -56,23 +57,33 @@ class _TranslationResultReplaceDialogState
   Future<void> _replaceOriginals() async {
     if (_replacing || widget.plan.pairs.isEmpty) return;
     setState(() => _replacing = true);
-    final summary = await widget.replacer.apply(widget.plan);
+    final summary = await widget.replacer.apply(
+      widget.plan,
+      skippedOriginalPaths: _skippedOriginalPaths,
+    );
     for (final result in summary.results.where((item) => item.isSuccess)) {
       final pair = result.pair;
       await FileImage(File(pair.originalPath)).evict();
       await FileImage(File(pair.translatedPath)).evict();
       await FileImage(File(pair.destinationPath)).evict();
     }
+    for (final pair in widget.plan.pairs.where(
+      (pair) => _skippedOriginalPaths.contains(pair.originalPath),
+    )) {
+      await FileImage(File(pair.translatedPath)).evict();
+    }
     if (!mounted) return;
     await widget.onReplaced();
     if (!mounted) return;
     final cleanupText =
-        summary.intermediateDirectoriesCleaned ? '，已清理中间目录' : '';
+        summary.translationResultDirectoriesCleaned ? '，已清理翻译结果目录' : '';
+    final skippedText =
+        summary.skippedCount == 0 ? '' : '，跳过 ${summary.skippedCount} 张';
     BotToast.showText(
       text:
           summary.failureCount == 0
-              ? '已替换 ${summary.successCount} 张图片$cleanupText'
-              : '已替换 ${summary.successCount} 张，${summary.failureCount} 张替换失败',
+              ? '已替换 ${summary.successCount} 张图片$skippedText$cleanupText'
+              : '已替换 ${summary.successCount} 张，${summary.failureCount} 张替换失败$skippedText',
     );
     Navigator.of(context).pop();
   }
@@ -107,7 +118,9 @@ class _TranslationResultReplaceDialogState
                     )
                     : const Icon(Icons.swap_horiz),
             label: Text(
-              _replacing ? '正在替换…' : '替换原图（${widget.plan.pairs.length}）',
+              _replacing
+                  ? '正在替换…'
+                  : '替换原图（${widget.plan.pairs.length - _skippedOriginalPaths.length}）',
             ),
           ),
         ],
@@ -125,13 +138,14 @@ class _TranslationResultReplaceDialogState
           '已匹配 ${widget.plan.pairs.length} 张；总大小 '
           '${widget.plan.originalTotalSize.formatFileSize()} → '
           '${widget.plan.translatedTotalSize.formatFileSize()}（${_formatDelta(delta)}）'
-          '${widget.plan.unmatched.isEmpty ? '' : '；未匹配 ${widget.plan.unmatched.length} 项'}',
+          '${widget.plan.unmatched.isEmpty ? '' : '；未匹配 ${widget.plan.unmatched.length} 项'}'
+          '${_skippedOriginalPaths.isEmpty ? '' : '；已跳过 ${_skippedOriginalPaths.length} 张'}',
           style: Theme.of(context).textTheme.bodySmall,
         ),
         const SizedBox(height: 8),
         if (widget.plan.unmatched.isNotEmpty)
           Text(
-            '未匹配原图表示无需翻译，仍会清理中间目录；未匹配译图会保留中间目录。',
+            '未匹配文件不会参与替换；应用成功后，本次翻译结果目录会一并清理。',
             style: Theme.of(
               context,
             ).textTheme.bodySmall?.copyWith(color: Colors.orange.shade800),
@@ -178,6 +192,23 @@ class _TranslationResultReplaceDialogState
                   '${_formatDelta(delta)}（${ratio >= 0 ? '+' : ''}${ratio.toStringAsFixed(1)}%）',
                   style: TextStyle(color: deltaColor),
                 ),
+                const SizedBox(width: 8),
+                const Text('跳过'),
+                Checkbox(
+                  value: _skippedOriginalPaths.contains(pair.originalPath),
+                  onChanged:
+                      _replacing
+                          ? null
+                          : (value) {
+                            setState(() {
+                              if (value == true) {
+                                _skippedOriginalPaths.add(pair.originalPath);
+                              } else {
+                                _skippedOriginalPaths.remove(pair.originalPath);
+                              }
+                            });
+                          },
+                ),
               ],
             ),
             const SizedBox(height: 4),
@@ -188,6 +219,8 @@ class _TranslationResultReplaceDialogState
                   pair.originalPath,
                   '原图',
                   _detail(pair.originalDimensions, pair.originalSize),
+                  translated: false,
+                  initialIndex: widget.plan.pairs.indexOf(pair),
                 ),
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 8),
@@ -197,6 +230,8 @@ class _TranslationResultReplaceDialogState
                   pair.translatedPath,
                   '翻译后',
                   _detail(pair.translatedDimensions, pair.translatedSize),
+                  translated: true,
+                  initialIndex: widget.plan.pairs.indexOf(pair),
                 ),
               ],
             ),
@@ -219,7 +254,24 @@ class _TranslationResultReplaceDialogState
     );
   }
 
-  Widget _preview(String filePath, String label, String detail) {
+  Widget _preview(
+    String filePath,
+    String label,
+    String detail, {
+    required bool translated,
+    required int initialIndex,
+  }) {
+    final gallery =
+        widget.plan.pairs
+            .map(
+              (pair) => LocalImageViewerItem(
+                imagePath: translated ? pair.translatedPath : pair.originalPath,
+                title: label,
+                subtitle:
+                    'P${pair.image.part}\n${_detail(translated ? pair.translatedDimensions : pair.originalDimensions, translated ? pair.translatedSize : pair.originalSize)}',
+              ),
+            )
+            .toList();
     return InkWell(
       onTap:
           () => LocalImageViewerPage.open(
@@ -227,6 +279,8 @@ class _TranslationResultReplaceDialogState
             imagePath: filePath,
             title: label,
             subtitle: detail,
+            gallery: gallery,
+            initialIndex: initialIndex,
           ),
       child: SizedBox(
         width: 210,

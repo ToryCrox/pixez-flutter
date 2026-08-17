@@ -80,10 +80,14 @@ class TranslationReplacementResult {
 
 class TranslationReplacementSummary {
   final List<TranslationReplacementResult> results;
+  final int skippedCount;
+  final bool translationResultDirectoriesCleaned;
   final bool intermediateDirectoriesCleaned;
 
   const TranslationReplacementSummary({
     required this.results,
+    required this.skippedCount,
+    required this.translationResultDirectoriesCleaned,
     required this.intermediateDirectoriesCleaned,
   });
 
@@ -352,37 +356,76 @@ class TranslationResultReplacer {
   }
 
   Future<TranslationReplacementSummary> apply(
-    TranslationReplacementPlan plan,
-  ) async {
+    TranslationReplacementPlan plan, {
+    Set<String> skippedOriginalPaths = const <String>{},
+  }) async {
+    final skippedPathSet = skippedOriginalPaths.map(path.normalize).toSet();
+    final skippedPairs =
+        plan.pairs
+            .where(
+              (pair) =>
+                  skippedPathSet.contains(path.normalize(pair.originalPath)),
+            )
+            .toList();
+    final replacementPairs =
+        plan.pairs.where((pair) => !skippedPairs.contains(pair)).toList();
     final results = <TranslationReplacementResult>[];
-    for (final pair in plan.pairs) {
+    for (final pair in replacementPairs) {
       results.add(await _replaceOne(plan.illust, pair));
     }
 
-    final allSucceeded =
-        results.isNotEmpty && results.every((result) => result.isSuccess);
-    // 未匹配原图代表该页没有生成翻译结果，不应阻止已完成替换的
-    // 翻译任务清理其临时目录；未匹配译图则仍需保留，方便后续排查。
-    final hasUnmatchedTranslation = plan.unmatched.any(
-      (item) => !item.isOriginal,
-    );
-    var intermediateDirectoriesCleaned = false;
-    for (final resultDirectory in plan.resultDirectories) {
-      await _removeEmptyDirectory(resultDirectory);
+    // 只要本次至少成功替换一张图片，就将作品标记为已翻译；跳过的页面不影响标记。
+    if (results.any((result) => result.isSuccess)) {
+      await databaseProvider.updateIllustTranslationStatus(
+        plan.illust.illustId,
+        true,
+      );
     }
-    if (allSucceeded && !hasUnmatchedTranslation) {
-      for (final name in _intermediateDirectoryNames) {
-        await _deleteDirectoryIfExists(path.join(plan.workDirectory, name));
-      }
-      if (plan.externalComicDirectory != null) {
-        await _removeEmptyDirectoryTree(
-          Directory(plan.externalComicDirectory!),
+
+    var skippedFilesCleaned = true;
+    for (final pair in skippedPairs) {
+      try {
+        await _deleteFileIfExists(File(pair.translatedPath));
+      } catch (e, stackTrace) {
+        skippedFilesCleaned = false;
+        Log.e(
+          '清理跳过的翻译图片失败: ${pair.translatedPath}',
+          error: e,
+          stackTrace: stackTrace,
         );
       }
-      intermediateDirectoriesCleaned = true;
+    }
+
+    final replacementsSucceeded =
+        replacementPairs.isNotEmpty &&
+        results.every((result) => result.isSuccess);
+    final allSkipped =
+        plan.pairs.isNotEmpty &&
+        replacementPairs.isEmpty &&
+        skippedFilesCleaned;
+    var intermediateDirectoriesCleaned = false;
+    var translationResultDirectoriesCleaned = false;
+    if ((replacementsSucceeded && skippedFilesCleaned) || allSkipped) {
+      translationResultDirectoriesCleaned =
+          await _deletePlannedResultDirectories(plan);
+      if (translationResultDirectoriesCleaned) {
+        var intermediatesCleaned = true;
+        for (final name in _intermediateDirectoryNames) {
+          final currentCleaned = await _deleteDirectoryIfExists(
+            path.join(plan.workDirectory, name),
+          );
+          intermediatesCleaned = currentCleaned && intermediatesCleaned;
+        }
+        if (plan.externalComicDirectory != null) {
+          await _removeEmptyDirectory(plan.externalComicDirectory!);
+        }
+        intermediateDirectoriesCleaned = intermediatesCleaned;
+      }
     }
     return TranslationReplacementSummary(
       results: results,
+      skippedCount: skippedPairs.length,
+      translationResultDirectoriesCleaned: translationResultDirectoriesCleaned,
       intermediateDirectoriesCleaned: intermediateDirectoriesCleaned,
     );
   }
@@ -585,45 +628,128 @@ class TranslationResultReplacer {
     }
   }
 
-  Future<void> _removeEmptyDirectory(String directoryPath) async {
-    final directory = Directory(directoryPath);
-    if (!await directory.exists()) return;
-    try {
-      if (await directory.list(followLinks: false).isEmpty) {
-        await directory.delete();
+  Future<bool> _deletePlannedResultDirectories(
+    TranslationReplacementPlan plan,
+  ) async {
+    if (plan.resultDirectories.isEmpty) return false;
+
+    final plannedPaths = plan.resultDirectories.map(path.normalize).toSet();
+    var cleaned = true;
+    for (final resultDirectory in plannedPaths) {
+      if (!_isResultDirectoryInPlan(resultDirectory, plan)) {
+        Log.w('跳过计划外翻译结果目录清理: $resultDirectory');
+        cleaned = false;
+        continue;
       }
-    } catch (e, stackTrace) {
-      Log.e('清理空翻译结果目录失败: $directoryPath', error: e, stackTrace: stackTrace);
+      final currentCleaned = await _clearPlannedDirectory(
+        Directory(resultDirectory),
+        plannedPaths,
+      );
+      cleaned = currentCleaned && cleaned;
     }
+    return cleaned;
   }
 
-  Future<void> _removeEmptyDirectoryTree(Directory directory) async {
-    if (!await directory.exists()) return;
+  bool _isResultDirectoryInPlan(
+    String resultDirectory,
+    TranslationReplacementPlan plan,
+  ) {
+    final normalized = path.normalize(resultDirectory);
+    if (_isPathWithin(normalized, path.normalize(plan.workDirectory))) {
+      return true;
+    }
+    final externalComicDirectory = plan.externalComicDirectory;
+    return externalComicDirectory != null &&
+        _isPathWithin(normalized, path.normalize(externalComicDirectory));
+  }
+
+  bool _isPathWithin(String target, String parent) {
+    return path.equals(target, parent) || path.isWithin(parent, target);
+  }
+
+  Future<bool> _clearPlannedDirectory(
+    Directory directory,
+    Set<String> plannedPaths,
+  ) async {
+    if (!await directory.exists()) return true;
+    var cleaned = true;
     try {
       await for (final entity in directory.list(followLinks: false)) {
+        if (entity is File) {
+          try {
+            await entity.delete();
+          } catch (e, stackTrace) {
+            cleaned = false;
+            Log.e(
+              '清理翻译结果文件失败: ${entity.path}',
+              error: e,
+              stackTrace: stackTrace,
+            );
+          }
+          continue;
+        }
         if (entity is Directory) {
-          await _removeEmptyDirectoryTree(entity);
+          final childPath = path.normalize(entity.path);
+          if (!plannedPaths.contains(childPath)) {
+            // 未纳入本次计划的子目录可能属于其他翻译任务，必须保留。
+            continue;
+          }
+          final childCleaned = await _clearPlannedDirectory(
+            entity,
+            plannedPaths,
+          );
+          cleaned = childCleaned && cleaned;
+          if (childCleaned && await entity.exists()) {
+            try {
+              if (await entity.list(followLinks: false).isEmpty) {
+                await entity.delete();
+              }
+            } catch (e, stackTrace) {
+              cleaned = false;
+              Log.e(
+                '删除翻译结果目录失败: ${entity.path}',
+                error: e,
+                stackTrace: stackTrace,
+              );
+            }
+          }
         }
       }
+      if (cleaned && await directory.exists()) {
+        if (await directory.list(followLinks: false).isEmpty) {
+          await directory.delete();
+        }
+      }
+    } catch (e, stackTrace) {
+      cleaned = false;
+      Log.e('清理翻译结果目录失败: ${directory.path}', error: e, stackTrace: stackTrace);
+    }
+    return cleaned;
+  }
+
+  Future<bool> _removeEmptyDirectory(String directoryPath) async {
+    final directory = Directory(directoryPath);
+    if (!await directory.exists()) return true;
+    try {
       if (await directory.list(followLinks: false).isEmpty) {
         await directory.delete();
       }
+      return true;
     } catch (e, stackTrace) {
-      Log.e(
-        '清理空翻译结果目录树失败: ${directory.path}',
-        error: e,
-        stackTrace: stackTrace,
-      );
+      Log.e('清理空翻译结果目录失败: $directoryPath', error: e, stackTrace: stackTrace);
+      return false;
     }
   }
 
-  Future<void> _deleteDirectoryIfExists(String directoryPath) async {
+  Future<bool> _deleteDirectoryIfExists(String directoryPath) async {
     final directory = Directory(directoryPath);
-    if (!await directory.exists()) return;
+    if (!await directory.exists()) return true;
     try {
       await directory.delete(recursive: true);
+      return true;
     } catch (e, stackTrace) {
       Log.e('清理翻译中间目录失败: $directoryPath', error: e, stackTrace: stackTrace);
+      return false;
     }
   }
 

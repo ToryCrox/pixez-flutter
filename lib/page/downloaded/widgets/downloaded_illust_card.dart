@@ -40,6 +40,7 @@ class DownloadedIllustCard extends StatelessWidget {
   final VoidCallback onOpenFolder;
   final VoidCallback onOpenOriginalFolder;
   final VoidCallback onRefreshData;
+  final VoidCallback onTranslationStatusTap;
   final VoidCallback? onApplyTranslationResult;
   final VoidCallback? onAuthorTap;
 
@@ -53,6 +54,7 @@ class DownloadedIllustCard extends StatelessWidget {
     required this.onOpenFolder,
     required this.onOpenOriginalFolder,
     required this.onRefreshData,
+    required this.onTranslationStatusTap,
     this.onApplyTranslationResult,
     this.onAuthorTap,
   });
@@ -823,6 +825,14 @@ class DownloadedIllustCard extends StatelessWidget {
               fontSize: 11,
             ),
           ),
+          Text(
+            '·',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Colors.grey[600],
+              fontSize: 11,
+            ),
+          ),
+          _buildTranslationStatusButton(context),
         ],
       );
     } else {
@@ -833,6 +843,24 @@ class DownloadedIllustCard extends StatelessWidget {
         ),
       );
     }
+  }
+
+  Widget _buildTranslationStatusButton(BuildContext context) {
+    return Tooltip(
+      message: illust.isTranslated ? '取消翻译标记' : '标记为已翻译',
+      child: InkWell(
+        onTap: onTranslationStatusTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(4),
+          child: Icon(
+            Icons.circle,
+            size: 10,
+            color: illust.isTranslated ? Colors.green : Colors.grey,
+          ),
+        ),
+      ),
+    );
   }
 
   /// 构建动图帧数指示器

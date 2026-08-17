@@ -748,6 +748,11 @@ class _DownloadedPageState extends State<DownloadedPage> {
               _store.loadData();
               _store.loadStats();
             },
+            onTranslationStatusTap:
+                () => _store.updateTranslationStatus(
+                  filteredList[index].illustId,
+                  !filteredList[index].isTranslated,
+                ),
             onApplyTranslationResult:
                 () => _showTranslationResultDialog(filteredList[index]),
             onAuthorTap:

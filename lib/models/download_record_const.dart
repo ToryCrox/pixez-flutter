@@ -65,6 +65,7 @@ class DownloadedIllust {
   final int bookmark;
   final String translatedTitle;
   final String translatedCaption;
+  final bool isTranslated;
   final String sourceType;
   final int? downloadRemovedAt;
 
@@ -100,6 +101,7 @@ class DownloadedIllust {
     this.bookmark = 0,
     this.translatedTitle = '',
     this.translatedCaption = '',
+    this.isTranslated = false,
     this.sourceType = sourcePixiv,
     this.downloadRemovedAt,
   }) : _illustJson = illustJson;
@@ -148,6 +150,7 @@ class DownloadedIllust {
     int? bookmark,
     String? translatedTitle,
     String? translatedCaption,
+    bool? isTranslated,
     String sourceType = sourcePixiv,
     int? downloadRemovedAt,
   }) {
@@ -209,6 +212,7 @@ class DownloadedIllust {
       bookmark: bookmark ?? 0,
       translatedTitle: translatedTitle ?? '',
       translatedCaption: translatedCaption ?? '',
+      isTranslated: isTranslated ?? false,
       sourceType: sourceType,
       downloadRemovedAt: downloadRemovedAt,
     );
@@ -220,6 +224,7 @@ class DownloadedIllust {
     int? bookmark,
     String? translatedTitle,
     String? translatedCaption,
+    bool? isTranslated,
     String? sourceType,
     int? downloadRemovedAt,
     bool clearDownloadRemovedAt = false,
@@ -250,6 +255,7 @@ class DownloadedIllust {
       bookmark: bookmark ?? this.bookmark,
       translatedTitle: translatedTitle ?? this.translatedTitle,
       translatedCaption: translatedCaption ?? this.translatedCaption,
+      isTranslated: isTranslated ?? this.isTranslated,
       sourceType: sourceType ?? this.sourceType,
       downloadRemovedAt:
           clearDownloadRemovedAt
@@ -307,6 +313,8 @@ class DownloadedIllust {
       translatedCaption: TypeUtil.parseString(
         json[DownloadedIllustColumns.translatedCaption],
       ),
+      isTranslated:
+          TypeUtil.parseInt(json[DownloadedIllustColumns.isTranslated]) != 0,
       sourceType:
           TypeUtil.parseString(json[DownloadedIllustColumns.sourceType]).isEmpty
               ? sourcePixiv
@@ -349,6 +357,7 @@ class DownloadedIllust {
     data[DownloadedIllustColumns.bookmark] = bookmark;
     data[DownloadedIllustColumns.translatedTitle] = translatedTitle;
     data[DownloadedIllustColumns.translatedCaption] = translatedCaption;
+    data[DownloadedIllustColumns.isTranslated] = isTranslated ? 1 : 0;
     data[DownloadedIllustColumns.sourceType] = sourceType;
     data[DownloadedIllustColumns.downloadRemovedAt] = downloadRemovedAt;
     return data;
@@ -562,6 +571,7 @@ class DownloadedIllustColumns {
   static const String bookmark = 'bookmark';
   static const String translatedTitle = 'translated_title';
   static const String translatedCaption = 'translated_caption';
+  static const String isTranslated = 'is_translated';
   static const String sourceType = 'source_type';
   static const String downloadRemovedAt = 'download_removed_at';
 }
