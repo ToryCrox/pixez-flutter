@@ -391,7 +391,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
       case 'translation_result_directory':
         final changed = await TranslationResultDirectoryDialog.show(context);
         if (changed == true) {
-          await _store.scanTranslationResults();
+          _store.clearTranslationResults();
         }
         break;
       case 'optimize_json':
@@ -1022,14 +1022,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
             : [illust];
 
     final hasTranslationResult =
-        !isMulti &&
-        await TranslationResultReplacer(
-          downloadStore.dbProvider,
-        ).hasReplacementCandidate(
-          illust,
-          translationResultRootDirectory:
-              userSetting.translationResultDirectory,
-        );
+        !isMulti && _store.hasTranslationResult(illust.illustId);
     if (!mounted) return;
 
     showMenu(
@@ -1279,6 +1272,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
         plan: plan,
         replacer: replacer,
         onReplaced: () async {
+          _store.removeTranslationResult(illust.illustId);
           await _store.loadData();
           await _store.loadStats();
         },

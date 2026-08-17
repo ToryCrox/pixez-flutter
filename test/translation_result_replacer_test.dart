@@ -331,6 +331,32 @@ void main() {
       expect(plan.pairs, isEmpty);
     });
 
+    test('一次扫描外部根目录并按插画目录 ID 返回结果', () async {
+      final translationRoot = Directory(
+        path.join(temporary.path, 'translation-output'),
+      );
+      await _writeImage(
+        path.join(translationRoot.path, '[100]测试', '1.png'),
+        _pngBytes(9, 7),
+      );
+      await _writeImage(
+        path.join(translationRoot.path, '[200]其他', 'result', '1.png'),
+        _pngBytes(9, 7),
+      );
+      await _writeImage(
+        path.join(translationRoot.path, 'not-an-illust', '1.png'),
+        _pngBytes(9, 7),
+      );
+
+      final ids = await TranslationResultReplacer(
+        provider,
+      ).scanExternalTranslationResults(translationRoot.path);
+
+      expect(ids, contains(100));
+      expect(ids, isNot(contains(200)));
+      expect(ids, isNot(contains(0)));
+    });
+
     test('外部目录存在未匹配译图时保留目录和中间目录', () async {
       final original = File(path.join(workDirectory.path, '1.webp'));
       await _writeImage(original.path, _pngBytes(8, 8));

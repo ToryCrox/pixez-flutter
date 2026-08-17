@@ -104,6 +104,7 @@ class _TranslationResultDirectoryEntry {
 /// 将作品目录下或外部目录中的翻译图片安全替换到下载图片中。
 class TranslationResultReplacer {
   static const resultDirectoryName = 'result';
+  static final _translationDirectoryIdPattern = RegExp(r'^\[(\d+)\]');
   static const _intermediateDirectoryNames = [
     'inpainted',
     'mask',
@@ -113,6 +114,33 @@ class TranslationResultReplacer {
   final DownloadDatabaseProvider databaseProvider;
 
   const TranslationResultReplacer(this.databaseProvider);
+
+  /// 一次扫描外部翻译结果根目录，按插画目录 basename 中的 `[illustId]`
+  /// 建立可替换作品集合。
+  ///
+  /// 自动标记场景只扫描外部根目录的第一层，并且只检查插画目录根层的
+  /// 图片；下载目录没有章节目录，因此不递归扫描每个插画目录。
+  Future<Set<int>> scanExternalTranslationResults(
+    String translationResultRootDirectory,
+  ) async {
+    final rootPath = translationResultRootDirectory.trim();
+    if (rootPath.isEmpty) return <int>{};
+
+    final rootDirectory = Directory(rootPath);
+    if (!await rootDirectory.exists()) return <int>{};
+
+    final result = <int>{};
+    await for (final entity in rootDirectory.list(followLinks: false)) {
+      if (entity is! Directory) continue;
+      final match = _translationDirectoryIdPattern.firstMatch(
+        path.basename(entity.path),
+      );
+      final illustId = int.tryParse(match?.group(1) ?? '');
+      if (illustId == null) continue;
+      if (await _containsImages(entity)) result.add(illustId);
+    }
+    return result;
+  }
 
   /// 快速判断是否有可能对应当前作品的译图，用于决定是否显示菜单项。
   Future<bool> hasReplacementCandidate(

@@ -282,6 +282,7 @@ abstract class _DownloadedPageStoreBase with Store {
     _loadPersistedState();
     loadData();
     loadStats();
+    unawaited(scanTranslationResults());
 
     _downloadStatusSubscription = downloadStore.illustDownloadStatusStream
         .listen(_onDownloadStatusChanged);
@@ -351,7 +352,6 @@ abstract class _DownloadedPageStoreBase with Store {
       // 不属于当前作者，不添加到列表，但更新状态信息（如果已存在）
       if (_illusts.any((e) => e.illustId == status.illusts.illustId)) {
         _illustDownloadStatus[status.illusts.illustId] = status.status;
-        unawaited(scanTranslationResults());
       }
       return;
     }
@@ -367,7 +367,6 @@ abstract class _DownloadedPageStoreBase with Store {
     }
     _illustDownloadStatus[status.illusts.illustId] = status.status;
     _refreshStatsWithDebounce();
-    unawaited(scanTranslationResults());
   }
 
   /// 使用防抖刷新统计信息
@@ -465,7 +464,6 @@ abstract class _DownloadedPageStoreBase with Store {
 
       // 并行加载关键信息
       await _loadCriticalInfo(illusts);
-      unawaited(scanTranslationResults());
     } catch (e) {
       _loading = false;
     }
@@ -545,7 +543,6 @@ abstract class _DownloadedPageStoreBase with Store {
       await _checkUnprocessedIllusts(moreIllusts);
 
       await _loadCriticalInfo(moreIllusts);
-      unawaited(scanTranslationResults());
     } catch (e) {
       _loadingMore = false;
       easyRefreshController?.finishLoad(IndicatorResult.fail);
@@ -555,50 +552,33 @@ abstract class _DownloadedPageStoreBase with Store {
   bool hasTranslationResult(int illustId) =>
       translationResultIllustIds.contains(illustId);
 
-  /// 扫描当前下载页已加载的作品，返回发现可替换结果的作品数量。
+  /// 扫描外部翻译结果根目录，返回发现可替换结果的作品数量。
   Future<int> scanTranslationResults() async {
     final generation = ++_translationScanGeneration;
-    final targets = _illusts.toList(growable: false);
-    if (targets.isEmpty) {
-      translationResultIllustIds.clear();
-      return 0;
-    }
-
     final replacer = TranslationResultReplacer(downloadStore.dbProvider);
     final rootDirectory = userSetting.translationResultDirectory;
-    final found = <int>{};
-    var nextIndex = 0;
-
-    Future<void> worker() async {
-      while (generation == _translationScanGeneration) {
-        final index = nextIndex++;
-        if (index >= targets.length) return;
-        final illust = targets[index];
-        try {
-          if (await replacer.hasReplacementCandidate(
-            illust,
-            translationResultRootDirectory: rootDirectory,
-          )) {
-            found.add(illust.illustId);
-          }
-        } catch (e, stackTrace) {
-          Log.w(
-            '扫描翻译结果失败: ${illust.illustId}',
-            error: e,
-            stackTrace: stackTrace,
-          );
-        }
-      }
+    Set<int> found;
+    try {
+      found = await replacer.scanExternalTranslationResults(rootDirectory);
+    } catch (e, stackTrace) {
+      Log.w('扫描外部翻译结果根目录失败', error: e, stackTrace: stackTrace);
+      found = <int>{};
     }
-
-    final workerCount = targets.length < 4 ? targets.length : 4;
-    await Future.wait(List.generate(workerCount, (_) => worker()));
     if (generation != _translationScanGeneration) return found.length;
 
     translationResultIllustIds
       ..clear()
       ..addAll(found);
     return found.length;
+  }
+
+  void clearTranslationResults() {
+    _translationScanGeneration++;
+    translationResultIllustIds.clear();
+  }
+
+  void removeTranslationResult(int illustId) {
+    translationResultIllustIds.remove(illustId);
   }
 
   /// 加载统计信息
