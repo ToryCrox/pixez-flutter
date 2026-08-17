@@ -169,6 +169,17 @@ class _TranslationResultReplaceDialogState
     );
   }
 
+  void _setSkipped(String originalPath, bool skipped) {
+    if (_replacing) return;
+    setState(() {
+      if (skipped) {
+        _skippedOriginalPaths.add(originalPath);
+      } else {
+        _skippedOriginalPaths.remove(originalPath);
+      }
+    });
+  }
+
   Widget _buildPairRow(TranslationReplacementPair pair) {
     final delta = pair.translatedSize - pair.originalSize;
     final ratio = pair.originalSize == 0 ? 0 : delta / pair.originalSize * 100;
@@ -193,21 +204,27 @@ class _TranslationResultReplaceDialogState
                   style: TextStyle(color: deltaColor),
                 ),
                 const SizedBox(width: 8),
-                const Text('跳过'),
+                InkWell(
+                  onTap:
+                      _replacing
+                          ? null
+                          : () => _setSkipped(
+                            pair.originalPath,
+                            !_skippedOriginalPaths.contains(pair.originalPath),
+                          ),
+                  borderRadius: BorderRadius.circular(4),
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                    child: Text('跳过'),
+                  ),
+                ),
                 Checkbox(
                   value: _skippedOriginalPaths.contains(pair.originalPath),
                   onChanged:
                       _replacing
                           ? null
-                          : (value) {
-                            setState(() {
-                              if (value == true) {
-                                _skippedOriginalPaths.add(pair.originalPath);
-                              } else {
-                                _skippedOriginalPaths.remove(pair.originalPath);
-                              }
-                            });
-                          },
+                          : (value) =>
+                              _setSkipped(pair.originalPath, value == true),
                 ),
               ],
             ),
