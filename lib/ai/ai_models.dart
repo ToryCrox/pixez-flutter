@@ -166,6 +166,7 @@ class AiPromptPreset {
 class AiPromptScenes {
   static const illustTitle = 'illust_title';
   static const illustCaption = 'illust_caption';
+  static const tagTranslationTriage = 'tag_translation_triage';
   static const tagTranslation = 'tag_translation';
   static const commentTranslation = 'comment_translation';
   static const authorIntroductionTranslation =
@@ -176,6 +177,7 @@ class AiPromptScenes {
   static const labels = <String, String>{
     illustTitle: '插画标题',
     illustCaption: '插画介绍',
+    tagTranslationTriage: '标签初判与初译',
     tagTranslation: '标签翻译',
     commentTranslation: '用户评论翻译',
     authorIntroductionTranslation: '作者简介翻译',
@@ -186,11 +188,78 @@ class AiPromptScenes {
   static const requiredVariables = <String, Set<String>>{
     illustTitle: {'text'},
     illustCaption: {'text'},
+    tagTranslationTriage: {'tag_name', 'official_translation'},
     tagTranslation: {'tag_name', 'official_translation'},
     commentTranslation: {'text'},
     authorIntroductionTranslation: {'text'},
     novelTranslation: {'text', 'content_type', 'target_language'},
     mangaPageTranslation: {'text', 'target_language'},
+  };
+}
+
+enum AiTagTranslationAction {
+  directTranslate('direct_translate'),
+  lookupSubject('lookup_subject'),
+  lookupCharacter('lookup_character'),
+  keepOriginal('keep_original');
+
+  final String value;
+  const AiTagTranslationAction(this.value);
+
+  static AiTagTranslationAction fromValue(Object? value) {
+    final raw = value?.toString().trim();
+    for (final action in values) {
+      if (action.value == raw) return action;
+    }
+    throw FormatException('标签初判 action 无效：$value');
+  }
+}
+
+class AiTagTranslationDecision {
+  final AiTagTranslationAction action;
+  final String translation;
+  final List<String> queries;
+  final double confidence;
+
+  const AiTagTranslationDecision({
+    required this.action,
+    required this.translation,
+    required this.queries,
+    required this.confidence,
+  });
+
+  factory AiTagTranslationDecision.fromJson(Map<String, dynamic> json) {
+    final rawQueries = json['queries'];
+    final queries = <String>[];
+    if (rawQueries is List) {
+      for (final rawQuery in rawQueries) {
+        final query = rawQuery?.toString().trim() ?? '';
+        if (query.isEmpty || queries.contains(query)) continue;
+        queries.add(query);
+        if (queries.length == 3) break;
+      }
+    } else if (rawQueries is String && rawQueries.trim().isNotEmpty) {
+      queries.add(rawQueries.trim());
+    }
+
+    final rawConfidence = json['confidence'];
+    final confidence =
+        rawConfidence is num
+            ? rawConfidence.toDouble().clamp(0, 1).toDouble()
+            : 0.0;
+    return AiTagTranslationDecision(
+      action: AiTagTranslationAction.fromValue(json['action']),
+      translation: json['translation']?.toString().trim() ?? '',
+      queries: List.unmodifiable(queries),
+      confidence: confidence,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'action': action.value,
+    'translation': translation,
+    'queries': queries,
+    'confidence': confidence,
   };
 }
 
@@ -256,6 +325,18 @@ class AiDefaultPrompts {
       userTemplate: '请翻译以下插画介绍：\n\n{{text}}',
     ),
     AiPromptPreset(
+      id: 'builtin_tag_translation_triage_zh_cn',
+      name: '标签初判与初译（简体中文）',
+      sceneId: AiPromptScenes.tagTranslationTriage,
+      providerId: '',
+      useDefaultProvider: true,
+      isActive: true,
+      systemPrompt:
+          '你是 Pixiv 标签翻译预判助手。请判断标签是否属于普通标签、作品名或角色名，并给出第一次简体中文翻译。普通标签直接使用 direct_translate；疑似动画、漫画、小说、游戏等作品使用 lookup_subject；疑似角色名使用 lookup_character；无法可靠判断时使用 keep_original。不要因为作者名、社团名、真人名或通用特征词而查询 Bangumi。只返回合法 JSON，不要 Markdown 或解释。JSON 字段必须为 action、translation、queries、confidence；queries 最多 3 个，confidence 为 0 到 1 的数字。',
+      userTemplate:
+          '标签原名：{{tag_name}}\nPixiv 官方翻译：{{official_translation}}\n\n请先完成标签初判并给出初译。',
+    ),
+    AiPromptPreset(
       id: 'builtin_tag_translation_zh_cn',
       name: '标签翻译（简体中文）',
       sceneId: AiPromptScenes.tagTranslation,
@@ -263,7 +344,7 @@ class AiDefaultPrompts {
       useDefaultProvider: true,
       isActive: true,
       systemPrompt:
-          '你是 Pixiv 标签本地化助手。请结合标签原名和官方翻译，输出最常用、简洁、准确的简体中文标签。优先使用作品、角色和术语已有的官方中文名；不要解释、不要加引号，只输出一个标签译名。',
+          '你是 Pixiv 标签本地化助手。请结合标签原名和官方翻译，输出最常用、简洁、准确的简体中文标签。若系统消息附带 Bangumi 参考资料，只在候选与原标签明确匹配时采用其中的中文名；候选冲突或无法确认时使用第一次 AI 初译。不要解释、不要加引号，只输出一个标签译名。',
       userTemplate:
           '标签原名：{{tag_name}}\n官方翻译：{{official_translation}}\n\n请给出简体中文标签译名。',
     ),

@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:pixez/ai/ai_client.dart';
+import 'package:pixez/ai/bangumi_tag_lookup.dart';
 import 'package:pixez/ai/ai_models.dart';
 import 'package:pixez/ai/ai_result_cache.dart';
 import 'package:pixez/ai/ai_settings_store.dart';
@@ -23,6 +26,7 @@ class AiTranslationService {
   final AiSettingsStore settings;
   final AiClient client;
   final AiResultCache cache;
+  final BangumiLookupService bangumiLookup;
   final Map<int, IllustTranslation> _illustTranslations = {};
   final Map<String, Future<String>> _inFlightCachedTranslations = {};
 
@@ -30,7 +34,9 @@ class AiTranslationService {
     required this.settings,
     required this.client,
     AiResultCache? cache,
-  }) : cache = cache ?? AiResultCache();
+    BangumiLookupService? bangumiLookup,
+  }) : cache = cache ?? AiResultCache(),
+       bangumiLookup = bangumiLookup ?? BangumiApiLookupService();
 
   IllustTranslation? cachedIllustTranslation(int illustId) =>
       _illustTranslations[illustId];
@@ -86,11 +92,139 @@ class AiTranslationService {
   Future<String> translateTag({
     required String tagName,
     required String officialTranslation,
-  }) => translate(AiPromptScenes.tagTranslation, {
-    'tag_name': tagName,
-    'official_translation':
-        officialTranslation.isEmpty ? '（无）' : officialTranslation,
-  });
+  }) async {
+    final normalizedTagName = tagName.trim();
+    final normalizedOfficialTranslation = officialTranslation.trim();
+    final variables = {
+      'tag_name': normalizedTagName,
+      'official_translation':
+          normalizedOfficialTranslation.isEmpty
+              ? '（无）'
+              : normalizedOfficialTranslation,
+    };
+
+    final triageResponse = await translate(
+      AiPromptScenes.tagTranslationTriage,
+      variables,
+    );
+    final decision = _parseTagTranslationDecision(triageResponse);
+    final fallback = _tagTranslationFallback(
+      decision,
+      normalizedOfficialTranslation,
+      normalizedTagName,
+    );
+
+    switch (decision.action) {
+      case AiTagTranslationAction.directTranslate:
+      case AiTagTranslationAction.keepOriginal:
+        return fallback;
+      case AiTagTranslationAction.lookupSubject:
+      case AiTagTranslationAction.lookupCharacter:
+        break;
+    }
+
+    final queries = _buildBangumiQueries(
+      tagName: normalizedTagName,
+      officialTranslation: normalizedOfficialTranslation,
+      decision: decision,
+    );
+    if (queries.isEmpty) return fallback;
+
+    final lookupType =
+        decision.action == AiTagTranslationAction.lookupCharacter
+            ? BangumiLookupType.character
+            : BangumiLookupType.subject;
+    try {
+      final lookup = await bangumiLookup.lookup(
+        type: lookupType,
+        queries: queries,
+      );
+      if (!lookup.hasCandidates) return fallback;
+
+      final finalResponse = await translate(
+        AiPromptScenes.tagTranslation,
+        variables,
+        systemSuffix: _bangumiTranslationContext(
+          decision: decision,
+          queries: queries,
+          lookup: lookup,
+          fallback: fallback,
+        ),
+      );
+      final translated = _stripCodeFence(finalResponse).trim();
+      return translated.isEmpty ? fallback : translated;
+    } catch (_) {
+      return fallback;
+    }
+  }
+
+  AiTagTranslationDecision _parseTagTranslationDecision(String response) {
+    final cleaned = _stripCodeFence(response);
+    final start = cleaned.indexOf('{');
+    final end = cleaned.lastIndexOf('}');
+    if (start < 0 || end <= start) {
+      throw const AiRequestException('AI 标签初判结果不是有效 JSON');
+    }
+    try {
+      final decoded = jsonDecode(cleaned.substring(start, end + 1));
+      if (decoded is! Map) {
+        throw const FormatException('根节点不是对象');
+      }
+      return AiTagTranslationDecision.fromJson(
+        Map<String, dynamic>.from(decoded),
+      );
+    } on AiRequestException {
+      rethrow;
+    } on Object catch (error) {
+      throw AiRequestException('AI 标签初判结果无效：$error');
+    }
+  }
+
+  String _tagTranslationFallback(
+    AiTagTranslationDecision decision,
+    String officialTranslation,
+    String tagName,
+  ) {
+    if (decision.translation.isNotEmpty) return decision.translation;
+    if (officialTranslation.isNotEmpty) return officialTranslation;
+    return tagName;
+  }
+
+  List<String> _buildBangumiQueries({
+    required String tagName,
+    required String officialTranslation,
+    required AiTagTranslationDecision decision,
+  }) {
+    final queries = <String>[];
+    void add(String value) {
+      final query = value.trim();
+      if (query.isEmpty || queries.contains(query) || queries.length == 3) {
+        return;
+      }
+      queries.add(query);
+    }
+
+    add(tagName);
+    for (final query in decision.queries) {
+      add(query);
+    }
+    add(officialTranslation);
+    return queries;
+  }
+
+  String _bangumiTranslationContext({
+    required AiTagTranslationDecision decision,
+    required List<String> queries,
+    required BangumiLookupResult lookup,
+    required String fallback,
+  }) =>
+      '\n\n'
+      '这是 Bangumi 查询得到的参考资料，不代表一定匹配。\n'
+      '第一次 AI 判断：${decision.action.value}\n'
+      '第一次 AI 初译：$fallback\n'
+      '实际查询词：${queries.join('、')}\n'
+      'Bangumi 候选：\n${lookup.toPromptText()}\n\n'
+      '请综合原始标签、Pixiv 官方翻译和全部候选；只有明确匹配时才采用 Bangumi 名称。候选冲突或无法确认时使用第一次 AI 初译。只输出一个最终中文标签译名，不要解释。';
 
   Future<String> translateComment({
     required String resourceKey,
