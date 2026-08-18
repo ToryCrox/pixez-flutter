@@ -188,6 +188,12 @@ class _IllustCardState extends State<IllustCard> {
   }
 
   Widget cardText() {
+    if (store.illusts!.type == "manga") {
+      return Text(
+        "M${store.illusts!.metaPages.length}",
+        style: TextStyle(color: Colors.white),
+      );
+    }
     if (store.illusts!.type != "illust") {
       return Text(store.illusts!.type, style: TextStyle(color: Colors.white));
     }

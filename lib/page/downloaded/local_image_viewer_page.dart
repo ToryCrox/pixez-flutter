@@ -4,6 +4,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:pixez/er/prefer.dart';
 
 class LocalImageViewerComparison {
   final String leftImagePath;
@@ -116,6 +117,8 @@ class _NextImageIntent extends Intent {
 }
 
 class _LocalImageViewerPageState extends State<LocalImageViewerPage> {
+  static const _comparisonModePreferenceKey =
+      'local_image_viewer_comparison_mode';
   static const double _minScale = 0.1;
   static const double _maxScale = 8.0;
   static const double _stepScale = 1.25;
@@ -147,6 +150,7 @@ class _LocalImageViewerPageState extends State<LocalImageViewerPage> {
   void initState() {
     super.initState();
     _currentIndex = _initialIndex;
+    _comparisonMode = Prefer.getBool(_comparisonModePreferenceKey) ?? false;
     _showRightImage = _isRightImage(_currentItem);
     _file = File(_activeImagePath);
     _resolveImageInfo();
@@ -446,6 +450,7 @@ class _LocalImageViewerPageState extends State<LocalImageViewerPage> {
       _currentDesiredScale = 1.0;
       _transformController.value = Matrix4.identity();
     });
+    unawaited(Prefer.setBool(_comparisonModePreferenceKey, false));
     _resolveImageInfo();
   }
 
@@ -455,6 +460,7 @@ class _LocalImageViewerPageState extends State<LocalImageViewerPage> {
       _comparisonMode = !_comparisonMode;
       _comparisonSplit = 0.5;
     });
+    unawaited(Prefer.setBool(_comparisonModePreferenceKey, _comparisonMode));
     _setDesiredScale(_fitScale(), resetPosition: true);
   }
 
@@ -647,7 +653,18 @@ class _LocalImageViewerPageState extends State<LocalImageViewerPage> {
                         top: MediaQuery.of(context).padding.top + 10,
                         left: 56,
                         right: 20,
-                        child: _buildTitle(),
+                        child: Align(
+                          alignment: Alignment.topLeft,
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(
+                              maxWidth: math.max(
+                                0.0,
+                                constraints.maxWidth - 76,
+                              ),
+                            ),
+                            child: _buildTitle(),
+                          ),
+                        ),
                       ),
                     if (_items.length > 1) ...[
                       Positioned(
@@ -785,20 +802,6 @@ class _LocalImageViewerPageState extends State<LocalImageViewerPage> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (_hasComparison) ...[
-            _buildRoundButton(
-              icon: Icons.swap_horiz,
-              tooltip: _comparisonMode ? '切换图片（退出对比）' : '切换原图和译图',
-              onTap: _toggleComparisonImage,
-            ),
-            const SizedBox(width: 4),
-            _buildRoundButton(
-              icon: Icons.compare_arrows,
-              tooltip: _comparisonMode ? '退出左右对比' : '开启左右对比',
-              onTap: _toggleComparisonMode,
-            ),
-            const SizedBox(width: 4),
-          ],
           _buildRoundButton(
             icon: _isFitMode ? Icons.fit_screen : Icons.filter_center_focus,
             tooltip: _isFitMode ? '当前: 适应窗口（按1切换）' : '当前: 实际大小（按1切换）',
@@ -812,6 +815,20 @@ class _LocalImageViewerPageState extends State<LocalImageViewerPage> {
           ),
           const SizedBox(width: 4),
           _buildRoundButton(icon: Icons.zoom_in, tooltip: '放大', onTap: _zoomIn),
+          if (_hasComparison) ...[
+            const SizedBox(width: 4),
+            _buildRoundButton(
+              icon: Icons.swap_horiz,
+              tooltip: _comparisonMode ? '切换图片（退出对比）' : '切换原图和译图',
+              onTap: _toggleComparisonImage,
+            ),
+            const SizedBox(width: 4),
+            _buildRoundButton(
+              icon: Icons.compare_arrows,
+              tooltip: _comparisonMode ? '退出左右对比' : '开启左右对比',
+              onTap: _toggleComparisonMode,
+            ),
+          ],
         ],
       ),
     );
@@ -850,10 +867,10 @@ class _LocalImageViewerPageState extends State<LocalImageViewerPage> {
               child: Container(color: Colors.white),
             ),
             Positioned(
-              left: (split - 18).clamp(0, math.max(0, width - 36)).toDouble(),
+              left: split - 20,
               top: 0,
               bottom: 0,
-              width: 36,
+              width: 40,
               child: MouseRegion(
                 cursor: SystemMouseCursors.resizeColumn,
                 child: GestureDetector(
@@ -862,29 +879,7 @@ class _LocalImageViewerPageState extends State<LocalImageViewerPage> {
                   onHorizontalDragUpdate:
                       (details) =>
                           _updateComparisonSplit(details.delta.dx, width),
-                  child: Center(
-                    child: Container(
-                      width: 2,
-                      height: double.infinity,
-                      color: Colors.transparent,
-                      child: Center(
-                        child: Container(
-                          width: 24,
-                          height: 48,
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.65),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.white70),
-                          ),
-                          child: const Icon(
-                            Icons.drag_handle,
-                            color: Colors.white,
-                            size: 18,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
+                  child: Center(child: _buildComparisonHandle()),
                 ),
               ),
             ),
@@ -928,6 +923,47 @@ class _LocalImageViewerPageState extends State<LocalImageViewerPage> {
           text,
           style: const TextStyle(color: Colors.white, fontSize: 12),
         ),
+      ),
+    );
+  }
+
+  Widget _buildComparisonHandle() {
+    return Container(
+      width: 38,
+      height: 78,
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.65),
+        borderRadius: BorderRadius.circular(19),
+        border: Border.all(color: Colors.white70),
+      ),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (var row = 0; row < 3; row++) ...[
+              if (row > 0) const SizedBox(height: 3),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildComparisonHandleDot(),
+                  const SizedBox(width: 3),
+                  _buildComparisonHandleDot(),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildComparisonHandleDot() {
+    return Container(
+      width: 5,
+      height: 5,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        shape: BoxShape.circle,
       ),
     );
   }
