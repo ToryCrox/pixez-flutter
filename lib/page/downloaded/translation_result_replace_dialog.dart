@@ -379,27 +379,30 @@ class _TranslationResultReplaceDialogState
             ),
             const SizedBox(height: 4),
             Row(
-              mainAxisSize: MainAxisSize.min,
               children: [
-                _preview(
-                  plan,
-                  pair.originalPath,
-                  '原图',
-                  _detail(pair.originalDimensions, pair.originalSize),
-                  translated: false,
-                  initialIndex: initialIndex,
+                Expanded(
+                  child: _preview(
+                    plan,
+                    pair.originalPath,
+                    '原图',
+                    _detail(pair.originalDimensions, pair.originalSize),
+                    translated: false,
+                    initialIndex: initialIndex,
+                  ),
                 ),
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 8),
                   child: Icon(Icons.arrow_forward),
                 ),
-                _preview(
-                  plan,
-                  pair.translatedPath,
-                  '翻译后',
-                  _detail(pair.translatedDimensions, pair.translatedSize),
-                  translated: true,
-                  initialIndex: initialIndex,
+                Expanded(
+                  child: _preview(
+                    plan,
+                    pair.translatedPath,
+                    '翻译后',
+                    _detail(pair.translatedDimensions, pair.translatedSize),
+                    translated: true,
+                    initialIndex: initialIndex,
+                  ),
                 ),
               ],
             ),
@@ -468,35 +471,32 @@ class _TranslationResultReplaceDialogState
               );
             },
           ),
-      child: SizedBox(
-        width: 210,
-        child: Row(
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: Image.file(
-                File(filePath),
-                width: _thumbnailExtent,
-                height: _thumbnailExtent,
-                fit: BoxFit.cover,
-                errorBuilder:
-                    (_, _, _) => const SizedBox(
-                      width: _thumbnailExtent,
-                      height: _thumbnailExtent,
-                      child: Icon(Icons.broken_image),
-                    ),
-              ),
+      child: Row(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: Image.file(
+              File(filePath),
+              width: _thumbnailExtent,
+              height: _thumbnailExtent,
+              fit: BoxFit.cover,
+              errorBuilder:
+                  (_, _, _) => const SizedBox(
+                    width: _thumbnailExtent,
+                    height: _thumbnailExtent,
+                    child: Icon(Icons.broken_image),
+                  ),
             ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                '$label\n$detail',
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-              ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              '$label\n$detail',
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
