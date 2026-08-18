@@ -13,12 +13,15 @@
  * this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+import 'dart:io' as io;
+
 import 'package:easy_refresh/easy_refresh.dart';
 import 'package:pixez/component/pixez_easy_refresh.dart';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
+import 'package:pixez/custom/window_frame.dart';
 import 'package:pixez/utils/file_utils.dart';
 import 'package:pixez/exts.dart';
 import 'package:pixez/i18n.dart';
@@ -95,6 +98,9 @@ class _DownloadedPageState extends State<DownloadedPage> {
   late TextEditingController _searchController;
   late FocusNode _searchFocusNode;
   ScrollController? _scrollController; // 滚动控制器
+
+  bool get _isDesktop =>
+      io.Platform.isWindows || io.Platform.isLinux || io.Platform.isMacOS;
 
   @override
   void initState() {
@@ -191,6 +197,18 @@ class _DownloadedPageState extends State<DownloadedPage> {
 
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
+      leading:
+          _store.isMultiSelectMode
+              ? IconButton(
+                icon: CloseIcon(
+                  color:
+                      Theme.of(context).appBarTheme.foregroundColor ??
+                      Theme.of(context).colorScheme.onSurface,
+                ),
+                tooltip: '退出多选',
+                onPressed: _store.exitMultiSelectMode,
+              )
+              : null,
       title: _store.isSearching ? _buildSearchField() : _buildAppBarTitle(),
       actions: [
         IconButton(
@@ -730,11 +748,13 @@ class _DownloadedPageState extends State<DownloadedPage> {
             onTapPosition: (pos) => _tapPosition = pos,
             onTap: () => _navigateToPictureList(filteredList[index]),
             onLongPress:
-                () => _showContextMenu(
-                  context,
-                  filteredList[index],
-                  _tapPosition,
-                ),
+                _isDesktop
+                    ? () => _enterMultiSelect(filteredList[index])
+                    : () => _showContextMenu(
+                      context,
+                      filteredList[index],
+                      _tapPosition,
+                    ),
             onSecondaryTap:
                 () => _showContextMenu(
                   context,
@@ -754,9 +774,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
                   !filteredList[index].isTranslated,
                 ),
             onApplyTranslationResult:
-                _store.isMultiSelectMode
-                    ? null
-                    : () => _showTranslationResultDialog([filteredList[index]]),
+                () => _showTranslationResultDialog([filteredList[index]]),
             onAuthorTap:
                 () => _navigateToAuthorDownloadedPage(filteredList[index]),
           );
@@ -766,6 +784,11 @@ class _DownloadedPageState extends State<DownloadedPage> {
   }
 
   // ============ 导航与操作 ============
+
+  void _enterMultiSelect(DownloadedIllust illust) {
+    _store.enterMultiSelectMode();
+    _store.selectItem(illust.illustId);
+  }
 
   void _navigateToPictureList(DownloadedIllust illust) async {
     final filteredList = _store.filteredIllusts;
