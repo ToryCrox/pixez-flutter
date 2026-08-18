@@ -248,6 +248,26 @@ class _TranslationResultReplaceDialogState
     });
   }
 
+  bool _isPlanFullySkipped(TranslationReplacementPlan plan) {
+    return plan.pairs.isNotEmpty &&
+        plan.pairs.every(
+          (pair) => _skippedOriginalPaths.contains(pair.originalPath),
+        );
+  }
+
+  void _setPlanSkipped(TranslationReplacementPlan plan, bool skipped) {
+    if (_replacing) return;
+    setState(() {
+      for (final pair in plan.pairs) {
+        if (skipped) {
+          _skippedOriginalPaths.add(pair.originalPath);
+        } else {
+          _skippedOriginalPaths.remove(pair.originalPath);
+        }
+      }
+    });
+  }
+
   Widget _buildPlanGroup(TranslationReplacementPlan plan) {
     final directoryName = path.basename(plan.workDirectory);
     final title = plan.illust.title.trim();
@@ -270,7 +290,20 @@ class _TranslationResultReplaceDialogState
       margin: EdgeInsets.zero,
       child: ExpansionTile(
         initiallyExpanded: true,
-        title: Text(groupTitle),
+        title: Row(
+          children: [
+            Expanded(child: Text(groupTitle)),
+            const SizedBox(width: 8),
+            FilterChip(
+              label: const Text('全部跳过'),
+              selected: _isPlanFullySkipped(plan),
+              onSelected:
+                  _replacing
+                      ? null
+                      : (selected) => _setPlanSkipped(plan, selected),
+            ),
+          ],
+        ),
         subtitle: Text(subtitle),
         childrenPadding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
         children: [
