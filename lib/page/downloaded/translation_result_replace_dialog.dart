@@ -51,6 +51,7 @@ class _TranslationResultReplaceDialogState
   static const _dialogHeight = 800.0;
   static const _thumbnailExtent = 67.2;
   var _replacing = false;
+  var _showSkippedOnly = false;
   final Set<String> _skippedOriginalPaths = <String>{};
 
   @override
@@ -63,6 +64,19 @@ class _TranslationResultReplaceDialogState
 
   int get _replacementCount =>
       widget.batchPlan.pairCount - _skippedOriginalPaths.length;
+
+  int get _skippedPairCount => _skippedOriginalPaths.length;
+
+  List<TranslationReplacementPlan> get _visiblePlans {
+    if (!_showSkippedOnly) return widget.batchPlan.plans;
+    return widget.batchPlan.plans
+        .where(
+          (plan) => plan.pairs.any(
+            (pair) => _skippedOriginalPaths.contains(pair.originalPath),
+          ),
+        )
+        .toList(growable: false);
+  }
 
   Future<void> _replaceOriginals() async {
     if (_replacing || widget.batchPlan.pairCount == 0) return;
@@ -165,16 +179,33 @@ class _TranslationResultReplaceDialogState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          '选中 ${widget.batchPlan.selectedCount} 个目录，发现 '
-          '${widget.batchPlan.plans.length} 个可替换目录；共匹配 '
-          '${widget.batchPlan.pairCount} 张；总大小 '
-          '${widget.batchPlan.originalTotalSize.formatFileSize()} → '
-          '${widget.batchPlan.translatedTotalSize.formatFileSize()}（${_formatDelta(delta)}）'
-          '${widget.batchPlan.noResultCount == 0 ? '' : '；无结果 ${widget.batchPlan.noResultCount} 个目录'}'
-          '${widget.batchPlan.unmatchedCount == 0 ? '' : '；未匹配 ${widget.batchPlan.unmatchedCount} 项'}'
-          '${_skippedOriginalPaths.isEmpty ? '' : '；已跳过 ${_skippedOriginalPaths.length} 张'}',
-          style: Theme.of(context).textTheme.bodySmall,
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Text(
+                '选中 ${widget.batchPlan.selectedCount} 个目录，发现 '
+                '${widget.batchPlan.plans.length} 个可替换目录；共匹配 '
+                '${widget.batchPlan.pairCount} 张；总大小 '
+                '${widget.batchPlan.originalTotalSize.formatFileSize()} → '
+                '${widget.batchPlan.translatedTotalSize.formatFileSize()}（${_formatDelta(delta)}）'
+                '${widget.batchPlan.noResultCount == 0 ? '' : '；无结果 ${widget.batchPlan.noResultCount} 个目录'}'
+                '${widget.batchPlan.unmatchedCount == 0 ? '' : '；未匹配 ${widget.batchPlan.unmatchedCount} 项'}'
+                '${_skippedOriginalPaths.isEmpty ? '' : '；已跳过 ${_skippedOriginalPaths.length} 张'}',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ),
+            const SizedBox(width: 8),
+            FilterChip(
+              label: Text('仅显示已跳过 ($_skippedPairCount)'),
+              selected: _showSkippedOnly,
+              onSelected:
+                  _replacing
+                      ? null
+                      : (selected) =>
+                          setState(() => _showSkippedOnly = selected),
+            ),
+          ],
         ),
         const SizedBox(height: 8),
         if (widget.batchPlan.unmatchedCount > 0)
@@ -186,13 +217,21 @@ class _TranslationResultReplaceDialogState
           ),
         if (widget.batchPlan.unmatchedCount > 0) const SizedBox(height: 8),
         Expanded(
-          child: ListView.separated(
-            itemCount: widget.batchPlan.plans.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 8),
-            itemBuilder:
-                (context, index) =>
-                    _buildPlanGroup(widget.batchPlan.plans[index]),
-          ),
+          child:
+              _visiblePlans.isEmpty
+                  ? Center(
+                    child: Text(
+                      _showSkippedOnly ? '没有已跳过的图片' : '没有可显示的翻译结果',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  )
+                  : ListView.separated(
+                    itemCount: _visiblePlans.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 8),
+                    itemBuilder:
+                        (context, index) =>
+                            _buildPlanGroup(_visiblePlans[index]),
+                  ),
         ),
       ],
     );
@@ -213,9 +252,19 @@ class _TranslationResultReplaceDialogState
     final directoryName = path.basename(plan.workDirectory);
     final title = plan.illust.title.trim();
     final groupTitle = title.isEmpty ? directoryName : title;
+    final visiblePairs =
+        _showSkippedOnly
+            ? plan.pairs
+                .where(
+                  (pair) => _skippedOriginalPaths.contains(pair.originalPath),
+                )
+                .toList(growable: false)
+            : plan.pairs;
     final subtitle =
-        '$directoryName · ${plan.pairs.length} 张匹配'
-        '${plan.unmatched.isEmpty ? '' : ' · ${plan.unmatched.length} 项未匹配'}';
+        _showSkippedOnly
+            ? '$directoryName · ${visiblePairs.length} 张已跳过'
+            : '$directoryName · ${plan.pairs.length} 张匹配'
+                '${plan.unmatched.isEmpty ? '' : ' · ${plan.unmatched.length} 项未匹配'}';
 
     return Card(
       margin: EdgeInsets.zero,
@@ -225,8 +274,9 @@ class _TranslationResultReplaceDialogState
         subtitle: Text(subtitle),
         childrenPadding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
         children: [
-          for (final pair in plan.pairs) _buildPairRow(plan, pair),
-          for (final item in plan.unmatched) _buildUnmatchedRow(item),
+          for (final pair in visiblePairs) _buildPairRow(plan, pair),
+          if (!_showSkippedOnly)
+            for (final item in plan.unmatched) _buildUnmatchedRow(item),
         ],
       ),
     );
