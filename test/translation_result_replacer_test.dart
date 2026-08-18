@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -397,6 +398,102 @@ void main() {
       expect(await resultDir.exists(), isFalse);
     });
 
+    test('Manga Translator 未检测到文本的页面默认跳过', () async {
+      final untranslatedOriginal = File(
+        path.join(workDirectory.path, '1.webp'),
+      );
+      final translatedOriginal = File(path.join(workDirectory.path, '2.webp'));
+      await _writeImage(untranslatedOriginal.path, _pngBytes(8, 8));
+      await _writeImage(translatedOriginal.path, _pngBytes(8, 8));
+      await _insertImage(provider, 100, 0, '1', '.webp', untranslatedOriginal);
+      await _insertImage(provider, 100, 1, '2', '.webp', translatedOriginal);
+      await _writeImage(
+        path.join(workDirectory.path, 'result', '1.png'),
+        _pngBytes(9, 7),
+      );
+      await _writeImage(
+        path.join(workDirectory.path, 'result', '2.png'),
+        _pngBytes(9, 7),
+      );
+      await _writeMangaTranslatorMetadata(
+        workDirectory,
+        '1',
+        regions: const [],
+      );
+      await _writeMangaTranslatorMetadata(
+        workDirectory,
+        '2',
+        regions: const [
+          {'text': '翻译文本'},
+        ],
+      );
+
+      final replacer = TranslationResultReplacer(provider);
+      final plan = await replacer.prepare(illust);
+
+      expect(plan.pairs, hasLength(2));
+      expect(plan.pairs[0].defaultSkipped, isTrue);
+      expect(plan.pairs[0].defaultSkipReason, '未检测到可翻译文本，已默认跳过');
+      expect(plan.pairs[1].defaultSkipped, isFalse);
+      expect(plan.defaultSkippedOriginalPaths, {plan.pairs[0].originalPath});
+
+      final summary = await replacer.apply(
+        plan,
+        skippedOriginalPaths: plan.defaultSkippedOriginalPaths,
+      );
+      expect(summary.successCount, 1);
+      expect(summary.skippedCount, 1);
+      expect(await untranslatedOriginal.exists(), isTrue);
+      expect(await translatedOriginal.exists(), isFalse);
+      expect(
+        await File(path.join(workDirectory.path, 'result', '1.png')).exists(),
+        isFalse,
+      );
+      expect(
+        await File(path.join(workDirectory.path, '2.png')).exists(),
+        isTrue,
+      );
+    });
+
+    test('Manga Translator 有文本、存在去字图或元数据缺失时不默认跳过', () async {
+      final originals = <File>[
+        File(path.join(workDirectory.path, '1.webp')),
+        File(path.join(workDirectory.path, '2.webp')),
+        File(path.join(workDirectory.path, '3.webp')),
+      ];
+      for (var index = 0; index < originals.length; index++) {
+        await _writeImage(originals[index].path, _pngBytes(8, 8));
+        await _insertImage(
+          provider,
+          100,
+          index,
+          '${index + 1}',
+          '.webp',
+          originals[index],
+        );
+        await _writeImage(
+          path.join(workDirectory.path, 'result', '${index + 1}.png'),
+          _pngBytes(9, 7),
+        );
+      }
+      await _writeMangaTranslatorMetadata(
+        workDirectory,
+        '1',
+        regions: const [
+          {'text': '有文本'},
+        ],
+      );
+      await _writeMangaTranslatorMetadata(
+        workDirectory,
+        '2',
+        regions: const [],
+        createInpainted: true,
+      );
+
+      final plan = await TranslationResultReplacer(provider).prepare(illust);
+      expect(plan.pairs.every((pair) => !pair.defaultSkipped), isTrue);
+    });
+
     test('全部跳过时仍删除翻译结果目录', () async {
       final original = File(path.join(workDirectory.path, '1.webp'));
       await _writeImage(original.path, _pngBytes(8, 8));
@@ -760,4 +857,28 @@ Future<void> _writeImage(String filePath, List<int> bytes) async {
   final file = File(filePath);
   await file.create(recursive: true);
   await file.writeAsBytes(bytes);
+}
+
+Future<void> _writeMangaTranslatorMetadata(
+  Directory workDirectory,
+  String baseName, {
+  required List<Object?> regions,
+  bool createInpainted = false,
+}) async {
+  final workPath = path.join(workDirectory.path, 'manga_translator_work');
+  final metadataFile = File(
+    path.join(workPath, 'json', '${baseName}_translations.json'),
+  );
+  await metadataFile.create(recursive: true);
+  await metadataFile.writeAsString(
+    jsonEncode({
+      '${baseName}.webp': {'regions': regions},
+    }),
+  );
+  if (createInpainted) {
+    await _writeImage(
+      path.join(workPath, 'inpainted', '${baseName}_inpainted.png'),
+      _pngBytes(8, 8),
+    );
+  }
 }

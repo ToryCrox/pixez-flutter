@@ -53,6 +53,14 @@ class _TranslationResultReplaceDialogState
   var _replacing = false;
   final Set<String> _skippedOriginalPaths = <String>{};
 
+  @override
+  void initState() {
+    super.initState();
+    for (final plan in widget.batchPlan.plans) {
+      _skippedOriginalPaths.addAll(plan.defaultSkippedOriginalPaths);
+    }
+  }
+
   int get _replacementCount =>
       widget.batchPlan.pairCount - _skippedOriginalPaths.length;
 
@@ -277,6 +285,14 @@ class _TranslationResultReplaceDialogState
               ],
             ),
             const SizedBox(height: 4),
+            if (pair.defaultSkipped && pair.defaultSkipReason != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Text(
+                  pair.defaultSkipReason!,
+                  style: TextStyle(color: Colors.orange.shade800, fontSize: 12),
+                ),
+              ),
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
