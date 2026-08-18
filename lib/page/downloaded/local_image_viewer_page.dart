@@ -18,6 +18,9 @@ class LocalImageViewerItem {
   });
 }
 
+typedef LocalImageViewerBottomBuilder =
+    Widget Function(BuildContext context, LocalImageViewerItem item, int index);
+
 class LocalImageViewerPage extends StatefulWidget {
   final String imagePath;
   final String? title;
@@ -25,6 +28,7 @@ class LocalImageViewerPage extends StatefulWidget {
   final String? heroTag;
   final List<LocalImageViewerItem> gallery;
   final int initialIndex;
+  final LocalImageViewerBottomBuilder? bottomBuilder;
 
   const LocalImageViewerPage({
     super.key,
@@ -34,6 +38,7 @@ class LocalImageViewerPage extends StatefulWidget {
     this.heroTag,
     this.gallery = const [],
     this.initialIndex = 0,
+    this.bottomBuilder,
   });
 
   static Future<T?> open<T>(
@@ -44,6 +49,7 @@ class LocalImageViewerPage extends StatefulWidget {
     String? heroTag,
     List<LocalImageViewerItem> gallery = const [],
     int initialIndex = 0,
+    LocalImageViewerBottomBuilder? bottomBuilder,
   }) {
     return Navigator.of(context).push<T>(
       PageRouteBuilder(
@@ -58,6 +64,7 @@ class LocalImageViewerPage extends StatefulWidget {
             heroTag: heroTag,
             gallery: gallery,
             initialIndex: initialIndex,
+            bottomBuilder: bottomBuilder,
           );
         },
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
@@ -540,6 +547,19 @@ class _LocalImageViewerPageState extends State<LocalImageViewerPage> {
                       bottom: MediaQuery.of(context).padding.bottom + 18,
                       child: _buildScaleBadge(),
                     ),
+                    if (widget.bottomBuilder != null)
+                      Positioned(
+                        left: 16,
+                        right: 16,
+                        bottom: MediaQuery.of(context).padding.bottom + 18,
+                        child: Center(
+                          child: widget.bottomBuilder!(
+                            context,
+                            _currentItem,
+                            _currentIndex,
+                          ),
+                        ),
+                      ),
                     Positioned(
                       right: 16,
                       bottom: MediaQuery.of(context).padding.bottom + 16,

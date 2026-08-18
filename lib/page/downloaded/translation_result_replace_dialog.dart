@@ -250,9 +250,19 @@ class _TranslationResultReplaceDialogState
             Row(
               children: [
                 Expanded(
-                  child: Text(
-                    'P${pair.image.part} · ${pair.baseName}',
-                    style: Theme.of(context).textTheme.titleSmall,
+                  child: Text.rich(
+                    TextSpan(
+                      text: 'P${pair.image.part} · ${pair.baseName}',
+                      style: Theme.of(context).textTheme.titleSmall,
+                      children: [
+                        if (pair.defaultSkipped &&
+                            pair.defaultSkipReason != null)
+                          TextSpan(
+                            text: ' · ${pair.defaultSkipReason}',
+                            style: TextStyle(color: Colors.orange.shade800),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
                 Text(
@@ -285,14 +295,6 @@ class _TranslationResultReplaceDialogState
               ],
             ),
             const SizedBox(height: 4),
-            if (pair.defaultSkipped && pair.defaultSkipReason != null)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: Text(
-                  pair.defaultSkipReason!,
-                  style: TextStyle(color: Colors.orange.shade800, fontSize: 12),
-                ),
-              ),
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -365,6 +367,23 @@ class _TranslationResultReplaceDialogState
             subtitle: detail,
             gallery: gallery,
             initialIndex: initialIndex,
+            bottomBuilder: (context, _, index) {
+              final currentPair = plan.pairs[index];
+              var skipped = _skippedOriginalPaths.contains(
+                currentPair.originalPath,
+              );
+              return StatefulBuilder(
+                builder: (context, setLocalState) {
+                  return _buildViewerSkipControl(
+                    skipped: skipped,
+                    onChanged: (value) {
+                      _setSkipped(currentPair.originalPath, value);
+                      setLocalState(() => skipped = value);
+                    },
+                  );
+                },
+              );
+            },
           ),
       child: SizedBox(
         width: 210,
@@ -395,6 +414,34 @@ class _TranslationResultReplaceDialogState
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildViewerSkipControl({
+    required bool skipped,
+    required ValueChanged<bool> onChanged,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: Colors.white24),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            skipped ? '当前图片：跳过替换' : '当前图片：将替换',
+            style: const TextStyle(color: Colors.white, fontSize: 12),
+          ),
+          Checkbox(
+            value: skipped,
+            activeColor: Colors.orange,
+            onChanged: (value) => onChanged(value == true),
+          ),
+        ],
       ),
     );
   }
