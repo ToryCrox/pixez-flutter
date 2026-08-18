@@ -95,6 +95,64 @@ class TranslationReplacementSummary {
   int get failureCount => results.length - successCount;
 }
 
+/// 多个作品的翻译结果替换计划。
+class TranslationReplacementBatchPlan {
+  final int selectedCount;
+  final List<TranslationReplacementPlan> plans;
+
+  const TranslationReplacementBatchPlan({
+    required this.selectedCount,
+    required this.plans,
+  });
+
+  int get noResultCount => selectedCount - plans.length;
+  int get pairCount =>
+      plans.fold(0, (total, plan) => total + plan.pairs.length);
+  int get unmatchedCount =>
+      plans.fold(0, (total, plan) => total + plan.unmatched.length);
+  int get originalTotalSize =>
+      plans.fold(0, (total, plan) => total + plan.originalTotalSize);
+  int get translatedTotalSize =>
+      plans.fold(0, (total, plan) => total + plan.translatedTotalSize);
+}
+
+/// 单个作品在批量替换中的结果，允许某个作品失败而继续处理其他作品。
+class TranslationReplacementBatchItemSummary {
+  final TranslationReplacementPlan plan;
+  final TranslationReplacementSummary? summary;
+  final String? error;
+
+  const TranslationReplacementBatchItemSummary({
+    required this.plan,
+    this.summary,
+    this.error,
+  });
+
+  int get successCount => summary?.successCount ?? 0;
+  int get failureCount => summary?.failureCount ?? 0;
+  int get skippedCount => summary?.skippedCount ?? 0;
+  bool get isSuccess => error == null && summary != null;
+  bool get translationResultDirectoriesCleaned =>
+      summary?.translationResultDirectoriesCleaned ?? false;
+}
+
+/// 多个作品的翻译结果替换汇总。
+class TranslationReplacementBatchSummary {
+  final List<TranslationReplacementBatchItemSummary> items;
+
+  const TranslationReplacementBatchSummary({required this.items});
+
+  int get successCount =>
+      items.fold(0, (total, item) => total + item.successCount);
+  int get failureCount =>
+      items.fold(0, (total, item) => total + item.failureCount);
+  int get skippedCount =>
+      items.fold(0, (total, item) => total + item.skippedCount);
+  int get failedPlanCount => items.where((item) => !item.isSuccess).length;
+  bool get translationResultDirectoriesCleaned =>
+      items.every((item) => item.translationResultDirectoriesCleaned);
+}
+
 class _TranslationResultDirectoryEntry {
   const _TranslationResultDirectoryEntry({
     required this.translationDirectory,
@@ -355,6 +413,44 @@ class TranslationResultReplacer {
     );
   }
 
+  /// 为多个作品生成批量替换计划。
+  ///
+  /// 没有匹配译图的作品会从 [plans] 中排除，但 [selectedCount] 仍保留
+  /// 原始选中数量，以便界面提示有多少作品没有可替换结果。
+  Future<TranslationReplacementBatchPlan> prepareBatch(
+    Iterable<DownloadedIllust> illusts, {
+    String? translationResultRootDirectory,
+    bool includeDimensions = true,
+  }) async {
+    final selectedIllusts = illusts.toList(growable: false);
+    final preparedPlans = await Future.wait(
+      selectedIllusts.map((illust) async {
+        try {
+          return await prepare(
+            illust,
+            translationResultRootDirectory: translationResultRootDirectory,
+            includeDimensions: includeDimensions,
+          );
+        } catch (e, stackTrace) {
+          Log.e(
+            '读取批量翻译结果失败: ${illust.illustId}',
+            error: e,
+            stackTrace: stackTrace,
+          );
+          return null;
+        }
+      }),
+    );
+    return TranslationReplacementBatchPlan(
+      selectedCount: selectedIllusts.length,
+      plans:
+          preparedPlans
+              .whereType<TranslationReplacementPlan>()
+              .where((plan) => plan.pairs.isNotEmpty)
+              .toList(),
+    );
+  }
+
   Future<TranslationReplacementSummary> apply(
     TranslationReplacementPlan plan, {
     Set<String> skippedOriginalPaths = const <String>{},
@@ -428,6 +524,41 @@ class TranslationResultReplacer {
       translationResultDirectoriesCleaned: translationResultDirectoriesCleaned,
       intermediateDirectoriesCleaned: intermediateDirectoriesCleaned,
     );
+  }
+
+  /// 批量应用多个作品的替换计划。
+  ///
+  /// 每个作品独立执行。单个作品发生未预期异常时会记录错误并继续处理
+  /// 后续作品；图片级异常仍由 [apply] 负责回滚并保留失败文件。
+  Future<TranslationReplacementBatchSummary> applyBatch(
+    TranslationReplacementBatchPlan batchPlan, {
+    Set<String> skippedOriginalPaths = const <String>{},
+  }) async {
+    final items = <TranslationReplacementBatchItemSummary>[];
+    for (final plan in batchPlan.plans) {
+      try {
+        final summary = await apply(
+          plan,
+          skippedOriginalPaths: skippedOriginalPaths,
+        );
+        items.add(
+          TranslationReplacementBatchItemSummary(plan: plan, summary: summary),
+        );
+      } catch (e, stackTrace) {
+        Log.e(
+          '批量替换作品失败: ${plan.illust.illustId}',
+          error: e,
+          stackTrace: stackTrace,
+        );
+        items.add(
+          TranslationReplacementBatchItemSummary(
+            plan: plan,
+            error: e.toString(),
+          ),
+        );
+      }
+    }
+    return TranslationReplacementBatchSummary(items: items);
   }
 
   String _imageKey(

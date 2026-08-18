@@ -567,6 +567,144 @@ void main() {
         isFalse,
       );
     });
+
+    test('批量计划只保留有匹配译图的目录并统计无结果目录', () async {
+      final original = File(path.join(workDirectory.path, '1.webp'));
+      await _writeImage(original.path, _pngBytes(8, 8));
+      await _insertImage(provider, 100, 0, '1', '.webp', original);
+      await _writeImage(
+        path.join(workDirectory.path, 'result', '1.png'),
+        _pngBytes(9, 7),
+      );
+      final (withoutResult, _) = await _addIllust(provider, 200);
+
+      final batchPlan = await TranslationResultReplacer(
+        provider,
+      ).prepareBatch([illust, withoutResult]);
+
+      expect(batchPlan.selectedCount, 2);
+      expect(batchPlan.plans, hasLength(1));
+      expect(batchPlan.plans.single.illust.illustId, 100);
+      expect(batchPlan.noResultCount, 1);
+      expect(batchPlan.pairCount, 1);
+    });
+
+    test('批量替换多个目录中的全部图片并清理结果目录', () async {
+      final originalOne = File(path.join(workDirectory.path, '1.webp'));
+      await _writeImage(originalOne.path, _pngBytes(8, 8));
+      await _insertImage(provider, 100, 0, '1', '.webp', originalOne);
+      final resultOne = File(path.join(workDirectory.path, 'result', '1.png'));
+      await _writeImage(resultOne.path, _pngBytes(9, 7));
+
+      final (secondIllust, secondDirectory) = await _addIllust(provider, 200);
+      final originalTwo = File(path.join(secondDirectory.path, '1.webp'));
+      await _writeImage(originalTwo.path, _pngBytes(8, 8));
+      await _insertImage(provider, 200, 0, '1', '.webp', originalTwo);
+      final resultTwo = File(
+        path.join(secondDirectory.path, 'result', '1.png'),
+      );
+      await _writeImage(resultTwo.path, _pngBytes(10, 6));
+
+      final replacer = TranslationResultReplacer(provider);
+      final batchPlan = await replacer.prepareBatch([illust, secondIllust]);
+      final summary = await replacer.applyBatch(batchPlan);
+
+      expect(summary.successCount, 2);
+      expect(summary.failureCount, 0);
+      expect(summary.failedPlanCount, 0);
+      expect(summary.items, hasLength(2));
+      expect((await provider.getIllustByIllustId(100))?.isTranslated, isTrue);
+      expect((await provider.getIllustByIllustId(200))?.isTranslated, isTrue);
+      expect(await originalOne.exists(), isFalse);
+      expect(await originalTwo.exists(), isFalse);
+      expect(
+        await File(path.join(workDirectory.path, '1.png')).exists(),
+        isTrue,
+      );
+      expect(
+        await File(path.join(secondDirectory.path, '1.png')).exists(),
+        isTrue,
+      );
+      expect(await resultOne.exists(), isFalse);
+      expect(await resultTwo.exists(), isFalse);
+    });
+
+    test('批量替换中单个目录失败时继续处理其他目录并保留失败结果', () async {
+      final originalOne = File(path.join(workDirectory.path, '1.webp'));
+      await _writeImage(originalOne.path, _pngBytes(8, 8));
+      await _insertImage(provider, 100, 0, '1', '.webp', originalOne);
+      final invalidResult = File(
+        path.join(workDirectory.path, 'result', '1.png'),
+      );
+      await invalidResult.create(recursive: true);
+      await invalidResult.writeAsString('not an image');
+
+      final (secondIllust, secondDirectory) = await _addIllust(provider, 200);
+      final originalTwo = File(path.join(secondDirectory.path, '1.webp'));
+      await _writeImage(originalTwo.path, _pngBytes(8, 8));
+      await _insertImage(provider, 200, 0, '1', '.webp', originalTwo);
+      final resultTwo = File(
+        path.join(secondDirectory.path, 'result', '1.png'),
+      );
+      await _writeImage(resultTwo.path, _pngBytes(10, 6));
+
+      final replacer = TranslationResultReplacer(provider);
+      final batchPlan = await replacer.prepareBatch([illust, secondIllust]);
+      final summary = await replacer.applyBatch(batchPlan);
+
+      expect(summary.successCount, 1);
+      expect(summary.failureCount, 1);
+      expect(summary.failedPlanCount, 0);
+      expect(await originalOne.exists(), isTrue);
+      expect(await invalidResult.exists(), isTrue);
+      expect(await originalTwo.exists(), isFalse);
+      expect(
+        await File(path.join(secondDirectory.path, '1.png')).exists(),
+        isTrue,
+      );
+      expect(
+        await Directory(path.join(workDirectory.path, 'result')).exists(),
+        isTrue,
+      );
+      expect(
+        await Directory(path.join(secondDirectory.path, 'result')).exists(),
+        isFalse,
+      );
+    });
+
+    test('批量跳过不同目录的图片时分别保留原图并清理译图', () async {
+      final originalOne = File(path.join(workDirectory.path, '1.webp'));
+      await _writeImage(originalOne.path, _pngBytes(8, 8));
+      await _insertImage(provider, 100, 0, '1', '.webp', originalOne);
+      final resultOne = File(path.join(workDirectory.path, 'result', '1.png'));
+      await _writeImage(resultOne.path, _pngBytes(9, 7));
+
+      final (secondIllust, secondDirectory) = await _addIllust(provider, 200);
+      final originalTwo = File(path.join(secondDirectory.path, '1.webp'));
+      await _writeImage(originalTwo.path, _pngBytes(8, 8));
+      await _insertImage(provider, 200, 0, '1', '.webp', originalTwo);
+      final resultTwo = File(
+        path.join(secondDirectory.path, 'result', '1.png'),
+      );
+      await _writeImage(resultTwo.path, _pngBytes(10, 6));
+
+      final replacer = TranslationResultReplacer(provider);
+      final batchPlan = await replacer.prepareBatch([illust, secondIllust]);
+      final summary = await replacer.applyBatch(
+        batchPlan,
+        skippedOriginalPaths: {originalTwo.path},
+      );
+
+      expect(summary.successCount, 1);
+      expect(summary.skippedCount, 1);
+      expect(summary.failureCount, 0);
+      expect((await provider.getIllustByIllustId(100))?.isTranslated, isTrue);
+      expect((await provider.getIllustByIllustId(200))?.isTranslated, isFalse);
+      expect(await originalOne.exists(), isFalse);
+      expect(await originalTwo.exists(), isTrue);
+      expect(await resultOne.exists(), isFalse);
+      expect(await resultTwo.exists(), isFalse);
+    });
   });
 }
 
@@ -597,6 +735,22 @@ Illusts _illust(int id) => Illusts(
   pageCount: 2,
   visible: true,
 );
+
+Future<(DownloadedIllust, Directory)> _addIllust(
+  DownloadDatabaseProvider provider,
+  int id,
+) async {
+  final value = DownloadedIllust.fromIllusts(
+    _illust(id),
+    path.join('[作者][1]', '[$id]测试$id'),
+  );
+  await provider.insertIllust(value);
+  final directory = Directory(
+    provider.getIllustAbsolutePath(value.relativePath),
+  );
+  await directory.create(recursive: true);
+  return (value, directory);
+}
 
 List<int> _pngBytes(int width, int height) => image_lib.encodePng(
   image_lib.Image(width: width, height: height)..setPixelRgb(0, 0, 255, 0, 0),

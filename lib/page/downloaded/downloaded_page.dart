@@ -754,7 +754,9 @@ class _DownloadedPageState extends State<DownloadedPage> {
                   !filteredList[index].isTranslated,
                 ),
             onApplyTranslationResult:
-                () => _showTranslationResultDialog(filteredList[index]),
+                _store.isMultiSelectMode
+                    ? null
+                    : () => _showTranslationResultDialog([filteredList[index]]),
             onAuthorTap:
                 () => _navigateToAuthorDownloadedPage(filteredList[index]),
           );
@@ -1028,6 +1030,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
 
     final hasTranslationResult =
         !isMulti && _store.hasTranslationResult(illust.illustId);
+    final isBatchTranslationTarget = isMulti && isSelectedInMulti;
     if (!mounted) return;
 
     showMenu(
@@ -1037,12 +1040,15 @@ class _DownloadedPageState extends State<DownloadedPage> {
         Offset.zero & overlay.size,
       ),
       items: [
-        if (!isMulti && hasTranslationResult)
+        if (hasTranslationResult || isBatchTranslationTarget)
           _buildContextMenuItem(
             icon: Icons.translate,
-            label: '应用翻译结果',
+            label:
+                isBatchTranslationTarget
+                    ? '应用选中翻译结果 ($selectedCount)'
+                    : '应用翻译结果',
             labelColor: Theme.of(context).colorScheme.primary,
-            onTap: () => _showTranslationResultDialog(illust),
+            onTap: () => _showTranslationResultDialog(targetIllusts),
           ),
         if (isMulti)
           PopupMenuItem(child: Text('已选择 $selectedCount 项'), enabled: false),
@@ -1258,26 +1264,37 @@ class _DownloadedPageState extends State<DownloadedPage> {
     }
   }
 
-  Future<void> _showTranslationResultDialog(DownloadedIllust illust) async {
+  Future<void> _showTranslationResultDialog(
+    List<DownloadedIllust> illusts,
+  ) async {
     final replacer = TranslationResultReplacer(downloadStore.dbProvider);
     try {
-      final plan = await replacer.prepare(
-        illust,
+      final batchPlan = await replacer.prepareBatch(
+        illusts,
         translationResultRootDirectory: userSetting.translationResultDirectory,
       );
       if (!mounted) return;
-      if (plan.pairs.isEmpty) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('翻译结果目录中没有可替换的翻译图片')));
+      if (batchPlan.plans.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('选中的 ${batchPlan.selectedCount} 个目录中没有可替换的翻译图片'),
+          ),
+        );
         return;
       }
       await TranslationResultReplaceDialog.show(
         context,
-        plan: plan,
+        batchPlan: batchPlan,
         replacer: replacer,
-        onReplaced: () async {
-          _store.removeTranslationResult(illust.illustId);
+        onReplaced: (summary) async {
+          for (final item in summary.items) {
+            if (item.translationResultDirectoriesCleaned) {
+              _store.removeTranslationResult(item.plan.illust.illustId);
+            }
+          }
+          if (_store.isMultiSelectMode) {
+            _store.exitMultiSelectMode();
+          }
           await _store.loadData();
           await _store.loadStats();
         },

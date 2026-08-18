@@ -338,7 +338,11 @@ abstract class _TagManagerStore with Store {
       await updateTag(
         oldData.tag.copyWith(
           parentId: parentId,
-          customTranslatedName: newName ?? oldData.tag.customTranslatedName,
+          // 归属作品变更不能覆盖已有的自定义翻译。
+          customTranslatedName:
+              oldData.tag.isCustomTranslatedName
+                  ? oldData.tag.customTranslatedName
+                  : newName,
         ),
       );
     }
@@ -363,7 +367,11 @@ abstract class _TagManagerStore with Store {
         await updateTag(
           oldData.tag.copyWith(
             parentId: parentId,
-            customTranslatedName: newName ?? oldData.tag.customTranslatedName,
+            // 归属作品变更不能覆盖已有的自定义翻译。
+            customTranslatedName:
+                oldData.tag.isCustomTranslatedName
+                    ? oldData.tag.customTranslatedName
+                    : newName,
           ),
         );
       }
