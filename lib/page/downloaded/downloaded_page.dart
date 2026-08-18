@@ -21,7 +21,6 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
-import 'package:pixez/custom/window_frame.dart';
 import 'package:pixez/utils/file_utils.dart';
 import 'package:pixez/exts.dart';
 import 'package:pixez/i18n.dart';
@@ -199,15 +198,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
     return AppBar(
       leading:
           _store.isMultiSelectMode
-              ? IconButton(
-                icon: CloseIcon(
-                  color:
-                      Theme.of(context).appBarTheme.foregroundColor ??
-                      Theme.of(context).colorScheme.onSurface,
-                ),
-                tooltip: '退出多选',
-                onPressed: _store.exitMultiSelectMode,
-              )
+              ? CloseButton(onPressed: _store.exitMultiSelectMode)
               : null,
       title: _store.isSearching ? _buildSearchField() : _buildAppBarTitle(),
       actions: [
