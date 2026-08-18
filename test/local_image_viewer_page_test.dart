@@ -20,6 +20,7 @@ void main() {
     await tester.pump();
 
     expect(find.text('P1'), findsOneWidget);
+    expect(find.byTooltip('开启左右对比'), findsNothing);
     expect(find.byTooltip('上一张（← / ↑）'), findsOneWidget);
     expect(find.byTooltip('下一张（→ / ↓）'), findsOneWidget);
 
@@ -38,5 +39,38 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
     await tester.pump();
     expect(find.text('P1'), findsOneWidget);
+  });
+
+  testWidgets('本地图片查看器支持切换图片和左右对比', (tester) async {
+    const leftPath = 'missing-left.png';
+    const rightPath = 'missing-right.png';
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: LocalImageViewerPage(
+          imagePath: leftPath,
+          comparison: LocalImageViewerComparison(
+            leftImagePath: leftPath,
+            rightImagePath: rightPath,
+            leftTitle: '原图',
+            rightTitle: '翻译后',
+          ),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(find.byTooltip('切换原图和译图'), findsOneWidget);
+    expect(find.byTooltip('开启左右对比'), findsOneWidget);
+    expect(find.text('原图'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('切换原图和译图'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(find.text('翻译后'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('开启左右对比'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(find.byTooltip('退出左右对比'), findsOneWidget);
   });
 }

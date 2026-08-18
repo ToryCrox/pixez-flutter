@@ -789,6 +789,16 @@ class _WebpProcessingDialogState extends State<WebpProcessingDialog> {
     final ratio =
         result.originalSize == 0 ? 0 : delta / result.originalSize * 100;
     final deltaColor = delta > 0 ? Colors.orange : Colors.green;
+    final comparison = LocalImageViewerComparison(
+      leftImagePath: result.input.sourcePath,
+      rightImagePath: result.outputPath!,
+      leftTitle: '处理前',
+      rightTitle: '处理后',
+      leftSubtitle:
+          '${result.originalDimensions!.width}×${result.originalDimensions!.height}\n${result.originalSize.formatFileSize()}',
+      rightSubtitle:
+          '${result.outputDimensions!.width}×${result.outputDimensions!.height}\n${result.outputSize!.formatFileSize()}',
+    );
     return Card(
       margin: EdgeInsets.zero,
       child: Padding(
@@ -818,6 +828,7 @@ class _WebpProcessingDialogState extends State<WebpProcessingDialog> {
                   result.input.sourcePath,
                   '处理前',
                   '${result.originalDimensions!.width}×${result.originalDimensions!.height}\n${result.originalSize.formatFileSize()}',
+                  comparison: comparison,
                 ),
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 8),
@@ -827,6 +838,7 @@ class _WebpProcessingDialogState extends State<WebpProcessingDialog> {
                   result.outputPath!,
                   '处理后',
                   '${result.outputDimensions!.width}×${result.outputDimensions!.height}\n${result.outputSize!.formatFileSize()}',
+                  comparison: comparison,
                 ),
               ],
             ),
@@ -836,7 +848,12 @@ class _WebpProcessingDialogState extends State<WebpProcessingDialog> {
     );
   }
 
-  Widget _preview(String filePath, String label, String detail) {
+  Widget _preview(
+    String filePath,
+    String label,
+    String detail, {
+    required LocalImageViewerComparison comparison,
+  }) {
     return InkWell(
       onTap:
           () => LocalImageViewerPage.open(
@@ -844,6 +861,7 @@ class _WebpProcessingDialogState extends State<WebpProcessingDialog> {
             imagePath: filePath,
             title: label,
             subtitle: detail,
+            comparison: comparison,
           ),
       child: SizedBox(
         width: 210,

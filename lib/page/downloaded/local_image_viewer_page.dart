@@ -1,20 +1,41 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+class LocalImageViewerComparison {
+  final String leftImagePath;
+  final String rightImagePath;
+  final String? leftTitle;
+  final String? rightTitle;
+  final String? leftSubtitle;
+  final String? rightSubtitle;
+
+  const LocalImageViewerComparison({
+    required this.leftImagePath,
+    required this.rightImagePath,
+    this.leftTitle,
+    this.rightTitle,
+    this.leftSubtitle,
+    this.rightSubtitle,
+  });
+}
+
 class LocalImageViewerItem {
   final String imagePath;
   final String? title;
   final String? subtitle;
   final String? heroTag;
+  final LocalImageViewerComparison? comparison;
 
   const LocalImageViewerItem({
     required this.imagePath,
     this.title,
     this.subtitle,
     this.heroTag,
+    this.comparison,
   });
 }
 
@@ -26,6 +47,7 @@ class LocalImageViewerPage extends StatefulWidget {
   final String? title;
   final String? subtitle;
   final String? heroTag;
+  final LocalImageViewerComparison? comparison;
   final List<LocalImageViewerItem> gallery;
   final int initialIndex;
   final LocalImageViewerBottomBuilder? bottomBuilder;
@@ -36,6 +58,7 @@ class LocalImageViewerPage extends StatefulWidget {
     this.title,
     this.subtitle,
     this.heroTag,
+    this.comparison,
     this.gallery = const [],
     this.initialIndex = 0,
     this.bottomBuilder,
@@ -47,6 +70,7 @@ class LocalImageViewerPage extends StatefulWidget {
     String? title,
     String? subtitle,
     String? heroTag,
+    LocalImageViewerComparison? comparison,
     List<LocalImageViewerItem> gallery = const [],
     int initialIndex = 0,
     LocalImageViewerBottomBuilder? bottomBuilder,
@@ -62,6 +86,7 @@ class LocalImageViewerPage extends StatefulWidget {
             title: title,
             subtitle: subtitle,
             heroTag: heroTag,
+            comparison: comparison,
             gallery: gallery,
             initialIndex: initialIndex,
             bottomBuilder: bottomBuilder,
@@ -105,10 +130,15 @@ class _LocalImageViewerPageState extends State<LocalImageViewerPage> {
   int _loadGeneration = 0;
 
   Size? _imagePixelSize;
+  Size? _leftImagePixelSize;
+  Size? _rightImagePixelSize;
   Size? _viewportSize;
   String? _loadError;
 
   bool _isFitMode = false;
+  bool _showRightImage = false;
+  bool _comparisonMode = false;
+  double _comparisonSplit = 0.5;
   bool _initialScaleReady = false;
   double _currentDesiredScale = 1.0;
   Size? _lastViewportSize;
@@ -117,7 +147,8 @@ class _LocalImageViewerPageState extends State<LocalImageViewerPage> {
   void initState() {
     super.initState();
     _currentIndex = _initialIndex;
-    _file = File(_currentItem.imagePath);
+    _showRightImage = _isRightImage(_currentItem);
+    _file = File(_activeImagePath);
     _resolveImageInfo();
   }
 
@@ -129,6 +160,7 @@ class _LocalImageViewerPageState extends State<LocalImageViewerPage> {
               title: widget.title,
               subtitle: widget.subtitle,
               heroTag: widget.heroTag,
+              comparison: widget.comparison,
             ),
           ]
           : widget.gallery;
@@ -137,6 +169,39 @@ class _LocalImageViewerPageState extends State<LocalImageViewerPage> {
       widget.initialIndex.clamp(0, _items.length - 1).toInt();
 
   LocalImageViewerItem get _currentItem => _items[_currentIndex];
+
+  LocalImageViewerComparison? get _comparison => _currentItem.comparison;
+
+  bool get _hasComparison => _comparison != null;
+
+  String get _activeImagePath {
+    final comparison = _comparison;
+    if (comparison == null) return _currentItem.imagePath;
+    return _showRightImage
+        ? comparison.rightImagePath
+        : comparison.leftImagePath;
+  }
+
+  String? get _displayTitle {
+    final comparison = _comparison;
+    if (comparison == null) return _currentItem.title;
+    return _showRightImage
+        ? comparison.rightTitle ?? _currentItem.title
+        : comparison.leftTitle ?? _currentItem.title;
+  }
+
+  String? get _displaySubtitle {
+    final comparison = _comparison;
+    if (comparison == null) return _currentItem.subtitle;
+    return _showRightImage
+        ? comparison.rightSubtitle ?? _currentItem.subtitle
+        : comparison.leftSubtitle ?? _currentItem.subtitle;
+  }
+
+  bool _isRightImage(LocalImageViewerItem item) {
+    final comparison = item.comparison;
+    return comparison != null && item.imagePath == comparison.rightImagePath;
+  }
 
   bool get _hasPrevious => _currentIndex > 0;
 
@@ -152,41 +217,68 @@ class _LocalImageViewerPageState extends State<LocalImageViewerPage> {
   Future<void> _resolveImageInfo() async {
     final generation = _loadGeneration;
     final file = _file;
-    if (!await file.exists()) {
+    final comparison = _comparison;
+    final activeExists = await file.exists();
+    final activeSize = activeExists ? await _resolveImagePixelSize(file) : null;
+
+    if (!activeExists || activeSize == null) {
       if (!mounted) return;
       if (generation != _loadGeneration) return;
       setState(() {
-        _loadError = '文件不存在';
+        _imagePixelSize = activeSize;
+        _leftImagePixelSize = null;
+        _rightImagePixelSize = null;
+        _loadError = activeExists ? '读取图片失败' : '文件不存在';
       });
       return;
     }
 
+    if (!mounted) return;
+    if (generation != _loadGeneration) return;
+    setState(() {
+      _imagePixelSize = activeSize;
+      _leftImagePixelSize = null;
+      _rightImagePixelSize = null;
+      _loadError = null;
+    });
+    _initScaleForOpen();
+
+    if (comparison == null) return;
+    final comparisonSizes = await Future.wait([
+      _resolveImagePixelSize(File(comparison.leftImagePath)),
+      _resolveImagePixelSize(File(comparison.rightImagePath)),
+    ]);
+    if (!mounted) return;
+    if (generation != _loadGeneration) return;
+    setState(() {
+      _leftImagePixelSize = comparisonSizes[0];
+      _rightImagePixelSize = comparisonSizes[1];
+    });
+  }
+
+  Future<Size?> _resolveImagePixelSize(File file) async {
+    if (!await file.exists()) return null;
+
     final provider = FileImage(file);
     final stream = provider.resolve(const ImageConfiguration());
-    ImageStreamListener? listener;
+    final completer = Completer<Size?>();
+    late ImageStreamListener listener;
     listener = ImageStreamListener(
       (ImageInfo info, bool synchronousCall) {
-        stream.removeListener(listener!);
-        if (!mounted) return;
-        if (generation != _loadGeneration) return;
-        setState(() {
-          _imagePixelSize = Size(
-            info.image.width.toDouble(),
-            info.image.height.toDouble(),
+        stream.removeListener(listener);
+        if (!completer.isCompleted) {
+          completer.complete(
+            Size(info.image.width.toDouble(), info.image.height.toDouble()),
           );
-        });
-        _initScaleForOpen();
+        }
       },
       onError: (Object error, StackTrace? stackTrace) {
-        stream.removeListener(listener!);
-        if (!mounted) return;
-        if (generation != _loadGeneration) return;
-        setState(() {
-          _loadError = '读取图片失败: $error';
-        });
+        stream.removeListener(listener);
+        if (!completer.isCompleted) completer.complete();
       },
     );
     stream.addListener(listener);
+    return completer.future;
   }
 
   void _showImageAt(int index) {
@@ -194,11 +286,15 @@ class _LocalImageViewerPageState extends State<LocalImageViewerPage> {
     _loadGeneration++;
     setState(() {
       _currentIndex = index;
-      _file = File(_currentItem.imagePath);
+      if (!_hasComparison) _showRightImage = false;
+      _file = File(_activeImagePath);
       _imagePixelSize = null;
+      _leftImagePixelSize = null;
+      _rightImagePixelSize = null;
       _loadError = null;
       _initialScaleReady = false;
       _isFitMode = false;
+      _comparisonSplit = 0.5;
       _currentDesiredScale = 1.0;
       _transformController.value = Matrix4.identity();
     });
@@ -216,9 +312,26 @@ class _LocalImageViewerPageState extends State<LocalImageViewerPage> {
     return Size(pixel.width / dpr, pixel.height / dpr);
   }
 
+  Size? _comparisonLogicalImageSize() {
+    final left = _leftImagePixelSize;
+    final right = _rightImagePixelSize;
+    if (left == null && right == null) return _actualLogicalImageSize();
+    final dpr = MediaQuery.maybeOf(context)?.devicePixelRatio ?? 1.0;
+    return Size(
+      math.max(left?.width ?? 0, right?.width ?? 0) / dpr,
+      math.max(left?.height ?? 0, right?.height ?? 0) / dpr,
+    );
+  }
+
+  Size? _displayLogicalImageSize() {
+    return _comparisonMode
+        ? _comparisonLogicalImageSize()
+        : _actualLogicalImageSize();
+  }
+
   double _fitScale() {
     final viewport = _viewportSize;
-    final image = _actualLogicalImageSize();
+    final image = _displayLogicalImageSize();
     if (viewport == null || image == null) return 1.0;
     if (image.width <= 0 || image.height <= 0) return 1.0;
     final byWidth = viewport.width / image.width;
@@ -228,7 +341,7 @@ class _LocalImageViewerPageState extends State<LocalImageViewerPage> {
 
   Size _interactionBoxForScale(double desiredScale) {
     final viewport = _viewportSize;
-    final image = _actualLogicalImageSize();
+    final image = _displayLogicalImageSize();
     if (viewport == null || image == null) return const Size(0, 0);
     final scaledW = image.width * desiredScale;
     final scaledH = image.height * desiredScale;
@@ -259,7 +372,7 @@ class _LocalImageViewerPageState extends State<LocalImageViewerPage> {
   }
 
   void _setDesiredScale(double desired, {bool resetPosition = true}) {
-    final image = _actualLogicalImageSize();
+    final image = _displayLogicalImageSize();
     if (image == null || _viewportSize == null) return;
     final box = _interactionBoxForScale(desired);
     final next = desired.clamp(_minScale, _maxScale);
@@ -315,6 +428,42 @@ class _LocalImageViewerPageState extends State<LocalImageViewerPage> {
       _isFitMode = !_isFitMode;
     });
     _setDesiredScale(_isFitMode ? _fitScale() : 1.0, resetPosition: true);
+  }
+
+  void _toggleComparisonImage() {
+    if (!_hasComparison) return;
+    _loadGeneration++;
+    setState(() {
+      _comparisonMode = false;
+      _showRightImage = !_showRightImage;
+      _file = File(_activeImagePath);
+      _imagePixelSize = null;
+      _leftImagePixelSize = null;
+      _rightImagePixelSize = null;
+      _loadError = null;
+      _initialScaleReady = false;
+      _isFitMode = false;
+      _currentDesiredScale = 1.0;
+      _transformController.value = Matrix4.identity();
+    });
+    _resolveImageInfo();
+  }
+
+  void _toggleComparisonMode() {
+    if (!_hasComparison) return;
+    setState(() {
+      _comparisonMode = !_comparisonMode;
+      _comparisonSplit = 0.5;
+    });
+    _setDesiredScale(_fitScale(), resetPosition: true);
+  }
+
+  void _updateComparisonSplit(double delta, double width) {
+    if (width <= 0) return;
+    setState(() {
+      _comparisonSplit =
+          (_comparisonSplit + delta / width).clamp(0.0, 1.0).toDouble();
+    });
   }
 
   void _zoomIn() {
@@ -406,7 +555,7 @@ class _LocalImageViewerPageState extends State<LocalImageViewerPage> {
                     _lastViewportSize == null ||
                     _lastViewportSize != _viewportSize;
                 _lastViewportSize = _viewportSize;
-                final image = _actualLogicalImageSize();
+                final image = _displayLogicalImageSize();
                 final hasImage = _loadError == null && image != null;
                 final boxSize =
                     image == null
@@ -475,22 +624,9 @@ class _LocalImageViewerPageState extends State<LocalImageViewerPage> {
                                       width: image.width,
                                       height: image.height,
                                       child:
-                                          _currentItem.heroTag == null
-                                              ? Image.file(
-                                                _file,
-                                                fit: BoxFit.fill,
-                                                filterQuality:
-                                                    FilterQuality.high,
-                                              )
-                                              : Hero(
-                                                tag: _currentItem.heroTag!,
-                                                child: Image.file(
-                                                  _file,
-                                                  fit: BoxFit.fill,
-                                                  filterQuality:
-                                                      FilterQuality.high,
-                                                ),
-                                              ),
+                                          _comparisonMode
+                                              ? _buildComparisonImage()
+                                              : _buildSingleImage(),
                                     ),
                                   ),
                                 ),
@@ -506,8 +642,7 @@ class _LocalImageViewerPageState extends State<LocalImageViewerPage> {
                         onTap: () => Navigator.of(context).pop(),
                       ),
                     ),
-                    if (_currentItem.title != null ||
-                        _currentItem.subtitle != null)
+                    if (_displayTitle != null || _displaySubtitle != null)
                       Positioned(
                         top: MediaQuery.of(context).padding.top + 10,
                         left: 56,
@@ -617,9 +752,9 @@ class _LocalImageViewerPageState extends State<LocalImageViewerPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (_currentItem.title != null)
+          if (_displayTitle != null)
             Text(
-              _currentItem.title!,
+              _displayTitle!,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
@@ -628,9 +763,9 @@ class _LocalImageViewerPageState extends State<LocalImageViewerPage> {
                 fontWeight: FontWeight.w600,
               ),
             ),
-          if (_currentItem.subtitle != null)
+          if (_displaySubtitle != null)
             Text(
-              _currentItem.subtitle!,
+              _displaySubtitle!,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(color: Colors.white70, fontSize: 11),
@@ -650,6 +785,20 @@ class _LocalImageViewerPageState extends State<LocalImageViewerPage> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          if (_hasComparison) ...[
+            _buildRoundButton(
+              icon: Icons.swap_horiz,
+              tooltip: _comparisonMode ? '切换图片（退出对比）' : '切换原图和译图',
+              onTap: _toggleComparisonImage,
+            ),
+            const SizedBox(width: 4),
+            _buildRoundButton(
+              icon: Icons.compare_arrows,
+              tooltip: _comparisonMode ? '退出左右对比' : '开启左右对比',
+              onTap: _toggleComparisonMode,
+            ),
+            const SizedBox(width: 4),
+          ],
           _buildRoundButton(
             icon: _isFitMode ? Icons.fit_screen : Icons.filter_center_focus,
             tooltip: _isFitMode ? '当前: 适应窗口（按1切换）' : '当前: 实际大小（按1切换）',
@@ -664,6 +813,121 @@ class _LocalImageViewerPageState extends State<LocalImageViewerPage> {
           const SizedBox(width: 4),
           _buildRoundButton(icon: Icons.zoom_in, tooltip: '放大', onTap: _zoomIn),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSingleImage() {
+    final image = Image.file(
+      _file,
+      fit: BoxFit.fill,
+      filterQuality: FilterQuality.high,
+    );
+    if (_currentItem.heroTag == null || _showRightImage) return image;
+    return Hero(tag: _currentItem.heroTag!, child: image);
+  }
+
+  Widget _buildComparisonImage() {
+    final comparison = _comparison;
+    if (comparison == null) return _buildSingleImage();
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final split = width * _comparisonSplit;
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            _buildComparisonLayer(comparison.leftImagePath),
+            ClipRect(
+              clipper: _RightComparisonClipper(_comparisonSplit),
+              child: _buildComparisonLayer(comparison.rightImagePath),
+            ),
+            Positioned(
+              left: (split - 1).clamp(0, math.max(0, width - 2)).toDouble(),
+              top: 0,
+              bottom: 0,
+              width: 2,
+              child: Container(color: Colors.white),
+            ),
+            Positioned(
+              left: (split - 18).clamp(0, math.max(0, width - 36)).toDouble(),
+              top: 0,
+              bottom: 0,
+              width: 36,
+              child: MouseRegion(
+                cursor: SystemMouseCursors.resizeColumn,
+                child: GestureDetector(
+                  key: const ValueKey('local-image-comparison-divider'),
+                  behavior: HitTestBehavior.opaque,
+                  onHorizontalDragUpdate:
+                      (details) =>
+                          _updateComparisonSplit(details.delta.dx, width),
+                  child: Center(
+                    child: Container(
+                      width: 2,
+                      height: double.infinity,
+                      color: Colors.transparent,
+                      child: Center(
+                        child: Container(
+                          width: 24,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.65),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.white70),
+                          ),
+                          child: const Icon(
+                            Icons.drag_handle,
+                            color: Colors.white,
+                            size: 18,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              left: 12,
+              top: 12,
+              child: _buildComparisonLabel(comparison.leftTitle ?? '左侧'),
+            ),
+            Positioned(
+              right: 12,
+              top: 12,
+              child: _buildComparisonLabel(comparison.rightTitle ?? '右侧'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildComparisonLayer(String imagePath) {
+    return Image.file(
+      File(imagePath),
+      fit: BoxFit.contain,
+      filterQuality: FilterQuality.high,
+      errorBuilder:
+          (_, _, _) => const Center(
+            child: Icon(Icons.broken_image_outlined, color: Colors.white70),
+          ),
+    );
+  }
+
+  Widget _buildComparisonLabel(String text) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: Text(
+          text,
+          style: const TextStyle(color: Colors.white, fontSize: 12),
+        ),
       ),
     );
   }
@@ -748,5 +1012,21 @@ class _LocalImageViewerPageState extends State<LocalImageViewerPage> {
         ),
       ),
     );
+  }
+}
+
+class _RightComparisonClipper extends CustomClipper<Rect> {
+  final double split;
+
+  const _RightComparisonClipper(this.split);
+
+  @override
+  Rect getClip(Size size) {
+    return Rect.fromLTRB(size.width * split, 0, size.width, size.height);
+  }
+
+  @override
+  bool shouldReclip(_RightComparisonClipper oldClipper) {
+    return oldClipper.split != split;
   }
 }

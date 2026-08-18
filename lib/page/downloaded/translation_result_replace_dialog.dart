@@ -434,16 +434,38 @@ class _TranslationResultReplaceDialogState
     required int initialIndex,
   }) {
     final gallery =
-        plan.pairs
-            .map(
-              (pair) => LocalImageViewerItem(
-                imagePath: translated ? pair.translatedPath : pair.originalPath,
-                title: label,
-                subtitle:
-                    'P${pair.image.part}\n${_detail(translated ? pair.translatedDimensions : pair.originalDimensions, translated ? pair.translatedSize : pair.originalSize)}',
-              ),
-            )
-            .toList();
+        plan.pairs.map((pair) {
+          final originalDetail = _detail(
+            pair.originalDimensions,
+            pair.originalSize,
+          );
+          final translatedDetail = _detail(
+            pair.translatedDimensions,
+            pair.translatedSize,
+          );
+          return LocalImageViewerItem(
+            imagePath: translated ? pair.translatedPath : pair.originalPath,
+            title: translated ? '翻译后' : '原图',
+            subtitle:
+                'P${pair.image.part}\n${translated ? translatedDetail : originalDetail}',
+            comparison: LocalImageViewerComparison(
+              leftImagePath: pair.originalPath,
+              rightImagePath: pair.translatedPath,
+              leftTitle: '原图',
+              rightTitle: '翻译后',
+              leftSubtitle: 'P${pair.image.part}\n$originalDetail',
+              rightSubtitle: 'P${pair.image.part}\n$translatedDetail',
+            ),
+          );
+        }).toList();
+    final originalDetail = _detail(
+      plan.pairs[initialIndex].originalDimensions,
+      plan.pairs[initialIndex].originalSize,
+    );
+    final translatedDetail = _detail(
+      plan.pairs[initialIndex].translatedDimensions,
+      plan.pairs[initialIndex].translatedSize,
+    );
     return InkWell(
       onTap:
           () => LocalImageViewerPage.open(
@@ -453,6 +475,16 @@ class _TranslationResultReplaceDialogState
             subtitle: detail,
             gallery: gallery,
             initialIndex: initialIndex,
+            comparison: LocalImageViewerComparison(
+              leftImagePath: plan.pairs[initialIndex].originalPath,
+              rightImagePath: plan.pairs[initialIndex].translatedPath,
+              leftTitle: '原图',
+              rightTitle: '翻译后',
+              leftSubtitle:
+                  'P${plan.pairs[initialIndex].image.part}\n$originalDetail',
+              rightSubtitle:
+                  'P${plan.pairs[initialIndex].image.part}\n$translatedDetail',
+            ),
             bottomBuilder: (context, _, index) {
               final currentPair = plan.pairs[index];
               var skipped = _skippedOriginalPaths.contains(
