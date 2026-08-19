@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:collection/collection.dart';
+import 'package:flutter/material.dart';
 
 /// 一些数据转换工具，主要确保安全
 class TypeUtil {
@@ -38,28 +39,20 @@ class TypeUtil {
   /// 转换成int
   /// 如果value是bool，则true转换成1， false为0
   static int parseInt(dynamic value, [int defaultValue = 0]) {
-    if (value == null) return defaultValue;
-    if (value == 'null') return defaultValue;
+    return parseNullableInt(value) ?? defaultValue;
+  }
 
-    if (value is String) {
-      try {
-        return int.parse(value);
-      } catch (e) {
-        if (e is FormatException &&
-            e.toString().contains('Invalid radix-10 number')) {
-          try {
-            return double.parse(value).toInt();
-          } catch (e) {
-            return defaultValue;
-          }
-        }
-        return defaultValue;
-      }
-    }
+  /// 转换成可空int，无法转换时返回null
+  static int? parseNullableInt(dynamic value) {
+    if (value == null || value == 'null') return null;
     if (value is int) return value;
     if (value is double) return value.toInt();
     if (value is bool) return value ? 1 : 0;
-    return defaultValue;
+    if (value is String) {
+      if (value.isEmpty) return null;
+      return int.tryParse(value) ?? double.tryParse(value)?.toInt();
+    }
+    return null;
   }
 
   /// 解析bool类型
@@ -67,22 +60,34 @@ class TypeUtil {
   /// - 如果为num类型，则为0表示false，否则为true
   /// - 如果为String类型，则'true'表示true，否则转换Int类型， 判断是否为0
   static bool parseBool(dynamic value, [bool defaultValue = false]) {
-    if (value == null) return defaultValue;
+    return parseNullableBool(value) ?? defaultValue;
+  }
+
+  /// 解析可空bool类型，无法转换时返回null
+  static bool? parseNullableBool(dynamic value) {
+    if (value == null || value == 'null') return null;
     if (value is bool) return value;
     if (value is num) return value != 0;
     if (value is String) {
-      if (value.toLowerCase() == 'true') return true;
-      return parseInt(value) != 0;
+      final normalized = value.toLowerCase();
+      if (normalized == 'true') return true;
+      if (normalized == 'false') return false;
+      final parsed = parseNullableInt(value);
+      return parsed == null ? null : parsed != 0;
     }
-    return defaultValue;
+    return null;
   }
 
   /// 转换成String
   /// 如果value是bool，则true转换成'1'， false为'0'
   /// 如果value是Map或List, Set，则转换成json字符串
   static String parseString(dynamic value, [String defaultValue = '']) {
-    if (value == null) return defaultValue;
-    if (value == 'null') return defaultValue;
+    return parseNullableString(value) ?? defaultValue;
+  }
+
+  /// 转换成可空String，无法转换时返回null
+  static String? parseNullableString(dynamic value) {
+    if (value == null || value == 'null') return null;
     if (value is Map || value is Iterable) return jsonEncode(value);
     if (value is Set) return jsonEncode(value.toList());
     return '$value';
@@ -116,17 +121,16 @@ class TypeUtil {
   /// 如果value是double，则直接返回
   /// 如果value是其他类型，则返回0.0
   static double parseDouble(dynamic value, [double defaultValue = 0.0]) {
-    if (value == null) return defaultValue;
+    return parseNullableDouble(value) ?? defaultValue;
+  }
+
+  /// 转换成可空double，无法转换时返回null
+  static double? parseNullableDouble(dynamic value) {
+    if (value == null || value == 'null') return null;
     if (value is double) return value;
     if (value is int) return value.toDouble();
-    if (value is String) {
-      try {
-        return double.parse(value);
-      } catch (e) {
-        return defaultValue;
-      }
-    }
-    return defaultValue;
+    if (value is String) return double.tryParse(value);
+    return null;
   }
 
   /// 解析list， value可以为字符串数组
@@ -165,6 +169,16 @@ class TypeUtil {
     return parseList(value, (e) => parseInt(e));
   }
 
+  static List<dynamic> parseDynamicList(dynamic value) {
+    if (value is List<dynamic>) return value;
+    return parseList(value, (e) => e);
+  }
+
+  static List<Map<String, dynamic>> parseMapList(dynamic value) {
+    if (value is List<Map<String, dynamic>>) return value;
+    return parseList(value, (e) => parseMap(e));
+  }
+
   /// value解析，确保不会报错
   static Map<String, dynamic> parseMap(
     dynamic value, [
@@ -179,6 +193,49 @@ class TypeUtil {
       try {
         return jsonDecode(value);
       } catch (e) {
+        return defaultValue;
+      }
+    }
+    return defaultValue;
+  }
+
+  /// value解析，可为空
+  static Map<String, dynamic>? parseNullableMap(dynamic value) {
+    if (value == null) return null;
+    if (value is Map<String, dynamic>) return value;
+    if (value is Map) {
+      return value.map((key, value) => MapEntry(key.toString(), value));
+    }
+    if (value is String && value.isNotEmpty && value != 'null') {
+      try {
+        final decoded = jsonDecode(value);
+        if (decoded is Map) {
+          return decoded.map((key, value) => MapEntry(key.toString(), value));
+        }
+      } catch (_) {
+        return null;
+      }
+    }
+    return null;
+  }
+
+  /// 解析Color，支持#RRGGBB、#AARRGGBB、0xRRGGBB和0xAARRGGBB
+  static Color parseColor(
+    dynamic value, [
+    Color defaultValue = Colors.transparent,
+  ]) {
+    if (value == null) return defaultValue;
+    if (value is Color) return value;
+    if (value is int) return Color(value);
+    if (value is String) {
+      var hex = value.trim().toLowerCase();
+      if (hex.startsWith('#')) hex = hex.substring(1);
+      if (hex.startsWith('0x')) hex = hex.substring(2);
+      if (hex.length == 6) hex = 'ff$hex';
+      if (hex.length != 8) return defaultValue;
+      try {
+        return Color(int.parse(hex, radix: 16));
+      } catch (_) {
         return defaultValue;
       }
     }
