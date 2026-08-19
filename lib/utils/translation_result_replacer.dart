@@ -18,6 +18,7 @@ class TranslationReplacementPair {
   final Size? translatedDimensions;
   final bool defaultSkipped;
   final String? defaultSkipReason;
+  final bool hasUntranslatableContent;
 
   const TranslationReplacementPair({
     required this.image,
@@ -29,6 +30,7 @@ class TranslationReplacementPair {
     required this.translatedDimensions,
     this.defaultSkipped = false,
     this.defaultSkipReason,
+    this.hasUntranslatableContent = false,
   });
 
   String get baseName => path.basenameWithoutExtension(originalPath);
@@ -58,6 +60,7 @@ class TranslationReplacementPlan {
   final String? externalComicDirectory;
   final List<TranslationReplacementPair> pairs;
   final List<TranslationUnmatchedFile> unmatched;
+  final Set<String> untranslatableOriginalPaths;
 
   const TranslationReplacementPlan({
     required this.illust,
@@ -66,6 +69,7 @@ class TranslationReplacementPlan {
     required this.externalComicDirectory,
     required this.pairs,
     required this.unmatched,
+    required this.untranslatableOriginalPaths,
   });
 
   int get originalTotalSize =>
@@ -78,6 +82,10 @@ class TranslationReplacementPlan {
           .where((pair) => pair.defaultSkipped)
           .map((pair) => pair.originalPath)
           .toSet();
+
+  bool get hasUntranslatableContent =>
+      untranslatableOriginalPaths.isNotEmpty ||
+      pairs.any((pair) => pair.hasUntranslatableContent);
 }
 
 class TranslationReplacementResult {
@@ -94,12 +102,14 @@ class TranslationReplacementSummary {
   final int skippedCount;
   final bool translationResultDirectoriesCleaned;
   final bool intermediateDirectoriesCleaned;
+  final bool protectedByUntranslatableContent;
 
   const TranslationReplacementSummary({
     required this.results,
     required this.skippedCount,
     required this.translationResultDirectoriesCleaned,
     required this.intermediateDirectoriesCleaned,
+    this.protectedByUntranslatableContent = false,
   });
 
   int get successCount => results.where((result) => result.isSuccess).length;
@@ -142,6 +152,10 @@ class TranslationReplacementBatchItemSummary {
   int get successCount => summary?.successCount ?? 0;
   int get failureCount => summary?.failureCount ?? 0;
   int get skippedCount => summary?.skippedCount ?? 0;
+  bool get protectedByUntranslatableContent =>
+      summary?.protectedByUntranslatableContent ?? false;
+  int get protectedPageCount =>
+      protectedByUntranslatableContent ? plan.pairs.length : 0;
   bool get isSuccess => error == null && summary != null;
   bool get translationResultDirectoriesCleaned =>
       summary?.translationResultDirectoriesCleaned ?? false;
@@ -159,6 +173,10 @@ class TranslationReplacementBatchSummary {
       items.fold(0, (total, item) => total + item.failureCount);
   int get skippedCount =>
       items.fold(0, (total, item) => total + item.skippedCount);
+  int get protectedPlanCount =>
+      items.where((item) => item.protectedByUntranslatableContent).length;
+  int get protectedPageCount =>
+      items.fold(0, (total, item) => total + item.protectedPageCount);
   int get failedPlanCount => items.where((item) => !item.isSuccess).length;
   bool get translationResultDirectoriesCleaned =>
       items.every((item) => item.translationResultDirectoriesCleaned);
@@ -174,9 +192,20 @@ class _TranslationResultDirectoryEntry {
   final Directory originalDirectory;
 }
 
+class _MangaTranslationMetadata {
+  const _MangaTranslationMetadata({
+    required this.defaultSkipReason,
+    required this.hasUntranslatableContent,
+  });
+
+  final String? defaultSkipReason;
+  final bool hasUntranslatableContent;
+}
+
 /// 将作品目录下或外部目录中的翻译图片安全替换到下载图片中。
 class TranslationResultReplacer {
   static const resultDirectoryName = 'result';
+  static const _untranslatableMarkers = ['无法翻译', '我不能翻译'];
   static final _translationDirectoryIdPattern = RegExp(r'^\[(\d+)\]');
   static const _intermediateDirectoryNames = [
     'inpainted',
@@ -294,10 +323,13 @@ class TranslationResultReplacer {
         externalComicDirectory: externalComicDirectory,
         pairs: const [],
         unmatched: const [],
+        untranslatableOriginalPaths: const {},
       );
     }
 
     final unmatched = <TranslationUnmatchedFile>[];
+    final metadataByOriginalPath = <String, _MangaTranslationMetadata?>{};
+    final untranslatableOriginalPaths = <String>{};
     final originalByKey = <String, List<(DownloadedImage, String)>>{};
     final images = await databaseProvider.getImagesByIllustId(illust.illustId);
     for (final image in images) {
@@ -326,6 +358,14 @@ class TranslationResultReplacer {
         path.basenameWithoutExtension(imagePath),
       );
       originalByKey.putIfAbsent(key, () => []).add((image, imagePath));
+      final metadata = await _readMangaTranslationMetadata(
+        workDirectory,
+        imagePath,
+      );
+      metadataByOriginalPath[imagePath] = metadata;
+      if (metadata?.hasUntranslatableContent ?? false) {
+        untranslatableOriginalPaths.add(imagePath);
+      }
     }
 
     final pairs = <TranslationReplacementPair>[];
@@ -367,10 +407,7 @@ class TranslationResultReplacer {
           }
           matchedOriginalPaths.add(originalPath);
           matchedTranslationPaths.add(translatedPath);
-          final defaultSkipReason = await _defaultSkipReason(
-            workDirectory,
-            originalPath,
-          );
+          final metadata = metadataByOriginalPath[originalPath];
           pairs.add(
             TranslationReplacementPair(
               image: image,
@@ -386,8 +423,10 @@ class TranslationResultReplacer {
                   includeDimensions
                       ? await ImageUtils.parseImageSize(translatedPath)
                       : null,
-              defaultSkipped: defaultSkipReason != null,
-              defaultSkipReason: defaultSkipReason,
+              defaultSkipped: metadata?.defaultSkipReason != null,
+              defaultSkipReason: metadata?.defaultSkipReason,
+              hasUntranslatableContent:
+                  metadata?.hasUntranslatableContent ?? false,
             ),
           );
           continue;
@@ -427,6 +466,7 @@ class TranslationResultReplacer {
       externalComicDirectory: externalComicDirectory,
       pairs: pairs,
       unmatched: unmatched,
+      untranslatableOriginalPaths: untranslatableOriginalPaths,
     );
   }
 
@@ -472,6 +512,16 @@ class TranslationResultReplacer {
     TranslationReplacementPlan plan, {
     Set<String> skippedOriginalPaths = const <String>{},
   }) async {
+    if (plan.hasUntranslatableContent) {
+      return TranslationReplacementSummary(
+        results: const [],
+        skippedCount: plan.pairs.length,
+        translationResultDirectoriesCleaned: false,
+        intermediateDirectoriesCleaned: false,
+        protectedByUntranslatableContent: true,
+      );
+    }
+
     final skippedPathSet = skippedOriginalPaths.map(path.normalize).toSet();
     final skippedPairs =
         plan.pairs
@@ -686,9 +736,12 @@ class TranslationResultReplacer {
   bool _isIgnoredDirectoryName(String name) =>
       _intermediateDirectoryNames.contains(name);
 
-  /// Manga Translator 未检测到文本时会保留 JSON 记录，但不会生成 inpainted
-  /// 图片。两个信号同时存在才预设跳过，避免把缺失或损坏的中间产物误判为未翻译。
-  Future<String?> _defaultSkipReason(
+  /// 读取 Manga Translator 页面元数据。
+  ///
+  /// 未检测到文本时会保留 JSON 记录，但不会生成 inpainted 图片。两个信号
+  /// 同时存在才预设跳过，避免把缺失或损坏的中间产物误判为未翻译。
+  /// 翻译结果中出现“无法翻译”则保护整部插画，避免把其他页面的结果单独应用。
+  Future<_MangaTranslationMetadata?> _readMangaTranslationMetadata(
     String workDirectory,
     String originalPath,
   ) async {
@@ -715,7 +768,13 @@ class TranslationResultReplacer {
         orElse: () => const <String, dynamic>{},
       );
       final regions = metadata['regions'];
-      if (regions is! List || regions.isNotEmpty) return null;
+      if (regions is! List) return null;
+
+      final hasUntranslatableContent = regions.any((region) {
+        if (region is! Map) return false;
+        return _containsUntranslatableText(region['translation']) ||
+            _containsUntranslatableText(region['translation_raw']);
+      });
 
       final inpaintedFile = File(
         path.join(
@@ -724,8 +783,14 @@ class TranslationResultReplacer {
           '${baseName}_inpainted.png',
         ),
       );
-      if (await inpaintedFile.exists()) return null;
-      return '未检测到可翻译文本，已默认跳过';
+      final defaultSkipReason =
+          regions.isEmpty && !await inpaintedFile.exists()
+              ? '未检测到可翻译文本，已默认跳过'
+              : null;
+      return _MangaTranslationMetadata(
+        defaultSkipReason: defaultSkipReason,
+        hasUntranslatableContent: hasUntranslatableContent,
+      );
     } catch (error, stackTrace) {
       Log.w(
         '读取 Manga Translator 翻译元数据失败: ${metadataFile.path}',
@@ -734,6 +799,12 @@ class TranslationResultReplacer {
       );
       return null;
     }
+  }
+
+  bool _containsUntranslatableText(Object? value) {
+    final text = value?.toString();
+    if (text == null) return false;
+    return _untranslatableMarkers.any(text.contains);
   }
 
   Future<TranslationReplacementResult> _replaceOne(

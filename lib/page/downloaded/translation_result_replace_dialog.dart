@@ -53,26 +53,38 @@ class _TranslationResultReplaceDialogState
   var _replacing = false;
   var _showSkippedOnly = false;
   final Set<String> _skippedOriginalPaths = <String>{};
+  final Set<String> _protectedOriginalPaths = <String>{};
 
   @override
   void initState() {
     super.initState();
     for (final plan in widget.batchPlan.plans) {
       _skippedOriginalPaths.addAll(plan.defaultSkippedOriginalPaths);
+      if (plan.hasUntranslatableContent) {
+        _protectedOriginalPaths.addAll(
+          plan.pairs.map((pair) => pair.originalPath),
+        );
+      }
     }
   }
 
   int get _replacementCount =>
-      widget.batchPlan.pairCount - _skippedOriginalPaths.length;
+      widget.batchPlan.pairCount -
+      _skippedOriginalPaths.length -
+      _protectedOriginalPaths.length;
 
   int get _skippedPairCount => _skippedOriginalPaths.length;
+  int get _protectedPairCount => _protectedOriginalPaths.length;
+  int get _totalSkippedPairCount => _skippedPairCount + _protectedPairCount;
 
   List<TranslationReplacementPlan> get _visiblePlans {
     if (!_showSkippedOnly) return widget.batchPlan.plans;
     return widget.batchPlan.plans
         .where(
           (plan) => plan.pairs.any(
-            (pair) => _skippedOriginalPaths.contains(pair.originalPath),
+            (pair) =>
+                _skippedOriginalPaths.contains(pair.originalPath) ||
+                _protectedOriginalPaths.contains(pair.originalPath),
           ),
         )
         .toList(growable: false);
@@ -112,8 +124,14 @@ class _TranslationResultReplaceDialogState
               .where((item) => item.translationResultDirectoriesCleaned)
               .length;
       final cleanupText = cleanedCount == 0 ? '' : '，已清理 $cleanedCount 个翻译结果目录';
+      final protectedText =
+          summary.protectedPlanCount == 0
+              ? ''
+              : '，整部跳过 ${summary.protectedPlanCount} 个插画';
+      final manuallySkippedCount =
+          summary.skippedCount - summary.protectedPageCount;
       final skippedText =
-          summary.skippedCount == 0 ? '' : '，跳过 ${summary.skippedCount} 张';
+          manuallySkippedCount == 0 ? '' : '，跳过 $manuallySkippedCount 张';
       final failedPlanText =
           summary.failedPlanCount == 0
               ? ''
@@ -123,7 +141,7 @@ class _TranslationResultReplaceDialogState
       BotToast.showText(
         text:
             '已替换 ${summary.successCount} 张图片$failureText$failedPlanText'
-            '$skippedText$cleanupText',
+            '$skippedText$protectedText$cleanupText',
       );
       Navigator.of(context).pop();
     } catch (e) {
@@ -191,13 +209,14 @@ class _TranslationResultReplaceDialogState
                 '${widget.batchPlan.translatedTotalSize.formatFileSize()}（${_formatDelta(delta)}）'
                 '${widget.batchPlan.noResultCount == 0 ? '' : '；无结果 ${widget.batchPlan.noResultCount} 个目录'}'
                 '${widget.batchPlan.unmatchedCount == 0 ? '' : '；未匹配 ${widget.batchPlan.unmatchedCount} 项'}'
-                '${_skippedOriginalPaths.isEmpty ? '' : '；已跳过 ${_skippedOriginalPaths.length} 张'}',
+                '${_skippedPairCount == 0 ? '' : '；已跳过 $_skippedPairCount 张'}'
+                '${_protectedPairCount == 0 ? '' : '；已保护 $_protectedPairCount 张'}',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ),
             const SizedBox(width: 8),
             FilterChip(
-              label: Text('仅显示已跳过 ($_skippedPairCount)'),
+              label: Text('仅显示已跳过/保护 ($_totalSkippedPairCount)'),
               selected: _showSkippedOnly,
               onSelected:
                   _replacing
@@ -238,7 +257,7 @@ class _TranslationResultReplaceDialogState
   }
 
   void _setSkipped(String originalPath, bool skipped) {
-    if (_replacing) return;
+    if (_replacing || _protectedOriginalPaths.contains(originalPath)) return;
     setState(() {
       if (skipped) {
         _skippedOriginalPaths.add(originalPath);
@@ -256,7 +275,7 @@ class _TranslationResultReplaceDialogState
   }
 
   void _setPlanSkipped(TranslationReplacementPlan plan, bool skipped) {
-    if (_replacing) return;
+    if (_replacing || plan.hasUntranslatableContent) return;
     setState(() {
       for (final pair in plan.pairs) {
         if (skipped) {
@@ -276,15 +295,22 @@ class _TranslationResultReplaceDialogState
         _showSkippedOnly
             ? plan.pairs
                 .where(
-                  (pair) => _skippedOriginalPaths.contains(pair.originalPath),
+                  (pair) =>
+                      _skippedOriginalPaths.contains(pair.originalPath) ||
+                      _protectedOriginalPaths.contains(pair.originalPath),
                 )
                 .toList(growable: false)
             : plan.pairs;
     final subtitle =
         _showSkippedOnly
-            ? '$directoryName · ${visiblePairs.length} 张已跳过'
+            ? '$directoryName · ${visiblePairs.length} 张已跳过/保护'
             : '$directoryName · ${plan.pairs.length} 张匹配'
-                '${plan.unmatched.isEmpty ? '' : ' · ${plan.unmatched.length} 项未匹配'}';
+                '${plan.unmatched.isEmpty ? '' : ' · ${plan.unmatched.length} 项未匹配'}'
+                '${plan.hasUntranslatableContent ? ' · 存在无法翻译内容，本次整部插画已跳过' : ''}';
+    final titleColor =
+        plan.hasUntranslatableContent
+            ? Theme.of(context).colorScheme.error
+            : null;
 
     return Card(
       margin: EdgeInsets.zero,
@@ -292,13 +318,16 @@ class _TranslationResultReplaceDialogState
         initiallyExpanded: true,
         title: Row(
           children: [
-            Expanded(child: Text(groupTitle)),
+            Expanded(
+              child: Text(groupTitle, style: TextStyle(color: titleColor)),
+            ),
             const SizedBox(width: 8),
             FilterChip(
-              label: const Text('全部跳过'),
-              selected: _isPlanFullySkipped(plan),
+              label: Text(plan.hasUntranslatableContent ? '整部已保护' : '全部跳过'),
+              selected:
+                  plan.hasUntranslatableContent || _isPlanFullySkipped(plan),
               onSelected:
-                  _replacing
+                  _replacing || plan.hasUntranslatableContent
                       ? null
                       : (selected) => _setPlanSkipped(plan, selected),
             ),
@@ -323,6 +352,11 @@ class _TranslationResultReplaceDialogState
     final ratio = pair.originalSize == 0 ? 0 : delta / pair.originalSize * 100;
     final deltaColor = delta > 0 ? Colors.orange : Colors.green;
     final initialIndex = plan.pairs.indexOf(pair);
+    final isProtected = plan.hasUntranslatableContent;
+    final titleColor =
+        pair.hasUntranslatableContent
+            ? Theme.of(context).colorScheme.error
+            : null;
     return Card(
       margin: const EdgeInsets.only(top: 8),
       child: Padding(
@@ -336,8 +370,17 @@ class _TranslationResultReplaceDialogState
                   child: Text.rich(
                     TextSpan(
                       text: 'P${pair.image.part} · ${pair.baseName}',
-                      style: Theme.of(context).textTheme.titleSmall,
+                      style: Theme.of(
+                        context,
+                      ).textTheme.titleSmall?.copyWith(color: titleColor),
                       children: [
+                        if (pair.hasUntranslatableContent)
+                          TextSpan(
+                            text: ' · 包含无法翻译内容',
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.error,
+                            ),
+                          ),
                         if (pair.defaultSkipped &&
                             pair.defaultSkipReason != null)
                           TextSpan(
@@ -355,22 +398,24 @@ class _TranslationResultReplaceDialogState
                 const SizedBox(width: 8),
                 InkWell(
                   onTap:
-                      _replacing
+                      _replacing || isProtected
                           ? null
                           : () => _setSkipped(
                             pair.originalPath,
                             !_skippedOriginalPaths.contains(pair.originalPath),
                           ),
                   borderRadius: BorderRadius.circular(4),
-                  child: const Padding(
+                  child: Padding(
                     padding: EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-                    child: Text('跳过'),
+                    child: Text(isProtected ? '整部保护' : '跳过'),
                   ),
                 ),
                 Checkbox(
-                  value: _skippedOriginalPaths.contains(pair.originalPath),
+                  value:
+                      isProtected ||
+                      _skippedOriginalPaths.contains(pair.originalPath),
                   onChanged:
-                      _replacing
+                      _replacing || isProtected
                           ? null
                           : (value) =>
                               _setSkipped(pair.originalPath, value == true),
@@ -487,14 +532,17 @@ class _TranslationResultReplaceDialogState
             ),
             bottomBuilder: (context, _, index) {
               final currentPair = plan.pairs[index];
-              var skipped = _skippedOriginalPaths.contains(
-                currentPair.originalPath,
-              );
+              final protected = plan.hasUntranslatableContent;
+              var skipped =
+                  protected ||
+                  _skippedOriginalPaths.contains(currentPair.originalPath);
               return StatefulBuilder(
                 builder: (context, setLocalState) {
                   return _buildViewerSkipControl(
                     skipped: skipped,
+                    protected: protected,
                     onChanged: (value) {
+                      if (protected) return;
                       _setSkipped(currentPair.originalPath, value);
                       setLocalState(() => skipped = value);
                     },
@@ -535,6 +583,7 @@ class _TranslationResultReplaceDialogState
 
   Widget _buildViewerSkipControl({
     required bool skipped,
+    required bool protected,
     required ValueChanged<bool> onChanged,
   }) {
     return Container(
@@ -548,13 +597,17 @@ class _TranslationResultReplaceDialogState
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            skipped ? '当前图片：跳过替换' : '当前图片：将替换',
+            protected
+                ? '当前插画：含无法翻译内容，已保护'
+                : skipped
+                ? '当前图片：跳过替换'
+                : '当前图片：将替换',
             style: const TextStyle(color: Colors.white, fontSize: 12),
           ),
           Checkbox(
             value: skipped,
             activeColor: Colors.orange,
-            onChanged: (value) => onChanged(value == true),
+            onChanged: protected ? null : (value) => onChanged(value == true),
           ),
         ],
       ),

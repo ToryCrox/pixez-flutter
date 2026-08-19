@@ -494,6 +494,86 @@ void main() {
       expect(plan.pairs.every((pair) => !pair.defaultSkipped), isTrue);
     });
 
+    test('Manga Translator 检测到无法翻译内容时保护整部插画', () async {
+      final originalOne = File(path.join(workDirectory.path, '1.webp'));
+      final originalTwo = File(path.join(workDirectory.path, '2.webp'));
+      await _writeImage(originalOne.path, _pngBytes(8, 8));
+      await _writeImage(originalTwo.path, _pngBytes(8, 8));
+      await _insertImage(provider, 100, 0, '1', '.webp', originalOne);
+      await _insertImage(provider, 100, 1, '2', '.webp', originalTwo);
+      final translatedOne = File(
+        path.join(workDirectory.path, 'result', '1.png'),
+      );
+      final translatedTwo = File(
+        path.join(workDirectory.path, 'result', '2.png'),
+      );
+      await _writeImage(translatedOne.path, _pngBytes(9, 7));
+      await _writeImage(translatedTwo.path, _pngBytes(9, 7));
+      await _writeMangaTranslatorMetadata(
+        workDirectory,
+        '1',
+        regions: const [
+          {'translation': '无法翻译︓内容涉及限制内容'},
+        ],
+      );
+      await _writeMangaTranslatorMetadata(
+        workDirectory,
+        '2',
+        regions: const [
+          {'translation': '我不能翻译涉及限制内容'},
+        ],
+      );
+
+      final replacer = TranslationResultReplacer(provider);
+      final plan = await replacer.prepare(illust);
+
+      expect(plan.hasUntranslatableContent, isTrue);
+      expect(plan.pairs[0].hasUntranslatableContent, isTrue);
+      expect(plan.pairs[1].hasUntranslatableContent, isTrue);
+      expect(
+        plan.untranslatableOriginalPaths.any(
+          (value) => path.equals(value, originalOne.path),
+        ),
+        isTrue,
+      );
+      expect(
+        plan.untranslatableOriginalPaths.any(
+          (value) => path.equals(value, originalTwo.path),
+        ),
+        isTrue,
+      );
+
+      final summary = await replacer.apply(plan);
+
+      expect(summary.protectedByUntranslatableContent, isTrue);
+      expect(summary.skippedCount, 2);
+      expect(summary.successCount, 0);
+      expect(summary.translationResultDirectoriesCleaned, isFalse);
+      expect(summary.intermediateDirectoriesCleaned, isFalse);
+      expect((await provider.getIllustByIllustId(100))?.isTranslated, isFalse);
+      expect(await originalOne.exists(), isTrue);
+      expect(await originalTwo.exists(), isTrue);
+      expect(await translatedOne.exists(), isTrue);
+      expect(await translatedTwo.exists(), isTrue);
+      expect(
+        await File(
+          path.join(
+            workDirectory.path,
+            'manga_translator_work',
+            'json',
+            '1_translations.json',
+          ),
+        ).exists(),
+        isTrue,
+      );
+      expect(
+        await Directory(
+          path.join(workDirectory.path, 'manga_translator_work'),
+        ).exists(),
+        isTrue,
+      );
+    });
+
     test('全部跳过时仍删除翻译结果目录', () async {
       final original = File(path.join(workDirectory.path, '1.webp'));
       await _writeImage(original.path, _pngBytes(8, 8));
@@ -801,6 +881,50 @@ void main() {
       expect(await originalTwo.exists(), isTrue);
       expect(await resultOne.exists(), isFalse);
       expect(await resultTwo.exists(), isFalse);
+    });
+
+    test('批量替换时保护拒译插画并继续处理其他插画', () async {
+      final protectedOriginal = File(path.join(workDirectory.path, '1.webp'));
+      await _writeImage(protectedOriginal.path, _pngBytes(8, 8));
+      await _insertImage(provider, 100, 0, '1', '.webp', protectedOriginal);
+      final protectedTranslated = File(
+        path.join(workDirectory.path, 'result', '1.png'),
+      );
+      await _writeImage(protectedTranslated.path, _pngBytes(9, 7));
+      await _writeMangaTranslatorMetadata(
+        workDirectory,
+        '1',
+        regions: const [
+          {'translation_raw': '抱歉，我无法翻译该内容'},
+        ],
+      );
+
+      final (normalIllust, normalDirectory) = await _addIllust(provider, 200);
+      final normalOriginal = File(path.join(normalDirectory.path, '1.webp'));
+      await _writeImage(normalOriginal.path, _pngBytes(8, 8));
+      await _insertImage(provider, 200, 0, '1', '.webp', normalOriginal);
+      final normalTranslated = File(
+        path.join(normalDirectory.path, 'result', '1.png'),
+      );
+      await _writeImage(normalTranslated.path, _pngBytes(10, 6));
+
+      final replacer = TranslationResultReplacer(provider);
+      final batchPlan = await replacer.prepareBatch([illust, normalIllust]);
+      final summary = await replacer.applyBatch(batchPlan);
+
+      expect(summary.protectedPlanCount, 1);
+      expect(summary.protectedPageCount, 1);
+      expect(summary.successCount, 1);
+      expect(summary.failureCount, 0);
+      expect(await protectedOriginal.exists(), isTrue);
+      expect(await protectedTranslated.exists(), isTrue);
+      expect(await normalOriginal.exists(), isFalse);
+      expect(
+        await File(path.join(normalDirectory.path, '1.png')).exists(),
+        isTrue,
+      );
+      expect((await provider.getIllustByIllustId(100))?.isTranslated, isFalse);
+      expect((await provider.getIllustByIllustId(200))?.isTranslated, isTrue);
     });
   });
 }
