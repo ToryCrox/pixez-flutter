@@ -116,6 +116,37 @@ class TranslationReplacementSummary {
   int get failureCount => results.length - successCount;
 }
 
+/// 清理 Manga Translator 拒译页面结果的汇总。
+class TranslationUntranslatableCleanupSummary {
+  final int deletedPairCount;
+  final int deletedFileCount;
+  final int removedTranslationMapEntryCount;
+  final List<String> errors;
+
+  const TranslationUntranslatableCleanupSummary({
+    required this.deletedPairCount,
+    required this.deletedFileCount,
+    required this.removedTranslationMapEntryCount,
+    required this.errors,
+  });
+
+  int get failureCount => errors.length;
+  bool get isSuccess => errors.isEmpty;
+
+  TranslationUntranslatableCleanupSummary merge(
+    TranslationUntranslatableCleanupSummary other,
+  ) {
+    return TranslationUntranslatableCleanupSummary(
+      deletedPairCount: deletedPairCount + other.deletedPairCount,
+      deletedFileCount: deletedFileCount + other.deletedFileCount,
+      removedTranslationMapEntryCount:
+          removedTranslationMapEntryCount +
+          other.removedTranslationMapEntryCount,
+      errors: [...errors, ...other.errors],
+    );
+  }
+}
+
 /// 多个作品的翻译结果替换计划。
 class TranslationReplacementBatchPlan {
   final int selectedCount;
@@ -506,6 +537,175 @@ class TranslationResultReplacer {
               .where((plan) => plan.pairs.isNotEmpty)
               .toList(),
     );
+  }
+
+  /// 删除批量计划中被识别为无法翻译的页面结果。
+  ///
+  /// 每个作品独立执行；不会删除原图，也不会影响同一作品中未拒译的页面。
+  Future<TranslationUntranslatableCleanupSummary>
+  removeUntranslatableResultsBatch(
+    TranslationReplacementBatchPlan batchPlan,
+  ) async {
+    var summary = const TranslationUntranslatableCleanupSummary(
+      deletedPairCount: 0,
+      deletedFileCount: 0,
+      removedTranslationMapEntryCount: 0,
+      errors: const [],
+    );
+    for (final plan in batchPlan.plans) {
+      final current = await removeUntranslatableResults(plan);
+      summary = summary.merge(current);
+    }
+    return summary;
+  }
+
+  /// 删除单个作品中被识别为无法翻译的页面结果。
+  ///
+  /// 清理输出译图、Manga Translator 页面元数据和去字图，并同步移除
+  /// 外部输出目录中的 [translation_map.json] 对应记录。
+  Future<TranslationUntranslatableCleanupSummary> removeUntranslatableResults(
+    TranslationReplacementPlan plan,
+  ) async {
+    final pairs = plan.pairs
+        .where((pair) => pair.hasUntranslatableContent)
+        .toList(growable: false);
+    if (pairs.isEmpty) {
+      return const TranslationUntranslatableCleanupSummary(
+        deletedPairCount: 0,
+        deletedFileCount: 0,
+        removedTranslationMapEntryCount: 0,
+        errors: const [],
+      );
+    }
+
+    final mapFile =
+        plan.externalComicDirectory == null
+            ? null
+            : File(
+              path.join(plan.externalComicDirectory!, 'translation_map.json'),
+            );
+    Map<String, dynamic>? translationMap;
+    final errors = <String>[];
+    if (mapFile != null && await mapFile.exists()) {
+      try {
+        final decoded = jsonDecode(await mapFile.readAsString());
+        if (decoded is! Map) {
+          throw const FormatException('translation_map.json 顶层不是对象');
+        }
+        translationMap = Map<String, dynamic>.from(decoded);
+      } catch (e, stackTrace) {
+        Log.e('读取翻译映射失败: ${mapFile.path}', error: e, stackTrace: stackTrace);
+        return TranslationUntranslatableCleanupSummary(
+          deletedPairCount: 0,
+          deletedFileCount: 0,
+          removedTranslationMapEntryCount: 0,
+          errors: ['读取 translation_map.json 失败：$e'],
+        );
+      }
+    }
+
+    var deletedPairCount = 0;
+    var deletedFileCount = 0;
+    final completedPairs = <TranslationReplacementPair>[];
+    for (final pair in pairs) {
+      var pairFailed = false;
+      final files = <File>[
+        File(pair.translatedPath),
+        File(
+          path.join(
+            plan.workDirectory,
+            'manga_translator_work',
+            'json',
+            '${pair.baseName}_translations.json',
+          ),
+        ),
+        File(
+          path.join(
+            plan.workDirectory,
+            'manga_translator_work',
+            'inpainted',
+            '${pair.baseName}_inpainted.png',
+          ),
+        ),
+      ];
+      for (final file in files) {
+        try {
+          if (await file.exists()) {
+            await file.delete();
+            deletedFileCount++;
+          }
+        } catch (e, stackTrace) {
+          pairFailed = true;
+          errors.add('删除 ${file.path} 失败：$e');
+          Log.e('删除拒译翻译结果失败: ${file.path}', error: e, stackTrace: stackTrace);
+        }
+      }
+      if (pairFailed) continue;
+      deletedPairCount++;
+      completedPairs.add(pair);
+    }
+
+    var removedTranslationMapEntryCount = 0;
+    if (translationMap != null &&
+        mapFile != null &&
+        completedPairs.isNotEmpty) {
+      final mapDirectory = path.dirname(mapFile.path);
+      final pathsToRemove = completedPairs.map(
+        (pair) => path.normalize(pair.translatedPath),
+      );
+      final keysToRemove = translationMap.keys
+          .where((key) {
+            final mapPath = _resolveTranslationMapPath(key, mapDirectory);
+            return pathsToRemove.any(
+              (targetPath) => path.equals(mapPath, targetPath),
+            );
+          })
+          .toList(growable: false);
+      if (keysToRemove.isNotEmpty) {
+        for (final key in keysToRemove) {
+          translationMap.remove(key);
+        }
+        try {
+          await _writeTranslationMap(mapFile, translationMap);
+          removedTranslationMapEntryCount = keysToRemove.length;
+        } catch (e, stackTrace) {
+          errors.add('更新 translation_map.json 失败：$e');
+          Log.e('更新翻译映射失败: ${mapFile.path}', error: e, stackTrace: stackTrace);
+        }
+      }
+    }
+
+    return TranslationUntranslatableCleanupSummary(
+      deletedPairCount: deletedPairCount,
+      deletedFileCount: deletedFileCount,
+      removedTranslationMapEntryCount: removedTranslationMapEntryCount,
+      errors: errors,
+    );
+  }
+
+  String _resolveTranslationMapPath(String value, String mapDirectory) {
+    final trimmed = value.trim();
+    final resolved =
+        path.isAbsolute(trimmed) ? trimmed : path.join(mapDirectory, trimmed);
+    return path.normalize(resolved);
+  }
+
+  Future<void> _writeTranslationMap(
+    File mapFile,
+    Map<String, dynamic> translationMap,
+  ) async {
+    final temporaryFile = File(
+      '${mapFile.path}.tmp-${DateTime.now().microsecondsSinceEpoch}',
+    );
+    try {
+      await temporaryFile.writeAsString(
+        const JsonEncoder.withIndent('    ').convert(translationMap),
+      );
+      if (await mapFile.exists()) await mapFile.delete();
+      await temporaryFile.rename(mapFile.path);
+    } finally {
+      if (await temporaryFile.exists()) await temporaryFile.delete();
+    }
   }
 
   Future<TranslationReplacementSummary> apply(

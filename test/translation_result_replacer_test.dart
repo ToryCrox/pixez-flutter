@@ -574,6 +574,288 @@ void main() {
       );
     });
 
+    test('清理拒译页结果并保留正常页及 translation_map 记录', () async {
+      final originalOne = File(path.join(workDirectory.path, '1.webp'));
+      final originalTwo = File(path.join(workDirectory.path, '2.webp'));
+      await _writeImage(originalOne.path, _pngBytes(8, 8));
+      await _writeImage(originalTwo.path, _pngBytes(8, 8));
+      await _insertImage(provider, 100, 0, '1', '.webp', originalOne);
+      await _insertImage(provider, 100, 1, '2', '.webp', originalTwo);
+      await _writeMangaTranslatorMetadata(
+        workDirectory,
+        '1',
+        regions: const [
+          {'translation': '抱歉，我无法翻译该内容'},
+        ],
+        createInpainted: true,
+      );
+      await _writeMangaTranslatorMetadata(
+        workDirectory,
+        '2',
+        regions: const [
+          {'translation': '正常翻译'},
+        ],
+        createInpainted: true,
+      );
+
+      final translationRoot = Directory(
+        path.join(temporary.path, 'translation-output'),
+      );
+      final translationComic = Directory(
+        path.join(translationRoot.path, path.basename(workDirectory.path)),
+      );
+      final translatedOne = File(path.join(translationComic.path, '1.png'));
+      final translatedTwo = File(path.join(translationComic.path, '2.png'));
+      await _writeImage(translatedOne.path, _pngBytes(9, 7));
+      await _writeImage(translatedTwo.path, _pngBytes(9, 7));
+      final mapFile = File(
+        path.join(translationComic.path, 'translation_map.json'),
+      );
+      await mapFile.writeAsString(
+        jsonEncode({
+          translatedOne.path: originalOne.path,
+          translatedTwo.path: originalTwo.path,
+        }),
+      );
+
+      final replacer = TranslationResultReplacer(provider);
+      final plan = await replacer.prepare(
+        illust,
+        translationResultRootDirectory: translationRoot.path,
+      );
+      expect(plan.pairs, hasLength(2));
+      expect(
+        plan.pairs
+            .singleWhere((pair) => pair.image.part == 0)
+            .hasUntranslatableContent,
+        isTrue,
+      );
+      expect(
+        plan.pairs
+            .singleWhere((pair) => pair.image.part == 1)
+            .hasUntranslatableContent,
+        isFalse,
+      );
+
+      final summary = await replacer.removeUntranslatableResults(plan);
+
+      expect(summary.isSuccess, isTrue);
+      expect(summary.deletedPairCount, 1);
+      expect(summary.deletedFileCount, 3);
+      expect(summary.removedTranslationMapEntryCount, 1);
+      expect(await translatedOne.exists(), isFalse);
+      expect(await translatedTwo.exists(), isTrue);
+      expect(
+        await File(
+          path.join(
+            workDirectory.path,
+            'manga_translator_work',
+            'json',
+            '1_translations.json',
+          ),
+        ).exists(),
+        isFalse,
+      );
+      expect(
+        await File(
+          path.join(
+            workDirectory.path,
+            'manga_translator_work',
+            'json',
+            '2_translations.json',
+          ),
+        ).exists(),
+        isTrue,
+      );
+      expect(
+        await File(
+          path.join(
+            workDirectory.path,
+            'manga_translator_work',
+            'inpainted',
+            '1_inpainted.png',
+          ),
+        ).exists(),
+        isFalse,
+      );
+      expect(
+        await File(
+          path.join(
+            workDirectory.path,
+            'manga_translator_work',
+            'inpainted',
+            '2_inpainted.png',
+          ),
+        ).exists(),
+        isTrue,
+      );
+      final map =
+          jsonDecode(await mapFile.readAsString()) as Map<String, dynamic>;
+      expect(map.containsKey(translatedOne.path), isFalse);
+      expect(map[translatedTwo.path], originalTwo.path);
+
+      final refreshedPlan = await replacer.prepare(
+        illust,
+        translationResultRootDirectory: translationRoot.path,
+      );
+      expect(refreshedPlan.pairs, hasLength(1));
+      expect(refreshedPlan.pairs.single.image.part, 1);
+      expect(refreshedPlan.hasUntranslatableContent, isFalse);
+    });
+
+    test('本地拒译结果无 translation_map 时仍可清理', () async {
+      final original = File(path.join(workDirectory.path, '1.webp'));
+      final translated = File(path.join(workDirectory.path, 'result', '1.png'));
+      await _writeImage(original.path, _pngBytes(8, 8));
+      await _writeImage(translated.path, _pngBytes(9, 7));
+      await _insertImage(provider, 100, 0, '1', '.webp', original);
+      await _writeMangaTranslatorMetadata(
+        workDirectory,
+        '1',
+        regions: const [
+          {'translation_raw': '我不能翻译该内容'},
+        ],
+        createInpainted: true,
+      );
+
+      final replacer = TranslationResultReplacer(provider);
+      final plan = await replacer.prepare(illust);
+      final summary = await replacer.removeUntranslatableResults(plan);
+
+      expect(summary.isSuccess, isTrue);
+      expect(summary.deletedPairCount, 1);
+      expect(await translated.exists(), isFalse);
+      expect(
+        await File(
+          path.join(
+            workDirectory.path,
+            'manga_translator_work',
+            'json',
+            '1_translations.json',
+          ),
+        ).exists(),
+        isFalse,
+      );
+    });
+
+    test('批量清理时分别处理不同作品的拒译页', () async {
+      final originalOne = File(path.join(workDirectory.path, '1.webp'));
+      final translatedOne = File(
+        path.join(workDirectory.path, 'result', '1.png'),
+      );
+      await _writeImage(originalOne.path, _pngBytes(8, 8));
+      await _writeImage(translatedOne.path, _pngBytes(9, 7));
+      await _insertImage(provider, 100, 0, '1', '.webp', originalOne);
+      await _writeMangaTranslatorMetadata(
+        workDirectory,
+        '1',
+        regions: const [
+          {'translation': '无法翻译该内容'},
+        ],
+        createInpainted: true,
+      );
+
+      final (secondIllust, secondDirectory) = await _addIllust(provider, 200);
+      final originalTwo = File(path.join(secondDirectory.path, '1.webp'));
+      final translatedTwo = File(
+        path.join(secondDirectory.path, 'result', '1.png'),
+      );
+      await _writeImage(originalTwo.path, _pngBytes(8, 8));
+      await _writeImage(translatedTwo.path, _pngBytes(9, 7));
+      await _insertImage(provider, 200, 0, '1', '.webp', originalTwo);
+      await _writeMangaTranslatorMetadata(
+        secondDirectory,
+        '1',
+        regions: const [
+          {'translation_raw': '我不能翻译该内容'},
+        ],
+        createInpainted: true,
+      );
+
+      final replacer = TranslationResultReplacer(provider);
+      final batchPlan = await replacer.prepareBatch([illust, secondIllust]);
+      final summary = await replacer.removeUntranslatableResultsBatch(
+        batchPlan,
+      );
+
+      expect(summary.isSuccess, isTrue);
+      expect(summary.deletedPairCount, 2);
+      expect(await translatedOne.exists(), isFalse);
+      expect(await translatedTwo.exists(), isFalse);
+      expect(
+        await File(
+          path.join(
+            workDirectory.path,
+            'manga_translator_work',
+            'json',
+            '1_translations.json',
+          ),
+        ).exists(),
+        isFalse,
+      );
+      expect(
+        await File(
+          path.join(
+            secondDirectory.path,
+            'manga_translator_work',
+            'json',
+            '1_translations.json',
+          ),
+        ).exists(),
+        isFalse,
+      );
+    });
+
+    test('translation_map 损坏时不删除文件且不覆盖映射', () async {
+      final original = File(path.join(workDirectory.path, '1.webp'));
+      await _writeImage(original.path, _pngBytes(8, 8));
+      await _insertImage(provider, 100, 0, '1', '.webp', original);
+      await _writeMangaTranslatorMetadata(
+        workDirectory,
+        '1',
+        regions: const [
+          {'translation': '无法翻译该内容'},
+        ],
+        createInpainted: true,
+      );
+
+      final translationRoot = Directory(
+        path.join(temporary.path, 'translation-output'),
+      );
+      final translationComic = Directory(
+        path.join(translationRoot.path, path.basename(workDirectory.path)),
+      );
+      final translated = File(path.join(translationComic.path, '1.png'));
+      await _writeImage(translated.path, _pngBytes(9, 7));
+      final mapFile = File(
+        path.join(translationComic.path, 'translation_map.json'),
+      );
+      await mapFile.writeAsString('[]');
+
+      final replacer = TranslationResultReplacer(provider);
+      final plan = await replacer.prepare(
+        illust,
+        translationResultRootDirectory: translationRoot.path,
+      );
+      final summary = await replacer.removeUntranslatableResults(plan);
+
+      expect(summary.isSuccess, isFalse);
+      expect(summary.errors, isNotEmpty);
+      expect(await translated.exists(), isTrue);
+      expect(await mapFile.readAsString(), '[]');
+      expect(
+        await File(
+          path.join(
+            workDirectory.path,
+            'manga_translator_work',
+            'json',
+            '1_translations.json',
+          ),
+        ).exists(),
+        isTrue,
+      );
+    });
+
     test('全部跳过时仍删除翻译结果目录', () async {
       final original = File(path.join(workDirectory.path, '1.webp'));
       await _writeImage(original.path, _pngBytes(8, 8));

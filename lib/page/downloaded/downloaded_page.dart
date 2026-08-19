@@ -1282,9 +1282,10 @@ class _DownloadedPageState extends State<DownloadedPage> {
     List<DownloadedIllust> illusts,
   ) async {
     final replacer = TranslationResultReplacer(downloadStore.dbProvider);
+    final selectedIllusts = List<DownloadedIllust>.unmodifiable(illusts);
     try {
       final batchPlan = await replacer.prepareBatch(
-        illusts,
+        selectedIllusts,
         translationResultRootDirectory: userSetting.translationResultDirectory,
       );
       if (!mounted) return;
@@ -1300,6 +1301,14 @@ class _DownloadedPageState extends State<DownloadedPage> {
         context,
         batchPlan: batchPlan,
         replacer: replacer,
+        onRefresh: () async {
+          await _store.scanTranslationResults();
+          return replacer.prepareBatch(
+            selectedIllusts,
+            translationResultRootDirectory:
+                userSetting.translationResultDirectory,
+          );
+        },
         onReplaced: (summary) async {
           for (final item in summary.items) {
             if (item.translationResultDirectoriesCleaned) {
