@@ -33,7 +33,7 @@ class TranslationResultReplaceDialog extends StatefulWidget {
   }) {
     return showDialog<bool>(
       context: context,
-      barrierDismissible: false,
+      barrierDismissible: true,
       builder:
           (_) => TranslationResultReplaceDialog(
             onLoad: onLoad,
