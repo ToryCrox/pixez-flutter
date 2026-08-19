@@ -1284,22 +1284,14 @@ class _DownloadedPageState extends State<DownloadedPage> {
     final replacer = TranslationResultReplacer(downloadStore.dbProvider);
     final selectedIllusts = List<DownloadedIllust>.unmodifiable(illusts);
     try {
-      final batchPlan = await replacer.prepareBatch(
-        selectedIllusts,
-        translationResultRootDirectory: userSetting.translationResultDirectory,
-      );
-      if (!mounted) return;
-      if (batchPlan.plans.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('选中的 ${batchPlan.selectedCount} 个目录中没有可替换的翻译图片'),
-          ),
-        );
-        return;
-      }
-      await TranslationResultReplaceDialog.show(
+      final hasResults = await TranslationResultReplaceDialog.show(
         context,
-        batchPlan: batchPlan,
+        onLoad:
+            () => replacer.prepareBatch(
+              selectedIllusts,
+              translationResultRootDirectory:
+                  userSetting.translationResultDirectory,
+            ),
         replacer: replacer,
         onRefresh: () async {
           await _store.scanTranslationResults();
@@ -1321,6 +1313,10 @@ class _DownloadedPageState extends State<DownloadedPage> {
           await _store.loadData();
           await _store.loadStats();
         },
+      );
+      if (!mounted || hasResults != false) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('选中的 ${selectedIllusts.length} 个目录中没有可替换的翻译图片')),
       );
     } catch (e) {
       if (!mounted) return;

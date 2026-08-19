@@ -10,33 +10,33 @@ import 'package:pixez/utils/translation_result_replacer.dart';
 
 /// 预览多个作品的翻译结果，并在确认后批量替换下载原图。
 class TranslationResultReplaceDialog extends StatefulWidget {
-  final TranslationReplacementBatchPlan batchPlan;
+  final Future<TranslationReplacementBatchPlan> Function() onLoad;
   final TranslationResultReplacer replacer;
   final Future<TranslationReplacementBatchPlan> Function() onRefresh;
   final Future<void> Function(TranslationReplacementBatchSummary) onReplaced;
 
   const TranslationResultReplaceDialog({
     super.key,
-    required this.batchPlan,
+    required this.onLoad,
     required this.replacer,
     required this.onRefresh,
     required this.onReplaced,
   });
 
-  static Future<void> show(
+  static Future<bool?> show(
     BuildContext context, {
-    required TranslationReplacementBatchPlan batchPlan,
+    required Future<TranslationReplacementBatchPlan> Function() onLoad,
     required TranslationResultReplacer replacer,
     required Future<TranslationReplacementBatchPlan> Function() onRefresh,
     required Future<void> Function(TranslationReplacementBatchSummary)
     onReplaced,
   }) {
-    return showDialog<void>(
+    return showDialog<bool>(
       context: context,
       barrierDismissible: false,
       builder:
           (_) => TranslationResultReplaceDialog(
-            batchPlan: batchPlan,
+            onLoad: onLoad,
             replacer: replacer,
             onRefresh: onRefresh,
             onReplaced: onReplaced,
@@ -54,7 +54,9 @@ class _TranslationResultReplaceDialogState
   static const _dialogWidth = 1200.0;
   static const _dialogHeight = 800.0;
   static const _thumbnailExtent = 67.2;
-  late TranslationReplacementBatchPlan _batchPlan;
+  TranslationReplacementBatchPlan? _batchPlan;
+  Object? _loadError;
+  var _loading = true;
   var _replacing = false;
   var _refreshing = false;
   var _cleaning = false;
@@ -65,16 +67,48 @@ class _TranslationResultReplaceDialogState
   @override
   void initState() {
     super.initState();
-    _batchPlan = widget.batchPlan;
-    _resetSelectionState();
+    // 等弹框完成首帧绘制后再开始扫描文件，确保用户先看到 loading。
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _loadPlan();
+    });
   }
 
-  bool get _busy => _replacing || _refreshing || _cleaning;
+  bool get _operationBusy => _replacing || _refreshing || _cleaning;
+  bool get _busy => _loading || _operationBusy;
+
+  Future<void> _loadPlan() async {
+    if (!mounted) return;
+    setState(() {
+      _loading = true;
+      _loadError = null;
+    });
+    try {
+      final batchPlan = await widget.onLoad();
+      if (!mounted) return;
+      if (batchPlan.plans.isEmpty) {
+        Navigator.of(context).pop(false);
+        return;
+      }
+      setState(() {
+        _batchPlan = batchPlan;
+        _loading = false;
+        _resetSelectionState();
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _loadError = e;
+      });
+    }
+  }
 
   void _resetSelectionState() {
     _skippedOriginalPaths.clear();
     _protectedOriginalPaths.clear();
-    for (final plan in _batchPlan.plans) {
+    final batchPlan = _batchPlan;
+    if (batchPlan == null) return;
+    for (final plan in batchPlan.plans) {
       _skippedOriginalPaths.addAll(plan.defaultSkippedOriginalPaths);
       if (plan.hasUntranslatableContent) {
         _protectedOriginalPaths.addAll(
@@ -84,26 +118,38 @@ class _TranslationResultReplaceDialogState
     }
   }
 
-  int get _replacementCount => math.max(
-    0,
-    _batchPlan.pairCount -
-        _skippedOriginalPaths.difference(_protectedOriginalPaths).length -
-        _protectedOriginalPaths.length,
-  );
+  int get _replacementCount {
+    final batchPlan = _batchPlan;
+    if (batchPlan == null) return 0;
+    return math.max(
+      0,
+      batchPlan.pairCount -
+          _skippedOriginalPaths.difference(_protectedOriginalPaths).length -
+          _protectedOriginalPaths.length,
+    );
+  }
 
   int get _skippedPairCount => _skippedOriginalPaths.length;
   int get _protectedPairCount => _protectedOriginalPaths.length;
-  int get _untranslatablePairCount => _batchPlan.plans.fold(
-    0,
-    (total, plan) =>
-        total +
-        plan.pairs.where((pair) => pair.hasUntranslatableContent).length,
-  );
+  int get _untranslatablePairCount {
+    final batchPlan = _batchPlan;
+    if (batchPlan == null) return 0;
+    return batchPlan.plans.fold(
+      0,
+      (total, plan) =>
+          total +
+          plan.pairs.where((pair) => pair.hasUntranslatableContent).length,
+    );
+  }
+
   int get _totalSkippedPairCount => _skippedPairCount + _protectedPairCount;
 
   List<TranslationReplacementPlan> get _visiblePlans {
-    if (!_showSkippedOnly) return _batchPlan.plans;
-    return _batchPlan.plans
+    final batchPlan = _batchPlan;
+    if (batchPlan == null || !_showSkippedOnly) {
+      return batchPlan?.plans ?? const <TranslationReplacementPlan>[];
+    }
+    return batchPlan.plans
         .where(
           (plan) => plan.pairs.any(
             (pair) =>
@@ -115,7 +161,7 @@ class _TranslationResultReplaceDialogState
   }
 
   Future<void> _refreshPlan() async {
-    if (_busy) return;
+    if (_busy || _batchPlan == null) return;
     setState(() => _refreshing = true);
     try {
       final refreshedPlan = await widget.onRefresh();
@@ -163,15 +209,16 @@ class _TranslationResultReplaceDialogState
   }
 
   Future<void> _removeUntranslatableResults() async {
-    if (_busy || _untranslatablePairCount == 0) return;
+    final batchPlan = _batchPlan;
+    if (_busy || batchPlan == null || _untranslatablePairCount == 0) return;
     if (!await _confirmRemoveUntranslatableResults() || !mounted) return;
 
     setState(() => _cleaning = true);
     try {
       final summary = await widget.replacer.removeUntranslatableResultsBatch(
-        _batchPlan,
+        batchPlan,
       );
-      for (final plan in _batchPlan.plans) {
+      for (final plan in batchPlan.plans) {
         for (final pair in plan.pairs.where(
           (pair) => pair.hasUntranslatableContent,
         )) {
@@ -215,12 +262,13 @@ class _TranslationResultReplaceDialogState
   }
 
   Future<void> _replaceOriginals() async {
-    if (_busy || _batchPlan.pairCount == 0) return;
+    final batchPlan = _batchPlan;
+    if (_busy || batchPlan == null || batchPlan.pairCount == 0) return;
     setState(() => _replacing = true);
 
     try {
       final summary = await widget.replacer.applyBatch(
-        _batchPlan,
+        batchPlan,
         skippedOriginalPaths: _skippedOriginalPaths,
       );
       for (final item in summary.items) {
@@ -276,7 +324,7 @@ class _TranslationResultReplaceDialogState
   }
 
   void _close() {
-    if (!_busy) Navigator.of(context).pop();
+    if (!_operationBusy) Navigator.of(context).pop();
   }
 
   @override
@@ -284,23 +332,31 @@ class _TranslationResultReplaceDialogState
     final screenSize = MediaQuery.sizeOf(context);
     final contentWidth = math.min(_dialogWidth, screenSize.width - 80);
     final contentHeight = math.min(_dialogHeight, screenSize.height - 160);
+    final batchPlan = _batchPlan;
     return PopScope(
-      canPop: !_busy,
+      canPop: !_operationBusy,
       child: AlertDialog(
         title: Row(
           children: [
-            Expanded(child: Text('翻译结果预览（${_batchPlan.plans.length} 个目录）')),
-            IconButton(
-              tooltip: _refreshing ? '刷新中…' : '刷新预览',
-              onPressed: _busy ? null : _refreshPlan,
-              icon:
-                  _refreshing
-                      ? const SizedBox.square(
-                        dimension: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                      : const Icon(Icons.refresh),
+            Expanded(
+              child: Text(
+                batchPlan == null
+                    ? '翻译结果预览'
+                    : '翻译结果预览（${batchPlan.plans.length} 个目录）',
+              ),
             ),
+            if (batchPlan != null && _loadError == null)
+              IconButton(
+                tooltip: _refreshing ? '刷新中…' : '刷新预览',
+                onPressed: _busy ? null : _refreshPlan,
+                icon:
+                    _refreshing
+                        ? const SizedBox.square(
+                          dimension: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                        : const Icon(Icons.refresh),
+              ),
           ],
         ),
         content: SizedBox(
@@ -308,40 +364,81 @@ class _TranslationResultReplaceDialogState
           height: contentHeight,
           child: _buildContent(),
         ),
-        actions: [
-          if (_untranslatablePairCount > 0)
-            OutlinedButton.icon(
-              onPressed: _busy ? null : _removeUntranslatableResults,
-              icon:
-                  _cleaning
-                      ? const SizedBox.square(
-                        dimension: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                      : const Icon(Icons.delete_sweep_outlined),
-              label: Text(
-                _cleaning ? '正在清理…' : '删除拒译结果（$_untranslatablePairCount）',
-              ),
-            ),
-          TextButton(onPressed: _busy ? null : _close, child: const Text('取消')),
-          FilledButton.icon(
-            onPressed: _busy ? null : _replaceOriginals,
-            icon:
-                _replacing
-                    ? const SizedBox.square(
-                      dimension: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                    : const Icon(Icons.swap_horiz),
-            label: Text(_replacing ? '正在替换…' : '替换原图（$_replacementCount）'),
-          ),
-        ],
+        actions: _buildActions(),
       ),
     );
   }
 
+  List<Widget> _buildActions() {
+    if (_loadError != null) {
+      return [
+        TextButton(onPressed: _close, child: const Text('取消')),
+        FilledButton.icon(
+          onPressed: _loadPlan,
+          icon: const Icon(Icons.refresh),
+          label: const Text('重试'),
+        ),
+      ];
+    }
+    if (_loading) {
+      return [TextButton(onPressed: _close, child: const Text('取消'))];
+    }
+    return [
+      if (_untranslatablePairCount > 0)
+        OutlinedButton.icon(
+          onPressed: _busy ? null : _removeUntranslatableResults,
+          icon:
+              _cleaning
+                  ? const SizedBox.square(
+                    dimension: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                  : const Icon(Icons.delete_sweep_outlined),
+          label: Text(
+            _cleaning ? '正在清理…' : '删除拒译结果（$_untranslatablePairCount）',
+          ),
+        ),
+      TextButton(
+        onPressed: _operationBusy ? null : _close,
+        child: const Text('取消'),
+      ),
+      FilledButton.icon(
+        onPressed: _busy ? null : _replaceOriginals,
+        icon:
+            _replacing
+                ? const SizedBox.square(
+                  dimension: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+                : const Icon(Icons.swap_horiz),
+        label: Text(_replacing ? '正在替换…' : '替换原图（$_replacementCount）'),
+      ),
+    ];
+  }
+
   Widget _buildContent() {
-    final delta = _batchPlan.translatedTotalSize - _batchPlan.originalTotalSize;
+    if (_loading) {
+      return const Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('正在读取翻译结果…'),
+          ],
+        ),
+      );
+    }
+    final loadError = _loadError;
+    if (loadError != null) {
+      return Center(
+        child: Text('读取翻译结果失败：$loadError', textAlign: TextAlign.center),
+      );
+    }
+    final batchPlan = _batchPlan;
+    if (batchPlan == null) return const SizedBox.shrink();
+
+    final delta = batchPlan.translatedTotalSize - batchPlan.originalTotalSize;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -350,13 +447,13 @@ class _TranslationResultReplaceDialogState
           children: [
             Expanded(
               child: Text(
-                '选中 ${_batchPlan.selectedCount} 个目录，发现 '
-                '${_batchPlan.plans.length} 个可替换目录；共匹配 '
-                '${_batchPlan.pairCount} 张；总大小 '
-                '${_batchPlan.originalTotalSize.formatFileSize()} → '
-                '${_batchPlan.translatedTotalSize.formatFileSize()}（${_formatDelta(delta)}）'
-                '${_batchPlan.noResultCount == 0 ? '' : '；无结果 ${_batchPlan.noResultCount} 个目录'}'
-                '${_batchPlan.unmatchedCount == 0 ? '' : '；未匹配 ${_batchPlan.unmatchedCount} 项'}'
+                '选中 ${batchPlan.selectedCount} 个目录，发现 '
+                '${batchPlan.plans.length} 个可替换目录；共匹配 '
+                '${batchPlan.pairCount} 张；总大小 '
+                '${batchPlan.originalTotalSize.formatFileSize()} → '
+                '${batchPlan.translatedTotalSize.formatFileSize()}（${_formatDelta(delta)}）'
+                '${batchPlan.noResultCount == 0 ? '' : '；无结果 ${batchPlan.noResultCount} 个目录'}'
+                '${batchPlan.unmatchedCount == 0 ? '' : '；未匹配 ${batchPlan.unmatchedCount} 项'}'
                 '${_skippedPairCount == 0 ? '' : '；已跳过 $_skippedPairCount 张'}'
                 '${_protectedPairCount == 0 ? '' : '；已保护 $_protectedPairCount 张'}',
                 style: Theme.of(context).textTheme.bodySmall,
@@ -375,14 +472,14 @@ class _TranslationResultReplaceDialogState
           ],
         ),
         const SizedBox(height: 8),
-        if (_batchPlan.unmatchedCount > 0)
+        if (batchPlan.unmatchedCount > 0)
           Text(
             '未匹配文件不会参与替换；每个目录的翻译结果全部处理完成后，对应结果目录会被清理。',
             style: Theme.of(
               context,
             ).textTheme.bodySmall?.copyWith(color: Colors.orange.shade800),
           ),
-        if (_batchPlan.unmatchedCount > 0) const SizedBox(height: 8),
+        if (batchPlan.unmatchedCount > 0) const SizedBox(height: 8),
         Expanded(
           child:
               _visiblePlans.isEmpty
