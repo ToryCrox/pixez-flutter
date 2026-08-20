@@ -237,20 +237,19 @@ class _TranslationResultReplaceDialogState
       canPop: !state.operationBusy,
       child: Dialog(
         insetPadding: _dialogInset,
+        constraints: const BoxConstraints.expand(),
         clipBehavior: Clip.antiAlias,
-        child: SizedBox.expand(
-          child: Column(
-            children: [
-              _buildHeader(state, batchPlan),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 0),
-                  child: _buildContent(state),
-                ),
+        child: Column(
+          children: [
+            _buildHeader(state, batchPlan),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 0, 24, 0),
+                child: _buildContent(state),
               ),
-              _buildFooter(state),
-            ],
-          ),
+            ),
+            _buildFooter(state),
+          ],
         ),
       ),
     );
@@ -314,6 +313,7 @@ class _TranslationResultReplaceDialogState
   }
 
   Widget _buildFooter(TranslationResultReplaceState state) {
+    final actions = _buildActions(state);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(24, 10, 24, 16),
@@ -324,15 +324,11 @@ class _TranslationResultReplaceDialogState
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Expanded(child: _buildFooterStatus(state)),
-          Flexible(
-            child: Wrap(
-              alignment: WrapAlignment.end,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: 8,
-              runSpacing: 8,
-              children: _buildActions(state),
-            ),
-          ),
+          const SizedBox(width: 16),
+          for (var index = 0; index < actions.length; index++) ...[
+            if (index > 0) const SizedBox(width: 8),
+            actions[index],
+          ],
         ],
       ),
     );
@@ -360,7 +356,6 @@ class _TranslationResultReplaceDialogState
   List<Widget> _buildActions(TranslationResultReplaceState state) {
     if (state.loadError != null) {
       return [
-        TextButton(onPressed: _close, child: const Text('取消')),
         FilledButton.icon(
           onPressed: state.busy ? null : _loadPlan,
           icon: const Icon(Icons.refresh),
@@ -369,7 +364,7 @@ class _TranslationResultReplaceDialogState
       ];
     }
     if (state.operation == TranslationResultReplaceOperation.loading) {
-      return [TextButton(onPressed: _close, child: const Text('取消'))];
+      return const [];
     }
     return [
       if (state.untranslatablePairCount > 0)
@@ -388,10 +383,6 @@ class _TranslationResultReplaceDialogState
                 : '删除拒译结果（${state.untranslatablePairCount}）',
           ),
         ),
-      TextButton(
-        onPressed: state.operationBusy ? null : _close,
-        child: const Text('取消'),
-      ),
       FilledButton.icon(
         onPressed: state.busy ? null : _replaceOriginals,
         icon:
