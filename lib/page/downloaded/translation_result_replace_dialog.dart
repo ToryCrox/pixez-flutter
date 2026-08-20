@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:math' as math;
 
 import 'package:bot_toast/bot_toast.dart';
 import 'package:flutter/material.dart';
@@ -52,9 +51,12 @@ class TranslationResultReplaceDialog extends ConsumerStatefulWidget {
 
 class _TranslationResultReplaceDialogState
     extends ConsumerState<TranslationResultReplaceDialog> {
-  static const _dialogWidth = 1200.0;
-  static const _dialogHeight = 800.0;
-  static const _thumbnailExtent = 67.2;
+  static const _dialogInset = EdgeInsets.symmetric(
+    horizontal: 48,
+    vertical: 24,
+  );
+  static const _gridMaxCrossAxisExtent = 460.0;
+  static const _gridSpacing = 8.0;
 
   TranslationResultReplaceProvider get _provider =>
       translationResultReplaceProvider(widget.request);
@@ -230,48 +232,128 @@ class _TranslationResultReplaceDialogState
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(_provider);
-    final screenSize = MediaQuery.sizeOf(context);
-    final contentWidth = math.min(_dialogWidth, screenSize.width - 80);
-    final contentHeight = math.min(_dialogHeight, screenSize.height - 160);
     final batchPlan = state.batchPlan;
     return PopScope(
       canPop: !state.operationBusy,
-      child: AlertDialog(
-        title: Row(
-          children: [
-            Expanded(
-              child: Text(
-                batchPlan == null
-                    ? '翻译结果预览'
-                    : '翻译结果预览（${batchPlan.plans.length} 个目录）',
+      child: Dialog(
+        insetPadding: _dialogInset,
+        clipBehavior: Clip.antiAlias,
+        child: SizedBox.expand(
+          child: Column(
+            children: [
+              _buildHeader(state, batchPlan),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 0),
+                  child: _buildContent(state),
+                ),
+              ),
+              _buildFooter(state),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader(
+    TranslationResultReplaceState state,
+    TranslationReplacementBatchPlan? batchPlan,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 14, 16, 10),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              batchPlan == null
+                  ? '翻译结果预览'
+                  : '翻译结果预览（${batchPlan.plans.length} 个目录）',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+          ),
+          if (batchPlan != null && state.loadError == null) ...[
+            FilterChip(
+              label: Text('仅显示已跳过/保护 (${state.totalSkippedPairCount})'),
+              selected: state.showSkippedOnly,
+              visualDensity: VisualDensity.compact,
+              onSelected:
+                  state.busy
+                      ? null
+                      : (selected) => ref
+                          .read(_provider.notifier)
+                          .setShowSkippedOnly(selected),
+            ),
+            const SizedBox(width: 8),
+            OutlinedButton.icon(
+              onPressed: state.busy ? null : _refreshPlan,
+              icon:
+                  state.operation ==
+                          TranslationResultReplaceOperation.refreshing
+                      ? const SizedBox.square(
+                        dimension: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                      : const Icon(Icons.refresh, size: 18),
+              label: Text(
+                state.operation == TranslationResultReplaceOperation.refreshing
+                    ? '刷新中…'
+                    : '刷新预览',
               ),
             ),
-            if (batchPlan != null && state.loadError == null)
-              IconButton(
-                tooltip:
-                    state.operation ==
-                            TranslationResultReplaceOperation.refreshing
-                        ? '刷新中…'
-                        : '刷新预览',
-                onPressed: state.busy ? null : _refreshPlan,
-                icon:
-                    state.operation ==
-                            TranslationResultReplaceOperation.refreshing
-                        ? const SizedBox.square(
-                          dimension: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                        : const Icon(Icons.refresh),
-              ),
           ],
-        ),
-        content: SizedBox(
-          width: contentWidth,
-          height: contentHeight,
-          child: _buildContent(state),
-        ),
-        actions: _buildActions(state),
+          const SizedBox(width: 4),
+          IconButton(
+            tooltip: '关闭',
+            onPressed: state.operationBusy ? null : _close,
+            icon: const Icon(Icons.close),
+          ),
+        ],
       ),
+    );
+  }
+
+  Widget _buildFooter(TranslationResultReplaceState state) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(24, 10, 24, 16),
+      decoration: BoxDecoration(
+        border: Border(top: BorderSide(color: Theme.of(context).dividerColor)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(child: _buildFooterStatus(state)),
+          Flexible(
+            child: Wrap(
+              alignment: WrapAlignment.end,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              runSpacing: 8,
+              children: _buildActions(state),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFooterStatus(TranslationResultReplaceState state) {
+    final batchPlan = state.batchPlan;
+    final text =
+        state.loadError != null
+            ? '翻译结果读取失败'
+            : state.operation == TranslationResultReplaceOperation.loading
+            ? '正在读取翻译结果…'
+            : batchPlan == null
+            ? ''
+            : '共 ${batchPlan.pairCount} 张 · 已跳过 ${state.totalSkippedPairCount} 张 · '
+                '待替换 ${state.replacementCount} 张';
+    return Text(
+      text,
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+      style: Theme.of(context).textTheme.bodySmall,
     );
   }
 
@@ -354,45 +436,34 @@ class _TranslationResultReplaceDialogState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Text(
-                '选中 ${batchPlan.selectedCount} 个目录，发现 '
-                '${batchPlan.plans.length} 个可替换目录；共匹配 '
-                '${batchPlan.pairCount} 张；总大小 '
-                '${batchPlan.originalTotalSize.formatFileSize()} → '
-                '${batchPlan.translatedTotalSize.formatFileSize()}（${_formatDelta(delta)}）'
-                '${batchPlan.noResultCount == 0 ? '' : '；无结果 ${batchPlan.noResultCount} 个目录'}'
-                '${batchPlan.unmatchedCount == 0 ? '' : '；未匹配 ${batchPlan.unmatchedCount} 项'}'
-                '${state.skippedPairCount == 0 ? '' : '；已跳过 ${state.skippedPairCount} 张'}'
-                '${state.protectedPairCount == 0 ? '' : '；已保护 ${state.protectedPairCount} 张'}',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ),
-            const SizedBox(width: 8),
-            FilterChip(
-              label: Text('仅显示已跳过/保护 (${state.totalSkippedPairCount})'),
-              selected: state.showSkippedOnly,
-              onSelected:
-                  state.busy
-                      ? null
-                      : (selected) => ref
-                          .read(_provider.notifier)
-                          .setShowSkippedOnly(selected),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        if (batchPlan.unmatchedCount > 0)
-          Text(
-            '未匹配文件不会参与替换；每个目录的翻译结果全部处理完成后，对应结果目录会被清理。',
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: Colors.orange.shade800),
+        Padding(
+          padding: const EdgeInsets.only(top: 2, bottom: 6),
+          child: Text(
+            '选中 ${batchPlan.selectedCount} 个目录 · 可替换 ${batchPlan.plans.length} 个目录 · '
+            '共 ${batchPlan.pairCount} 张 · '
+            '${batchPlan.originalTotalSize.formatFileSize()} → '
+            '${batchPlan.translatedTotalSize.formatFileSize()}（${_formatDelta(delta)}）'
+            '${batchPlan.noResultCount == 0 ? '' : ' · 无结果 ${batchPlan.noResultCount} 个目录'}'
+            '${batchPlan.unmatchedCount == 0 ? '' : ' · 未匹配 ${batchPlan.unmatchedCount} 项'}'
+            '${state.skippedPairCount == 0 ? '' : ' · 已跳过 ${state.skippedPairCount} 张'}'
+            '${state.protectedPairCount == 0 ? '' : ' · 已保护 ${state.protectedPairCount} 张'}',
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.bodySmall,
           ),
-        if (batchPlan.unmatchedCount > 0) const SizedBox(height: 8),
+        ),
+        if (batchPlan.unmatchedCount > 0)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Text(
+              '未匹配文件不会参与替换；每个目录的翻译结果全部处理完成后，对应结果目录会被清理。',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: Colors.orange.shade800),
+            ),
+          ),
         Expanded(
           child:
               state.visiblePlans.isEmpty
@@ -402,35 +473,90 @@ class _TranslationResultReplaceDialogState
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   )
-                  : ListView.separated(
-                    itemCount: state.visiblePlans.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 8),
-                    itemBuilder:
-                        (context, index) =>
-                            _buildPlanGroup(state.visiblePlans[index], state),
+                  : CustomScrollView(
+                    slivers: [
+                      for (
+                        var index = 0;
+                        index < state.visiblePlans.length;
+                        index++
+                      )
+                        ..._buildPlanSlivers(
+                          state.visiblePlans[index],
+                          state,
+                          first: index == 0,
+                        ),
+                    ],
                   ),
         ),
       ],
     );
   }
 
-  Widget _buildPlanGroup(
+  List<Widget> _buildPlanSlivers(
+    TranslationReplacementPlan plan,
+    TranslationResultReplaceState state, {
+    required bool first,
+  }) {
+    final visiblePairs = _visiblePairs(plan, state);
+    return [
+      if (!first)
+        const SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.only(top: 4),
+            child: Divider(height: 1),
+          ),
+        ),
+      SliverToBoxAdapter(child: _buildPlanHeader(plan, state)),
+      if (visiblePairs.isNotEmpty)
+        SliverPadding(
+          padding: const EdgeInsets.only(bottom: 12),
+          sliver: SliverGrid(
+            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+              maxCrossAxisExtent: _gridMaxCrossAxisExtent,
+              crossAxisSpacing: _gridSpacing,
+              mainAxisSpacing: _gridSpacing,
+              childAspectRatio: 1.75,
+            ),
+            delegate: SliverChildBuilderDelegate(
+              (context, index) =>
+                  _buildPairCard(plan, visiblePairs[index], state),
+              childCount: visiblePairs.length,
+            ),
+          ),
+        ),
+      if (!state.showSkippedOnly)
+        for (final item in plan.unmatched)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: _buildUnmatchedRow(item),
+            ),
+          ),
+    ];
+  }
+
+  List<TranslationReplacementPair> _visiblePairs(
+    TranslationReplacementPlan plan,
+    TranslationResultReplaceState state,
+  ) {
+    if (!state.showSkippedOnly) return plan.pairs;
+    return plan.pairs
+        .where(
+          (pair) =>
+              state.isPairSkipped(pair.originalPath) ||
+              state.isPairProtected(pair.originalPath),
+        )
+        .toList(growable: false);
+  }
+
+  Widget _buildPlanHeader(
     TranslationReplacementPlan plan,
     TranslationResultReplaceState state,
   ) {
     final directoryName = path.basename(plan.workDirectory);
     final title = plan.illust.title.trim();
     final groupTitle = title.isEmpty ? directoryName : title;
-    final visiblePairs =
-        state.showSkippedOnly
-            ? plan.pairs
-                .where(
-                  (pair) =>
-                      state.isPairSkipped(pair.originalPath) ||
-                      state.isPairProtected(pair.originalPath),
-                )
-                .toList(growable: false)
-            : plan.pairs;
+    final visiblePairs = _visiblePairs(plan, state);
     final subtitle =
         state.showSkippedOnly
             ? '$directoryName · ${visiblePairs.length} 张已跳过/保护'
@@ -442,42 +568,80 @@ class _TranslationResultReplaceDialogState
             ? Theme.of(context).colorScheme.error
             : null;
 
-    return Card(
-      margin: EdgeInsets.zero,
-      child: ExpansionTile(
-        initiallyExpanded: true,
-        title: Row(
-          children: [
-            Expanded(
-              child: Text(groupTitle, style: TextStyle(color: titleColor)),
-            ),
-            const SizedBox(width: 8),
-            FilterChip(
-              label: Text(plan.hasUntranslatableContent ? '整部已保护' : '全部跳过'),
-              selected:
-                  plan.hasUntranslatableContent ||
-                  state.isPlanFullySkipped(plan),
-              onSelected:
-                  state.busy || plan.hasUntranslatableContent
-                      ? null
-                      : (selected) => ref
-                          .read(_provider.notifier)
-                          .setPlanSkipped(plan, selected),
-            ),
-          ],
-        ),
-        subtitle: Text(subtitle),
-        childrenPadding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(2, 8, 2, 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          for (final pair in visiblePairs) _buildPairRow(plan, pair, state),
-          if (!state.showSkippedOnly)
-            for (final item in plan.unmatched) _buildUnmatchedRow(item),
+          Icon(
+            Icons.folder_outlined,
+            size: 20,
+            color: Theme.of(context).colorScheme.primary,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  groupTitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(color: titleColor),
+                ),
+                Text(
+                  subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          _buildPlanSkipControl(plan, state),
         ],
       ),
     );
   }
 
-  Widget _buildPairRow(
+  Widget _buildPlanSkipControl(
+    TranslationReplacementPlan plan,
+    TranslationResultReplaceState state,
+  ) {
+    final protected = plan.hasUntranslatableContent;
+    final selected = protected || state.isPlanFullySkipped(plan);
+    final disabled = state.busy || protected;
+    void setSkipped(bool value) {
+      ref.read(_provider.notifier).setPlanSkipped(plan, value);
+    }
+
+    return InkWell(
+      onTap: disabled ? null : () => setSkipped(!selected),
+      borderRadius: BorderRadius.circular(4),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 2),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Checkbox(
+              value: selected,
+              visualDensity: VisualDensity.compact,
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              onChanged: disabled ? null : (value) => setSkipped(value == true),
+            ),
+            Text(protected ? '整部已保护' : '全部跳过'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPairCard(
     TranslationReplacementPlan plan,
     TranslationReplacementPair pair,
     TranslationResultReplaceState state,
@@ -492,13 +656,15 @@ class _TranslationResultReplaceDialogState
             ? Theme.of(context).colorScheme.error
             : null;
     return Card(
-      margin: const EdgeInsets.only(top: 8),
+      margin: EdgeInsets.zero,
+      clipBehavior: Clip.antiAlias,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Expanded(
                   child: Text.rich(
@@ -515,80 +681,225 @@ class _TranslationResultReplaceDialogState
                               color: Theme.of(context).colorScheme.error,
                             ),
                           ),
-                        if (pair.defaultSkipped &&
-                            pair.defaultSkipReason != null)
-                          TextSpan(
-                            text: ' · ${pair.defaultSkipReason}',
-                            style: TextStyle(color: Colors.orange.shade800),
-                          ),
                       ],
                     ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
+                const SizedBox(width: 6),
                 Text(
                   '${_formatDelta(delta)}（${ratio >= 0 ? '+' : ''}${ratio.toStringAsFixed(1)}%）',
-                  style: TextStyle(color: deltaColor),
+                  maxLines: 1,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelSmall?.copyWith(color: deltaColor),
                 ),
-                const SizedBox(width: 8),
-                InkWell(
-                  onTap:
-                      state.busy || isProtected
-                          ? null
-                          : () => ref
-                              .read(_provider.notifier)
-                              .setPairSkipped(
-                                pair.originalPath,
-                                !state.isPairSkipped(pair.originalPath),
-                              ),
-                  borderRadius: BorderRadius.circular(4),
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-                    child: Text(isProtected ? '整部保护' : '跳过'),
-                  ),
-                ),
-                Checkbox(
-                  value: isProtected || state.isPairSkipped(pair.originalPath),
-                  onChanged:
-                      state.busy || isProtected
-                          ? null
-                          : (value) => ref
-                              .read(_provider.notifier)
-                              .setPairSkipped(pair.originalPath, value == true),
-                ),
+                const SizedBox(width: 6),
+                _buildPairSkipControl(pair, state, isProtected),
               ],
             ),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                Expanded(
-                  child: _preview(
-                    plan,
-                    pair.originalPath,
-                    '原图',
-                    _detail(pair.originalDimensions, pair.originalSize),
-                    translated: false,
-                    initialIndex: initialIndex,
+            const SizedBox(height: 1),
+            Expanded(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: _buildPreviewTile(
+                      plan: plan,
+                      pair: pair,
+                      filePath: pair.originalPath,
+                      label: '原图',
+                      translated: false,
+                      initialIndex: initialIndex,
+                    ),
                   ),
-                ),
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 8),
-                  child: Icon(Icons.arrow_forward),
-                ),
-                Expanded(
-                  child: _preview(
-                    plan,
-                    pair.translatedPath,
-                    '翻译后',
-                    _detail(pair.translatedDimensions, pair.translatedSize),
-                    translated: true,
-                    initialIndex: initialIndex,
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 2),
+                    child: Icon(
+                      Icons.arrow_forward,
+                      size: 18,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
                   ),
-                ),
-              ],
+                  Expanded(
+                    child: _buildPreviewTile(
+                      plan: plan,
+                      pair: pair,
+                      filePath: pair.translatedPath,
+                      label: '翻译后',
+                      translated: true,
+                      initialIndex: initialIndex,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildPairSkipControl(
+    TranslationReplacementPair pair,
+    TranslationResultReplaceState state,
+    bool isProtected,
+  ) {
+    final selected = isProtected || state.isPairSkipped(pair.originalPath);
+    final disabled = state.busy || isProtected;
+    void setSkipped(bool value) {
+      ref.read(_provider.notifier).setPairSkipped(pair.originalPath, value);
+    }
+
+    return InkWell(
+      onTap: disabled ? null : () => setSkipped(!selected),
+      borderRadius: BorderRadius.circular(4),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 2),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Checkbox(
+              value: selected,
+              visualDensity: VisualDensity.compact,
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              onChanged: disabled ? null : (value) => setSkipped(value == true),
+            ),
+            Text(isProtected ? '整部保护' : '跳过'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPreviewTile({
+    required TranslationReplacementPlan plan,
+    required TranslationReplacementPair pair,
+    required String filePath,
+    required String label,
+    required bool translated,
+    required int initialIndex,
+  }) {
+    final detail =
+        translated
+            ? _compactDetail(pair.translatedDimensions, pair.translatedSize)
+            : _compactDetail(pair.originalDimensions, pair.originalSize);
+    return InkWell(
+      onTap:
+          () =>
+              _openPairViewer(plan, filePath, label, translated, initialIndex),
+      borderRadius: BorderRadius.circular(6),
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 2),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text.rich(
+              TextSpan(
+                text: label,
+                style: Theme.of(context).textTheme.labelMedium,
+                children:
+                    pair.defaultSkipped && translated
+                        ? [
+                          TextSpan(
+                            text: ' · 默认跳过',
+                            style: Theme.of(context).textTheme.labelSmall
+                                ?.copyWith(color: Colors.orange.shade800),
+                          ),
+                        ]
+                        : const [],
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 4),
+            Expanded(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(5),
+                child: ColoredBox(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  child: SizedBox.expand(
+                    child: Image.file(
+                      File(filePath),
+                      fit: BoxFit.cover,
+                      errorBuilder:
+                          (_, _, _) => const Center(
+                            child: Icon(Icons.broken_image_outlined),
+                          ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              detail,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelSmall,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _openPairViewer(
+    TranslationReplacementPlan plan,
+    String filePath,
+    String label,
+    bool translated,
+    int initialIndex,
+  ) {
+    final originalDetail = _detail(
+      plan.pairs[initialIndex].originalDimensions,
+      plan.pairs[initialIndex].originalSize,
+    );
+    final translatedDetail = _detail(
+      plan.pairs[initialIndex].translatedDimensions,
+      plan.pairs[initialIndex].translatedSize,
+    );
+    LocalImageViewerPage.open(
+      context,
+      imagePath: filePath,
+      title: label,
+      subtitle: translated ? translatedDetail : originalDetail,
+      gallery: _buildGallery(plan, translated),
+      initialIndex: initialIndex,
+      comparison: LocalImageViewerComparison(
+        leftImagePath: plan.pairs[initialIndex].originalPath,
+        rightImagePath: plan.pairs[initialIndex].translatedPath,
+        leftTitle: '原图',
+        rightTitle: '翻译后',
+        leftSubtitle:
+            'P${plan.pairs[initialIndex].image.part}\n$originalDetail',
+        rightSubtitle:
+            'P${plan.pairs[initialIndex].image.part}\n$translatedDetail',
+      ),
+      bottomBuilder: (context, _, index) {
+        final currentPair = plan.pairs[index];
+        final protected = plan.hasUntranslatableContent;
+        var skipped =
+            protected ||
+            ref.read(_provider).isPairSkipped(currentPair.originalPath);
+        return StatefulBuilder(
+          builder: (context, setLocalState) {
+            return _buildViewerSkipControl(
+              skipped: skipped,
+              protected: protected,
+              onChanged: (value) {
+                if (protected) return;
+                ref
+                    .read(_provider.notifier)
+                    .setPairSkipped(currentPair.originalPath, value);
+                setLocalState(() => skipped = value);
+              },
+            );
+          },
+        );
+      },
     );
   }
 
@@ -601,94 +912,6 @@ class _TranslationResultReplaceDialogState
           '${item.isOriginal ? '原图' : '译图'}：${path.basename(item.path)}',
         ),
         subtitle: Text(item.reason),
-      ),
-    );
-  }
-
-  Widget _preview(
-    TranslationReplacementPlan plan,
-    String filePath,
-    String label,
-    String detail, {
-    required bool translated,
-    required int initialIndex,
-  }) {
-    final originalDetail = _detail(
-      plan.pairs[initialIndex].originalDimensions,
-      plan.pairs[initialIndex].originalSize,
-    );
-    final translatedDetail = _detail(
-      plan.pairs[initialIndex].translatedDimensions,
-      plan.pairs[initialIndex].translatedSize,
-    );
-    return InkWell(
-      onTap:
-          () => LocalImageViewerPage.open(
-            context,
-            imagePath: filePath,
-            title: label,
-            subtitle: detail,
-            gallery: _buildGallery(plan, translated),
-            initialIndex: initialIndex,
-            comparison: LocalImageViewerComparison(
-              leftImagePath: plan.pairs[initialIndex].originalPath,
-              rightImagePath: plan.pairs[initialIndex].translatedPath,
-              leftTitle: '原图',
-              rightTitle: '翻译后',
-              leftSubtitle:
-                  'P${plan.pairs[initialIndex].image.part}\n$originalDetail',
-              rightSubtitle:
-                  'P${plan.pairs[initialIndex].image.part}\n$translatedDetail',
-            ),
-            bottomBuilder: (context, _, index) {
-              final currentPair = plan.pairs[index];
-              final protected = plan.hasUntranslatableContent;
-              var skipped =
-                  protected ||
-                  ref.read(_provider).isPairSkipped(currentPair.originalPath);
-              return StatefulBuilder(
-                builder: (context, setLocalState) {
-                  return _buildViewerSkipControl(
-                    skipped: skipped,
-                    protected: protected,
-                    onChanged: (value) {
-                      if (protected) return;
-                      ref
-                          .read(_provider.notifier)
-                          .setPairSkipped(currentPair.originalPath, value);
-                      setLocalState(() => skipped = value);
-                    },
-                  );
-                },
-              );
-            },
-          ),
-      child: Row(
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: Image.file(
-              File(filePath),
-              width: _thumbnailExtent,
-              height: _thumbnailExtent,
-              fit: BoxFit.cover,
-              errorBuilder:
-                  (_, _, _) => const SizedBox(
-                    width: _thumbnailExtent,
-                    height: _thumbnailExtent,
-                    child: Icon(Icons.broken_image),
-                  ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              '$label\n$detail',
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -762,6 +985,12 @@ class _TranslationResultReplaceDialogState
     final dimensions =
         size == null ? '尺寸未知' : '${size.width.round()}×${size.height.round()}';
     return '$dimensions\n${fileSize.formatFileSize()}';
+  }
+
+  String _compactDetail(Size? size, int fileSize) {
+    final dimensions =
+        size == null ? '尺寸未知' : '${size.width.round()}×${size.height.round()}';
+    return '$dimensions · ${fileSize.formatFileSize()}';
   }
 
   String _formatDelta(int delta) =>

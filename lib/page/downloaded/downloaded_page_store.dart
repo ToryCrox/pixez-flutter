@@ -805,6 +805,8 @@ abstract class _DownloadedPageStoreBase with Store {
     try {
       await loadData();
       await loadStats();
+      // 刷新下载列表时同步重新扫描外部翻译结果，更新卡片上的可替换标记。
+      await scanTranslationResults();
       easyRefreshController?.finishRefresh();
     } finally {
       _isRefreshing = false;
