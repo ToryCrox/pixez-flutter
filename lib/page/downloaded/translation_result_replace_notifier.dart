@@ -39,6 +39,7 @@ abstract class TranslationResultReplaceState
     @Default(false) bool showSkippedOnly,
     @Default(<String>{}) Set<String> skippedOriginalPaths,
     @Default(<String>{}) Set<String> protectedOriginalPaths,
+    @Default(<String>{}) Set<String> collapsedPlanDirectories,
   }) = _TranslationResultReplaceState;
 }
 
@@ -98,6 +99,9 @@ extension TranslationResultReplaceStateX on TranslationResultReplaceState {
 
   bool isPairProtected(String originalPath) =>
       protectedOriginalPaths.contains(originalPath);
+
+  bool isPlanCollapsed(TranslationReplacementPlan plan) =>
+      collapsedPlanDirectories.contains(plan.workDirectory);
 
   bool isPlanFullySkipped(TranslationReplacementPlan plan) {
     return plan.pairs.isNotEmpty &&
@@ -167,6 +171,17 @@ class TranslationResultReplace extends _$TranslationResultReplace {
   void setShowSkippedOnly(bool value) {
     if (state.busy) return;
     state = state.copyWith(showSkippedOnly: value);
+  }
+
+  void togglePlanCollapsed(TranslationReplacementPlan plan) {
+    if (state.busy) return;
+    final directories = Set<String>.from(state.collapsedPlanDirectories);
+    if (!directories.add(plan.workDirectory)) {
+      directories.remove(plan.workDirectory);
+    }
+    state = state.copyWith(
+      collapsedPlanDirectories: Set.unmodifiable(directories),
+    );
   }
 
   void setPairSkipped(String originalPath, bool skipped) {

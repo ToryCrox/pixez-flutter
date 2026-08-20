@@ -423,25 +423,12 @@ class _TranslationResultReplaceDialogState
     final batchPlan = state.batchPlan;
     if (batchPlan == null) return const SizedBox.shrink();
 
-    final delta = batchPlan.translatedTotalSize - batchPlan.originalTotalSize;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
           padding: const EdgeInsets.only(top: 2, bottom: 6),
-          child: Text(
-            '选中 ${batchPlan.selectedCount} 个目录 · 可替换 ${batchPlan.plans.length} 个目录 · '
-            '共 ${batchPlan.pairCount} 张 · '
-            '${batchPlan.originalTotalSize.formatFileSize()} → '
-            '${batchPlan.translatedTotalSize.formatFileSize()}（${_formatDelta(delta)}）'
-            '${batchPlan.noResultCount == 0 ? '' : ' · 无结果 ${batchPlan.noResultCount} 个目录'}'
-            '${batchPlan.unmatchedCount == 0 ? '' : ' · 未匹配 ${batchPlan.unmatchedCount} 项'}'
-            '${state.skippedPairCount == 0 ? '' : ' · 已跳过 ${state.skippedPairCount} 张'}'
-            '${state.protectedPairCount == 0 ? '' : ' · 已保护 ${state.protectedPairCount} 张'}',
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
+          child: _buildSummaryStats(batchPlan, state),
         ),
         if (batchPlan.unmatchedCount > 0)
           Padding(
@@ -483,12 +470,112 @@ class _TranslationResultReplaceDialogState
     );
   }
 
+  Widget _buildSummaryStats(
+    TranslationReplacementBatchPlan batchPlan,
+    TranslationResultReplaceState state,
+  ) {
+    final protectedPaths = state.protectedOriginalPaths;
+    final skippedCount =
+        state.skippedOriginalPaths.difference(protectedPaths).length;
+    final protectedCount = protectedPaths.length;
+    final translatedCount =
+        (batchPlan.pairCount - skippedCount - protectedCount)
+            .clamp(0, batchPlan.pairCount)
+            .toInt();
+    final theme = Theme.of(context);
+
+    return Wrap(
+      spacing: 28,
+      runSpacing: 8,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        _buildSummaryStat(
+          icon: Icons.image_outlined,
+          label: '总页数',
+          value: batchPlan.pairCount,
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
+        _buildSummaryStat(
+          icon: Icons.check_circle_outline,
+          label: '已翻译',
+          value: translatedCount,
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
+        _buildSummaryStat(
+          icon: Icons.remove_circle_outline,
+          label: '已跳过',
+          value: skippedCount,
+          color: Colors.orange.shade800,
+        ),
+        _buildSummaryStat(
+          icon: Icons.shield_outlined,
+          label: '已保护',
+          value: protectedCount,
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
+        _buildSummaryFileSize(batchPlan),
+      ],
+    );
+  }
+
+  Widget _buildSummaryFileSize(TranslationReplacementBatchPlan batchPlan) {
+    final delta = batchPlan.translatedTotalSize - batchPlan.originalTotalSize;
+    final deltaColor = delta > 0 ? Colors.orange.shade800 : Colors.green;
+    final textTheme = Theme.of(context).textTheme;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          Icons.storage_outlined,
+          size: 20,
+          color: textTheme.bodyMedium?.color,
+        ),
+        const SizedBox(width: 8),
+        Text('文件大小', style: textTheme.bodyMedium),
+        const SizedBox(width: 8),
+        Text(
+          '${batchPlan.originalTotalSize.formatFileSize()} → '
+          '${batchPlan.translatedTotalSize.formatFileSize()}',
+          style: textTheme.bodyMedium,
+        ),
+        const SizedBox(width: 6),
+        Text(
+          '(${_formatDelta(delta)})',
+          style: textTheme.bodySmall?.copyWith(color: deltaColor),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSummaryStat({
+    required IconData icon,
+    required String label,
+    required int value,
+    required Color color,
+  }) {
+    final textTheme = Theme.of(context).textTheme;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 20, color: color),
+        const SizedBox(width: 8),
+        Text(label, style: textTheme.bodyMedium),
+        const SizedBox(width: 8),
+        Text(
+          '$value',
+          style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+        ),
+      ],
+    );
+  }
+
   List<Widget> _buildPlanSlivers(
     TranslationReplacementPlan plan,
     TranslationResultReplaceState state, {
     required bool first,
   }) {
     final visiblePairs = _visiblePairs(plan, state);
+    final collapsed = state.isPlanCollapsed(plan);
     return [
       if (!first)
         const SliverToBoxAdapter(
@@ -498,32 +585,57 @@ class _TranslationResultReplaceDialogState
           ),
         ),
       SliverToBoxAdapter(child: _buildPlanHeader(plan, state)),
-      if (visiblePairs.isNotEmpty)
-        SliverPadding(
+      SliverToBoxAdapter(
+        child: AnimatedSize(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeInOutCubic,
+          alignment: Alignment.topCenter,
+          clipBehavior: Clip.hardEdge,
+          child:
+              collapsed
+                  ? const SizedBox.shrink()
+                  : _buildExpandedPlanContent(plan, visiblePairs, state),
+        ),
+      ),
+    ];
+  }
+
+  Widget _buildExpandedPlanContent(
+    TranslationReplacementPlan plan,
+    List<TranslationReplacementPair> visiblePairs,
+    TranslationResultReplaceState state,
+  ) {
+    final children = <Widget>[];
+    if (visiblePairs.isNotEmpty) {
+      children.add(
+        GridView.builder(
           padding: const EdgeInsets.only(bottom: 12),
-          sliver: SliverGrid(
-            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-              maxCrossAxisExtent: _gridMaxCrossAxisExtent,
-              crossAxisSpacing: _gridSpacing,
-              mainAxisSpacing: _gridSpacing,
-              childAspectRatio: 1.75,
-            ),
-            delegate: SliverChildBuilderDelegate(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+            maxCrossAxisExtent: _gridMaxCrossAxisExtent,
+            crossAxisSpacing: _gridSpacing,
+            mainAxisSpacing: _gridSpacing,
+            childAspectRatio: 1.75,
+          ),
+          itemCount: visiblePairs.length,
+          itemBuilder:
               (context, index) =>
                   _buildPairCard(plan, visiblePairs[index], state),
-              childCount: visiblePairs.length,
-            ),
+        ),
+      );
+    }
+    if (!state.showSkippedOnly) {
+      children.addAll(
+        plan.unmatched.map(
+          (item) => Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: _buildUnmatchedRow(item),
           ),
         ),
-      if (!state.showSkippedOnly)
-        for (final item in plan.unmatched)
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: _buildUnmatchedRow(item),
-            ),
-          ),
-    ];
+      );
+    }
+    return Column(children: children);
   }
 
   List<TranslationReplacementPair> _visiblePairs(
@@ -558,38 +670,64 @@ class _TranslationResultReplaceDialogState
         plan.hasUntranslatableContent
             ? Theme.of(context).colorScheme.error
             : null;
+    final collapsed = state.isPlanCollapsed(plan);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(2, 8, 2, 8),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Icon(
-            Icons.folder_outlined,
-            size: 20,
-            color: Theme.of(context).colorScheme.primary,
-          ),
-          const SizedBox(width: 8),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  groupTitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleSmall?.copyWith(color: titleColor),
+            child: InkWell(
+              onTap:
+                  state.busy
+                      ? null
+                      : () => ref
+                          .read(_provider.notifier)
+                          .togglePlanCollapsed(plan),
+              borderRadius: BorderRadius.circular(6),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                child: Row(
+                  children: [
+                    AnimatedRotation(
+                      turns: collapsed ? -0.25 : 0,
+                      duration: const Duration(milliseconds: 220),
+                      curve: Curves.easeInOut,
+                      child: const Icon(Icons.expand_more, size: 20),
+                    ),
+                    const SizedBox(width: 2),
+                    Icon(
+                      Icons.folder_outlined,
+                      size: 20,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            groupTitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(
+                              context,
+                            ).textTheme.titleSmall?.copyWith(color: titleColor),
+                          ),
+                          Text(
+                            subtitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-                Text(
-                  subtitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ],
+              ),
             ),
           ),
           const SizedBox(width: 8),

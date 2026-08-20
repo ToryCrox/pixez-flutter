@@ -119,6 +119,12 @@ void main() {
     notifier.setPairSkipped('/original/1.jpg', false);
     notifier.setPlanSkipped(plan, true);
     expect(container.read(provider).isPlanFullySkipped(plan), isTrue);
+
+    expect(container.read(provider).isPlanCollapsed(plan), isFalse);
+    notifier.togglePlanCollapsed(plan);
+    expect(container.read(provider).isPlanCollapsed(plan), isTrue);
+    notifier.togglePlanCollapsed(plan);
+    expect(container.read(provider).isPlanCollapsed(plan), isFalse);
   });
 }
 
