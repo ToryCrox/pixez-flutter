@@ -1,6 +1,7 @@
-$startTime = Get-Date
 # PowerShell script for building and copying Windows application
 # Usage: .\build_win.ps1
+
+$startTime = Get-Date
 
 $destinationDir = "E:\Program Files\PixEz"
 
@@ -60,47 +61,39 @@ Write-Host "Source directory exists: OK" -ForegroundColor Green
 # may keep files in the destination directory locked.
 Write-Host ""
 Write-Host "Checking whether PixEz is running..." -ForegroundColor Yellow
-$runningProcesses = @(Get-Process -Name "pixez" -ErrorAction SilentlyContinue)
-if ($runningProcesses.Count -eq 0) {
-    Write-Host "PixEz is not running: OK" -ForegroundColor Green
-} else {
-    Write-Host "PixEz is running. Requesting it to close..." -ForegroundColor Yellow
+$applicationProcessName = "pixez"
+$runningProcesses = @(Get-Process -Name $applicationProcessName -ErrorAction SilentlyContinue)
+
+if ($runningProcesses.Count -gt 0) {
+    Write-Host "Running $applicationProcessName process detected. Closing it before copying..." -ForegroundColor Yellow
+
     foreach ($process in $runningProcesses) {
         try {
+            Write-Host "Closing process $($process.Id)..." -ForegroundColor Gray
+
             if ($process.MainWindowHandle -ne 0) {
                 [void]$process.CloseMainWindow()
             }
-        } catch {
-            Write-Host "WARNING: Failed to request PixEz to close (PID $($process.Id)): $_" -ForegroundColor Yellow
-        }
-    }
 
-    $waitUntil = (Get-Date).AddSeconds(5)
-    do {
-        Start-Sleep -Milliseconds 500
-        $runningProcesses = @(Get-Process -Name "pixez" -ErrorAction SilentlyContinue)
-    } while ($runningProcesses.Count -gt 0 -and (Get-Date) -lt $waitUntil)
+            # WaitForExit also correctly handles a process that has already
+            # exited between Get-Process and this point.
+            if (-not $process.WaitForExit(5000)) {
+                Write-Host "Process did not exit gracefully. Forcing process termination..." -ForegroundColor Yellow
+                Stop-Process -Id $process.Id -Force -ErrorAction Stop
+                $process.WaitForExit()
+            }
 
-    if ($runningProcesses.Count -gt 0) {
-        Write-Host "PixEz did not close in time. Stopping remaining process(es)..." -ForegroundColor Yellow
-        try {
-            $runningProcesses | Stop-Process -Force -ErrorAction Stop
-            Start-Sleep -Milliseconds 500
-            $runningProcesses = @(Get-Process -Name "pixez" -ErrorAction SilentlyContinue)
+            Write-Host "Process $($process.Id) closed: OK" -ForegroundColor Green
         } catch {
-            Write-Host "ERROR: Failed to stop PixEz. File copy cannot continue." -ForegroundColor Red
+            Write-Host "ERROR: Failed to close process $($process.Id)!" -ForegroundColor Red
+            Write-Host "Please close pixez manually and try again." -ForegroundColor Red
             Write-Host "Error: $_" -ForegroundColor Red
             Read-Host "Press Enter to exit"
             exit 1
         }
     }
-
-    if ($runningProcesses.Count -gt 0) {
-        Write-Host "ERROR: PixEz is still running. File copy cannot continue." -ForegroundColor Red
-        Read-Host "Press Enter to exit"
-        exit 1
-    }
-    Write-Host "PixEz closed: OK" -ForegroundColor Green
+} else {
+    Write-Host "No running $applicationProcessName process detected: OK" -ForegroundColor Green
 }
 
 # Create destination directory if it doesn't exist
