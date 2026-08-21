@@ -4,6 +4,7 @@ import 'package:bot_toast/bot_toast.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:path/path.dart' as path;
+import 'package:pixez/component/hover_scale_container.dart';
 import 'package:pixez/exts.dart';
 import 'package:pixez/page/downloaded/local_image_viewer_page.dart';
 import 'package:pixez/page/downloaded/translation_result_replace_notifier.dart';
@@ -784,9 +785,8 @@ class _TranslationResultReplaceDialogState
         pair.hasUntranslatableContent
             ? Theme.of(context).colorScheme.error
             : null;
-    return Card(
+    return HoverScaleCard(
       margin: EdgeInsets.zero,
-      clipBehavior: Clip.antiAlias,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
         child: Column(
@@ -843,12 +843,14 @@ class _TranslationResultReplaceDialogState
                       initialIndex: initialIndex,
                     ),
                   ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 2),
-                    child: Icon(
-                      Icons.arrow_forward,
-                      size: 18,
-                      color: Theme.of(context).colorScheme.primary,
+                  SizedBox(
+                    width: 16,
+                    child: Center(
+                      child: Icon(
+                        Icons.compare_arrows,
+                        size: 16,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
                     ),
                   ),
                   Expanded(
