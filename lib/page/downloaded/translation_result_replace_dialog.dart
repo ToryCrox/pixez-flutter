@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:ui' show PointerDeviceKind;
 
 import 'package:bot_toast/bot_toast.dart';
 import 'package:flutter/material.dart';
@@ -9,6 +10,7 @@ import 'package:pixez/exts.dart';
 import 'package:pixez/page/downloaded/local_image_viewer_page.dart';
 import 'package:pixez/page/downloaded/translation_result_replace_notifier.dart';
 import 'package:pixez/utils/translation_result_replacer.dart';
+import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 
 /// 预览多个作品的翻译结果，并在确认后批量替换下载原图。
 class TranslationResultReplaceDialog extends ConsumerStatefulWidget {
@@ -452,19 +454,27 @@ class _TranslationResultReplaceDialogState
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   )
-                  : CustomScrollView(
-                    slivers: [
-                      for (
-                        var index = 0;
-                        index < state.visiblePlans.length;
-                        index++
-                      )
-                        ..._buildPlanSlivers(
-                          state.visiblePlans[index],
-                          state,
-                          first: index == 0,
-                        ),
-                    ],
+                  : ScrollConfiguration(
+                    behavior: ScrollConfiguration.of(context).copyWith(
+                      dragDevices:
+                          ScrollConfiguration.of(context).dragDevices
+                              .where((kind) => kind != PointerDeviceKind.mouse)
+                              .toSet(),
+                    ),
+                    child: CustomScrollView(
+                      slivers: [
+                        for (
+                          var index = 0;
+                          index < state.visiblePlans.length;
+                          index++
+                        )
+                          ..._buildPlanSlivers(
+                            state.visiblePlans[index],
+                            state,
+                            first: index == 0,
+                          ),
+                      ],
+                    ),
                   ),
         ),
       ],
@@ -698,11 +708,7 @@ class _TranslationResultReplaceDialogState
                       child: const Icon(Icons.expand_more, size: 20),
                     ),
                     const SizedBox(width: 2),
-                    Icon(
-                      Icons.folder_outlined,
-                      size: 20,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
+                    _buildFolderDragHandle(plan),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Column(
@@ -765,6 +771,104 @@ class _TranslationResultReplaceDialogState
               onChanged: disabled ? null : (value) => setSkipped(value == true),
             ),
             Text(protected ? '整部已保护' : '全部跳过'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFolderDragHandle(TranslationReplacementPlan plan) {
+    final directoryName = path.basename(plan.workDirectory);
+    return DragItemWidget(
+      dragItemProvider:
+          (request) => _createFolderDragItem(request, directoryName),
+      allowedOperations: () => const [DropOperation.copy, DropOperation.link],
+      dragBuilder:
+          (context, child) =>
+              _buildFolderDragPreview(context, child, directoryName),
+      child: DraggableWidget(
+        onDragConfiguration:
+            (configuration, session) => _createFolderDragConfiguration(
+              configuration,
+              plan.workDirectory,
+            ),
+        child: Tooltip(
+          message: '拖动目录',
+          child: Padding(
+            padding: const EdgeInsets.all(2),
+            child: Icon(
+              Icons.folder_outlined,
+              size: 20,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<DragItem> _createFolderDragItem(
+    DragItemRequest request,
+    String directoryName,
+  ) async {
+    final item = DragItem();
+    item.add(Formats.plainText(directoryName));
+    return item;
+  }
+
+  DragConfiguration? _createFolderDragConfiguration(
+    DragConfiguration configuration,
+    String directoryPath,
+  ) {
+    final snapshot = configuration.items.firstOrNull?.image;
+    if (snapshot == null) return null;
+
+    final item = DragItem();
+    item.add(Formats.fileUri(Uri.file(directoryPath)));
+    return DragConfiguration(
+      items: [DragConfigurationItem(item: item, image: snapshot)],
+      allowedOperations: configuration.allowedOperations,
+      options: configuration.options,
+    );
+  }
+
+  Widget _buildFolderDragPreview(
+    BuildContext context,
+    Widget child,
+    String directoryName,
+  ) {
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: const [
+            BoxShadow(
+              color: Colors.black26,
+              blurRadius: 8,
+              offset: Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.folder_outlined,
+              size: 20,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            const SizedBox(width: 6),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 240),
+              child: Text(
+                directoryName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           ],
         ),
       ),
