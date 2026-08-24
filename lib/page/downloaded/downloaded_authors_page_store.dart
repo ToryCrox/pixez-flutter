@@ -304,10 +304,14 @@ abstract class _DownloadedAuthorsPageStoreBase with Store {
   void onSearchChanged(String text) {
     // 取消之前的定时器
     _searchDebounce?.cancel();
+    _searchDebounce = null;
+
+    final keyword = text.trim();
+    if (keyword.isEmpty && _searchKeyword == null) return;
 
     // 设置新的定时器,延迟300ms后执行搜索
     _searchDebounce = Timer(const Duration(milliseconds: 300), () {
-      final keyword = text.trim();
+      _searchDebounce = null;
       if (keyword != _searchKeyword) {
         _searchKeyword = keyword.isEmpty ? null : keyword;
         loadData(refresh: true);
@@ -317,9 +321,22 @@ abstract class _DownloadedAuthorsPageStoreBase with Store {
 
   @action
   void toggleSearch({required bool isSearching, VoidCallback? onClear}) {
+    if (_isSearching == isSearching) return;
+
+    if (isSearching) {
+      _isSearching = true;
+      return;
+    }
+
+    final hasActiveKeyword = _searchKeyword?.trim().isNotEmpty == true;
+    _searchDebounce?.cancel();
+    _searchDebounce = null;
     _isSearching = isSearching;
-    if (!_isSearching) {
-      onClear?.call();
+    onClear?.call();
+    // 清空 TextEditingController 会同步触发监听，避免它在退出搜索时再次排队刷新。
+    _searchDebounce?.cancel();
+    _searchDebounce = null;
+    if (hasActiveKeyword) {
       _searchKeyword = null;
       loadData(refresh: true);
     }

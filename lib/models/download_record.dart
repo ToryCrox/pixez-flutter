@@ -1342,7 +1342,7 @@ class DownloadDatabaseProvider {
     return null;
   }
 
-  bool _isNumericIllustIdKeyword(String keyword) {
+  bool _isNumericIdKeyword(String keyword) {
     return RegExp(r'^[0-9]+$').hasMatch(keyword.trim());
   }
 
@@ -1363,9 +1363,7 @@ class DownloadDatabaseProvider {
     }
 
     final normalizedKeyword = keyword.trim();
-    final isNumericIllustIdKeyword = _isNumericIllustIdKeyword(
-      normalizedKeyword,
-    );
+    final isNumericIllustIdKeyword = _isNumericIdKeyword(normalizedKeyword);
     final illustId = int.tryParse(normalizedKeyword);
     final whereConditions = <String>[];
     final whereArgs = <dynamic>[];
@@ -2405,13 +2403,16 @@ class DownloadDatabaseProvider {
     // 搜索关键词
     if (searchKeyword != null && searchKeyword.trim().isNotEmpty) {
       final keyword = searchKeyword.trim();
+      final isNumericIdKeyword = _isNumericIdKeyword(keyword);
       final userId = int.tryParse(keyword);
 
-      if (userId != null) {
-        whereConditions.add(
-          '(${DownloadedAuthorColumns.userId} = ? OR ${DownloadedAuthorColumns.userName} LIKE ?)',
-        );
-        whereArgs.addAll([userId, '%$keyword%']);
+      if (isNumericIdKeyword) {
+        if (userId == null) {
+          whereConditions.add('0 = 1');
+        } else {
+          whereConditions.add('${DownloadedAuthorColumns.userId} = ?');
+          whereArgs.add(userId);
+        }
       } else {
         whereConditions.add('${DownloadedAuthorColumns.userName} LIKE ?');
         whereArgs.add('%$keyword%');
@@ -2773,9 +2774,7 @@ class DownloadDatabaseProvider {
         searchKeyword != null &&
         searchKeyword.trim().isNotEmpty) {
       final normalizedKeyword = searchKeyword.trim();
-      final isNumericIllustIdKeyword = _isNumericIllustIdKeyword(
-        normalizedKeyword,
-      );
+      final isNumericIllustIdKeyword = _isNumericIdKeyword(normalizedKeyword);
       final illustId = int.tryParse(normalizedKeyword);
       final searchCondition =
           isNumericIllustIdKeyword

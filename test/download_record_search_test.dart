@@ -75,6 +75,53 @@ void main() {
       expect(results.map((e) => e.illustId).toSet(), {123, 456, 789});
     });
   });
+
+  group('下载作者搜索', () {
+    late Directory temporary;
+    late DownloadDatabaseProvider provider;
+
+    setUp(() async {
+      temporary = await Directory.systemTemp.createTemp(
+        'pixez_author_search_test_',
+      );
+      provider = DownloadDatabaseProvider();
+      await provider.open(temporary.path);
+    });
+
+    tearDown(() async {
+      await provider.db.close();
+      if (await temporary.exists()) {
+        await temporary.delete(recursive: true);
+      }
+    });
+
+    test('纯数字关键词按作者 ID 精确匹配', () async {
+      final now = DateTime.now().millisecondsSinceEpoch;
+      await provider.upsertAuthor(123, '作者123', null, 2, 3, 300, now);
+      await provider.upsertAuthor(1234, '普通作者', null, 1, 1, 100, now);
+      await provider.upsertAuthor(567, 'artist123', null, 1, 1, 100, now);
+      await provider.updateAuthorBookmark(123, 1);
+
+      final results = await provider.getAuthorsWithStats(
+        searchKeyword: ' 123 ',
+        filterBookmarks: true,
+        filterUserIds: [123, 1234, 567],
+        limit: 1,
+      );
+
+      expect(results.map((e) => e.userId), [123]);
+    });
+
+    test('非数字关键词仍按作者名模糊匹配', () async {
+      final now = DateTime.now().millisecondsSinceEpoch;
+      await provider.upsertAuthor(123, '目标作者', null, 1, 1, 100, now);
+      await provider.upsertAuthor(456, '普通作者', null, 1, 1, 100, now);
+
+      final results = await provider.getAuthorsWithStats(searchKeyword: '目标');
+
+      expect(results.map((e) => e.userId), [123]);
+    });
+  });
 }
 
 DownloadedIllust _record(
