@@ -28,6 +28,7 @@ import 'package:pixez/models/download_record.dart';
 import 'package:pixez/page/downloaded/downloaded_image_organizer_page.dart';
 import 'package:pixez/page/downloaded/downloaded_page_store.dart';
 import 'package:pixez/page/downloaded/optimize_json_dialog.dart';
+import 'package:pixez/page/downloaded/redownload_dialog.dart';
 import 'package:pixez/page/downloaded/sync_bookmarks_dialog.dart';
 
 import 'package:pixez/page/downloaded/update_illust_info_dialog.dart';
@@ -1016,6 +1017,31 @@ class _DownloadedPageState extends State<DownloadedPage> {
     }
   }
 
+  Future<void> _showRedownloadDialog(List<DownloadedIllust> illusts) async {
+    final summary = await RedownloadDialog.show(context, illusts: illusts);
+    if (summary == null) return;
+
+    if (_store.isMultiSelectMode) {
+      _store.exitMultiSelectMode();
+    }
+    await _store.refresh();
+
+    if (!mounted) return;
+    final result = <String>[];
+    if (summary.queuedCount > 0) {
+      result.add('已加入 ${summary.queuedCount} 项');
+    }
+    if (summary.skippedCount > 0) {
+      result.add('跳过 ${summary.skippedCount} 项不存在作品');
+    }
+    if (summary.failedCount > 0) {
+      result.add('${summary.failedCount} 项处理失败');
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(result.isEmpty ? '没有作品需要重新下载' : result.join('，'))),
+    );
+  }
+
   // ============ 右键菜单 ============
 
   Future<void> _showContextMenu(
@@ -1041,6 +1067,14 @@ class _DownloadedPageState extends State<DownloadedPage> {
                 .where((i) => _store.selectedIllustIds.contains(i.illustId))
                 .toList()
             : [illust];
+    final redownloadTargetIllusts =
+        (isMulti
+                ? _store.filteredIllusts
+                    .where((i) => _store.selectedIllustIds.contains(i.illustId))
+                    .toList()
+                : [illust])
+            .where((item) => !item.isLocal)
+            .toList();
 
     final hasTranslationResult =
         !isMulti && _store.hasTranslationResult(illust.illustId);
@@ -1088,6 +1122,14 @@ class _DownloadedPageState extends State<DownloadedPage> {
           illust,
           targetIllusts,
         ),
+
+        if (redownloadTargetIllusts.isNotEmpty)
+          _buildContextMenuItem(
+            icon: Icons.download,
+            label:
+                isMulti ? '重新下载选中 (${redownloadTargetIllusts.length})' : '重新下载',
+            onTap: () => _showRedownloadDialog(redownloadTargetIllusts),
+          ),
 
         if (!targetIllusts.any((item) => item.isLocal))
           _buildContextMenuItem(

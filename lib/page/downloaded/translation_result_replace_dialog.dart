@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:path/path.dart' as path;
 import 'package:pixez/component/hover_scale_container.dart';
+import 'package:pixez/component/pixiv_image.dart';
 import 'package:pixez/exts.dart';
 import 'package:pixez/page/downloaded/local_image_viewer_page.dart';
 import 'package:pixez/page/downloaded/translation_result_replace_notifier.dart';
@@ -60,6 +61,8 @@ class _TranslationResultReplaceDialogState
   );
   static const _gridMaxCrossAxisExtent = 460.0;
   static const _gridSpacing = 8.0;
+  // 逻辑像素，PixivImage 会根据 DPR 转换为实际解码像素。
+  static const _previewMemCacheWidth = 240;
 
   TranslationResultReplaceProvider get _provider =>
       translationResultReplaceProvider(widget.request);
@@ -1056,13 +1059,11 @@ class _TranslationResultReplaceDialogState
                 child: ColoredBox(
                   color: Theme.of(context).colorScheme.surfaceContainerHighest,
                   child: SizedBox.expand(
-                    child: Image.file(
-                      File(filePath),
+                    child: PixivImage(
+                      Uri.file(filePath).toString(),
+                      fade: false,
                       fit: BoxFit.cover,
-                      errorBuilder:
-                          (_, _, _) => const Center(
-                            child: Icon(Icons.broken_image_outlined),
-                          ),
+                      memCacheWidth: _previewMemCacheWidth,
                     ),
                   ),
                 ),

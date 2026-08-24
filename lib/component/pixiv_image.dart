@@ -15,12 +15,10 @@
  */
 
 import 'dart:io' as io;
-import 'dart:ui' as ui;
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:dio/dio.dart';
 import 'package:dio_compatibility_layer/dio_compatibility_layer.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:file/local.dart';
 import 'package:pixez/constants.dart';
