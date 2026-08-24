@@ -1342,6 +1342,10 @@ class DownloadDatabaseProvider {
     return null;
   }
 
+  bool _isNumericIllustIdKeyword(String keyword) {
+    return RegExp(r'^[0-9]+$').hasMatch(keyword.trim());
+  }
+
   Future<List<DownloadedIllust>> searchIllusts(
     String keyword, {
     int? limit,
@@ -1358,9 +1362,30 @@ class DownloadDatabaseProvider {
           '${DownloadedIllustColumns.bookmark} DESC, $orderByClause';
     }
 
-    final whereConditions = [
-      '(${DownloadedIllustColumns.title} LIKE ? OR ${DownloadedIllustColumns.userName} LIKE ? OR ${DownloadedIllustColumns.tags} LIKE ?)',
-    ];
+    final normalizedKeyword = keyword.trim();
+    final isNumericIllustIdKeyword = _isNumericIllustIdKeyword(
+      normalizedKeyword,
+    );
+    final illustId = int.tryParse(normalizedKeyword);
+    final whereConditions = <String>[];
+    final whereArgs = <dynamic>[];
+    if (isNumericIllustIdKeyword) {
+      if (illustId == null) {
+        whereConditions.add('0 = 1');
+      } else {
+        whereConditions.add('${DownloadedIllustColumns.illustId} = ?');
+        whereArgs.add(illustId);
+      }
+    } else {
+      whereConditions.add(
+        '(${DownloadedIllustColumns.title} LIKE ? OR ${DownloadedIllustColumns.userName} LIKE ? OR ${DownloadedIllustColumns.tags} LIKE ?)',
+      );
+      whereArgs.addAll([
+        '%$normalizedKeyword%',
+        '%$normalizedKeyword%',
+        '%$normalizedKeyword%',
+      ]);
+    }
     if (filterBookmarks) {
       whereConditions.add('${DownloadedIllustColumns.bookmark} > 0');
     }
@@ -1377,7 +1402,7 @@ class DownloadDatabaseProvider {
     List<Map<String, dynamic>> maps = await db.query(
       DownloadedIllustColumns.tableName,
       where: whereConditions.join(' AND '),
-      whereArgs: ['%$keyword%', '%$keyword%', '%$keyword%'],
+      whereArgs: whereArgs,
       orderBy: orderByClause,
       limit: limit,
       offset: offset,
@@ -2746,19 +2771,34 @@ class DownloadDatabaseProvider {
       }
     } else if (filterType == 'search' &&
         searchKeyword != null &&
-        searchKeyword.isNotEmpty) {
+        searchKeyword.trim().isNotEmpty) {
+      final normalizedKeyword = searchKeyword.trim();
+      final isNumericIllustIdKeyword = _isNumericIllustIdKeyword(
+        normalizedKeyword,
+      );
+      final illustId = int.tryParse(normalizedKeyword);
       final searchCondition =
-          'di.${DownloadedIllustColumns.title} LIKE ? OR di.${DownloadedIllustColumns.userName} LIKE ? OR di.${DownloadedIllustColumns.tags} LIKE ?';
+          isNumericIllustIdKeyword
+              ? (illustId == null
+                  ? '0 = 1'
+                  : 'di.${DownloadedIllustColumns.illustId} = ?')
+              : 'di.${DownloadedIllustColumns.title} LIKE ? OR di.${DownloadedIllustColumns.userName} LIKE ? OR di.${DownloadedIllustColumns.tags} LIKE ?';
       if (whereClause.isEmpty) {
         whereClause = 'WHERE ($searchCondition)';
       } else {
         whereClause += ' AND ($searchCondition)';
       }
-      whereArgs.addAll([
-        '%$searchKeyword%',
-        '%$searchKeyword%',
-        '%$searchKeyword%',
-      ]);
+      if (isNumericIllustIdKeyword) {
+        if (illustId != null) {
+          whereArgs.add(illustId);
+        }
+      } else {
+        whereArgs.addAll([
+          '%$normalizedKeyword%',
+          '%$normalizedKeyword%',
+          '%$normalizedKeyword%',
+        ]);
+      }
     } else if (filterType == 'incomplete') {
       // 未下载完整：使用物化字段过滤，无需 JOIN
       final incompleteCondition =

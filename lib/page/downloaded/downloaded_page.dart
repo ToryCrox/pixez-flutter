@@ -324,7 +324,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
       controller: _searchController,
       focusNode: _searchFocusNode,
       decoration: InputDecoration(
-        hintText: '搜索标题，用户或者标签',
+        hintText: '搜索标题、用户、标签或插画 ID',
         border: InputBorder.none,
         hintStyle: TextStyle(
           color: Theme.of(
