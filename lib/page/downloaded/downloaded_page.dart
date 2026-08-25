@@ -727,7 +727,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
       padding: EdgeInsets.all(8),
       sliver: SliverGrid(
         gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-          maxCrossAxisExtent: 240,
+          maxCrossAxisExtent: 280,
           childAspectRatio: 0.7,
           crossAxisSpacing: 8,
           mainAxisSpacing: 8,
