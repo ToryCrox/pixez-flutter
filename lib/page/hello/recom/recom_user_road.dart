@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pixez/custom/app_mouse_cursor.dart';
 import 'package:pixez/component/pixiv_image.dart';
 import 'package:pixez/page/hello/recom/recom_user_page.dart';
 import 'package:pixez/page/hello/recom/recom_user_store.dart';
@@ -26,6 +27,7 @@ class _RecomUserRoadState extends State<RecomUserRoad> {
   @override
   Widget build(BuildContext context) {
     return InkWell(
+      mouseCursor: appAdaptiveClickable,
       onTap: () {
         Navigator.of(context).push(
           MaterialPageRoute(

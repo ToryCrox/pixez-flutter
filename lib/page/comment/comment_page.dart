@@ -21,6 +21,7 @@ import 'package:easy_refresh/easy_refresh.dart';
 import 'package:pixez/ai/ai_translation_error_handler.dart';
 import 'package:pixez/component/pixez_easy_refresh.dart';
 import 'package:flutter/material.dart';
+import 'package:pixez/custom/app_mouse_cursor.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:pixez/component/comment_emoji_text.dart';
 import 'package:pixez/component/painter_avatar.dart';
@@ -133,6 +134,7 @@ class _CommentPageState extends State<CommentPage> {
             Padding(
               padding: const EdgeInsets.all(4.0),
               child: InkWell(
+                mouseCursor: appAdaptiveClickable,
                 onTap: () {
                   String key = i;
                   String text = _editController.text;
@@ -445,6 +447,7 @@ class _CommentPageState extends State<CommentPage> {
                       children: [
                         if (comment.hasReplies == true)
                           ActionChip(
+                            mouseCursor: appAdaptiveClickable,
                             label: Text(I18n.of(context).view_replies),
                             onPressed: () => _onViewReplies(comment),
                           ),
@@ -715,6 +718,7 @@ class _CommentPageState extends State<CommentPage> {
     return Row(
       children: [
         InkWell(
+          mouseCursor: appAdaptiveClickable,
           onTap: () {
             if (widget.isReplay) return;
             parentCommentId = comment.id;
@@ -731,6 +735,7 @@ class _CommentPageState extends State<CommentPage> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12.0),
             child: InkWell(
+              mouseCursor: appAdaptiveClickable,
               onTap: () => _showMoreMenu(context, comment),
               child: Icon(Icons.more_horiz),
             ),

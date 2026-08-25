@@ -16,6 +16,7 @@
 
 import 'package:bot_toast/bot_toast.dart';
 import 'package:flutter/material.dart';
+import 'package:pixez/custom/app_mouse_cursor.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:pixez/er/leader.dart';
@@ -110,6 +111,7 @@ class _SearchSuggestionPageState extends State<SearchSuggestionPage> {
                             children: [
                               for (String i in tagGroup)
                                 ActionChip(
+                                  mouseCursor: appAdaptiveClickable,
                                   label: Text(i),
                                   onPressed: () {
                                     final start = _filter.text.indexOf(i);

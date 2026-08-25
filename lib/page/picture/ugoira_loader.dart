@@ -18,6 +18,7 @@ import 'dart:math';
 
 import 'package:bot_toast/bot_toast.dart';
 import 'package:flutter/material.dart' hide Image;
+import 'package:pixez/custom/app_mouse_cursor.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:mobx/mobx.dart';
@@ -128,6 +129,7 @@ class _UgoiraLoaderState extends State<UgoiraLoader> {
 
           // 使用序列帧播放
           return InkWell(
+            mouseCursor: appAdaptiveClickable,
             onLongPress: () async {
               if (isEncoding) return;
               final result = await showModalBottomSheet(
@@ -248,6 +250,7 @@ class _UgoiraLoaderState extends State<UgoiraLoader> {
               ),
             ),
             InkWell(
+              mouseCursor: appAdaptiveClickable,
               onTap: () {
                 _store.downloadAndUnzip();
               },

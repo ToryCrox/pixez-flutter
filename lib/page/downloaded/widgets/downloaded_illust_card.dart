@@ -14,6 +14,7 @@
  */
 
 import 'package:flutter/material.dart';
+import 'package:pixez/custom/app_mouse_cursor.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:pixez/constants.dart';
 import 'package:pixez/exts.dart';
@@ -100,6 +101,7 @@ class DownloadedIllustCard extends StatelessWidget {
         color: Colors.black54,
         borderRadius: BorderRadius.circular(20),
         child: InkWell(
+          mouseCursor: appAdaptiveClickable,
           borderRadius: BorderRadius.circular(20),
           onTap:
               () => DownloadedImageOrganizerPage.pushByUserId(
@@ -124,6 +126,7 @@ class DownloadedIllustCard extends StatelessWidget {
         color: Colors.black54,
         borderRadius: BorderRadius.circular(20),
         child: InkWell(
+          mouseCursor: appAdaptiveClickable,
           borderRadius: BorderRadius.circular(20),
           onTap: onOpenFolder,
           child: Container(
@@ -143,6 +146,7 @@ class DownloadedIllustCard extends StatelessWidget {
         color: Colors.black54,
         borderRadius: BorderRadius.circular(20),
         child: InkWell(
+          mouseCursor: appAdaptiveClickable,
           borderRadius: BorderRadius.circular(20),
           onTap: onOpenOriginalFolder,
           child: Container(
@@ -171,6 +175,7 @@ class DownloadedIllustCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           elevation: 2,
           child: InkWell(
+            mouseCursor: appAdaptiveClickable,
             onTap: onTap,
             borderRadius: BorderRadius.circular(16),
             child: const Padding(
@@ -206,6 +211,7 @@ class DownloadedIllustCard extends StatelessWidget {
         color: Colors.black54,
         borderRadius: BorderRadius.circular(20),
         child: InkWell(
+          mouseCursor: appAdaptiveClickable,
           borderRadius: BorderRadius.circular(20),
           onTap: () {
             final newBookmark = isBookmarked ? 0 : 1;
@@ -285,6 +291,7 @@ class DownloadedIllustCard extends StatelessWidget {
     return HoverScaleCard(
       isSelected: isSelected,
       child: InkWell(
+        mouseCursor: appAdaptiveClickable,
         onTap: () {
           if (store.isMultiSelectMode) {
             store.setItemSelected(illust.illustId, !isSelected);
@@ -563,6 +570,7 @@ class DownloadedIllustCard extends StatelessWidget {
           child: Material(
             color: Colors.transparent,
             child: InkWell(
+              mouseCursor: appAdaptiveClickable,
               onTap: () => downloadStore.resumeIllustDownload(illust.illustId),
               borderRadius: BorderRadius.circular(8),
               child: Padding(
@@ -721,6 +729,7 @@ class DownloadedIllustCard extends StatelessWidget {
 
     // 处理跳转逻辑
     return InkWell(
+      mouseCursor: appAdaptiveClickable,
       onTap: store.isMultiSelectMode ? null : onAuthorTap,
       borderRadius: BorderRadius.circular(4),
       child: Text(
@@ -849,6 +858,7 @@ class DownloadedIllustCard extends StatelessWidget {
     return Tooltip(
       message: illust.isTranslated ? '取消翻译标记' : '标记为已翻译',
       child: InkWell(
+        mouseCursor: appAdaptiveClickable,
         onTap: onTranslationStatusTap,
         borderRadius: BorderRadius.circular(12),
         child: Padding(

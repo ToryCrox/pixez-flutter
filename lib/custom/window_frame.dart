@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:pixez/custom/app_mouse_cursor.dart';
 import 'package:flutter/services.dart';
 import 'package:pixez/er/leader.dart';
 import 'package:pixez/er/prefer.dart';
@@ -237,6 +238,7 @@ class _WindowFrameState extends State<WindowFrame> {
     BuildContext context,
   ) {
     return InkWell(
+      mouseCursor: appAdaptiveClickable,
       onTap: () {
         controller.openSideBar();
       },
@@ -468,6 +470,7 @@ class _SideBarBody extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: InkWell(
+        mouseCursor: appAdaptiveClickable,
         onTap: onTap,
         borderRadius: BorderRadius.circular(8),
         child: Container(

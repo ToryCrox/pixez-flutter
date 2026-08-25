@@ -21,6 +21,7 @@ import 'dart:typed_data';
 import 'package:bot_toast/bot_toast.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:pixez/custom/app_mouse_cursor.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:html/parser.dart' show parse;
 import 'package:image/image.dart';
@@ -83,6 +84,7 @@ abstract class SauceStoreBase with Store {
                           await userSetting.setImagePickerType(value ? 1 : 0);
                         },
                         title: InkWell(
+                          mouseCursor: appAdaptiveClickable,
                           child: Text(I18n.of(context).photo_picker),
                           onTap: () {
                             launchUrlString(
@@ -97,6 +99,7 @@ abstract class SauceStoreBase with Store {
                   ),
                   Divider(),
                   InkWell(
+                    mouseCursor: appAdaptiveClickable,
                     child: Center(
                       child: Padding(
                         padding: const EdgeInsets.all(8.0),

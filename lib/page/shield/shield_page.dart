@@ -17,6 +17,7 @@
 import 'package:bot_toast/bot_toast.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:pixez/custom/app_mouse_cursor.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:pixez/er/leader.dart';
@@ -128,6 +129,7 @@ class _ShieldPageState extends State<ShieldPage> {
                                   );
                                 },
                                 child: ActionChip(
+                                  mouseCursor: appAdaptiveClickable,
                                   onPressed: () => deleteTag(context, f),
                                   label: Text(f.name),
                                 ),
@@ -159,6 +161,7 @@ class _ShieldPageState extends State<ShieldPage> {
                           muteStore.banUserIds
                               .map(
                                 (f) => ActionChip(
+                                  mouseCursor: appAdaptiveClickable,
                                   onPressed: () => _deleteUserIdTag(context, f),
                                   label: Text(f.name ?? ""),
                                 ),
@@ -188,6 +191,7 @@ class _ShieldPageState extends State<ShieldPage> {
                         ...muteStore.banillusts
                             .map(
                               (f) => ActionChip(
+                                mouseCursor: appAdaptiveClickable,
                                 onPressed: () => _deleteIllust(context, f),
                                 label: Text(f.name),
                               ),

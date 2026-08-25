@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pixez/custom/app_mouse_cursor.dart';
 
 class SortGroup extends StatefulWidget {
   final List<String> children;
@@ -29,6 +30,7 @@ class _SortGroupState extends State<SortGroup> {
   Widget build(BuildContext context) {
     return SegmentedButton(
       style: ButtonStyle(
+        mouseCursor: appAdaptiveClickable,
         backgroundColor: WidgetStateProperty.resolveWith((
           Set<WidgetState> states,
         ) {

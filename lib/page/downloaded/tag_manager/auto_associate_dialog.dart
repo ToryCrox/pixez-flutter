@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pixez/custom/app_mouse_cursor.dart';
 import 'package:pixez/main.dart';
 import 'package:pixez/models/download_record.dart';
 import 'package:pixez/store/tag_manager_store.dart';
@@ -239,6 +240,7 @@ class _AutoAssociateDialogState extends State<AutoAssociateDialog> {
                                 children: [
                                   const Text('归属作品: '),
                                   InkWell(
+                                    mouseCursor: appAdaptiveClickable,
                                     onTap: () => _changeParent(state),
                                     child: Container(
                                       padding: const EdgeInsets.symmetric(

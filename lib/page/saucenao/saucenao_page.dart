@@ -15,6 +15,7 @@
  */
 
 import 'package:flutter/material.dart';
+import 'package:pixez/custom/app_mouse_cursor.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:pixez/i18n.dart';
 import 'package:pixez/page/picture/illust_lighting_page.dart';
@@ -92,6 +93,7 @@ class _SauceNaoPageState extends State<SauceNaoPage> {
                   );
                 }
                 return InkWell(
+                  mouseCursor: appAdaptiveClickable,
                   child: Card(
                     child:
                         _store.results.isNotEmpty

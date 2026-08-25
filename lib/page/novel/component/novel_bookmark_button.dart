@@ -15,6 +15,7 @@
  */
 
 import 'package:flutter/material.dart';
+import 'package:pixez/custom/app_mouse_cursor.dart';
 import 'package:pixez/models/novel_recom_response.dart';
 import 'package:pixez/network/api_client.dart';
 
@@ -31,6 +32,7 @@ class _NovelBookmarkButtonState extends State<NovelBookmarkButton> {
   @override
   Widget build(BuildContext context) {
     return InkWell(
+      mouseCursor: appAdaptiveClickable,
       onLongPress: () async {
         if (!widget.novel.isBookmarked) {
           try {

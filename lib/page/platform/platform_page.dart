@@ -16,6 +16,7 @@
 
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
+import 'package:pixez/custom/app_mouse_cursor.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_displaymode/flutter_displaymode.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
@@ -161,6 +162,7 @@ class _PlatformPageState extends State<PlatformPage> {
                     // if (result != null) userSetting.setPath(result);
                   },
                   trailing: InkWell(
+                    mouseCursor: appAdaptiveClickable,
                     onTap: () {
                       Leader.push(context, SaveEvalPage());
                     },
@@ -277,6 +279,7 @@ class _PlatformPageState extends State<PlatformPage> {
                         await userSetting.setImagePickerType(value ? 1 : 0);
                       },
                       title: InkWell(
+                        mouseCursor: appAdaptiveClickable,
                         child: Text(I18n.of(context).photo_picker),
                         onTap: () {
                           launchUrlString(

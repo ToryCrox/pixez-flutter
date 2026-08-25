@@ -16,6 +16,7 @@
 
 import 'package:bot_toast/bot_toast.dart';
 import 'package:flutter/material.dart';
+import 'package:pixez/custom/app_mouse_cursor.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:pixez/i18n.dart';
 import 'package:pixez/main.dart';
@@ -56,6 +57,7 @@ class _SaveFormatPageState extends State<SaveFormatPage> {
   }
 
   _buildActionText(String text) => ActionChip(
+    mouseCursor: appAdaptiveClickable,
     label: Text("$text"),
     onPressed: () {
       if (_textEditingController.selection.end == -1) return;

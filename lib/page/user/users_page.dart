@@ -21,6 +21,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:dio/dio.dart';
 import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/material.dart';
+import 'package:pixez/custom/app_mouse_cursor.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:path_provider/path_provider.dart';
@@ -582,6 +583,7 @@ class _UsersPageState extends State<UsersPage> with TickerProviderStateMixin {
           userStore.userDetail != null
               ? userStore.userDetail!.profile.background_image_url != null
                   ? InkWell(
+                    mouseCursor: appAdaptiveClickable,
                     onLongPress: () {
                       showDialog(
                         context: context,
@@ -792,6 +794,7 @@ class _UsersPageState extends State<UsersPage> with TickerProviderStateMixin {
               ],
             ),
             InkWell(
+              mouseCursor: appAdaptiveClickable,
               onTap: () {
                 Navigator.of(context).push(
                   MaterialPageRoute(

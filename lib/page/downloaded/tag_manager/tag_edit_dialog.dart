@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pixez/custom/app_mouse_cursor.dart';
 import 'package:pixez/models/download_record.dart';
 import 'package:pixez/main.dart';
 import 'tag_manager_page.dart';
@@ -97,6 +98,7 @@ class _TagEditDialogState extends State<TagEditDialog> {
                         .where((e) => e != TagCategory.uncategorized)
                         .map((category) {
                           return ChoiceChip(
+                            mouseCursor: appAdaptiveClickable,
                             label: Text(category.label),
                             selected: _selectedCategory == category,
                             onSelected: (bool selected) {
@@ -244,6 +246,7 @@ class _TagEditDialogState extends State<TagEditDialog> {
                       final labelText = '$namePart$translatePart$countPart';
 
                       return ActionChip(
+                        mouseCursor: appAdaptiveClickable,
                         onPressed: () {
                           DownloadedPage.open(context, tagId: t.id);
                         },
@@ -328,6 +331,7 @@ class _TagEditDialogState extends State<TagEditDialog> {
               itemBuilder: (context, index) {
                 final child = _childTags[index].tag;
                 return ActionChip(
+                  mouseCursor: appAdaptiveClickable,
                   onPressed: () {
                     DownloadedPage.open(context, tagId: child.id);
                   },
@@ -382,6 +386,7 @@ class _TagEditDialogState extends State<TagEditDialog> {
         const Text('归属作品', style: TextStyle(fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
         InkWell(
+          mouseCursor: appAdaptiveClickable,
           onTap: _showParentSelectionDialog,
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),

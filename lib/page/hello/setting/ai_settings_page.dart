@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pixez/custom/app_mouse_cursor.dart';
 import 'package:pixez/ai/ai_models.dart';
 import 'package:pixez/main.dart';
 
@@ -500,6 +501,7 @@ class _ProviderEditorDialogState extends State<_ProviderEditorDialog> {
                 itemBuilder: (context, index) {
                   final option = options.elementAt(index);
                   return InkWell(
+                    mouseCursor: appAdaptiveClickable,
                     onTap: () => onSelected(option),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(

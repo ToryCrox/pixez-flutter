@@ -18,6 +18,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:pixez/custom/app_mouse_cursor.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:pixez/i18n.dart';
 import 'package:pixez/main.dart';
@@ -195,6 +196,7 @@ class _RankPageState extends State<RankPage>
                 children: [
                   for (var e in rankListMean)
                     FilterChip(
+                      mouseCursor: appAdaptiveClickable,
                       label: Text(e),
                       selected: _rankFilters.contains(e),
                       onSelected: (v) {

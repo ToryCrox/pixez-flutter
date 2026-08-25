@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:pixez/custom/app_mouse_cursor.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:pixez/ai/ai_translation_error_handler.dart';
@@ -427,6 +428,7 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
         child: Container(
           child: Center(
             child: InkWell(
+              mouseCursor: appAdaptiveClickable,
               onTap: () {
                 _illustStore?.fetch();
               },
@@ -813,6 +815,7 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
       child: Padding(
         padding: EdgeInsets.only(left: 16.0, right: 16.0),
         child: InkWell(
+          mouseCursor: appAdaptiveClickable,
           onTap: () {
             if (widget.onCommentClick != null) {
               widget.onCommentClick!();
@@ -1258,6 +1261,7 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
   Widget _buildAddTagButton(BuildContext context) {
     final theme = Theme.of(context);
     return InkWell(
+      mouseCursor: appAdaptiveClickable,
       onTap: () => _showTagSelectionDialog(context),
       child: Container(
         height: 25,
@@ -1445,6 +1449,7 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
     return Observer(
       builder: (_) {
         return InkWell(
+          mouseCursor: appAdaptiveClickable,
           onTap: () async {
             await _push2UserPage(context, illust);
           },

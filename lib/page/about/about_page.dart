@@ -17,6 +17,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:pixez/custom/app_mouse_cursor.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:pixez/constants.dart';
@@ -69,6 +70,7 @@ class _AboutPageState extends State<AboutPage> {
                   ),
                   builder: (BuildContext context) {
                     return InkWell(
+                      mouseCursor: appAdaptiveClickable,
                       onTap: () {
                         if (Platform.isAndroid)
                           launchUrlString(
@@ -121,6 +123,7 @@ class _AboutPageState extends State<AboutPage> {
                   final data = contributors[index];
                   return Card(
                     child: InkWell(
+                      mouseCursor: appAdaptiveClickable,
                       onTap: () async {
                         try {
                           if (data.onPressed == null) return;
@@ -290,7 +293,7 @@ class _AboutPageState extends State<AboutPage> {
               },
             ),
             ListTile(
-              leading: Icon(FontAwesomeIcons.telegram),
+              leading: FaIcon(FontAwesomeIcons.telegram),
               title: Text("Group"),
               subtitle: Text('t.me/PixEzChannel'),
             ),

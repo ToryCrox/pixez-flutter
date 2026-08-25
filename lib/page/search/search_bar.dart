@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pixez/custom/app_mouse_cursor.dart';
 import 'package:pixez/i18n.dart';
 import 'package:pixez/page/search/suggest/search_suggestion_page.dart';
 
@@ -43,6 +44,7 @@ class _SearchBarState extends State<SearchBar> {
             ),
             Expanded(
               child: InkWell(
+                mouseCursor: appAdaptiveClickable,
                 onTap: () {
                   Navigator.push(
                     context,

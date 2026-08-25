@@ -18,6 +18,7 @@ import 'dart:io';
 import 'dart:math';
 import 'package:bot_toast/bot_toast.dart';
 import 'package:flutter/material.dart' hide SearchBar;
+import 'package:pixez/custom/app_mouse_cursor.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:pixez/component/hover_scale_container.dart';
 import 'package:pixez/component/pixiv_image.dart';
@@ -247,6 +248,7 @@ class _SearchPageState extends State<SearchPage>
                             for (var f in _tagExpand ? targetTags : resultTags)
                               buildActionChip(f, context),
                             ActionChip(
+                              mouseCursor: appAdaptiveClickable,
                               label: AnimatedSwitcher(
                                 duration: Duration(milliseconds: 300),
                                 transitionBuilder: (child, anim) {
@@ -299,6 +301,7 @@ class _SearchPageState extends State<SearchPage>
                     )
                     .isNotEmpty)
                   return InkWell(
+                    mouseCursor: appAdaptiveClickable,
                     onTap: () {
                       showDialog(
                         context: context,
@@ -491,6 +494,7 @@ class _SearchPageState extends State<SearchPage>
         );
       },
       child: ActionChip(
+        mouseCursor: appAdaptiveClickable,
         padding: EdgeInsets.all(0.0),
         label: Text(f.name, style: TextStyle(fontSize: 12.0)),
         onPressed: () {

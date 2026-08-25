@@ -21,6 +21,7 @@ import 'package:flutter/gestures.dart';
 import 'package:bot_toast/bot_toast.dart';
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/material.dart';
+import 'package:pixez/custom/app_mouse_cursor.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
@@ -352,6 +353,30 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                 chipTheme: ChipThemeData(
                   backgroundColor: lightColorScheme.surface,
                 ),
+                textButtonTheme: TextButtonThemeData(
+                  style: ButtonStyle(mouseCursor: appAdaptiveClickable),
+                ),
+                elevatedButtonTheme: ElevatedButtonThemeData(
+                  style: ButtonStyle(mouseCursor: appAdaptiveClickable),
+                ),
+                outlinedButtonTheme: OutlinedButtonThemeData(
+                  style: ButtonStyle(mouseCursor: appAdaptiveClickable),
+                ),
+                filledButtonTheme: FilledButtonThemeData(
+                  style: ButtonStyle(mouseCursor: appAdaptiveClickable),
+                ),
+                iconButtonTheme: IconButtonThemeData(
+                  style: ButtonStyle(mouseCursor: appAdaptiveClickable),
+                ),
+                floatingActionButtonTheme: FloatingActionButtonThemeData(
+                  mouseCursor: appAdaptiveClickable,
+                ),
+                checkboxTheme: CheckboxThemeData(
+                  mouseCursor: appAdaptiveClickable,
+                ),
+                radioTheme: RadioThemeData(mouseCursor: appAdaptiveClickable),
+                switchTheme: SwitchThemeData(mouseCursor: appAdaptiveClickable),
+                sliderTheme: SliderThemeData(mouseCursor: appAdaptiveClickable),
                 canvasColor: lightColorScheme.surfaceContainer,
                 dialogTheme: DialogThemeData(
                   backgroundColor: lightColorScheme.surfaceContainer,
@@ -375,6 +400,30 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                 // tabBarTheme: TabBarTheme(dividerColor: Colors.transparent),
                 tabBarTheme: TabBarThemeData(dividerColor: Colors.transparent),
                 colorScheme: darkColorScheme,
+                textButtonTheme: TextButtonThemeData(
+                  style: ButtonStyle(mouseCursor: appAdaptiveClickable),
+                ),
+                elevatedButtonTheme: ElevatedButtonThemeData(
+                  style: ButtonStyle(mouseCursor: appAdaptiveClickable),
+                ),
+                outlinedButtonTheme: OutlinedButtonThemeData(
+                  style: ButtonStyle(mouseCursor: appAdaptiveClickable),
+                ),
+                filledButtonTheme: FilledButtonThemeData(
+                  style: ButtonStyle(mouseCursor: appAdaptiveClickable),
+                ),
+                iconButtonTheme: IconButtonThemeData(
+                  style: ButtonStyle(mouseCursor: appAdaptiveClickable),
+                ),
+                floatingActionButtonTheme: FloatingActionButtonThemeData(
+                  mouseCursor: appAdaptiveClickable,
+                ),
+                checkboxTheme: CheckboxThemeData(
+                  mouseCursor: appAdaptiveClickable,
+                ),
+                radioTheme: RadioThemeData(mouseCursor: appAdaptiveClickable),
+                switchTheme: SwitchThemeData(mouseCursor: appAdaptiveClickable),
+                sliderTheme: SliderThemeData(mouseCursor: appAdaptiveClickable),
                 dialogTheme: DialogThemeData(
                   titleTextStyle: TextStyle(
                     fontFamily: userSetting.fontFamily,

@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:pixez/custom/app_mouse_cursor.dart';
 import 'package:flutter/services.dart';
 import 'package:pixez/er/prefer.dart';
 
@@ -1000,6 +1001,7 @@ class _LocalImageViewerPageState extends State<LocalImageViewerPage> {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
+          mouseCursor: appAdaptiveClickable,
           borderRadius: BorderRadius.circular(22),
           onTap: enabled ? onTap : null,
           child: Container(
@@ -1033,6 +1035,7 @@ class _LocalImageViewerPageState extends State<LocalImageViewerPage> {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
+          mouseCursor: appAdaptiveClickable,
           borderRadius: BorderRadius.circular(18),
           onTap: onTap,
           child: Container(

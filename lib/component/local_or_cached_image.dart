@@ -17,6 +17,7 @@ import 'dart:async';
 
 import 'package:bot_toast/bot_toast.dart';
 import 'package:flutter/material.dart';
+import 'package:pixez/custom/app_mouse_cursor.dart';
 import 'package:pixez/custom/log.dart';
 import 'package:pixez/exts.dart';
 import 'package:pixez/main.dart';
@@ -360,6 +361,7 @@ class _IllustDownloadButtonState extends State<IllustDownloadButton> {
       width: 40,
       height: 40,
       child: InkWell(
+        mouseCursor: appAdaptiveClickable,
         onTap: _showDownloadDialog,
         onLongPress: _showPriorityDialog,
         borderRadius: BorderRadius.circular(4),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pixez/custom/app_mouse_cursor.dart';
 import 'package:pixez/component/pixiv_image.dart';
 import 'package:pixez/custom/log.dart';
 import 'package:pixez/main.dart';
@@ -346,6 +347,7 @@ class _SyncBookmarksDialogState extends State<SyncBookmarksDialog> {
                   ],
                 ),
                 secondary: InkWell(
+                  mouseCursor: appAdaptiveClickable,
                   onTap: () => _navigateToIllust(illust),
                   borderRadius: BorderRadius.circular(4),
                   child: SizedBox(

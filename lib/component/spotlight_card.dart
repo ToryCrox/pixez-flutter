@@ -16,6 +16,7 @@
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:pixez/custom/app_mouse_cursor.dart';
 import 'package:flutter/services.dart';
 import 'package:pixez/er/hoster.dart';
 import 'package:pixez/models/spotlight_response.dart';
@@ -35,6 +36,7 @@ class SpotlightCard extends StatelessWidget {
       padding: EdgeInsets.all(4.0),
       child: HoverScaleCard(
         child: InkWell(
+          mouseCursor: appAdaptiveClickable,
           onTap: () async {
             Navigator.of(context).push(
               MaterialPageRoute(

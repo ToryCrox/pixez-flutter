@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pixez/custom/app_mouse_cursor.dart';
 import 'package:pixez/debug/network_logger.dart';
 import 'package:pixez/page/debug/network_log_detail_page.dart';
 
@@ -140,6 +141,7 @@ class _NetworkLogPageState extends State<NetworkLogPage> {
     }
 
     return InkWell(
+      mouseCursor: appAdaptiveClickable,
       onTap: () {
         NetworkLogDetailPage.show(context, log);
       },

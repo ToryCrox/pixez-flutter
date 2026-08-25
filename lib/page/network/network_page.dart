@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:pixez/custom/app_mouse_cursor.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:pixez/er/hoster.dart';
@@ -537,6 +538,7 @@ class _NetworkPageState extends State<NetworkPage> {
             : (item.ipInfo.latency! < 0 ? '超时' : '${item.ipInfo.latency}ms');
 
     return InkWell(
+      mouseCursor: appAdaptiveClickable,
       onTap: () => _selectIp(hostInfo.host, item.source, item.index),
       onLongPress: () {
         Clipboard.setData(ClipboardData(text: item.ipInfo.ip));

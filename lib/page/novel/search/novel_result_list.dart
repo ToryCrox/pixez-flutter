@@ -1,6 +1,7 @@
 import 'package:bot_toast/bot_toast.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:pixez/custom/app_mouse_cursor.dart';
 import 'package:pixez/i18n.dart';
 import 'package:pixez/lighting/lighting_store.dart';
 import 'package:pixez/main.dart';
@@ -34,6 +35,7 @@ class _NovelResultListState extends State<NovelResultList> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: <Widget>[
               InkWell(
+                mouseCursor: appAdaptiveClickable,
                 onTap: () {},
                 child: Container(
                   width: MediaQuery.of(context).size.width * 2 / 3,

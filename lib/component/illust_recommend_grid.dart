@@ -15,6 +15,7 @@
  */
 
 import 'package:flutter/material.dart';
+import 'package:pixez/custom/app_mouse_cursor.dart';
 import 'package:pixez/component/local_or_cached_image.dart';
 import 'package:pixez/component/pixiv_image.dart';
 import 'package:pixez/er/leader.dart';
@@ -53,6 +54,7 @@ class IllustRecommendGrid extends StatelessWidget {
 
   Widget _buildRecommendItem(BuildContext context, Illusts illust, int index) {
     return InkWell(
+      mouseCursor: appAdaptiveClickable,
       onTap: () {
         final list =
             illusts.map((element) => IllustStore(element.id, element)).toList();

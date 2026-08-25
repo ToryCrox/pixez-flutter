@@ -19,6 +19,7 @@ import 'dart:io';
 import 'package:bot_toast/bot_toast.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:pixez/custom/app_mouse_cursor.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:pixez/constants.dart';
 import 'package:pixez/debug/mana_manager.dart';
@@ -502,6 +503,7 @@ class _SettingQualityPageState extends State<SettingQualityPage>
       children: [
         for (final langsponsor in langsponsors)
           InkWell(
+            mouseCursor: appAdaptiveClickable,
             onTap: () {
               try {
                 if (Platform.isAndroid && !Constants.isGooglePlay)
@@ -573,6 +575,7 @@ class _SettingSelectMenuState extends State<SettingSelectMenu> {
       elevation: 0.0,
       color: Theme.of(context).colorScheme.secondaryContainer,
       child: InkWell(
+        mouseCursor: appAdaptiveClickable,
         onTap: () {
           final renderBox = context.findRenderObject() as RenderBox;
           var local = renderBox.localToGlobal(Offset.zero);

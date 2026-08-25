@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:pixez/custom/app_mouse_cursor.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -212,6 +213,7 @@ class _LogViewerPageState extends ConsumerState<LogViewerPage> {
     Function(bool) onSelected,
   ) {
     return FilterChip(
+      mouseCursor: appAdaptiveClickable,
       label: Text(label),
       selected: isSelected,
       onSelected: onSelected,

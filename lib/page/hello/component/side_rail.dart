@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pixez/custom/app_mouse_cursor.dart';
 
 class SideRail extends StatelessWidget {
   final int selectedIndex;
@@ -25,23 +26,26 @@ class SideRail extends StatelessWidget {
       width: width,
       child: Stack(
         children: [
-          NavigationRail(
-            selectedIndex: selectedIndex,
-            minWidth: width,
-            labelType:
-                width < 52
-                    ? NavigationRailLabelType.none
-                    : NavigationRailLabelType.all,
-            unselectedIconTheme: IconThemeData(
-              size: iconSize,
-              color: colorScheme.onSurfaceVariant,
+          MouseRegion(
+            cursor: appAdaptiveClickable,
+            child: NavigationRail(
+              selectedIndex: selectedIndex,
+              minWidth: width,
+              labelType:
+                  width < 52
+                      ? NavigationRailLabelType.none
+                      : NavigationRailLabelType.all,
+              unselectedIconTheme: IconThemeData(
+                size: iconSize,
+                color: colorScheme.onSurfaceVariant,
+              ),
+              selectedIconTheme: IconThemeData(
+                size: iconSize,
+                color: colorScheme.onSecondaryContainer,
+              ),
+              onDestinationSelected: onDestinationSelected,
+              destinations: destinations,
             ),
-            selectedIconTheme: IconThemeData(
-              size: iconSize,
-              color: colorScheme.onSecondaryContainer,
-            ),
-            onDestinationSelected: onDestinationSelected,
-            destinations: destinations,
           ),
           if (trailing != null)
             Positioned(

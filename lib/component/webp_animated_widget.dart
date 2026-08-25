@@ -18,6 +18,7 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:pixez/custom/app_mouse_cursor.dart';
 import 'package:pixez/custom/log.dart';
 import 'package:pixez/main.dart';
 
@@ -210,6 +211,7 @@ class _WebpAnimatedWidgetState extends State<WebpAnimatedWidget>
   Widget _buildZoomButton(String label, WebpZoomMode mode) {
     final isSelected = _zoomMode == mode;
     return InkWell(
+      mouseCursor: appAdaptiveClickable,
       onTap: () => _setZoomMode(mode),
       borderRadius: BorderRadius.circular(4),
       child: Padding(

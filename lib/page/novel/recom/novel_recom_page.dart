@@ -19,6 +19,7 @@ import 'package:pixez/component/pixez_easy_refresh.dart';
 import 'package:pixez/component/pixez_default_header.dart';
 import 'package:pixez/exts.dart';
 import 'package:flutter/material.dart';
+import 'package:pixez/custom/app_mouse_cursor.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:pixez/component/pixiv_image.dart';
 import 'package:pixez/i18n.dart';
@@ -126,6 +127,7 @@ class _NovelRecomPageState extends State<NovelRecomPage>
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4.0),
       child: InkWell(
+        mouseCursor: appAdaptiveClickable,
         onTap: () {
           Navigator.of(context).push(
             MaterialPageRoute(

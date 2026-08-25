@@ -22,6 +22,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:pixez/component/pixez_easy_refresh.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:pixez/custom/app_mouse_cursor.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:scrollview_observer/scrollview_observer.dart';
@@ -883,6 +884,7 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
 
                 Widget placeWidget = Container(height: height);
                 return InkWell(
+                  mouseCursor: appAdaptiveClickable,
                   onLongPress: () {
                     final part = _illustStore.getDownloadedPartForDisplayIndex(
                       0,
@@ -932,6 +934,7 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
                 int index,
               ) {
                 return InkWell(
+                  mouseCursor: appAdaptiveClickable,
                   onLongPress: () {
                     final part = _illustStore.getDownloadedPartForDisplayIndex(
                       index,
@@ -1593,6 +1596,7 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
           _loadAbout();
         });
         return InkWell(
+          mouseCursor: appAdaptiveClickable,
           onTap: () async {
             await _push2UserPage(context, illust);
           },
@@ -1781,6 +1785,7 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
                             child: Padding(
                               padding: const EdgeInsets.all(8.0),
                               child: InkWell(
+                                mouseCursor: appAdaptiveClickable,
                                 onTap: () {
                                   setDialogState(() {
                                     indexs[index] = !indexs[index];

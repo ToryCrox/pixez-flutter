@@ -21,6 +21,7 @@ import 'dart:ui';
 import 'package:bot_toast/bot_toast.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
+import 'package:pixez/custom/app_mouse_cursor.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -163,43 +164,46 @@ class _AndroidHelloPageState extends State<AndroidHelloPage> {
     return ClipRRect(
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-        child: NavigationBar(
-          height: 68,
-          backgroundColor: Theme.of(
-            context,
-          ).colorScheme.surface.withValues(alpha: 0.9),
-          destinations: [
-            NavigationDestination(
-              icon: Icon(Icons.home),
-              label: I18n.of(context).home,
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.leaderboard),
-              label: I18n.of(context).rank,
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.favorite),
-              label: I18n.of(context).quick_view,
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.search),
-              label: I18n.of(context).search,
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.more_horiz),
-              label: I18n.of(context).more,
-            ),
-          ],
-          selectedIndex: index,
-          onDestinationSelected: (index) {
-            if (this.index == index) {
-              topStore.setTop("${index + 1}00");
-            }
-            setState(() {
-              this.index = index;
-            });
-            if (_pageController.hasClients) _pageController.jumpToPage(index);
-          },
+        child: MouseRegion(
+          cursor: appAdaptiveClickable,
+          child: NavigationBar(
+            height: 68,
+            backgroundColor: Theme.of(
+              context,
+            ).colorScheme.surface.withValues(alpha: 0.9),
+            destinations: [
+              NavigationDestination(
+                icon: Icon(Icons.home),
+                label: I18n.of(context).home,
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.leaderboard),
+                label: I18n.of(context).rank,
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.favorite),
+                label: I18n.of(context).quick_view,
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.search),
+                label: I18n.of(context).search,
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.more_horiz),
+                label: I18n.of(context).more,
+              ),
+            ],
+            selectedIndex: index,
+            onDestinationSelected: (index) {
+              if (this.index == index) {
+                topStore.setTop("${index + 1}00");
+              }
+              setState(() {
+                this.index = index;
+              });
+              if (_pageController.hasClients) _pageController.jumpToPage(index);
+            },
+          ),
         ),
       ),
     );
@@ -225,37 +229,40 @@ class _AndroidHelloPageState extends State<AndroidHelloPage> {
     return [
       Stack(
         children: [
-          NavigationRail(
-            selectedIndex: index,
-            labelType: NavigationRailLabelType.all,
-            onDestinationSelected: (int index) {
-              _pageController.jumpToPage(index);
-              setState(() {
-                index = index;
-              });
-            },
-            destinations: <NavigationRailDestination>[
-              NavigationRailDestination(
-                icon: Icon(Icons.home),
-                label: Text(I18n.of(context).home),
-              ),
-              NavigationRailDestination(
-                icon: Icon(Icons.leaderboard),
-                label: Text(I18n.of(context).rank),
-              ),
-              NavigationRailDestination(
-                icon: Icon(Icons.favorite),
-                label: Text(I18n.of(context).quick_view),
-              ),
-              NavigationRailDestination(
-                icon: Icon(Icons.search),
-                label: Text(I18n.of(context).search),
-              ),
-              NavigationRailDestination(
-                icon: Icon(Icons.more_horiz),
-                label: Text(I18n.of(context).more),
-              ),
-            ],
+          MouseRegion(
+            cursor: appAdaptiveClickable,
+            child: NavigationRail(
+              selectedIndex: index,
+              labelType: NavigationRailLabelType.all,
+              onDestinationSelected: (int index) {
+                _pageController.jumpToPage(index);
+                setState(() {
+                  index = index;
+                });
+              },
+              destinations: <NavigationRailDestination>[
+                NavigationRailDestination(
+                  icon: Icon(Icons.home),
+                  label: Text(I18n.of(context).home),
+                ),
+                NavigationRailDestination(
+                  icon: Icon(Icons.leaderboard),
+                  label: Text(I18n.of(context).rank),
+                ),
+                NavigationRailDestination(
+                  icon: Icon(Icons.favorite),
+                  label: Text(I18n.of(context).quick_view),
+                ),
+                NavigationRailDestination(
+                  icon: Icon(Icons.search),
+                  label: Text(I18n.of(context).search),
+                ),
+                NavigationRailDestination(
+                  icon: Icon(Icons.more_horiz),
+                  label: Text(I18n.of(context).more),
+                ),
+              ],
+            ),
           ),
           Positioned(
             left: 0.0,
@@ -385,6 +392,7 @@ class _AndroidHelloPageState extends State<AndroidHelloPage> {
                   borderRadius: BorderRadius.all(Radius.circular(12)),
                 ),
                 child: InkWell(
+                  mouseCursor: appAdaptiveClickable,
                   onTap: () {
                     if (_LinkCloser != null) _LinkCloser!();
                     var uri = Uri.tryParse(link);

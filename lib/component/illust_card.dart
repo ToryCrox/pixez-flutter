@@ -18,6 +18,7 @@ import 'dart:io';
 
 import 'package:bot_toast/bot_toast.dart';
 import 'package:flutter/material.dart';
+import 'package:pixez/custom/app_mouse_cursor.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:pixez/component/null_hero.dart';
 import 'package:pixez/component/pixiv_image.dart';
@@ -114,6 +115,7 @@ class _IllustCardState extends State<IllustCard> {
           for (int i = 0; i < store.illusts!.tags.length; i++) {
             if (store.illusts!.tags[i].name.startsWith('R-18')) {
               return InkWell(
+                mouseCursor: appAdaptiveClickable,
                 onTap: () => _buildTap(context),
                 onLongPress: () => _onLongPressSave(),
                 child: Card(
@@ -395,6 +397,7 @@ class _IllustCardState extends State<IllustCard> {
         _showContextMenu(context);
       },
       child: InkWell(
+        mouseCursor: appAdaptiveClickable,
         onLongPress:
             widget.onLongPress ??
             () {
@@ -528,6 +531,7 @@ class _IllustCardState extends State<IllustCard> {
               children: [
                 _buildTitleRow(context),
                 InkWell(
+                  mouseCursor: appAdaptiveClickable,
                   onTap: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(
@@ -548,6 +552,7 @@ class _IllustCardState extends State<IllustCard> {
             ),
           ),
           InkWell(
+            mouseCursor: appAdaptiveClickable,
             child: Observer(
               builder: (_) {
                 return StarIcon(state: store.state);

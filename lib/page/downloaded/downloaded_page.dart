@@ -19,6 +19,7 @@ import 'package:easy_refresh/easy_refresh.dart';
 import 'package:pixez/component/pixez_easy_refresh.dart';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:pixez/custom/app_mouse_cursor.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:pixez/utils/file_utils.dart';
@@ -271,6 +272,7 @@ class _DownloadedPageState extends State<DownloadedPage> {
     Widget titleWidget = Text(title);
     if (_store.filterUserId != null) {
       titleWidget = InkWell(
+        mouseCursor: appAdaptiveClickable,
         onTap: () {
           Navigator.of(context).push(
             MaterialPageRoute(

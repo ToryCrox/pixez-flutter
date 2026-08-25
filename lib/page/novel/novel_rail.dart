@@ -15,6 +15,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:pixez/custom/app_mouse_cursor.dart';
 import 'package:pixez/constants.dart';
 import 'package:pixez/i18n.dart';
 import 'package:pixez/main.dart';
@@ -116,40 +117,43 @@ class _NovelRailState extends State<NovelRail> {
     );
   }
 
-  NavigationBar _buildNavigationBar(BuildContext context) {
-    return NavigationBar(
-      destinations: [
-        NavigationDestination(
-          icon: Icon(Icons.home),
-          label: I18n.of(context).home,
-        ),
-        NavigationDestination(
-          icon: Icon(Icons.leaderboard),
-          label: I18n.of(context).rank,
-        ),
-        NavigationDestination(
-          icon: Icon(Icons.favorite),
-          label: I18n.of(context).news,
-        ),
-        NavigationDestination(
-          icon: Icon(Icons.search),
-          label: I18n.of(context).search,
-        ),
-        NavigationDestination(
-          icon: Icon(Icons.settings),
-          label: I18n.of(context).setting,
-        ),
-      ],
-      selectedIndex: selectedIndex,
-      onDestinationSelected: (index) {
-        if (this.selectedIndex == index) {
-          topStore.setTop("${index + 1}00");
-        }
-        setState(() {
-          this.selectedIndex = index;
-        });
-        if (_pageController.hasClients) _pageController.jumpToPage(index);
-      },
+  Widget _buildNavigationBar(BuildContext context) {
+    return MouseRegion(
+      cursor: appAdaptiveClickable,
+      child: NavigationBar(
+        destinations: [
+          NavigationDestination(
+            icon: Icon(Icons.home),
+            label: I18n.of(context).home,
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.leaderboard),
+            label: I18n.of(context).rank,
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.favorite),
+            label: I18n.of(context).news,
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.search),
+            label: I18n.of(context).search,
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.settings),
+            label: I18n.of(context).setting,
+          ),
+        ],
+        selectedIndex: selectedIndex,
+        onDestinationSelected: (index) {
+          if (this.selectedIndex == index) {
+            topStore.setTop("${index + 1}00");
+          }
+          setState(() {
+            this.selectedIndex = index;
+          });
+          if (_pageController.hasClients) _pageController.jumpToPage(index);
+        },
+      ),
     );
   }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pixez/custom/app_mouse_cursor.dart';
 import 'package:flutter/services.dart';
 import 'package:pixez/manga_ocr/manga_ocr_controller.dart';
 import 'package:pixez/manga_ocr/manga_ocr_models.dart';
@@ -235,6 +236,7 @@ class _MangaOcrSidePanelState extends State<MangaOcrSidePanel> {
                                     ).colorScheme.primaryContainer
                                     : null,
                             child: InkWell(
+                              mouseCursor: appAdaptiveClickable,
                               onTap: () => controller.selectBlock(block.id),
                               child: Padding(
                                 padding: const EdgeInsets.all(12),

@@ -17,6 +17,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:pixez/custom/app_mouse_cursor.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:pixez/component/painter_avatar.dart';
 import 'package:pixez/constants.dart';
@@ -101,6 +102,7 @@ class _SettingPageState extends State<SettingPage> {
                             Padding(
                               padding: const EdgeInsets.all(8.0),
                               child: InkWell(
+                                mouseCursor: appAdaptiveClickable,
                                 onTap: () {
                                   Navigator.of(context).push(
                                     MaterialPageRoute(

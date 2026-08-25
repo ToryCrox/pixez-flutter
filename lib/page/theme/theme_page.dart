@@ -14,6 +14,7 @@
  */
 
 import 'package:flutter/material.dart';
+import 'package:pixez/custom/app_mouse_cursor.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:pixez/component/picker/colorpicker.dart';
 import 'package:pixez/component/picker/utils.dart';
@@ -63,6 +64,7 @@ class _ColorPickPageState extends State<ColorPickPage> {
               children: [
                 for (final color in Colors.primaries)
                   InkWell(
+                    mouseCursor: appAdaptiveClickable,
                     onTap: () {
                       setState(() {
                         pickerColor = color;

@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:pixez/custom/app_mouse_cursor.dart';
 import 'package:pixez/models/original_image.dart';
 import 'package:pixez/store/original_import_service.dart';
 
@@ -138,6 +139,7 @@ class _MappingImage extends StatelessWidget {
               ),
               if (onEdit != null)
                 InkWell(
+                  mouseCursor: appAdaptiveClickable,
                   onTap: onEdit,
                   borderRadius: BorderRadius.circular(12),
                   child: const Padding(

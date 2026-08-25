@@ -16,6 +16,7 @@
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:pixez/custom/app_mouse_cursor.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:pixez/component/pixiv_image.dart';
 import 'package:pixez/er/leader.dart';
@@ -118,6 +119,7 @@ class _NovelSearchPageState extends State<NovelSearchPage> {
                 SliverList(
                   delegate: SliverChildListDelegate([
                     InkWell(
+                      mouseCursor: appAdaptiveClickable,
                       onTap: () {
                         Leader.push(context, NovelViewerPage(id: _id!));
                       },
@@ -140,6 +142,7 @@ class _NovelSearchPageState extends State<NovelSearchPage> {
                     ),
                     Divider(height: 1),
                     InkWell(
+                      mouseCursor: appAdaptiveClickable,
                       onTap: () {
                         Leader.push(context, NovelSeriesPage(_id!));
                       },
@@ -162,6 +165,7 @@ class _NovelSearchPageState extends State<NovelSearchPage> {
                     ),
                     Divider(height: 1),
                     InkWell(
+                      mouseCursor: appAdaptiveClickable,
                       onTap: () {
                         Leader.push(context, NovelUsersPage(id: _id!));
                       },
@@ -206,6 +210,7 @@ class _NovelSearchPageState extends State<NovelSearchPage> {
                         .where((element) => element.type == 1)
                         .isNotEmpty)
                       return InkWell(
+                        mouseCursor: appAdaptiveClickable,
                         onTap: () {
                           tagHistoryStore.deleteAll();
                         },
@@ -287,6 +292,7 @@ class _NovelSearchPageState extends State<NovelSearchPage> {
           Leader.push(context, IllustLightingPage(id: tag.illust.id));
         },
         child: InkWell(
+          mouseCursor: appAdaptiveClickable,
           onTap: () {
             Leader.push(context, NovelResultPage(word: (tag.tag)));
           },
@@ -326,6 +332,7 @@ class _NovelSearchPageState extends State<NovelSearchPage> {
 
   Widget buildActionChip(TagsPersist f, BuildContext context) {
     return InkWell(
+      mouseCursor: appAdaptiveClickable,
       onLongPress: () {
         showDialog(
           context: context,

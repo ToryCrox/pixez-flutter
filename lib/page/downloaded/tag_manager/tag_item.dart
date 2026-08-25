@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pixez/custom/app_mouse_cursor.dart';
 import 'package:flutter/services.dart';
 import 'package:pixez/models/download_record.dart';
 import 'package:pixez/page/downloaded/tag_manager/tag_edit_dialog.dart';
@@ -63,6 +64,7 @@ class TagItem extends StatelessWidget {
       child: HoverScaleCard(
         isSelected: isSelected,
         child: InkWell(
+          mouseCursor: appAdaptiveClickable,
           onTap: () {
             if (isSelectionMode) {
               onSelectionToggle?.call();
@@ -333,6 +335,7 @@ class TagItem extends StatelessWidget {
     final hasChildren = data.tag.category == TagCategory.work.value;
 
     return InkWell(
+      mouseCursor: appAdaptiveClickable,
       onTap: () {
         if (isSelectionMode) {
           onSelectionToggle?.call();
@@ -515,6 +518,7 @@ class _TagInfo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InkWell(
+      mouseCursor: appAdaptiveClickable,
       onTap: isSelectionMode ? null : onEdit,
       child: Padding(
         padding: const EdgeInsets.all(8.0),

@@ -21,6 +21,7 @@ import 'dart:math' as math;
 import 'package:bot_toast/bot_toast.dart';
 import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/material.dart';
+import 'package:pixez/custom/app_mouse_cursor.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
@@ -1460,6 +1461,7 @@ class _IllustRowPageState extends State<IllustRowPage>
                 int index,
               ) {
                 return InkWell(
+                  mouseCursor: appAdaptiveClickable,
                   onTap: () {
                     // 点击左侧区域关闭评论区
                     if (_showComments) {
@@ -1495,6 +1497,7 @@ class _IllustRowPageState extends State<IllustRowPage>
           Widget placeWidget = Container(height: height);
           // 移除单独图片项的点击行为，统一通过 InkWell 处理点击关闭评论逻辑
           return InkWell(
+            mouseCursor: appAdaptiveClickable,
             onTap: () {
               // 点击左侧区域关闭评论区
               if (_showComments) {
@@ -2004,6 +2007,7 @@ class _IllustRowPageState extends State<IllustRowPage>
                             child: Padding(
                               padding: const EdgeInsets.all(8.0),
                               child: InkWell(
+                                mouseCursor: appAdaptiveClickable,
                                 onTap: () {
                                   setDialogState(() {
                                     indexs[index] = !indexs[index];
@@ -2474,6 +2478,7 @@ class _IllustInfoDialogState extends State<IllustInfoDialog>
                                   ),
                                   Spacer(),
                                   InkWell(
+                                    mouseCursor: appAdaptiveClickable,
                                     onTap: () {
                                       Clipboard.setData(
                                         ClipboardData(text: shareInfo),
@@ -2510,6 +2515,7 @@ class _IllustInfoDialogState extends State<IllustInfoDialog>
                                   ),
                                   Spacer(),
                                   InkWell(
+                                    mouseCursor: appAdaptiveClickable,
                                     onTap: () {
                                       Clipboard.setData(
                                         ClipboardData(text: jsonData),
@@ -2554,6 +2560,7 @@ class _IllustInfoDialogState extends State<IllustInfoDialog>
                               ),
                               Spacer(),
                               InkWell(
+                                mouseCursor: appAdaptiveClickable,
                                 onTap: () {
                                   Clipboard.setData(
                                     ClipboardData(text: ugoiraMetadataJson),

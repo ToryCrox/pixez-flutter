@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:pixez/custom/app_mouse_cursor.dart';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:pixez/custom/log.dart';
@@ -1059,6 +1060,7 @@ class _OriginalAuthorImportDialogState
                               setState(() => row.selected = value ?? false),
                   title: Text('', style: const TextStyle(fontSize: 0)),
                   subtitle: InkWell(
+                    mouseCursor: appAdaptiveClickable,
                     onTap: _busy ? null : () => _selectWorkForRow(row),
                     child: SizedBox(
                       height: 136,
@@ -2242,6 +2244,7 @@ class _LocalCover extends StatelessWidget {
               return Tooltip(
                 message: '点击放大',
                 child: InkWell(
+                  mouseCursor: appAdaptiveClickable,
                   onTap:
                       () => LocalImageViewerPage.open(
                         context,

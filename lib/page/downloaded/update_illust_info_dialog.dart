@@ -17,6 +17,7 @@ import 'dart:io';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:pixez/custom/app_mouse_cursor.dart';
 
 import 'package:pixez/utils/image_utils.dart';
 import 'package:pixez/utils/file_utils.dart';
@@ -1285,6 +1286,7 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
   Widget _buildFilterChip(String label, UpdateResultType? type) {
     final isSelected = _filterType == type;
     return FilterChip(
+      mouseCursor: appAdaptiveClickable,
       label: Text(label),
       selected: isSelected,
       onSelected: (selected) {
@@ -1533,6 +1535,7 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
           child: Material(
             color: Colors.transparent,
             child: InkWell(
+              mouseCursor: appAdaptiveClickable,
               borderRadius: BorderRadius.circular(20),
               onTap: () async {
                 final dirPath = downloadStore.getIllustDirectoryPath(
@@ -1559,6 +1562,7 @@ class _UpdateIllustInfoDialogState extends State<UpdateIllustInfoDialog> {
         child: Material(
           color: Colors.transparent,
           child: InkWell(
+            mouseCursor: appAdaptiveClickable,
             borderRadius: BorderRadius.circular(20),
             onTap: () {
               Navigator.of(context).push(

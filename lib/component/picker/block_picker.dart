@@ -3,6 +3,7 @@
 library block_colorpicker;
 
 import 'package:flutter/material.dart';
+import 'package:pixez/custom/app_mouse_cursor.dart';
 import 'utils.dart';
 
 /// Child widget for layout builder.
@@ -86,6 +87,7 @@ Widget _defaultItemBuilder(
     child: Material(
       color: Colors.transparent,
       child: InkWell(
+        mouseCursor: appAdaptiveClickable,
         onTap: changeColor,
         borderRadius: BorderRadius.circular(50),
         child: AnimatedOpacity(

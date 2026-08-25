@@ -19,6 +19,7 @@ import 'dart:io';
 
 import 'package:bot_toast/bot_toast.dart';
 import 'package:flutter/material.dart';
+import 'package:pixez/custom/app_mouse_cursor.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:mobx/mobx.dart';
@@ -493,6 +494,7 @@ class _NovelViewerPageState extends State<NovelViewerPage> {
                         Padding(
                           padding: const EdgeInsets.only(top: 6),
                           child: InkWell(
+                            mouseCursor: appAdaptiveClickable,
                             onTap: () {
                               Leader.push(
                                 context,

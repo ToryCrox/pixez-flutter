@@ -16,6 +16,7 @@
 
 import 'package:bot_toast/bot_toast.dart';
 import 'package:flutter/material.dart';
+import 'package:pixez/custom/app_mouse_cursor.dart';
 import 'package:flutter/services.dart';
 import 'package:pixez/er/leader.dart';
 import 'package:pixez/i18n.dart';
@@ -170,6 +171,7 @@ class _AccountEditPageState extends State<AccountEditPage> {
               if (accountStore.now != null &&
                   accountStore.now!.isMailAuthorized == 1)
                 InkWell(
+                  mouseCursor: appAdaptiveClickable,
                   onTap: () async {
                     Clipboard.setData(
                       ClipboardData(text: accountStore.now!.refreshToken),
@@ -191,6 +193,7 @@ class _AccountEditPageState extends State<AccountEditPage> {
                   ),
                 ),
               InkWell(
+                mouseCursor: appAdaptiveClickable,
                 onTap: () {
                   showDialog(
                     context: context,

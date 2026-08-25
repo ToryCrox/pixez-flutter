@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pixez/custom/app_mouse_cursor.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:pixez/page/database/database_explorer_store.dart';
 import 'package:pixez/page/database/database_registry.dart';
@@ -58,6 +59,7 @@ class _DatabaseListPageState extends State<DatabaseListPage> {
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
+        mouseCursor: appAdaptiveClickable,
         onTap: () {
           Navigator.push(
             context,

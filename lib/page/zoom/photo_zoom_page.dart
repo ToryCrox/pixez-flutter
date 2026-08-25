@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:bot_toast/bot_toast.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:pixez/custom/app_mouse_cursor.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:photo_view/photo_view.dart';
@@ -205,6 +206,7 @@ class _PhotoZoomPageState extends State<PhotoZoomPage> {
                     child: Material(
                       color: Colors.transparent,
                       child: InkWell(
+                        mouseCursor: appAdaptiveClickable,
                         onTap: () {
                           Navigator.of(context).pop();
                         },
@@ -282,6 +284,7 @@ class _PhotoZoomPageState extends State<PhotoZoomPage> {
                     child: Material(
                       color: Colors.transparent,
                       child: InkWell(
+                        mouseCursor: appAdaptiveClickable,
                         onTap: () {
                           Navigator.of(context).pop();
                         },

@@ -15,6 +15,7 @@
  */
 
 import 'package:flutter/material.dart';
+import 'package:pixez/custom/app_mouse_cursor.dart';
 import 'package:pixez/component/painter_avatar.dart';
 import 'package:pixez/component/pixiv_image.dart';
 import 'package:pixez/custom/log.dart';
@@ -51,6 +52,7 @@ class _PainterCardState extends State<PainterCard> {
   Widget build(BuildContext context) {
     return HoverScaleCard(
       child: InkWell(
+        mouseCursor: appAdaptiveClickable,
         onTap: () async {
           await Navigator.of(context).push(
             MaterialPageRoute(

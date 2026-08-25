@@ -19,6 +19,7 @@ import 'dart:async';
 import 'package:bot_toast/bot_toast.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:pixez/custom/app_mouse_cursor.dart';
 import 'package:pixez/er/prefer.dart';
 import 'package:pixez/i18n.dart';
 import 'package:pixez/lighting/lighting_page.dart';
@@ -160,6 +161,7 @@ class _ResultIllustListState extends State<ResultIllustList> {
             children: <Widget>[
               Expanded(
                 child: InkWell(
+                  mouseCursor: appAdaptiveClickable,
                   onTap: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(
@@ -212,6 +214,7 @@ class _ResultIllustListState extends State<ResultIllustList> {
                   child: Row(
                     children: [
                       InkWell(
+                        mouseCursor: appAdaptiveClickable,
                         child: Padding(
                           padding: const EdgeInsets.all(4.0),
                           child: Icon(Icons.date_range),
@@ -230,6 +233,7 @@ class _ResultIllustListState extends State<ResultIllustList> {
                         child: _buildStar(),
                       ),
                       InkWell(
+                        mouseCursor: appAdaptiveClickable,
                         child: Padding(
                           padding: const EdgeInsets.all(4.0),
                           child: Icon(Icons.filter_alt_outlined),

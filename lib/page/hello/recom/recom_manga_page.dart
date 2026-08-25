@@ -1,5 +1,6 @@
 import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/material.dart';
+import 'package:pixez/custom/app_mouse_cursor.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:pixez/component/pixiv_image.dart';
 import 'package:pixez/er/leader.dart';
@@ -62,6 +63,7 @@ class _RecomMangaPageState extends State<RecomMangaPage> {
                           final illust = _store.iStores[index].illusts;
                           return Card(
                             child: InkWell(
+                              mouseCursor: appAdaptiveClickable,
                               onTap: () {
                                 Leader.push(
                                   context,

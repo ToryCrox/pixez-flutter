@@ -3,6 +3,7 @@ import 'dart:ui' show PointerDeviceKind;
 
 import 'package:bot_toast/bot_toast.dart';
 import 'package:flutter/material.dart';
+import 'package:pixez/custom/app_mouse_cursor.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:path/path.dart' as path;
 import 'package:pixez/component/hover_scale_container.dart';
@@ -279,6 +280,7 @@ class _TranslationResultReplaceDialogState
           ),
           if (batchPlan != null && state.loadError == null) ...[
             FilterChip(
+              mouseCursor: appAdaptiveClickable,
               label: Text('仅显示已跳过/保护 (${state.totalSkippedPairCount})'),
               selected: state.showSkippedOnly,
               visualDensity: VisualDensity.compact,
@@ -693,6 +695,7 @@ class _TranslationResultReplaceDialogState
         children: [
           Expanded(
             child: InkWell(
+              mouseCursor: appAdaptiveClickable,
               onTap:
                   state.busy
                       ? null
@@ -759,6 +762,7 @@ class _TranslationResultReplaceDialogState
     }
 
     return InkWell(
+      mouseCursor: appAdaptiveClickable,
       onTap: disabled ? null : () => setSkipped(!selected),
       borderRadius: BorderRadius.circular(4),
       child: Padding(
@@ -991,6 +995,7 @@ class _TranslationResultReplaceDialogState
     }
 
     return InkWell(
+      mouseCursor: appAdaptiveClickable,
       onTap: disabled ? null : () => setSkipped(!selected),
       borderRadius: BorderRadius.circular(4),
       child: Padding(
@@ -1025,6 +1030,7 @@ class _TranslationResultReplaceDialogState
             ? _compactDetail(pair.translatedDimensions, pair.translatedSize)
             : _compactDetail(pair.originalDimensions, pair.originalSize);
     return InkWell(
+      mouseCursor: appAdaptiveClickable,
       onTap:
           () =>
               _openPairViewer(plan, filePath, label, translated, initialIndex),

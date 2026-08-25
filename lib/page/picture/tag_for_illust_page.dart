@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pixez/custom/app_mouse_cursor.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:pixez/i18n.dart';
 import 'package:pixez/models/bookmark_detail.dart';
@@ -98,6 +99,7 @@ class _TagForIllustPageState extends State<TagForIllustPage> {
                               children: [
                                 Expanded(
                                   child: InkWell(
+                                    mouseCursor: appAdaptiveClickable,
                                     onTap: () {
                                       _store.check(
                                         index,

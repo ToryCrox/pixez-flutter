@@ -15,6 +15,7 @@
  */
 
 import 'package:flutter/material.dart';
+import 'package:pixez/custom/app_mouse_cursor.dart';
 import 'package:pixez/i18n.dart';
 import 'package:pixez/main.dart';
 
@@ -44,6 +45,7 @@ class _CopyTextPageState extends State<CopyTextPage> {
   }
 
   _buildActionNormalText(String text) => ActionChip(
+    mouseCursor: appAdaptiveClickable,
     label: Text("$text"),
     onPressed: () {
       if (_textEditingController.selection.end == -1) return;
@@ -63,6 +65,7 @@ class _CopyTextPageState extends State<CopyTextPage> {
   );
 
   _buildActionText(String text) => ActionChip(
+    mouseCursor: appAdaptiveClickable,
     label: Text("$text"),
     onPressed: () {
       if (_textEditingController.selection.end == -1) return;

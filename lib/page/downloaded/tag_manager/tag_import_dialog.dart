@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:pixez/custom/app_mouse_cursor.dart';
 import 'package:pixez/component/pixiv_image.dart';
 import 'package:pixez/er/prefer.dart';
 import 'package:pixez/main.dart';
@@ -381,6 +382,7 @@ class _TagImportResultItem extends StatelessWidget {
       child: Card(
         margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
         child: InkWell(
+          mouseCursor: appAdaptiveClickable,
           onTap: result.matched ? onToggle : null,
           borderRadius: BorderRadius.circular(12),
           child: Padding(
@@ -547,6 +549,7 @@ class _TagImportResultItem extends StatelessWidget {
         result.editableTranslation != tag.customTranslatedName;
 
     return InkWell(
+      mouseCursor: appAdaptiveClickable,
       onTap: () => _editTranslation(context),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 2),
@@ -597,6 +600,7 @@ class _TagImportResultItem extends StatelessWidget {
     final hasChange = result.editableParentName != null;
 
     return InkWell(
+      mouseCursor: appAdaptiveClickable,
       onTap: () => _editParent(context),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 2),

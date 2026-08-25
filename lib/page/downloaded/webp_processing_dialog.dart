@@ -5,6 +5,7 @@ import 'dart:math' as math;
 
 import 'package:bot_toast/bot_toast.dart';
 import 'package:flutter/material.dart';
+import 'package:pixez/custom/app_mouse_cursor.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pixez/custom/log.dart';
 import 'package:pixez/er/prefer.dart';
@@ -855,6 +856,7 @@ class _WebpProcessingDialogState extends State<WebpProcessingDialog> {
     required LocalImageViewerComparison comparison,
   }) {
     return InkWell(
+      mouseCursor: appAdaptiveClickable,
       onTap:
           () => LocalImageViewerPage.open(
             context,

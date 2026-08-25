@@ -14,6 +14,7 @@
  */
 
 import 'package:flutter/material.dart';
+import 'package:pixez/custom/app_mouse_cursor.dart';
 import 'package:pixez/component/pixiv_image.dart';
 import 'package:pixez/page/picture/illust_lighting_page.dart';
 import 'package:pixez/store/download_store.dart';
@@ -94,6 +95,7 @@ class TaskItemWidget extends StatelessWidget {
         ),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
+          mouseCursor: appAdaptiveClickable,
           onTap: () {
             Navigator.push(
               context,

@@ -4,6 +4,7 @@ import 'dart:ui';
 
 import 'package:bot_toast/bot_toast.dart';
 import 'package:flutter/material.dart';
+import 'package:pixez/custom/app_mouse_cursor.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:mobx/mobx.dart';
@@ -859,6 +860,7 @@ class _DownloadedImageOrganizerPageState
               child: Text(group.title),
               builder: (context, currentGroupId, label) {
                 return ChoiceChip(
+                  mouseCursor: appAdaptiveClickable,
                   label: label!,
                   selected: currentGroupId == group.id,
                   onSelected: (_) => _scrollToGroup(group),
@@ -1204,6 +1206,7 @@ class _AuthorImageCard extends StatelessWidget {
     return HoverScaleCard(
       isSelected: isSelected,
       child: InkWell(
+        mouseCursor: appAdaptiveClickable,
         onTap: onTap,
         onLongPress: onLongPress,
         child: Stack(
@@ -1312,6 +1315,7 @@ class _CardOverlayButton extends StatelessWidget {
       color: Colors.black54,
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
+        mouseCursor: appAdaptiveClickable,
         borderRadius: BorderRadius.circular(16),
         onTap: onTap,
         child: Padding(

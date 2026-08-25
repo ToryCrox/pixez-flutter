@@ -1,5 +1,6 @@
 import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/material.dart';
+import 'package:pixez/custom/app_mouse_cursor.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:pixez/component/painter_avatar.dart';
@@ -334,6 +335,7 @@ class NovelSeriesPage extends HookConsumerWidget {
       padding: const EdgeInsets.symmetric(horizontal: 4.0),
       child: Card(
         child: InkWell(
+          mouseCursor: appAdaptiveClickable,
           onTap: () async {
             await Navigator.of(context).push(
               MaterialPageRoute(

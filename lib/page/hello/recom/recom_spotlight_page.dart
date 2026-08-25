@@ -20,6 +20,7 @@ import 'dart:math';
 
 import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/material.dart';
+import 'package:pixez/custom/app_mouse_cursor.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:pixez/component/illust_card.dart';
 import 'package:pixez/component/pixez_default_header.dart';
@@ -282,6 +283,7 @@ class _RecomSpolightPageState extends State<RecomSpolightPage>
                       child: Material(
                         color: Colors.transparent,
                         child: InkWell(
+                          mouseCursor: appAdaptiveClickable,
                           onTap: () {
                             Navigator.of(context).push(
                               MaterialPageRoute(

@@ -17,6 +17,7 @@ import 'dart:io';
 
 import 'package:bot_toast/bot_toast.dart';
 import 'package:flutter/material.dart';
+import 'package:pixez/custom/app_mouse_cursor.dart';
 import 'package:pixez/constants.dart';
 import 'package:pixez/utils/file_utils.dart';
 import 'package:pixez/component/painter_avatar.dart';
@@ -53,6 +54,7 @@ class DownloadedAuthorCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return HoverScaleCard(
       child: InkWell(
+        mouseCursor: appAdaptiveClickable,
         onTap: () {
           DownloadedPage.open(
             context,

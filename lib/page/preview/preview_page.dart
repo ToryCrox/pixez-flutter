@@ -16,6 +16,7 @@
 
 import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/material.dart';
+import 'package:pixez/custom/app_mouse_cursor.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:pixez/component/painter_avatar.dart';
 import 'package:pixez/component/pixiv_image.dart';
@@ -152,6 +153,7 @@ class _PreviewPageState extends State<PreviewPage> {
               ),
               itemBuilder: (BuildContext context, int index) {
                 return InkWell(
+                  mouseCursor: appAdaptiveClickable,
                   onTap: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(

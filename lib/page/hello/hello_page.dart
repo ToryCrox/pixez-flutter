@@ -19,6 +19,7 @@ import 'dart:io';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:pixez/custom/app_mouse_cursor.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:pixez/component/keep_alive_wrapper.dart';
@@ -426,49 +427,52 @@ class _HelloPageState extends State<HelloPage> {
     return ClipRRect(
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-        child: NavigationBar(
-          height: 68,
-          backgroundColor: Theme.of(
-            context,
-          ).colorScheme.surface.withValues(alpha: 0.9),
-          destinations: [
-            NavigationDestination(
-              icon: Icon(Icons.home),
-              label: I18n.of(context).home,
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.leaderboard),
-              label: I18n.of(context).rank,
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.favorite),
-              label: I18n.of(context).quick_view,
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.search),
-              label: I18n.of(context).search,
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.more_horiz),
-              label: I18n.of(context).more,
-            ),
-          ],
-          selectedIndex: index,
-          onDestinationSelected: (value) {
-            // 切换 Tab 时清除 Navigator 栈
-            if (_contentNavigatorKey.currentState != null) {
-              _contentNavigatorKey.currentState!.popUntil(
-                (route) => route.isFirst,
-              );
-            }
-            if (this.index == value) {
-              topStore.setTop("${value + 1}00");
-            }
-            setState(() {
-              this.index = value;
-            });
-            if (_pageController.hasClients) _pageController.jumpToPage(value);
-          },
+        child: MouseRegion(
+          cursor: appAdaptiveClickable,
+          child: NavigationBar(
+            height: 68,
+            backgroundColor: Theme.of(
+              context,
+            ).colorScheme.surface.withValues(alpha: 0.9),
+            destinations: [
+              NavigationDestination(
+                icon: Icon(Icons.home),
+                label: I18n.of(context).home,
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.leaderboard),
+                label: I18n.of(context).rank,
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.favorite),
+                label: I18n.of(context).quick_view,
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.search),
+                label: I18n.of(context).search,
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.more_horiz),
+                label: I18n.of(context).more,
+              ),
+            ],
+            selectedIndex: index,
+            onDestinationSelected: (value) {
+              // 切换 Tab 时清除 Navigator 栈
+              if (_contentNavigatorKey.currentState != null) {
+                _contentNavigatorKey.currentState!.popUntil(
+                  (route) => route.isFirst,
+                );
+              }
+              if (this.index == value) {
+                topStore.setTop("${value + 1}00");
+              }
+              setState(() {
+                this.index = value;
+              });
+              if (_pageController.hasClients) _pageController.jumpToPage(value);
+            },
+          ),
         ),
       ),
     );

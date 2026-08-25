@@ -15,6 +15,7 @@
  */
 
 import 'package:flutter/material.dart';
+import 'package:pixez/custom/app_mouse_cursor.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:pixez/component/null_hero.dart';
 import 'package:pixez/component/painter_avatar.dart';
@@ -114,6 +115,7 @@ class _SoupPageState extends State<SoupPage> {
             }
             AmWork amWork = _soupStore.amWorks[index - 1];
             return InkWell(
+              mouseCursor: appAdaptiveClickable,
               onTap: () {
                 int id = int.parse(
                   Uri.parse(amWork.arworkLink!).pathSegments[Uri.parse(
