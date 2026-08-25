@@ -86,6 +86,7 @@ class DownloadedIllustCard extends StatelessWidget {
     Widget imageWidget = PixivImage(
       coverUrl,
       fit: BoxFit.cover,
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
       httpHeaders: {'cover': '${illust.illustId}', 'quality': quality},
       memCacheWidth: 480,
     );
@@ -284,6 +285,8 @@ class DownloadedIllustCard extends StatelessWidget {
     // 修改：直接使用封装好的 HoverScaleCard 提供悬浮效果和原生的 Surface Tint
     return HoverScaleCard(
       isSelected: isSelected,
+      clipBehavior: Clip.none,
+      borderRadius: BorderRadius.circular(12),
       child: InkWell(
         mouseCursor: appAdaptiveClickable,
         onTap: () {

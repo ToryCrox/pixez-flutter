@@ -32,6 +32,7 @@ class _HoverScaleCardState extends State<HoverScaleCard> {
     // 手动增强悬浮时的颜色以提高区分度（叠加 8% 主题色）
     final baseColor = theme.cardColor;
     final hoverColor = Color.lerp(baseColor, theme.colorScheme.primary, 0.08);
+    final cardBorderRadius = widget.borderRadius ?? BorderRadius.circular(12);
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
@@ -52,9 +53,11 @@ class _HoverScaleCardState extends State<HoverScaleCard> {
                       color: theme.colorScheme.primary,
                       width: 3,
                     ),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: cardBorderRadius,
                   )
-                  : null,
+                  : widget.borderRadius == null
+                  ? null
+                  : RoundedRectangleBorder(borderRadius: cardBorderRadius),
           child: widget.child,
         ),
       ),

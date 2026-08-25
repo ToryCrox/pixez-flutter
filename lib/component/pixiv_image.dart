@@ -657,6 +657,7 @@ class PixivImage extends StatefulWidget {
   final Map<String, String>? httpHeaders; // 自定义 HTTP 头（用于封面标识）
   final int? memCacheWidth;
   final int? memCacheHeight;
+  final BorderRadius? borderRadius;
 
   PixivImage(
     this.url, {
@@ -671,6 +672,7 @@ class PixivImage extends StatefulWidget {
     this.httpHeaders,
     this.memCacheWidth,
     this.memCacheHeight,
+    this.borderRadius,
   });
 
   @override
@@ -788,6 +790,11 @@ class _PixivImageState extends State<PixivImage> {
         }
         Log.d(() => 'display local image $displayWidth x $displayHeight');
         return CachedNetworkImage(
+          imageBuilder: _buildImageBuilder(
+            width: displayWidth,
+            height: displayHeight,
+            fit: displayFit,
+          ),
           placeholder:
               (context, url) => SizedBox(
                 width: displayWidth,
@@ -867,6 +874,11 @@ class _PixivImageState extends State<PixivImage> {
                       MediaQuery.devicePixelRatioOf(context))
                   .toInt()
               : null,
+      imageBuilder: _buildImageBuilder(
+        width: width,
+        height: height,
+        fit: fit ?? BoxFit.fitWidth,
+      ),
       imageUrl: url,
       cacheManager: pixivCacheManager,
       height: height,
@@ -877,6 +889,26 @@ class _PixivImageState extends State<PixivImage> {
         ...?widget.httpHeaders, // 合并自定义 headers
       },
     );
+  }
+
+  Widget Function(BuildContext, ImageProvider<Object>)? _buildImageBuilder({
+    required double? width,
+    required double? height,
+    required BoxFit fit,
+  }) {
+    final borderRadius = widget.borderRadius;
+    if (borderRadius == null) return null;
+
+    return (context, imageProvider) {
+      return Container(
+        width: width,
+        height: height,
+        decoration: BoxDecoration(
+          borderRadius: borderRadius,
+          image: DecorationImage(image: imageProvider, fit: fit),
+        ),
+      );
+    };
   }
 }
 
