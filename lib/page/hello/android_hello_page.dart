@@ -264,6 +264,13 @@ class _AndroidHelloPageState extends State<AndroidHelloPage> {
               ],
             ),
           ),
+          Positioned.fill(
+            child: MouseRegion(
+              cursor: appAdaptiveClickable,
+              hitTestBehavior: HitTestBehavior.translucent,
+              child: const SizedBox.expand(),
+            ),
+          ),
           Positioned(
             left: 0.0,
             right: 0.0,

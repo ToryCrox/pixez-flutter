@@ -47,6 +47,13 @@ class SideRail extends StatelessWidget {
               destinations: destinations,
             ),
           ),
+          Positioned.fill(
+            child: MouseRegion(
+              cursor: appAdaptiveClickable,
+              hitTestBehavior: HitTestBehavior.translucent,
+              child: const SizedBox.expand(),
+            ),
+          ),
           if (trailing != null)
             Positioned(
               left: 0,
