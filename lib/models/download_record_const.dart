@@ -69,6 +69,9 @@ class DownloadedIllust {
   final String sourceType;
   final int? downloadRemovedAt;
 
+  // imageUrlsJson 只在首次访问时解析，避免列表滚动/重建时重复解压和 JSON 解析。
+  late final ImageUrls _imageUrlsCache = _parseImageUrls();
+
   // Getter 用于数据库序列化
   String get illustJson => _illustJson;
 
@@ -112,7 +115,9 @@ class DownloadedIllust {
       downloadedImageCount > 0 && downloadRemovedAt == null;
 
   /// 从 imageUrlsJson 解析 ImageUrls 对象
-  ImageUrls getImageUrls() {
+  ImageUrls getImageUrls() => _imageUrlsCache;
+
+  ImageUrls _parseImageUrls() {
     if (imageUrlsJson.isEmpty) {
       return const ImageUrls();
     }

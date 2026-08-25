@@ -97,43 +97,61 @@ class DownloadedIllustCard extends StatelessWidget {
     return Positioned(
       top: 38,
       left: 4,
-      child: Material(
-        color: Colors.black54,
-        borderRadius: BorderRadius.circular(20),
-        child: InkWell(
-          mouseCursor: appAdaptiveClickable,
-          borderRadius: BorderRadius.circular(20),
-          onTap:
-              () => DownloadedImageOrganizerPage.pushByUserId(
-                context,
-                userId: illust.userId,
-                illustId: illust.illustId,
-              ),
-          child: Container(
-            padding: EdgeInsets.all(6),
-            child: Icon(Icons.collections, color: Colors.white, size: 18),
+      child: _buildOverlayAction(
+        onTap:
+            () => DownloadedImageOrganizerPage.pushByUserId(
+              context,
+              userId: illust.userId,
+              illustId: illust.illustId,
+            ),
+        child: Icon(Icons.collections, color: Colors.white, size: 18),
+      ),
+    );
+  }
+
+  Widget _buildOverlayAction({
+    required VoidCallback onTap,
+    VoidCallback? onLongPress,
+    required Widget child,
+    String? tooltip,
+    Color color = Colors.black54,
+    BorderRadiusGeometry borderRadius = const BorderRadius.all(
+      Radius.circular(20),
+    ),
+    EdgeInsetsGeometry padding = const EdgeInsets.all(6),
+    List<BoxShadow>? boxShadow,
+  }) {
+    Widget action = MouseRegion(
+      cursor: appAdaptiveClickable,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        onLongPress: onLongPress,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: borderRadius,
+            boxShadow: boxShadow,
           ),
+          child: Padding(padding: padding, child: child),
         ),
       ),
     );
+
+    if (tooltip != null) {
+      action = Tooltip(message: tooltip, child: action);
+    }
+
+    return action;
   }
 
   Widget _buildFolderButton(BuildContext context) {
     return Positioned(
       top: 4,
       left: 4,
-      child: Material(
-        color: Colors.black54,
-        borderRadius: BorderRadius.circular(20),
-        child: InkWell(
-          mouseCursor: appAdaptiveClickable,
-          borderRadius: BorderRadius.circular(20),
-          onTap: onOpenFolder,
-          child: Container(
-            padding: EdgeInsets.all(6),
-            child: Icon(Icons.folder_open, color: Colors.white, size: 18),
-          ),
-        ),
+      child: _buildOverlayAction(
+        onTap: onOpenFolder,
+        child: Icon(Icons.folder_open, color: Colors.white, size: 18),
       ),
     );
   }
@@ -142,21 +160,12 @@ class DownloadedIllustCard extends StatelessWidget {
     return Positioned(
       top: 4,
       left: 38,
-      child: Material(
-        color: Colors.black54,
-        borderRadius: BorderRadius.circular(20),
-        child: InkWell(
-          mouseCursor: appAdaptiveClickable,
-          borderRadius: BorderRadius.circular(20),
-          onTap: onOpenOriginalFolder,
-          child: Container(
-            padding: const EdgeInsets.all(6),
-            child: const Icon(
-              Icons.folder_copy_outlined,
-              color: Colors.white,
-              size: 18,
-            ),
-          ),
+      child: _buildOverlayAction(
+        onTap: onOpenOriginalFolder,
+        child: const Icon(
+          Icons.folder_copy_outlined,
+          color: Colors.white,
+          size: 18,
         ),
       ),
     );
@@ -168,35 +177,29 @@ class DownloadedIllustCard extends StatelessWidget {
     return Positioned(
       top: 72,
       left: 4,
-      child: Tooltip(
-        message: '应用翻译结果',
-        child: Material(
-          color: Colors.green.shade700,
-          borderRadius: BorderRadius.circular(16),
-          elevation: 2,
-          child: InkWell(
-            mouseCursor: appAdaptiveClickable,
-            onTap: onTap,
-            borderRadius: BorderRadius.circular(16),
-            child: const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.translate, color: Colors.white, size: 15),
-                  SizedBox(width: 4),
-                  Text(
-                    '可替换',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
+      child: _buildOverlayAction(
+        onTap: onTap,
+        tooltip: '应用翻译结果',
+        color: Colors.green.shade700,
+        borderRadius: BorderRadius.circular(16),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+        boxShadow: const [
+          BoxShadow(color: Colors.black26, blurRadius: 2, offset: Offset(0, 1)),
+        ],
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.translate, color: Colors.white, size: 15),
+            SizedBox(width: 4),
+            Text(
+              '可替换',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
               ),
             ),
-          ),
+          ],
         ),
       ),
     );
@@ -207,42 +210,33 @@ class DownloadedIllustCard extends StatelessWidget {
     return Positioned(
       bottom: 4,
       left: 4,
-      child: Material(
-        color: Colors.black54,
-        borderRadius: BorderRadius.circular(20),
-        child: InkWell(
-          mouseCursor: appAdaptiveClickable,
-          borderRadius: BorderRadius.circular(20),
-          onTap: () {
-            final newBookmark = isBookmarked ? 0 : 1;
-            store.updateBookmark(illust.illustId, newBookmark);
-          },
-          onLongPress: () => _showPriorityDialog(context),
-          child: Container(
-            padding: EdgeInsets.all(6),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  isBookmarked ? Icons.favorite : Icons.favorite_border,
-                  color: isBookmarked ? Colors.red : Colors.white,
-                  size: 18,
-                ),
-                if (illust.bookmark > 1)
-                  Padding(
-                    padding: const EdgeInsets.only(left: 2),
-                    child: Text(
-                      '${illust.bookmark}',
-                      style: TextStyle(
-                        color: Colors.red,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-              ],
+      child: _buildOverlayAction(
+        onTap: () {
+          final newBookmark = isBookmarked ? 0 : 1;
+          store.updateBookmark(illust.illustId, newBookmark);
+        },
+        onLongPress: () => _showPriorityDialog(context),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isBookmarked ? Icons.favorite : Icons.favorite_border,
+              color: isBookmarked ? Colors.red : Colors.white,
+              size: 18,
             ),
-          ),
+            if (illust.bookmark > 1)
+              Padding(
+                padding: const EdgeInsets.only(left: 2),
+                child: Text(
+                  '${illust.bookmark}',
+                  style: TextStyle(
+                    color: Colors.red,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+          ],
         ),
       ),
     );
