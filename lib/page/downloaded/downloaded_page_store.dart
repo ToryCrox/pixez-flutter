@@ -661,18 +661,20 @@ abstract class _DownloadedPageStoreBase with Store {
         }).toList();
 
     final results = await Future.wait(futures);
-    for (final entry in results) {
-      if (entry.status != null) {
-        _illustDownloadStatus[entry.id] = entry.status!;
+    runInAction(() {
+      for (final entry in results) {
+        if (entry.status != null) {
+          _illustDownloadStatus[entry.id] = entry.status!;
+        }
+        _originalImageCounts[entry.id] = entry.originalCount;
+        _enhancedPageCounts[entry.id] = entry.enhancedCount;
+        if (entry.originalCover != null) {
+          _originalCoverInfos[entry.id] = entry.originalCover!;
+        } else {
+          _originalCoverInfos.remove(entry.id);
+        }
       }
-      _originalImageCounts[entry.id] = entry.originalCount;
-      _enhancedPageCounts[entry.id] = entry.enhancedCount;
-      if (entry.originalCover != null) {
-        _originalCoverInfos[entry.id] = entry.originalCover!;
-      } else {
-        _originalCoverInfos.remove(entry.id);
-      }
-    }
+    });
   }
 
   /// 切换排序类型

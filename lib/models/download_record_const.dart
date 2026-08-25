@@ -71,6 +71,8 @@ class DownloadedIllust {
 
   // imageUrlsJson 只在首次访问时解析，避免列表滚动/重建时重复解压和 JSON 解析。
   late final ImageUrls _imageUrlsCache = _parseImageUrls();
+  // UgoiraMetadata 只在首次访问时解析，避免动图卡片重建时重复解压和 JSON 解析。
+  late final UgoiraMetadata? _ugoiraMetadataCache = _parseUgoiraMetadata();
 
   // Getter 用于数据库序列化
   String get illustJson => _illustJson;
@@ -127,7 +129,9 @@ class DownloadedIllust {
   }
 
   /// 解析 UgoiraMetadata
-  UgoiraMetadata? getUgoiraMetadata() {
+  UgoiraMetadata? getUgoiraMetadata() => _ugoiraMetadataCache;
+
+  UgoiraMetadata? _parseUgoiraMetadata() {
     if (!isUgoira || ugoiraMetadataJson.isEmpty) return null;
     try {
       final json = TypeUtil.parseMap(
