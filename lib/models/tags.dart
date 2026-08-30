@@ -1,65 +1,109 @@
 /*
  * Copyright (C) 2020. by perol_notsf, All rights reserved
- *
- * This program is free software: you can redistribute it and/or modify it under
- * the terms of the GNU General Public License as published by the Free Software
- * Foundation, either version 3 of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT ANY
- * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
- * FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along with
- * this program. If not, see <http://www.gnu.org/licenses/>.
- *
  */
-
-import 'package:json_annotation/json_annotation.dart';
 import 'package:path/path.dart';
+import 'package:pixez/custom/map_extension.dart';
+import 'package:pixez/custom/type_util.dart';
 import 'package:pixez/page/database/database_registry.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
-part 'tags.g.dart';
-
-@JsonSerializable()
 class AutoWords {
-  List<Tags> tags;
+  final List<Tags> tags;
 
-  AutoWords({required this.tags});
-
-  factory AutoWords.fromJson(Map<String, dynamic> json) =>
-      _$AutoWordsFromJson(json);
-
-  Map<String, dynamic> toJson() => _$AutoWordsToJson(this);
+  const AutoWords({this.tags = const []});
+  factory AutoWords.fromMap(Map<String, dynamic> map) => AutoWords(
+        tags: [
+          ...map.optList('tags', (e) => Tags.fromMap(TypeUtil.parseMap(e))),
+        ],
+      );
+  factory AutoWords.fromJson(Map<String, dynamic> json) => AutoWords.fromMap(json);
+  Map<String, dynamic> toMap() => {'tags': tags.map((e) => e.toMap()).toList()};
+  Map<String, dynamic> toJson() => toMap();
+  bool get isEmpty => tags.isEmpty;
+  AutoWords copyWith({List<Tags>? tags}) => AutoWords(
+        tags: tags == null ? [...this.tags] : [...tags],
+      );
+  @override
+  bool operator ==(Object other) => other is AutoWords && TypeUtil.equal(toMap(), other.toMap());
+  @override
+  int get hashCode => TypeUtil.hash(toMap());
+  @override
+  String toString() => 'AutoWords(${toMap()})';
 }
 
-@JsonSerializable()
 class Tags {
-  String name;
-  String? translated_name;
+  final String name;
+  final String? translatedName;
 
-  Tags({required this.name, this.translated_name});
-
-  factory Tags.fromJson(Map<String, dynamic> json) => _$TagsFromJson(json);
-
-  Map<String, dynamic> toJson() => _$TagsToJson(this);
+  const Tags({this.name = '', this.translatedName});
+  factory Tags.fromMap(Map<String, dynamic> map) => Tags(
+        name: map.optString('name'),
+        translatedName: map.optStringOrNull('translated_name'),
+      );
+  factory Tags.fromJson(Map<String, dynamic> json) => Tags.fromMap(json);
+  Map<String, dynamic> toMap() => {'name': name, 'translated_name': translatedName};
+  Map<String, dynamic> toJson() => toMap();
+  bool get isEmpty => TypeUtil.allEmpty([name, translatedName]);
+  Tags copyWith({String? name, Object? translatedName = TypeUtil.unset}) => Tags(
+        name: name ?? this.name,
+        translatedName: identical(translatedName, TypeUtil.unset)
+            ? this.translatedName
+            : translatedName as String?,
+      );
+  @override
+  bool operator ==(Object other) => other is Tags && TypeUtil.equal(toMap(), other.toMap());
+  @override
+  int get hashCode => TypeUtil.hash(toMap());
+  @override
+  String toString() => 'Tags(${toMap()})';
 }
 
-@JsonSerializable()
 class TagsPersist {
-  @JsonKey(name: '_id')
-  int? id;
-  String name;
-  @JsonKey(name: 'translated_name')
-  String translatedName;
-  int? type = 0;
+  final int? id;
+  final String name;
+  final String translatedName;
+  final int? type;
 
-  TagsPersist({this.id, required this.name, required this.translatedName});
+  const TagsPersist({
+    this.id,
+    this.name = '',
+    this.translatedName = '',
+    this.type = 0,
+  });
 
-  factory TagsPersist.fromJson(Map<String, dynamic> json) =>
-      _$TagsPersistFromJson(json);
+  factory TagsPersist.fromMap(Map<String, dynamic> map) => TagsPersist(
+        id: map.optIntOrNull('_id'),
+        name: map.optString('name'),
+        translatedName: map.optString('translated_name'),
+        type: map.optIntOrNull('type'),
+      );
+  factory TagsPersist.fromJson(Map<String, dynamic> json) => TagsPersist.fromMap(json);
+  Map<String, dynamic> toMap() => {
+        '_id': id,
+        'name': name,
+        'translated_name': translatedName,
+        'type': type,
+      };
+  Map<String, dynamic> toJson() => toMap();
+  bool get isEmpty => TypeUtil.allEmpty([id, name, translatedName, type]);
 
-  Map<String, dynamic> toJson() => _$TagsPersistToJson(this);
+  TagsPersist copyWith({
+    Object? id = TypeUtil.unset,
+    String? name,
+    String? translatedName,
+    Object? type = TypeUtil.unset,
+  }) => TagsPersist(
+        id: identical(id, TypeUtil.unset) ? this.id : id as int?,
+        name: name ?? this.name,
+        translatedName: translatedName ?? this.translatedName,
+        type: identical(type, TypeUtil.unset) ? this.type : type as int?,
+      );
+  @override
+  bool operator ==(Object other) => other is TagsPersist && TypeUtil.equal(toMap(), other.toMap());
+  @override
+  int get hashCode => TypeUtil.hash(toMap());
+  @override
+  String toString() => 'TagsPersist(${toMap()})';
 }
 
 final String tableTag = 'tag';
@@ -72,8 +116,8 @@ class TagsPersistProvider {
   late Database db;
 
   Future open() async {
-    String databasesPath = (await getDatabasesPath());
-    String path = join(databasesPath, '${tableTag}.db');
+    final databasesPath = await getDatabasesPath();
+    final path = join(databasesPath, '${tableTag}.db');
     db = await openDatabase(
       path,
       version: 2,
@@ -87,14 +131,11 @@ create table $tableTag (
 ''');
       },
       onUpgrade: (db, oldVer, newVer) async {
-        var batch = db.batch();
-        if (oldVer == 1) {
-          _updateTableCompanyV1toV2(batch);
-        }
+        final batch = db.batch();
+        if (oldVer == 1) _updateTableCompanyV1toV2(batch);
         await batch.commit();
       },
     );
-    // 注册到数据库管理中心
     DatabaseRegistry.instance.register('标签数据库', path, () => db);
   }
 
@@ -103,75 +144,55 @@ create table $tableTag (
   }
 
   Future<TagsPersist> insert(TagsPersist tag) async {
-    tag.id = await db.insert(
+    final id = await db.insert(
       tableTag,
       tag.toJson(),
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
-    return tag;
+    return tag.copyWith(id: id);
   }
 
-  Future<void> insertAll(List<TagsPersist> tags) async {
+  Future<List<TagsPersist>> insertAll(List<TagsPersist> tags) async {
+    final result = <TagsPersist>[];
     await db.transaction((txn) async {
-      for (var tag in tags) {
-        await txn.insert(
+      for (final tag in tags) {
+        final id = await txn.insert(
           tableTag,
           tag.toJson(),
           conflictAlgorithm: ConflictAlgorithm.replace,
         );
+        result.add(tag.copyWith(id: id));
       }
     });
+    return result;
   }
 
   Future<TagsPersist?> getTodo(int id) async {
-    List<Map<String, dynamic>> maps = await db.query(
+    final maps = await db.query(
       tableTag,
       columns: [columnId, columnName, columnTranslatedName, columnType],
       where: '$columnId = ?',
       whereArgs: [id],
     );
-    if (maps.length > 0) {
-      return TagsPersist.fromJson(maps.first);
-    }
-    return null;
+    return maps.isEmpty ? null : TagsPersist.fromJson(maps.first);
   }
 
   Future<List<TagsPersist>> getAllAccount() async {
-    List<TagsPersist> result = [];
-    List<Map<String, dynamic>> maps = await db.query(
+    final maps = await db.query(
       tableTag,
       columns: [columnId, columnName, columnTranslatedName, columnType],
-      orderBy: "$columnId DESC",
+      orderBy: '$columnId DESC',
     );
-
-    if (maps.length > 0) {
-      maps.forEach((f) {
-        result.add(TagsPersist.fromJson(f));
-      });
-    }
-    return result;
+    return maps.map(TagsPersist.fromJson).toList();
   }
 
-  Future<int> delete(int id) async {
-    return await db.delete(tableTag, where: '$columnId = ?', whereArgs: [id]);
-  }
-
-  Future<int> deleteAll({int type = 0}) async {
-    return await db.delete(
-      tableTag,
-      where: '$columnType = ?',
-      whereArgs: [type],
-    );
-  }
-
-  Future<int> update(TagsPersist todo) async {
-    return await db.update(
-      tableTag,
-      todo.toJson(),
-      where: '$columnId = ?',
-      whereArgs: [todo.id],
-    );
-  }
-
-  Future close() async => db.close();
+  Future<int> delete(int id) => db.delete(tableTag, where: '$columnId = ?', whereArgs: [id]);
+  Future<int> deleteAll({int type = 0}) => db.delete(tableTag, where: '$columnType = ?', whereArgs: [type]);
+  Future<int> update(TagsPersist todo) => db.update(
+        tableTag,
+        todo.toJson(),
+        where: '$columnId = ?',
+        whereArgs: [todo.id],
+      );
+  Future close() => db.close();
 }

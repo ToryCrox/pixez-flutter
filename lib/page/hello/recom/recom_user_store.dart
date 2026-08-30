@@ -42,8 +42,8 @@ abstract class _RecomUserStoreBase with Store {
         );
         if (cachedData != null) {
           users.clear();
-          users.addAll(cachedData.user_previews);
-          nextUrl = cachedData.next_url;
+          users.addAll(cachedData.userPreviews);
+          nextUrl = cachedData.nextUrl;
         }
       } catch (e) {
         // ignore
@@ -53,9 +53,9 @@ abstract class _RecomUserStoreBase with Store {
     try {
       final result = await apiClient.getUserRecommended();
       final response = UserPreviewsResponse.fromJson(result.data);
-      nextUrl = response.next_url;
+      nextUrl = response.nextUrl;
       users.clear();
-      users.addAll(response.user_previews);
+      users.addAll(response.userPreviews);
 
       // Update cache
       DiskCache.writeModel("recom_user_cache", result.data);
@@ -72,8 +72,8 @@ abstract class _RecomUserStoreBase with Store {
       if (nextUrl != null && nextUrl!.isNotEmpty) {
         final result = await apiClient.getNext(nextUrl!);
         final response = UserPreviewsResponse.fromJson(result.data);
-        nextUrl = response.next_url;
-        users.addAll(response.user_previews);
+        nextUrl = response.nextUrl;
+        users.addAll(response.userPreviews);
         controller?.finishLoad(IndicatorResult.success);
       } else {
         controller?.finishLoad(IndicatorResult.noMore);

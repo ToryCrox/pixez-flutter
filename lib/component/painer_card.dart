@@ -181,14 +181,18 @@ class _PainterCardState extends State<PainterCard> {
                     await apiClient.postUnFollowUser(_user.user.id);
                     if (mounted) {
                       setState(() {
-                        _user.user.isFollowed = false;
+                        _user = _user.copyWith(
+                          user: _user.user.copyWith(isFollowed: false),
+                        );
                       });
                     }
                   } else {
                     await apiClient.postFollowUser(_user.user.id, 'public');
                     if (mounted) {
                       setState(() {
-                        _user.user.isFollowed = true;
+                        _user = _user.copyWith(
+                          user: _user.user.copyWith(isFollowed: true),
+                        );
                       });
                     }
                   }
@@ -203,7 +207,9 @@ class _PainterCardState extends State<PainterCard> {
                   }
                   if (mounted) {
                     setState(() {
-                      _user.user.isFollowed = follow;
+                      _user = _user.copyWith(
+                        user: _user.user.copyWith(isFollowed: follow),
+                      );
                     });
                   }
                 } catch (e) {

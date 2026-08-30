@@ -345,7 +345,7 @@ class _UsersPageState extends State<UsersPage> with TickerProviderStateMixin {
           expandedHeight: () {
             final screenWidth = MediaQuery.of(context).size.width;
             final isWideScreen = screenWidth > 800;
-            if (userStore.userDetail?.profile.background_image_url != null) {
+            if (userStore.userDetail?.profile.backgroundImageUrl != null) {
               // 在宽屏下限制最大高度，避免头图显示过大
               final maxHeaderHeight = isWideScreen ? 400.0 : screenWidth / 2;
               return maxHeaderHeight.clamp(200.0, 400.0) +
@@ -572,7 +572,7 @@ class _UsersPageState extends State<UsersPage> with TickerProviderStateMixin {
     final isWideScreen = screenWidth > 800;
     final maxHeight = isWideScreen ? 400.0 : screenWidth / 2;
     final backgroundHeight =
-        userStore.userDetail?.profile.background_image_url != null
+        userStore.userDetail?.profile.backgroundImageUrl != null
             ? maxHeight.clamp(200.0, 400.0)
             : MediaQuery.of(context).padding.top + 160;
 
@@ -581,7 +581,7 @@ class _UsersPageState extends State<UsersPage> with TickerProviderStateMixin {
       height: backgroundHeight,
       child:
           userStore.userDetail != null
-              ? userStore.userDetail!.profile.background_image_url != null
+              ? userStore.userDetail!.profile.backgroundImageUrl != null
                   ? InkWell(
                     mouseCursor: appAdaptiveClickable,
                     onLongPress: () {
@@ -597,7 +597,7 @@ class _UsersPageState extends State<UsersPage> with TickerProviderStateMixin {
                                     userStore
                                         .userDetail!
                                         .profile
-                                        .background_image_url!,
+                                        .backgroundImageUrl!,
                                 fit: BoxFit.cover,
                                 cacheManager: pixivCacheManager,
                                 httpHeaders: Hoster.header(
@@ -605,7 +605,7 @@ class _UsersPageState extends State<UsersPage> with TickerProviderStateMixin {
                                       userStore
                                           .userDetail!
                                           .profile
-                                          .background_image_url,
+                                          .backgroundImageUrl,
                                 ),
                               ),
                             ),
@@ -623,7 +623,7 @@ class _UsersPageState extends State<UsersPage> with TickerProviderStateMixin {
                                     userStore
                                         .userDetail!
                                         .profile
-                                        .background_image_url!,
+                                        .backgroundImageUrl!,
                                   );
                                 },
                                 child: Text(I18n.of(context).ok),
@@ -636,7 +636,7 @@ class _UsersPageState extends State<UsersPage> with TickerProviderStateMixin {
                     child: ClipRect(
                       child: CachedNetworkImage(
                         imageUrl:
-                            userStore.userDetail!.profile.background_image_url!,
+                            userStore.userDetail!.profile.backgroundImageUrl!,
                         fit: BoxFit.cover,
                         width: screenWidth,
                         height: backgroundHeight,
@@ -646,7 +646,7 @@ class _UsersPageState extends State<UsersPage> with TickerProviderStateMixin {
                               userStore
                                   .userDetail!
                                   .profile
-                                  .background_image_url,
+                                  .backgroundImageUrl,
                         ),
                       ),
                     ),
@@ -757,7 +757,7 @@ class _UsersPageState extends State<UsersPage> with TickerProviderStateMixin {
             Text(
               userStore.userDetail == null
                   ? ""
-                  : '${userStore.userDetail!.profile.total_follow_users} ${I18n.of(context).follow}',
+                  : '${userStore.userDetail!.profile.totalFollowUsers} ${I18n.of(context).follow}',
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ],
@@ -810,7 +810,7 @@ class _UsersPageState extends State<UsersPage> with TickerProviderStateMixin {
               child: Text(
                 userStore.userDetail == null
                     ? ""
-                    : '${userStore.userDetail!.profile.total_follow_users} ${I18n.of(context).follow}',
+                    : '${userStore.userDetail!.profile.totalFollowUsers} ${I18n.of(context).follow}',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ),

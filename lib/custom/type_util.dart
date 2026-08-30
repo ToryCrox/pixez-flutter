@@ -8,6 +8,9 @@ import 'package:flutter/material.dart';
 class TypeUtil {
   TypeUtil._();
 
+  /// copyWith 中区分“未传入”和“显式传入 null”的哨兵。
+  static const Object unset = Object();
+
   /// 基本类型
   static const _primitiveTypes = {'int', 'double', 'num', 'bool'};
 
@@ -23,6 +26,16 @@ class TypeUtil {
     return _equality.equals(a, b);
   }
 
+  /// 与 [equal] 配套的深度 hash，适用于含有集合字段的模型。
+  static int hash(Object? value) {
+    return _equality.hash(value);
+  }
+
+  /// 判断模型字段是否全部为空。
+  static bool allEmpty(Iterable<dynamic> values) {
+    return values.every(isEmpty);
+  }
+
   /// 是否为空
   /// Map 为空，Iterable 为空，Set 为空，num 为0，bool 为false，其他为true
   static bool isEmpty(dynamic value) {
@@ -31,6 +44,9 @@ class TypeUtil {
     if (value is Iterable) return value.isEmpty;
     if (value is Map) return value.isEmpty;
     if (value is Set) return value.isEmpty;
+    if (value is DateTime) {
+      return value.millisecondsSinceEpoch == 0;
+    }
     if (value is num) return value == 0;
     if (value is bool) return value == false;
     return false;
@@ -51,6 +67,30 @@ class TypeUtil {
     if (value is String) {
       if (value.isEmpty) return null;
       return int.tryParse(value) ?? double.tryParse(value)?.toInt();
+    }
+    return null;
+  }
+
+  /// 解析 DateTime。支持 DateTime、ISO-8601 字符串和毫秒时间戳。
+  /// 无法解析时返回 Unix epoch，避免接口脏数据导致模型构造失败。
+  static DateTime parseDateTime(dynamic value, [DateTime? defaultValue]) {
+    return parseNullableDateTime(value) ??
+        defaultValue ??
+        DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
+  }
+
+  /// 解析可空 DateTime，无法解析时返回 null。
+  static DateTime? parseNullableDateTime(dynamic value) {
+    if (value == null || value == 'null') return null;
+    if (value is DateTime) return value;
+    if (value is int) {
+      return DateTime.fromMillisecondsSinceEpoch(value);
+    }
+    if (value is num) {
+      return DateTime.fromMillisecondsSinceEpoch(value.toInt());
+    }
+    if (value is String && value.isNotEmpty) {
+      return DateTime.tryParse(value);
     }
     return null;
   }

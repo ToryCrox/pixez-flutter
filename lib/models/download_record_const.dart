@@ -24,14 +24,88 @@ class TagChangeEvent {
   final List<int> newExampleIllustIds;
 
   TagChangeEvent({
-    required this.tagId,
-    required this.tagName,
-    required this.type,
-    required this.illustId,
+    this.tagId = 0,
+    this.tagName = '',
+    this.type = TagChangeType.illustAdded,
+    this.illustId = 0,
     this.squareMediumUrl,
-    required this.newCount,
-    required this.newExampleIllustIds,
-  });
+    this.newCount = 0,
+    List<int> newExampleIllustIds = const [],
+  }) : newExampleIllustIds = [...newExampleIllustIds];
+
+  factory TagChangeEvent.fromMap(Map<String, dynamic> map) {
+    final rawType = map['type'];
+    final type = rawType is String
+        ? TagChangeType.values.firstWhere(
+            (value) => value.name == rawType,
+            orElse: () => TagChangeType.illustAdded,
+          )
+        : TagChangeType.illustAdded;
+    return TagChangeEvent(
+      tagId: TypeUtil.parseInt(map['tag_id']),
+      tagName: TypeUtil.parseString(map['tag_name']),
+      type: type,
+      illustId: TypeUtil.parseInt(map['illust_id']),
+      squareMediumUrl: TypeUtil.parseNullableString(map['square_medium_url']),
+      newCount: TypeUtil.parseInt(map['new_count']),
+      newExampleIllustIds: TypeUtil.parseIntList(map['new_example_illust_ids']),
+    );
+  }
+
+  factory TagChangeEvent.fromJson(Map<String, dynamic> json) =>
+      TagChangeEvent.fromMap(json);
+
+  Map<String, dynamic> toMap() => {
+        'tag_id': tagId,
+        'tag_name': tagName,
+        'type': type.name,
+        'illust_id': illustId,
+        'square_medium_url': squareMediumUrl,
+        'new_count': newCount,
+        'new_example_illust_ids': [...newExampleIllustIds],
+      };
+
+  Map<String, dynamic> toJson() => toMap();
+
+  bool get isEmpty =>
+      TypeUtil.isEmpty(tagId) &&
+      TypeUtil.isEmpty(tagName) &&
+      type == TagChangeType.illustAdded &&
+      TypeUtil.isEmpty(illustId) &&
+      TypeUtil.isEmpty(squareMediumUrl) &&
+      TypeUtil.isEmpty(newCount) &&
+      newExampleIllustIds.isEmpty;
+
+  TagChangeEvent copyWith({
+    int? tagId,
+    String? tagName,
+    TagChangeType? type,
+    int? illustId,
+    Object? squareMediumUrl = TypeUtil.unset,
+    int? newCount,
+    List<int>? newExampleIllustIds,
+  }) => TagChangeEvent(
+        tagId: tagId ?? this.tagId,
+        tagName: tagName ?? this.tagName,
+        type: type ?? this.type,
+        illustId: illustId ?? this.illustId,
+        squareMediumUrl: identical(squareMediumUrl, TypeUtil.unset)
+            ? this.squareMediumUrl
+            : squareMediumUrl as String?,
+        newCount: newCount ?? this.newCount,
+        newExampleIllustIds:
+            newExampleIllustIds ?? [...this.newExampleIllustIds],
+      );
+
+  @override
+  bool operator ==(Object other) =>
+      other is TagChangeEvent && TypeUtil.equal(toMap(), other.toMap());
+
+  @override
+  int get hashCode => TypeUtil.hash(toMap());
+
+  @override
+  String toString() => 'TagChangeEvent(${toMap()})';
 }
 
 // 下载的插画记录
@@ -39,6 +113,7 @@ class DownloadedIllust {
   static const String sourcePixiv = 'pixiv';
   static const String sourceLocal = 'local';
 
+  final int? id;
   final int illustId;
   final int userId;
   final String userName;
@@ -81,24 +156,25 @@ class DownloadedIllust {
   bool get isUgoira => type == 'ugoira';
 
   DownloadedIllust({
-    required this.illustId,
-    required this.userId,
-    required this.userName,
-    required this.title,
-    required this.type,
-    required this.caption,
-    required this.createDate,
-    required this.pageCount,
-    required this.width,
-    required this.height,
-    required this.sanityLevel,
-    required this.xRestrict,
-    required this.totalView,
-    required this.totalBookmarks,
-    required this.tags,
-    required this.relativePath,
-    required this.downloadTime,
-    required String illustJson,
+    this.id,
+    this.illustId = 0,
+    this.userId = 0,
+    this.userName = '',
+    this.title = '',
+    this.type = '',
+    this.caption = '',
+    this.createDate = '',
+    this.pageCount = 0,
+    this.width = 0,
+    this.height = 0,
+    this.sanityLevel = 0,
+    this.xRestrict = 0,
+    this.totalView = 0,
+    this.totalBookmarks = 0,
+    this.tags = '',
+    this.relativePath = '',
+    this.downloadTime = 0,
+    String illustJson = '',
     this.imageUrlsJson = '',
     this.ugoiraMetadataJson = '',
     this.downloadedImageCount = 0,
@@ -228,6 +304,7 @@ class DownloadedIllust {
   }
 
   DownloadedIllust copyWith({
+    Object? id = TypeUtil.unset,
     int? downloadedImageCount,
     int? totalFileSize,
     int? bookmark,
@@ -235,10 +312,11 @@ class DownloadedIllust {
     String? translatedCaption,
     bool? isTranslated,
     String? sourceType,
-    int? downloadRemovedAt,
+    Object? downloadRemovedAt = TypeUtil.unset,
     bool clearDownloadRemovedAt = false,
   }) {
     return DownloadedIllust(
+      id: identical(id, TypeUtil.unset) ? this.id : id as int?,
       illustId: illustId,
       userId: userId,
       userName: userName,
@@ -266,15 +344,17 @@ class DownloadedIllust {
       translatedCaption: translatedCaption ?? this.translatedCaption,
       isTranslated: isTranslated ?? this.isTranslated,
       sourceType: sourceType ?? this.sourceType,
-      downloadRemovedAt:
-          clearDownloadRemovedAt
-              ? null
-              : downloadRemovedAt ?? this.downloadRemovedAt,
+      downloadRemovedAt: clearDownloadRemovedAt
+          ? null
+          : identical(downloadRemovedAt, TypeUtil.unset)
+              ? this.downloadRemovedAt
+              : downloadRemovedAt as int?,
     );
   }
 
   factory DownloadedIllust.fromJson(Map<String, dynamic> json) {
     return DownloadedIllust(
+      id: TypeUtil.parseNullableInt(json[DownloadedIllustColumns.id]),
       illustId: TypeUtil.parseInt(json[DownloadedIllustColumns.illustId]),
       userId: TypeUtil.parseInt(json[DownloadedIllustColumns.userId]),
       userName: TypeUtil.parseString(json[DownloadedIllustColumns.userName]),
@@ -337,8 +417,12 @@ class DownloadedIllust {
     );
   }
 
-  Map<String, dynamic> toJson() {
+  factory DownloadedIllust.fromMap(Map<String, dynamic> map) =>
+      DownloadedIllust.fromJson(map);
+
+  Map<String, dynamic> toJson({bool includeId = false}) {
     final Map<String, dynamic> data = {};
+    if (includeId && id != null) data[DownloadedIllustColumns.id] = id;
     data[DownloadedIllustColumns.illustId] = illustId;
     data[DownloadedIllustColumns.userId] = userId;
     data[DownloadedIllustColumns.userName] = userName;
@@ -372,12 +456,57 @@ class DownloadedIllust {
     return data;
   }
 
+  Map<String, dynamic> toMap({bool includeId = false}) =>
+      toJson(includeId: includeId);
+
+  bool get isEmpty =>
+      (id == null || id == 0) &&
+      illustId == 0 &&
+      userId == 0 &&
+      userName.isEmpty &&
+      title.isEmpty &&
+      type.isEmpty &&
+      caption.isEmpty &&
+      createDate.isEmpty &&
+      pageCount == 0 &&
+      width == 0 &&
+      height == 0 &&
+      sanityLevel == 0 &&
+      xRestrict == 0 &&
+      totalView == 0 &&
+      totalBookmarks == 0 &&
+      tags.isEmpty &&
+      relativePath.isEmpty &&
+      downloadTime == 0 &&
+      _illustJson.isEmpty &&
+      imageUrlsJson.isEmpty &&
+      ugoiraMetadataJson.isEmpty &&
+      downloadedImageCount == 0 &&
+      totalFileSize == 0 &&
+      bookmark == 0 &&
+      translatedTitle.isEmpty &&
+      translatedCaption.isEmpty &&
+      !isTranslated &&
+      sourceType == sourcePixiv &&
+      downloadRemovedAt == null;
+
+  @override
+  bool operator ==(Object other) =>
+      other is DownloadedIllust &&
+      TypeUtil.equal(toMap(includeId: true), other.toMap(includeId: true));
+
+  @override
+  int get hashCode => TypeUtil.hash(toMap(includeId: true));
+
+  @override
+  String toString() => 'DownloadedIllust(${toMap(includeId: true)})';
+
   // 缓存 Illusts 对象，避免重复解析
-  Illusts? _illustsCache;
+  late final Illusts _illustsCache = _parseIllusts();
 
-  Illusts toIllusts() {
-    if (_illustsCache != null) return _illustsCache!;
+  Illusts toIllusts() => _illustsCache;
 
+  Illusts _parseIllusts() {
     // 使用 TypeUtil.parseMap 安全地将字符串转换为 Map（先解压 URL 前缀）
     final json = TypeUtil.parseMap(PixivUrlUtil.decompressPxUrl(_illustJson));
 
@@ -397,7 +526,7 @@ class DownloadedIllust {
 
     // 使用 copyWith 从表字段赋值，避免硬编码 map 字段
     // metaPages 和 metaSinglePage 从 baseIllusts 保留（它们已经保存在 illustJson 中）
-    _illustsCache = baseIllusts.copyWith(
+    return baseIllusts.copyWith(
       id: illustId,
       title: title,
       type: type,
@@ -415,7 +544,6 @@ class DownloadedIllust {
       user: baseIllusts.user.copyWith(id: userId, name: userName),
       isBookmarked: bookmark > 0,
     );
-    return _illustsCache!;
   }
 
   List<Tags> getTagsList() {
@@ -430,7 +558,49 @@ class LocalImageInfo {
   final int? height;
   final int? fileSize;
 
-  LocalImageInfo({required this.path, this.width, this.height, this.fileSize});
+  const LocalImageInfo({
+    this.path = '',
+    this.width,
+    this.height,
+    this.fileSize,
+  });
+
+  factory LocalImageInfo.fromMap(Map<String, dynamic> map) => LocalImageInfo(
+        path: TypeUtil.parseString(map['path']),
+        width: TypeUtil.parseNullableInt(map['width']),
+        height: TypeUtil.parseNullableInt(map['height']),
+        fileSize: TypeUtil.parseNullableInt(map['file_size']),
+      );
+
+  factory LocalImageInfo.fromJson(Map<String, dynamic> json) =>
+      LocalImageInfo.fromMap(json);
+
+  Map<String, dynamic> toMap() => {
+        'path': path,
+        'width': width,
+        'height': height,
+        'file_size': fileSize,
+      };
+
+  Map<String, dynamic> toJson() => toMap();
+
+  bool get isEmpty =>
+      path.isEmpty && width == null && height == null && fileSize == null;
+
+  LocalImageInfo copyWith({
+    String? path,
+    Object? width = TypeUtil.unset,
+    Object? height = TypeUtil.unset,
+    Object? fileSize = TypeUtil.unset,
+  }) => LocalImageInfo(
+        path: path ?? this.path,
+        width: identical(width, TypeUtil.unset) ? this.width : width as int?,
+        height:
+            identical(height, TypeUtil.unset) ? this.height : height as int?,
+        fileSize: identical(fileSize, TypeUtil.unset)
+            ? this.fileSize
+            : fileSize as int?,
+      );
 
   /// 获取宽高比（width / height），如果宽高未知则返回 null
   double? get aspectRatio {
@@ -464,6 +634,7 @@ class DownloadedImage {
   /// 动图合并后的 WebP 文件标识
   static const int partUgoiraWebP = -1;
 
+  final int? id;
   final int illustId;
   final int part;
   final String fileName;
@@ -473,13 +644,14 @@ class DownloadedImage {
   final int? width; // 图片宽度
   final int? height; // 图片高度
 
-  DownloadedImage({
-    required this.illustId,
-    required this.part,
-    required this.fileName,
-    required this.extension,
-    required this.fileSize,
-    required this.originalUrl,
+  const DownloadedImage({
+    this.id,
+    this.illustId = 0,
+    this.part = 0,
+    this.fileName = '',
+    this.extension = '',
+    this.fileSize = 0,
+    this.originalUrl = '',
     this.width,
     this.height,
   });
@@ -490,19 +662,24 @@ class DownloadedImage {
       json[DownloadedImageColumns.originalUrl],
     );
     return DownloadedImage(
+      id: TypeUtil.parseNullableInt(json[DownloadedImageColumns.id]),
       illustId: TypeUtil.parseInt(json[DownloadedImageColumns.illustId]),
       part: TypeUtil.parseInt(json[DownloadedImageColumns.part]),
       fileName: TypeUtil.parseString(json[DownloadedImageColumns.fileName]),
       extension: TypeUtil.parseString(json[DownloadedImageColumns.extension]),
       fileSize: TypeUtil.parseInt(json[DownloadedImageColumns.fileSize]),
       originalUrl: PixivUrlUtil.decompressOriginalUrl(compressedUrl),
-      width: TypeUtil.parseInt(json[DownloadedImageColumns.width]),
-      height: TypeUtil.parseInt(json[DownloadedImageColumns.height]),
+      width: TypeUtil.parseNullableInt(json[DownloadedImageColumns.width]),
+      height: TypeUtil.parseNullableInt(json[DownloadedImageColumns.height]),
     );
   }
 
-  Map<String, dynamic> toJson() {
+  factory DownloadedImage.fromMap(Map<String, dynamic> map) =>
+      DownloadedImage.fromJson(map);
+
+  Map<String, dynamic> toJson({bool includeId = false}) {
     final Map<String, dynamic> data = {};
+    if (includeId && id != null) data[DownloadedImageColumns.id] = id;
     data[DownloadedImageColumns.illustId] = illustId;
     data[DownloadedImageColumns.part] = part;
     data[DownloadedImageColumns.fileName] = fileName;
@@ -517,6 +694,20 @@ class DownloadedImage {
     return data;
   }
 
+  Map<String, dynamic> toMap({bool includeId = false}) =>
+      toJson(includeId: includeId);
+
+  bool get isEmpty =>
+      (id == null || id == 0) &&
+      illustId == 0 &&
+      part == 0 &&
+      fileName.isEmpty &&
+      extension.isEmpty &&
+      fileSize == 0 &&
+      originalUrl.isEmpty &&
+      width == null &&
+      height == null;
+
   String getFullFileName() => '$fileName$extension';
 
   /// 获取图片宽高比（width / height），如果宽高未知则返回 null
@@ -528,26 +719,40 @@ class DownloadedImage {
   }
 
   DownloadedImage copyWith({
+    Object? id = TypeUtil.unset,
     int? illustId,
     int? part,
     String? fileName,
     String? extension,
     int? fileSize,
     String? originalUrl,
-    int? width,
-    int? height,
+    Object? width = TypeUtil.unset,
+    Object? height = TypeUtil.unset,
   }) {
     return DownloadedImage(
+      id: identical(id, TypeUtil.unset) ? this.id : id as int?,
       illustId: illustId ?? this.illustId,
       part: part ?? this.part,
       fileName: fileName ?? this.fileName,
       extension: extension ?? this.extension,
       fileSize: fileSize ?? this.fileSize,
       originalUrl: originalUrl ?? this.originalUrl,
-      width: width ?? this.width,
-      height: height ?? this.height,
+      width: identical(width, TypeUtil.unset) ? this.width : width as int?,
+      height:
+          identical(height, TypeUtil.unset) ? this.height : height as int?,
     );
   }
+
+  @override
+  bool operator ==(Object other) =>
+      other is DownloadedImage &&
+      TypeUtil.equal(toMap(includeId: true), other.toMap(includeId: true));
+
+  @override
+  int get hashCode => TypeUtil.hash(toMap(includeId: true));
+
+  @override
+  String toString() => 'DownloadedImage(${toMap(includeId: true)})';
 }
 
 // 表名和列名常量
@@ -655,13 +860,13 @@ class PendingDownload {
   final String status;
   final int bookmark;
 
-  PendingDownload({
-    required this.id,
-    required this.part,
-    required this.url,
-    required this.illustJson,
-    required this.createTime,
-    required this.status,
+  const PendingDownload({
+    this.id = '',
+    this.part = 0,
+    this.url = '',
+    this.illustJson = '',
+    this.createTime = 0,
+    this.status = 'pending',
     this.bookmark = 0,
   });
 
@@ -680,6 +885,9 @@ class PendingDownload {
     );
   }
 
+  factory PendingDownload.fromMap(Map<String, dynamic> map) =>
+      PendingDownload.fromJson(map);
+
   Map<String, dynamic> toJson() {
     final Map<String, dynamic> data = {};
     data[PendingDownloadColumns.id] = id;
@@ -691,39 +899,81 @@ class PendingDownload {
     data[PendingDownloadColumns.bookmark] = bookmark;
     return data;
   }
+
+  Map<String, dynamic> toMap() => toJson();
+
+  bool get isEmpty =>
+      id.isEmpty &&
+      part == 0 &&
+      url.isEmpty &&
+      illustJson.isEmpty &&
+      createTime == 0 &&
+      status == 'pending' &&
+      bookmark == 0;
+
+  PendingDownload copyWith({
+    String? id,
+    int? part,
+    String? url,
+    String? illustJson,
+    int? createTime,
+    String? status,
+    int? bookmark,
+  }) => PendingDownload(
+        id: id ?? this.id,
+        part: part ?? this.part,
+        url: url ?? this.url,
+        illustJson: illustJson ?? this.illustJson,
+        createTime: createTime ?? this.createTime,
+        status: status ?? this.status,
+        bookmark: bookmark ?? this.bookmark,
+      );
+
+  @override
+  bool operator ==(Object other) =>
+      other is PendingDownload && TypeUtil.equal(toMap(), other.toMap());
+
+  @override
+  int get hashCode => TypeUtil.hash(toMap());
+
+  @override
+  String toString() => 'PendingDownload(${toMap()})';
 }
 
 // 下载的作者记录
 class DownloadedAuthor {
-  int userId;
-  String userName;
-  String? profileImageUrl;
-  int illustCount;
-  int totalImageCount;
-  int totalFileSize;
-  int lastDownloadTime;
-  int lastUpdateTime;
-  int bookmark;
+  final int userId;
+  final String userName;
+  final String? profileImageUrl;
+  final int illustCount;
+  final int totalImageCount;
+  final int totalFileSize;
+  final int lastDownloadTime;
+  final int lastUpdateTime;
+  final int bookmark;
 
-  DownloadedAuthor({
-    required this.userId,
-    required this.userName,
+  const DownloadedAuthor({
+    this.userId = 0,
+    this.userName = '',
     this.profileImageUrl,
-    required this.illustCount,
-    required this.totalImageCount,
-    required this.totalFileSize,
-    required this.lastDownloadTime,
-    required this.lastUpdateTime,
+    this.illustCount = 0,
+    this.totalImageCount = 0,
+    this.totalFileSize = 0,
+    this.lastDownloadTime = 0,
+    this.lastUpdateTime = 0,
     this.bookmark = 0,
   });
 
   factory DownloadedAuthor.fromJson(Map<String, dynamic> json) {
+    final profileImageUrl = TypeUtil.parseNullableString(
+      json[DownloadedAuthorColumns.profileImageUrl],
+    );
     return DownloadedAuthor(
       userId: TypeUtil.parseInt(json[DownloadedAuthorColumns.userId]),
       userName: TypeUtil.parseString(json[DownloadedAuthorColumns.userName]),
-      profileImageUrl: PixivUrlUtil.decompressPxUrl(
-        TypeUtil.parseString(json[DownloadedAuthorColumns.profileImageUrl]),
-      ),
+      profileImageUrl: profileImageUrl == null
+          ? null
+          : PixivUrlUtil.decompressPxUrl(profileImageUrl),
       illustCount: TypeUtil.parseInt(json[DownloadedAuthorColumns.illustCount]),
       totalImageCount: TypeUtil.parseInt(
         json[DownloadedAuthorColumns.totalImageCount],
@@ -757,6 +1007,56 @@ class DownloadedAuthor {
     data[DownloadedAuthorColumns.bookmark] = bookmark;
     return data;
   }
+
+  factory DownloadedAuthor.fromMap(Map<String, dynamic> map) =>
+      DownloadedAuthor.fromJson(map);
+
+  Map<String, dynamic> toMap() => toJson();
+
+  bool get isEmpty =>
+      userId == 0 &&
+      userName.isEmpty &&
+      profileImageUrl == null &&
+      illustCount == 0 &&
+      totalImageCount == 0 &&
+      totalFileSize == 0 &&
+      lastDownloadTime == 0 &&
+      lastUpdateTime == 0 &&
+      bookmark == 0;
+
+  DownloadedAuthor copyWith({
+    int? userId,
+    String? userName,
+    Object? profileImageUrl = TypeUtil.unset,
+    int? illustCount,
+    int? totalImageCount,
+    int? totalFileSize,
+    int? lastDownloadTime,
+    int? lastUpdateTime,
+    int? bookmark,
+  }) => DownloadedAuthor(
+        userId: userId ?? this.userId,
+        userName: userName ?? this.userName,
+        profileImageUrl: identical(profileImageUrl, TypeUtil.unset)
+            ? this.profileImageUrl
+            : profileImageUrl as String?,
+        illustCount: illustCount ?? this.illustCount,
+        totalImageCount: totalImageCount ?? this.totalImageCount,
+        totalFileSize: totalFileSize ?? this.totalFileSize,
+        lastDownloadTime: lastDownloadTime ?? this.lastDownloadTime,
+        lastUpdateTime: lastUpdateTime ?? this.lastUpdateTime,
+        bookmark: bookmark ?? this.bookmark,
+      );
+
+  @override
+  bool operator ==(Object other) =>
+      other is DownloadedAuthor && TypeUtil.equal(toMap(), other.toMap());
+
+  @override
+  int get hashCode => TypeUtil.hash(toMap());
+
+  @override
+  String toString() => 'DownloadedAuthor(${toMap()})';
 }
 
 enum TagCategory {
@@ -795,9 +1095,9 @@ class DownloadedTag {
   final int referencedTagId;
   final int parentId;
 
-  DownloadedTag({
-    required this.id,
-    required this.name,
+  const DownloadedTag({
+    this.id = 0,
+    this.name = '',
     this.translatedName = '',
     this.category = 0,
     this.customTranslatedName,
@@ -845,13 +1145,16 @@ class DownloadedTag {
       translatedName: TypeUtil.parseString(
         json[DownloadedTagsColumns.translatedName],
       ),
-      customTranslatedName:
-          json[DownloadedTagsColumns.customTranslatedName] as String?,
+      customTranslatedName: TypeUtil.parseNullableString(
+        json[DownloadedTagsColumns.customTranslatedName],
+      ),
       category: TypeUtil.parseInt(json[DownloadedTagsColumns.category]),
       isBookmarked:
           TypeUtil.parseInt(json[DownloadedTagsColumns.isBookmarked]) == 1,
       displayOrder: TypeUtil.parseInt(json[DownloadedTagsColumns.displayOrder]),
-      lastUsedTime: json[DownloadedTagsColumns.lastUsedTime] as int?,
+      lastUsedTime: TypeUtil.parseNullableInt(
+        json[DownloadedTagsColumns.lastUsedTime],
+      ),
       count: TypeUtil.parseInt(json[DownloadedTagsColumns.count]),
       exampleIllusts: TypeUtil.parseString(
         json[DownloadedTagsColumns.exampleIllusts],
@@ -881,16 +1184,35 @@ class DownloadedTag {
     };
   }
 
+  factory DownloadedTag.fromMap(Map<String, dynamic> map) =>
+      DownloadedTag.fromJson(map);
+
+  Map<String, dynamic> toMap() => toJson();
+
+  bool get isEmpty =>
+      id == 0 &&
+      name.isEmpty &&
+      translatedName.isEmpty &&
+      customTranslatedName == null &&
+      category == 0 &&
+      count == 0 &&
+      !isBookmarked &&
+      displayOrder == 0 &&
+      lastUsedTime == null &&
+      exampleIllusts.isEmpty &&
+      referencedTagId == 0 &&
+      parentId == 0;
+
   DownloadedTag copyWith({
     int? id,
     String? name,
     String? translatedName,
     int? category,
-    String? customTranslatedName,
+    Object? customTranslatedName = TypeUtil.unset,
     int? count,
     bool? isBookmarked,
     int? displayOrder,
-    int? lastUsedTime,
+    Object? lastUsedTime = TypeUtil.unset,
     String? exampleIllusts,
     int? referencedTagId,
     int? parentId,
@@ -900,16 +1222,30 @@ class DownloadedTag {
       name: name ?? this.name,
       translatedName: translatedName ?? this.translatedName,
       category: category ?? this.category,
-      customTranslatedName: customTranslatedName ?? this.customTranslatedName,
+      customTranslatedName: identical(customTranslatedName, TypeUtil.unset)
+          ? this.customTranslatedName
+          : customTranslatedName as String?,
       count: count ?? this.count,
       isBookmarked: isBookmarked ?? this.isBookmarked,
       displayOrder: displayOrder ?? this.displayOrder,
-      lastUsedTime: lastUsedTime ?? this.lastUsedTime,
+      lastUsedTime: identical(lastUsedTime, TypeUtil.unset)
+          ? this.lastUsedTime
+          : lastUsedTime as int?,
       exampleIllusts: exampleIllusts ?? this.exampleIllusts,
       referencedTagId: referencedTagId ?? this.referencedTagId,
       parentId: parentId ?? this.parentId,
     );
   }
+
+  @override
+  bool operator ==(Object other) =>
+      other is DownloadedTag && TypeUtil.equal(toMap(), other.toMap());
+
+  @override
+  int get hashCode => TypeUtil.hash(toMap());
+
+  @override
+  String toString() => 'DownloadedTag(${toMap()})';
 }
 
 class IllustPreviewData {
@@ -917,24 +1253,85 @@ class IllustPreviewData {
   final String squareMediumUrl;
 
   const IllustPreviewData({
-    required this.illustId,
-    required this.squareMediumUrl,
+    this.illustId = 0,
+    this.squareMediumUrl = '',
   });
+
+  factory IllustPreviewData.fromMap(Map<String, dynamic> map) =>
+      IllustPreviewData(
+        illustId: TypeUtil.parseInt(map['illust_id']),
+        squareMediumUrl: TypeUtil.parseString(map['square_medium_url']),
+      );
+
+  factory IllustPreviewData.fromJson(Map<String, dynamic> json) =>
+      IllustPreviewData.fromMap(json);
+
+  Map<String, dynamic> toMap() => {
+        'illust_id': illustId,
+        'square_medium_url': squareMediumUrl,
+      };
+
+  Map<String, dynamic> toJson() => toMap();
+
+  bool get isEmpty => illustId == 0 && squareMediumUrl.isEmpty;
+
+  IllustPreviewData copyWith({int? illustId, String? squareMediumUrl}) =>
+      IllustPreviewData(
+        illustId: illustId ?? this.illustId,
+        squareMediumUrl: squareMediumUrl ?? this.squareMediumUrl,
+      );
+
+  @override
+  bool operator ==(Object other) =>
+      other is IllustPreviewData && TypeUtil.equal(toMap(), other.toMap());
+
+  @override
+  int get hashCode => TypeUtil.hash(toMap());
+
+  @override
+  String toString() => 'IllustPreviewData(${toMap()})';
 }
 
 class TagDisplayData {
   final DownloadedTag tag;
   final List<IllustPreviewData> previewIllusts;
   final bool hasEquivalentTags;
+  final int indentLevel;
 
   TagDisplayData({
-    required this.tag,
-    required this.previewIllusts,
+    this.tag = const DownloadedTag(),
+    List<IllustPreviewData> previewIllusts = const [],
     this.hasEquivalentTags = false,
     this.indentLevel = 0,
-  });
+  }) : previewIllusts = [...previewIllusts];
 
-  final int indentLevel;
+  factory TagDisplayData.fromMap(Map<String, dynamic> map) => TagDisplayData(
+        tag: DownloadedTag.fromMap(TypeUtil.parseMap(map['tag'])),
+        previewIllusts: TypeUtil.parseList(
+          map['preview_illusts'],
+          (value) => IllustPreviewData.fromMap(TypeUtil.parseMap(value)),
+        ),
+        hasEquivalentTags: TypeUtil.parseBool(map['has_equivalent_tags']),
+        indentLevel: TypeUtil.parseInt(map['indent_level']),
+      );
+
+  factory TagDisplayData.fromJson(Map<String, dynamic> json) =>
+      TagDisplayData.fromMap(json);
+
+  Map<String, dynamic> toMap() => {
+        'tag': tag.toMap(),
+        'preview_illusts': previewIllusts.map((e) => e.toMap()).toList(),
+        'has_equivalent_tags': hasEquivalentTags,
+        'indent_level': indentLevel,
+      };
+
+  Map<String, dynamic> toJson() => toMap();
+
+  bool get isEmpty =>
+      tag.isEmpty &&
+      previewIllusts.isEmpty &&
+      !hasEquivalentTags &&
+      indentLevel == 0;
 
   TagDisplayData copyWith({
     DownloadedTag? tag,
@@ -944,9 +1341,19 @@ class TagDisplayData {
   }) {
     return TagDisplayData(
       tag: tag ?? this.tag,
-      previewIllusts: previewIllusts ?? this.previewIllusts,
+      previewIllusts: previewIllusts ?? [...this.previewIllusts],
       hasEquivalentTags: hasEquivalentTags ?? this.hasEquivalentTags,
       indentLevel: indentLevel ?? this.indentLevel,
     );
   }
+
+  @override
+  bool operator ==(Object other) =>
+      other is TagDisplayData && TypeUtil.equal(toMap(), other.toMap());
+
+  @override
+  int get hashCode => TypeUtil.hash(toMap());
+
+  @override
+  String toString() => 'TagDisplayData(${toMap()})';
 }

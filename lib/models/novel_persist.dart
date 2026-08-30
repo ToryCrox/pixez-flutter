@@ -13,41 +13,88 @@
  *  this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-import 'package:json_annotation/json_annotation.dart';
 import 'package:pixez/page/database/database_registry.dart';
+import 'package:pixez/custom/map_extension.dart';
+import 'package:pixez/custom/type_util.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:path/path.dart';
 
-part 'novel_persist.g.dart';
-
-@JsonSerializable()
 class NovelPersist {
-  int? id;
-  @JsonKey(name: 'novel_id')
-  int novelId;
-  @JsonKey(name: 'user_id')
-  int userId;
-  @JsonKey(name: 'picture_url')
-  String pictureUrl;
-  int time;
-  String title;
-  @JsonKey(name: 'user_name')
-  String userName;
+  final int? id;
+  final int novelId;
+  final int userId;
+  final String pictureUrl;
+  final int time;
+  final String title;
+  final String userName;
 
-  NovelPersist({
+  const NovelPersist({
     this.id,
-    required this.novelId,
-    required this.userId,
-    required this.pictureUrl,
-    required this.time,
-    required this.title,
-    required this.userName,
+    this.novelId = 0,
+    this.userId = 0,
+    this.pictureUrl = '',
+    this.time = 0,
+    this.title = '',
+    this.userName = '',
   });
 
+  factory NovelPersist.fromMap(Map<String, dynamic> map) => NovelPersist(
+        id: map.optIntOrNull('id'),
+        novelId: map.optInt('novel_id'),
+        userId: map.optInt('user_id'),
+        pictureUrl: map.optString('picture_url'),
+        time: map.optInt('time'),
+        title: map.optString('title'),
+        userName: map.optString('user_name'),
+      );
   factory NovelPersist.fromJson(Map<String, dynamic> json) =>
-      _$NovelPersistFromJson(json);
+      NovelPersist.fromMap(json);
 
-  Map<String, dynamic> toJson() => _$NovelPersistToJson(this);
+  Map<String, dynamic> toMap() => {
+        'id': id,
+        'novel_id': novelId,
+        'user_id': userId,
+        'picture_url': pictureUrl,
+        'time': time,
+        'title': title,
+        'user_name': userName,
+      };
+  Map<String, dynamic> toJson() => toMap();
+  bool get isEmpty => TypeUtil.allEmpty([
+        id,
+        novelId,
+        userId,
+        pictureUrl,
+        time,
+        title,
+        userName,
+      ]);
+
+  NovelPersist copyWith({
+    Object? id = TypeUtil.unset,
+    int? novelId,
+    int? userId,
+    String? pictureUrl,
+    int? time,
+    String? title,
+    String? userName,
+  }) => NovelPersist(
+        id: identical(id, TypeUtil.unset) ? this.id : id as int?,
+        novelId: novelId ?? this.novelId,
+        userId: userId ?? this.userId,
+        pictureUrl: pictureUrl ?? this.pictureUrl,
+        time: time ?? this.time,
+        title: title ?? this.title,
+        userName: userName ?? this.userName,
+      );
+
+  @override
+  bool operator ==(Object other) =>
+      other is NovelPersist && TypeUtil.equal(toMap(), other.toMap());
+  @override
+  int get hashCode => TypeUtil.hash(toMap());
+  @override
+  String toString() => 'NovelPersist(${toMap()})';
 }
 
 final String tableNovelPersist = 'Novelpersist';
@@ -88,15 +135,13 @@ create table $tableNovelPersist (
 
   Future<NovelPersist> insert(NovelPersist todo) async {
     final result = await getAccount(todo.novelId);
-    if (result != null) {
-      todo.id = result.id;
-    }
-    todo.id = await db.insert(
+    final toInsert = result == null ? todo : todo.copyWith(id: result.id);
+    final id = await db.insert(
       tableNovelPersist,
-      todo.toJson(),
+      toInsert.toJson(),
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
-    return todo;
+    return toInsert.copyWith(id: id);
   }
 
   Future<NovelPersist?> getAccount(int Novel_id) async {

@@ -29,30 +29,44 @@ class NovelBookmarkButton extends StatefulWidget {
 }
 
 class _NovelBookmarkButtonState extends State<NovelBookmarkButton> {
+  late Novel _novel;
+
+  @override
+  void initState() {
+    super.initState();
+    _novel = widget.novel;
+  }
+
+  @override
+  void didUpdateWidget(covariant NovelBookmarkButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _novel = widget.novel;
+  }
+
   @override
   Widget build(BuildContext context) {
     return InkWell(
       mouseCursor: appAdaptiveClickable,
       onLongPress: () async {
-        if (!widget.novel.isBookmarked) {
+        if (!_novel.isBookmarked) {
           try {
-            await apiClient.postNovelBookmarkAdd(widget.novel.id, "private");
+            await apiClient.postNovelBookmarkAdd(_novel.id, "private");
             setState(() {
-              widget.novel.isBookmarked = true;
+              _novel = _novel.copyWith(isBookmarked: true);
             });
           } catch (e) {}
         } else {
           try {
-            await apiClient.postNovelBookmarkDelete(widget.novel.id);
+            await apiClient.postNovelBookmarkDelete(_novel.id);
             setState(() {
-              widget.novel.isBookmarked = false;
+              _novel = _novel.copyWith(isBookmarked: false);
             });
           } catch (e) {}
         }
       },
       child: IconButton(
         icon:
-            widget.novel.isBookmarked
+            _novel.isBookmarked
                 ? Icon(
                   Icons.bookmark,
                   color: Theme.of(context).textTheme.bodySmall!.color,
@@ -62,18 +76,18 @@ class _NovelBookmarkButtonState extends State<NovelBookmarkButton> {
                   color: Theme.of(context).textTheme.bodySmall!.color,
                 ),
         onPressed: () async {
-          if (!widget.novel.isBookmarked) {
+          if (!_novel.isBookmarked) {
             try {
-              await apiClient.postNovelBookmarkAdd(widget.novel.id, "public");
+              await apiClient.postNovelBookmarkAdd(_novel.id, "public");
               setState(() {
-                widget.novel.isBookmarked = true;
+                _novel = _novel.copyWith(isBookmarked: true);
               });
             } catch (e) {}
           } else {
             try {
-              await apiClient.postNovelBookmarkDelete(widget.novel.id);
+              await apiClient.postNovelBookmarkDelete(_novel.id);
               setState(() {
-                widget.novel.isBookmarked = false;
+                _novel = _novel.copyWith(isBookmarked: false);
               });
             } catch (e) {}
           }

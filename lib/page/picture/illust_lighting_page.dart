@@ -1622,8 +1622,14 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
                           heroTag: this.hashCode.toString(),
                         ),
                       );
-                      _illustStore.illusts!.user.isFollowed =
-                          userStore!.isFollow;
+                      final current = _illustStore.illusts;
+                      if (current != null) {
+                        _illustStore.illusts = current.copyWith(
+                          user: current.user.copyWith(
+                            isFollowed: userStore!.isFollow,
+                          ),
+                        );
+                      }
                     },
                   ),
                 ),
@@ -1660,13 +1666,27 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
                 onPressed: () async {
                   await userStore?.follow();
                   if (userStore?.isFollow != null) {
-                    _illustStore.illusts?.user.isFollowed = userStore?.isFollow;
+                    final current = _illustStore.illusts;
+                    if (current != null) {
+                      _illustStore.illusts = current.copyWith(
+                        user: current.user.copyWith(
+                          isFollowed: userStore?.isFollow,
+                        ),
+                      );
+                    }
                   }
                 },
                 onConfirm: (follow, restrict) {
                   userStore?.followWithRestrict(follow, restrict);
                   if (userStore?.isFollow != null) {
-                    _illustStore.illusts?.user.isFollowed = userStore?.isFollow;
+                    final current = _illustStore.illusts;
+                    if (current != null) {
+                      _illustStore.illusts = current.copyWith(
+                        user: current.user.copyWith(
+                          isFollowed: userStore?.isFollow,
+                        ),
+                      );
+                    }
                   }
                 },
               ),
@@ -1687,7 +1707,12 @@ class _IllustVerticalPageState extends State<IllustVerticalPage>
         heroTag: this.hashCode.toString(),
       ),
     );
-    _illustStore.illusts!.user.isFollowed = userStore!.isFollow;
+    final current = _illustStore.illusts;
+    if (current != null) {
+      _illustStore.illusts = current.copyWith(
+        user: current.user.copyWith(isFollowed: userStore!.isFollow),
+      );
+    }
   }
 
   Future<void> _pressSave(Illusts illust, int index) async {

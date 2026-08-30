@@ -184,7 +184,7 @@ class IllustDetailBody extends StatelessWidget {
                   spacing: 2, // gap between adjacent chips
                   runSpacing: 0, // gap between lines
                   children: [
-                    if (illust.illustAIType == 2)
+                    if (illust.illustAiType == 2)
                       Text(
                         "${I18n.of(context).ai_generated}",
                         style: Theme.of(context).textTheme.bodySmall!.copyWith(

@@ -1,10 +1,10 @@
-import 'package:json_annotation/json_annotation.dart';
+import 'dart:convert' show json;
+
+import 'package:path/path.dart';
+import 'package:pixez/custom/map_extension.dart';
+import 'package:pixez/custom/type_util.dart';
 import 'package:pixez/page/database/database_registry.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import 'dart:convert' show json;
-import 'package:path/path.dart';
-
-part 'key_value_pair.g.dart';
 
 final String tableKVPair = 'kvpair';
 final String columnId = '_id';
@@ -13,38 +13,70 @@ final String columnValue = 'value';
 final String columnExpireTime = 'expire_time';
 final String columnDateTime = 'date_time';
 
-@JsonSerializable()
 class KVPair {
-  String key;
-  String value;
-  @JsonKey(name: 'expire_time')
-  int expireTime;
-  @JsonKey(name: 'date_time')
-  int dateTime;
+  final int? id;
+  final String key;
+  final String value;
+  final int expireTime;
+  final int dateTime;
 
-  KVPair({
-    required this.key,
-    required this.value,
-    required this.expireTime,
-    required this.dateTime,
+  const KVPair({
+    this.id,
+    this.key = '',
+    this.value = '',
+    this.expireTime = 0,
+    this.dateTime = 0,
   });
 
-  factory KVPair.fromJson(Map<String, dynamic> json) => _$KVPairFromJson(json);
+  factory KVPair.fromMap(Map<String, dynamic> map) => KVPair(
+        id: map.optIntOrNull(columnId),
+        key: map.optString(columnKey),
+        value: map.optString(columnValue),
+        expireTime: map.optInt(columnExpireTime),
+        dateTime: map.optInt(columnDateTime),
+      );
 
-  Map<String, dynamic> toJson() => _$KVPairToJson(this);
+  factory KVPair.fromJson(Map<String, dynamic> json) => KVPair.fromMap(json);
+
+  Map<String, dynamic> toMap() => {
+        columnId: id,
+        columnKey: key,
+        columnValue: value,
+        columnExpireTime: expireTime,
+        columnDateTime: dateTime,
+      };
+  Map<String, dynamic> toJson() => toMap();
+  bool get isEmpty => TypeUtil.allEmpty([id, key, value, expireTime, dateTime]);
+
+  KVPair copyWith({
+    Object? id = TypeUtil.unset,
+    String? key,
+    String? value,
+    int? expireTime,
+    int? dateTime,
+  }) => KVPair(
+        id: identical(id, TypeUtil.unset) ? this.id : id as int?,
+        key: key ?? this.key,
+        value: value ?? this.value,
+        expireTime: expireTime ?? this.expireTime,
+        dateTime: dateTime ?? this.dateTime,
+      );
 
   @override
-  String toString() {
-    return json.encode(this);
-  }
+  bool operator ==(Object other) =>
+      other is KVPair && TypeUtil.equal(toMap(), other.toMap());
+  @override
+  int get hashCode => TypeUtil.hash(toMap());
+  @override
+  String toString() => json.encode(toJson());
 }
 
 class KVProvider {
   late Database db;
 
   Future open() async {
-    String databasesPath = (await getDatabasesPath());
-    String path = join(databasesPath, 'kvpair.db');
+    final databasesPath = await getDatabasesPath();
+    final path = join(databasesPath, 'kvpair.db');
     db = await openDatabase(
       path,
       version: 1,
@@ -60,20 +92,20 @@ create table $tableKVPair (
 ''');
       },
     );
-    // 注册到数据库管理中心
     DatabaseRegistry.instance.register('配置数据库', path, () => db);
   }
 
-  Future<void> insert(KVPair todo) async {
-    await db.insert(
+  Future<KVPair> insert(KVPair todo) async {
+    final id = await db.insert(
       tableKVPair,
       todo.toJson(),
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
+    return todo.copyWith(id: id);
   }
 
   Future<KVPair?> getAccount(String key) async {
-    List<Map<String, dynamic>> maps = await db.query(
+    final maps = await db.query(
       tableKVPair,
       columns: [
         columnId,
@@ -85,38 +117,22 @@ create table $tableKVPair (
       where: '$columnKey = ?',
       whereArgs: [key],
     );
-    if (maps.length > 0) {
-      return KVPair.fromJson(maps.first);
-    }
-    return null;
+    return maps.isEmpty ? null : KVPair.fromJson(maps.first);
   }
 
-  Future<int> remove(String key) async {
-    final result = await db.delete(
-      tableKVPair,
-      where: '$columnKey = ?',
-      whereArgs: [key],
-    );
-    return result;
-  }
+  Future<int> remove(String key) =>
+      db.delete(tableKVPair, where: '$columnKey = ?', whereArgs: [key]);
+  Future<int> deleteAll() => db.delete(tableKVPair);
 
-  Future<int> deleteAll() async {
-    final result = await db.delete(tableKVPair);
-    return result;
-  }
-
-  Future<int> update(todo) async {
-    return await db.update(
-      tableKVPair,
-      todo.toJson(),
-      where: '$columnId = ?',
-      whereArgs: [todo.id],
-    );
-  }
+  Future<int> update(KVPair todo) => db.update(
+        tableKVPair,
+        todo.toJson(),
+        where: '$columnId = ?',
+        whereArgs: [todo.id],
+      );
 
   Future<List<KVPair>> getAllAccount() async {
-    List<KVPair> result = [];
-    List<Map<String, dynamic>> maps = await db.query(
+    final maps = await db.query(
       tableKVPair,
       columns: [
         columnId,
@@ -126,13 +142,7 @@ create table $tableKVPair (
         columnDateTime,
       ],
     );
-
-    if (maps.length > 0) {
-      maps.forEach((f) {
-        result.add(KVPair.fromJson(f));
-      });
-    }
-    return result;
+    return maps.map(KVPair.fromJson).toList();
   }
 
   Future<void> delete(String key) async {

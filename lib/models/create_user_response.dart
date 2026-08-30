@@ -1,75 +1,86 @@
-/*
- * Copyright (C) 2020. by perol_notsf, All rights reserved
- *
- * This program is free software: you can redistribute it and/or modify it under
- * the terms of the GNU General Public License as published by the Free Software
- * Foundation, either version 3 of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT ANY
- * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
- * FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along with
- * this program. If not, see <http://www.gnu.org/licenses/>.
- *
- */
-
-// To parse this JSON data, do
-//
-//     final createUserResponse = createUserResponseFromJson(jsonString);
 import 'dart:convert';
 
+import 'package:pixez/custom/map_extension.dart';
+import 'package:pixez/custom/type_util.dart';
+
 CreateUserResponse createUserResponseFromJson(String str) =>
-    CreateUserResponse.fromJson(json.decode(str));
+    CreateUserResponse.fromJson(TypeUtil.parseMap(json.decode(str)));
 
 String createUserResponseToJson(CreateUserResponse data) =>
     json.encode(data.toJson());
 
 class CreateUserResponse {
-  bool error;
-  String message;
-  Body body;
+  final bool error;
+  final String message;
+  final Body body;
 
-  CreateUserResponse({
-    required this.error,
-    required this.message,
-    required this.body,
+  const CreateUserResponse({
+    this.error = false,
+    this.message = '',
+    this.body = const Body(),
   });
 
-  factory CreateUserResponse.fromJson(Map<String, dynamic> json) =>
+  factory CreateUserResponse.fromMap(Map<String, dynamic> map) =>
       CreateUserResponse(
-        error: json["error"],
-        message: json["message"],
-        body: Body.fromJson(json["body"]),
+        error: map.optBool('error'),
+        message: map.optString('message'),
+        body: Body.fromMap(map.optMap('body')),
       );
-
-  Map<String, dynamic> toJson() => {
-    "error": error,
-    "message": message,
-    "body": body.toJson(),
-  };
+  factory CreateUserResponse.fromJson(Map<String, dynamic> json) =>
+      CreateUserResponse.fromMap(json);
+  Map<String, dynamic> toMap() => {
+        'error': error,
+        'message': message,
+        'body': body.toMap(),
+      };
+  Map<String, dynamic> toJson() => toMap();
+  bool get isEmpty => !error && message.isEmpty && body.isEmpty;
+  CreateUserResponse copyWith({bool? error, String? message, Body? body}) =>
+      CreateUserResponse(
+        error: error ?? this.error,
+        message: message ?? this.message,
+        body: body ?? this.body,
+      );
+  @override
+  bool operator ==(Object other) => other is CreateUserResponse &&
+      TypeUtil.equal(toMap(), other.toMap());
+  @override
+  int get hashCode => TypeUtil.hash(toMap());
+  @override
+  String toString() => 'CreateUserResponse(${toMap()})';
 }
 
 class Body {
-  String userAccount;
-  String password;
-  String deviceToken;
+  final String userAccount;
+  final String password;
+  final String deviceToken;
 
-  Body({
-    required this.userAccount,
-    required this.password,
-    required this.deviceToken,
-  });
+  const Body({this.userAccount = '', this.password = '', this.deviceToken = ''});
 
-  factory Body.fromJson(Map<String, dynamic> json) => Body(
-    userAccount: json["user_account"],
-    password: json["password"],
-    deviceToken: json["device_token"],
-  );
-
-  Map<String, dynamic> toJson() => {
-    "user_account": userAccount,
-    "password": password,
-    "device_token": deviceToken,
-  };
+  factory Body.fromMap(Map<String, dynamic> map) => Body(
+        userAccount: map.optString('user_account'),
+        password: map.optString('password'),
+        deviceToken: map.optString('device_token'),
+      );
+  factory Body.fromJson(Map<String, dynamic> json) => Body.fromMap(json);
+  Map<String, dynamic> toMap() => {
+        'user_account': userAccount,
+        'password': password,
+        'device_token': deviceToken,
+      };
+  Map<String, dynamic> toJson() => toMap();
+  bool get isEmpty => TypeUtil.allEmpty([userAccount, password, deviceToken]);
+  Body copyWith({String? userAccount, String? password, String? deviceToken}) =>
+      Body(
+        userAccount: userAccount ?? this.userAccount,
+        password: password ?? this.password,
+        deviceToken: deviceToken ?? this.deviceToken,
+      );
+  @override
+  bool operator ==(Object other) =>
+      other is Body && TypeUtil.equal(toMap(), other.toMap());
+  @override
+  int get hashCode => TypeUtil.hash(toMap());
+  @override
+  String toString() => 'Body(${toMap()})';
 }

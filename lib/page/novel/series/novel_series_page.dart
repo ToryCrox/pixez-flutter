@@ -90,8 +90,9 @@ class NovelSeries extends _$NovelSeries {
   Future<void> addWatchlist() async {
     try {
       await apiClient.watchListNovelAdd(state!.novelSeriesDetail.id.toString());
-      final updatedDetail = state!.novelSeriesDetail;
-      updatedDetail.watchlistAdded = true;
+      final updatedDetail = state!.novelSeriesDetail.copyWith(
+        watchlistAdded: true,
+      );
       final result = NovelSeriesState(
         updatedDetail,
         state!.novels,
@@ -109,8 +110,9 @@ class NovelSeries extends _$NovelSeries {
       await apiClient.watchListNovelDelete(
         state!.novelSeriesDetail.id.toString(),
       );
-      final updatedDetail = state!.novelSeriesDetail;
-      updatedDetail.watchlistAdded = false;
+      final updatedDetail = state!.novelSeriesDetail.copyWith(
+        watchlistAdded: false,
+      );
       final result = NovelSeriesState(
         updatedDetail,
         state!.novels,

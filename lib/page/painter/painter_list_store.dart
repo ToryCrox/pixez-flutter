@@ -39,10 +39,10 @@ abstract class _PainterListStoreBase with Store {
           cacheKey!,
           (map) => UserPreviewsResponse.fromJson(map),
         );
-        if (cachedData != null && cachedData.user_previews.isNotEmpty) {
+        if (cachedData != null && cachedData.userPreviews.isNotEmpty) {
           users.clear();
-          users.addAll(cachedData.user_previews);
-          nextUrl = cachedData.next_url;
+          users.addAll(cachedData.userPreviews);
+          nextUrl = cachedData.nextUrl;
         }
       } catch (e) {
         // 缓存读取失败，继续网络请求
@@ -55,8 +55,8 @@ abstract class _PainterListStoreBase with Store {
       UserPreviewsResponse userPreviewsResponse = UserPreviewsResponse.fromJson(
         response.data,
       );
-      nextUrl = userPreviewsResponse.next_url;
-      final results = userPreviewsResponse.user_previews;
+      nextUrl = userPreviewsResponse.nextUrl;
+      final results = userPreviewsResponse.userPreviews;
       users.clear();
       users.addAll(results);
       _controller.finishRefresh(IndicatorResult.success);
@@ -87,8 +87,8 @@ abstract class _PainterListStoreBase with Store {
           Response response = await apiClient.getNext(nextUrl!);
           UserPreviewsResponse userPreviewsResponse =
               UserPreviewsResponse.fromJson(response.data);
-          nextUrl = userPreviewsResponse.next_url;
-          final results = userPreviewsResponse.user_previews;
+          nextUrl = userPreviewsResponse.nextUrl;
+          final results = userPreviewsResponse.userPreviews;
           users.addAll(results);
           _controller.finishLoad(IndicatorResult.success);
           return true;

@@ -1,63 +1,96 @@
-/*
- * Copyright (C) 2020. by perol_notsf, All rights reserved
- *
- * This program is free software: you can redistribute it and/or modify it under
- * the terms of the GNU General Public License as published by the Free Software
- * Foundation, either version 3 of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT ANY
- * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
- * FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along with
- * this program. If not, see <http://www.gnu.org/licenses/>.
- *
- */
-import 'dart:convert' show json;
+import 'dart:convert';
 
-import 'package:json_annotation/json_annotation.dart';
-part 'bookmark.g.dart';
+import 'package:pixez/custom/map_extension.dart';
+import 'package:pixez/custom/type_util.dart';
 
-@JsonSerializable()
 class BookmarkRsp {
-  Bookmark_detail bookmark_detail;
+  final Bookmark_detail bookmarkDetail;
 
-  BookmarkRsp({required this.bookmark_detail});
+  const BookmarkRsp({this.bookmarkDetail = const Bookmark_detail()});
 
-  factory BookmarkRsp.fromJson(Map<String, dynamic> json) =>
-      _$BookmarkRspFromJson(json);
-  Map<String, dynamic> toJson() => _$BookmarkRspToJson(this);
+  factory BookmarkRsp.fromMap(Map<String, dynamic> map) => BookmarkRsp(
+        bookmarkDetail: Bookmark_detail.fromMap(map.optMap('bookmark_detail')),
+      );
+  factory BookmarkRsp.fromJson(Map<String, dynamic> json) => BookmarkRsp.fromMap(json);
+  Map<String, dynamic> toMap() => {'bookmark_detail': bookmarkDetail.toMap()};
+  Map<String, dynamic> toJson() => toMap();
+  bool get isEmpty => bookmarkDetail.isEmpty;
+  BookmarkRsp copyWith({Bookmark_detail? bookmarkDetail}) =>
+      BookmarkRsp(bookmarkDetail: bookmarkDetail ?? this.bookmarkDetail);
+  @override
+  bool operator ==(Object other) => other is BookmarkRsp && TypeUtil.equal(toMap(), other.toMap());
+  @override
+  int get hashCode => TypeUtil.hash(toMap());
+  @override
+  String toString() => json.encode(toMap());
 }
 
-@JsonSerializable()
 class Bookmark_detail {
-  bool is_bookmarked;
-  List<Tags> tags;
-  String restrict;
+  final bool isBookmarked;
+  final List<Tags> tags;
+  final String restrict;
 
-  Bookmark_detail({
-    required this.is_bookmarked,
-    required this.tags,
-    required this.restrict,
+  const Bookmark_detail({
+    this.isBookmarked = false,
+    this.tags = const [],
+    this.restrict = '',
   });
 
-  factory Bookmark_detail.fromJson(Map<String, dynamic> json) =>
-      _$Bookmark_detailFromJson(json);
-  Map<String, dynamic> toJson() => _$Bookmark_detailToJson(this);
-
+  factory Bookmark_detail.fromMap(Map<String, dynamic> map) => Bookmark_detail(
+        isBookmarked: map.optBool('is_bookmarked'),
+        tags: [
+          ...map.optList('tags', (e) => Tags.fromMap(TypeUtil.parseMap(e))),
+        ],
+        restrict: map.optString('restrict'),
+      );
+  factory Bookmark_detail.fromJson(Map<String, dynamic> json) => Bookmark_detail.fromMap(json);
+  Map<String, dynamic> toMap() => {
+        'is_bookmarked': isBookmarked,
+        'tags': tags.map((e) => e.toMap()).toList(),
+        'restrict': restrict,
+      };
+  Map<String, dynamic> toJson() => toMap();
+  bool get isEmpty => TypeUtil.allEmpty([isBookmarked, tags, restrict]);
+  Bookmark_detail copyWith({
+    bool? isBookmarked,
+    List<Tags>? tags,
+    String? restrict,
+  }) =>
+      Bookmark_detail(
+        isBookmarked: isBookmarked ?? this.isBookmarked,
+        tags: tags == null ? [...this.tags] : [...tags],
+        restrict: restrict ?? this.restrict,
+      );
   @override
-  String toString() {
-    return json.encode(this);
-  }
+  bool operator ==(Object other) => other is Bookmark_detail && TypeUtil.equal(toMap(), other.toMap());
+  @override
+  int get hashCode => TypeUtil.hash(toMap());
+  @override
+  String toString() => json.encode(toMap());
 }
 
-@JsonSerializable()
 class Tags {
-  String name;
-  bool is_registered;
+  final String name;
+  final bool isRegistered;
 
-  Tags({required this.name, required this.is_registered});
+  const Tags({this.name = '', this.isRegistered = false});
 
-  factory Tags.fromJson(Map<String, dynamic> json) => _$TagsFromJson(json);
-  Map<String, dynamic> toJson() => _$TagsToJson(this);
+  factory Tags.fromMap(Map<String, dynamic> map) => Tags(
+        name: map.optString('name'),
+        isRegistered: map.optBool('is_registered'),
+      );
+  factory Tags.fromJson(Map<String, dynamic> json) => Tags.fromMap(json);
+  Map<String, dynamic> toMap() => {'name': name, 'is_registered': isRegistered};
+  Map<String, dynamic> toJson() => toMap();
+  bool get isEmpty => TypeUtil.allEmpty([name, isRegistered]);
+  Tags copyWith({String? name, bool? isRegistered}) => Tags(
+        name: name ?? this.name,
+        isRegistered: isRegistered ?? this.isRegistered,
+      );
+  @override
+  bool operator ==(Object other) => other is Tags && TypeUtil.equal(toMap(), other.toMap());
+  @override
+  int get hashCode => TypeUtil.hash(toMap());
+  @override
+  String toString() => json.encode(toMap());
 }

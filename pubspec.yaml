@@ -47,7 +47,6 @@ dependencies:
   waterfall_flow: ^3.1.1
   animations: ^2.0.11
   font_awesome_flutter: ^11.0.0
-  json_annotation: ^4.9.0
   badges: ^3.1.2
   image_picker: ^1.1.2
   intl: any
@@ -104,7 +103,6 @@ dev_dependencies:
     sdk: flutter
   build_runner: ^2.4.10
   mobx_codegen: ^2.6.1
-  json_serializable: ^6.8.0
   analyzer: ^8.4.0
   sqflite_common_ffi: any
   msix: ^3.16.9

@@ -1,69 +1,93 @@
-/*
- * Copyright (C) 2020. by perol_notsf, All rights reserved
- *
- * This program is free software: you can redistribute it and/or modify it under
- * the terms of the GNU General Public License as published by the Free Software
- * Foundation, either version 3 of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT ANY
- * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
- * FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along with
- * this program. If not, see <http://www.gnu.org/licenses/>.
- *
- */
-import 'package:json_annotation/json_annotation.dart';
+import 'package:pixez/custom/map_extension.dart';
+import 'package:pixez/custom/type_util.dart';
 
-part 'ugoira_metadata_response.g.dart';
-
-@JsonSerializable()
 class UgoiraMetadataResponse {
-  @JsonKey(name: 'ugoira_metadata')
-  UgoiraMetadata ugoiraMetadata;
+  final UgoiraMetadata ugoiraMetadata;
 
-  UgoiraMetadataResponse({required this.ugoiraMetadata});
+  const UgoiraMetadataResponse({this.ugoiraMetadata = const UgoiraMetadata()});
 
-  factory UgoiraMetadataResponse.fromJson(Map<String, dynamic> json) =>
-      _$UgoiraMetadataResponseFromJson(json);
-
-  Map<String, dynamic> toJson() => _$UgoiraMetadataResponseToJson(this);
+  factory UgoiraMetadataResponse.fromMap(Map<String, dynamic> map) => UgoiraMetadataResponse(
+        ugoiraMetadata: UgoiraMetadata.fromMap(map.optMap('ugoira_metadata')),
+      );
+  factory UgoiraMetadataResponse.fromJson(Map<String, dynamic> json) => UgoiraMetadataResponse.fromMap(json);
+  Map<String, dynamic> toMap() => {'ugoira_metadata': ugoiraMetadata.toMap()};
+  Map<String, dynamic> toJson() => toMap();
+  bool get isEmpty => ugoiraMetadata.isEmpty;
+  UgoiraMetadataResponse copyWith({UgoiraMetadata? ugoiraMetadata}) => UgoiraMetadataResponse(ugoiraMetadata: ugoiraMetadata ?? this.ugoiraMetadata);
+  @override
+  bool operator ==(Object other) => other is UgoiraMetadataResponse && TypeUtil.equal(toMap(), other.toMap());
+  @override
+  int get hashCode => TypeUtil.hash(toMap());
+  @override
+  String toString() => 'UgoiraMetadataResponse(${toMap()})';
 }
 
-@JsonSerializable()
 class UgoiraMetadata {
-  @JsonKey(name: 'zip_urls')
-  ZipUrls zipUrls;
-  List<Frame> frames;
+  final ZipUrls zipUrls;
+  final List<Frame> frames;
 
-  UgoiraMetadata({required this.zipUrls, required this.frames});
+  const UgoiraMetadata({this.zipUrls = const ZipUrls(), this.frames = const []});
 
-  factory UgoiraMetadata.fromJson(Map<String, dynamic> json) =>
-      _$UgoiraMetadataFromJson(json);
-
-  Map<String, dynamic> toJson() => _$UgoiraMetadataToJson(this);
+  factory UgoiraMetadata.fromMap(Map<String, dynamic> map) => UgoiraMetadata(
+        zipUrls: ZipUrls.fromMap(map.optMap('zip_urls')),
+        frames: [
+          ...map.optList(
+            'frames',
+            (e) => Frame.fromMap(TypeUtil.parseMap(e)),
+          ),
+        ],
+      );
+  factory UgoiraMetadata.fromJson(Map<String, dynamic> json) => UgoiraMetadata.fromMap(json);
+  Map<String, dynamic> toMap() => {
+        'zip_urls': zipUrls.toMap(),
+        'frames': frames.map((e) => e.toMap()).toList(),
+      };
+  Map<String, dynamic> toJson() => toMap();
+  bool get isEmpty => zipUrls.isEmpty && frames.isEmpty;
+  UgoiraMetadata copyWith({ZipUrls? zipUrls, List<Frame>? frames}) => UgoiraMetadata(
+        zipUrls: zipUrls ?? this.zipUrls,
+        frames: frames == null ? [...this.frames] : [...frames],
+      );
+  @override
+  bool operator ==(Object other) => other is UgoiraMetadata && TypeUtil.equal(toMap(), other.toMap());
+  @override
+  int get hashCode => TypeUtil.hash(toMap());
+  @override
+  String toString() => 'UgoiraMetadata(${toMap()})';
 }
 
-@JsonSerializable()
 class Frame {
-  String file;
-  int delay;
+  final String file;
+  final int delay;
 
-  Frame({required this.file, required this.delay});
-
-  factory Frame.fromJson(Map<String, dynamic> json) => _$FrameFromJson(json);
-
-  Map<String, dynamic> toJson() => _$FrameToJson(this);
+  const Frame({this.file = '', this.delay = 0});
+  factory Frame.fromMap(Map<String, dynamic> map) => Frame(file: map.optString('file'), delay: map.optInt('delay'));
+  factory Frame.fromJson(Map<String, dynamic> json) => Frame.fromMap(json);
+  Map<String, dynamic> toMap() => {'file': file, 'delay': delay};
+  Map<String, dynamic> toJson() => toMap();
+  bool get isEmpty => TypeUtil.allEmpty([file, delay]);
+  Frame copyWith({String? file, int? delay}) => Frame(file: file ?? this.file, delay: delay ?? this.delay);
+  @override
+  bool operator ==(Object other) => other is Frame && TypeUtil.equal(toMap(), other.toMap());
+  @override
+  int get hashCode => TypeUtil.hash(toMap());
+  @override
+  String toString() => 'Frame(${toMap()})';
 }
 
-@JsonSerializable()
 class ZipUrls {
-  String medium;
-
-  ZipUrls({required this.medium});
-
-  factory ZipUrls.fromJson(Map<String, dynamic> json) =>
-      _$ZipUrlsFromJson(json);
-
-  Map<String, dynamic> toJson() => _$ZipUrlsToJson(this);
+  final String medium;
+  const ZipUrls({this.medium = ''});
+  factory ZipUrls.fromMap(Map<String, dynamic> map) => ZipUrls(medium: map.optString('medium'));
+  factory ZipUrls.fromJson(Map<String, dynamic> json) => ZipUrls.fromMap(json);
+  Map<String, dynamic> toMap() => {'medium': medium};
+  Map<String, dynamic> toJson() => toMap();
+  bool get isEmpty => medium.isEmpty;
+  ZipUrls copyWith({String? medium}) => ZipUrls(medium: medium ?? this.medium);
+  @override
+  bool operator ==(Object other) => other is ZipUrls && medium == other.medium;
+  @override
+  int get hashCode => medium.hashCode;
+  @override
+  String toString() => 'ZipUrls(${toMap()})';
 }

@@ -13,26 +13,53 @@
  *  this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-import 'package:json_annotation/json_annotation.dart';
+import 'package:pixez/custom/map_extension.dart';
+import 'package:pixez/custom/type_util.dart';
 import 'package:pixez/page/database/database_registry.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:path/path.dart';
 
-part 'novel_viewer_persist.g.dart';
-
-@JsonSerializable()
 class NovelViewerPersist {
-  int? id;
-  @JsonKey(name: 'novel_id')
-  int novelId;
-  double offset;
+  final int? id;
+  final int novelId;
+  final double offset;
 
-  NovelViewerPersist({this.id, required this.novelId, required this.offset});
+  const NovelViewerPersist({this.id, this.novelId = 0, this.offset = 0});
 
+  factory NovelViewerPersist.fromMap(Map<String, dynamic> map) =>
+      NovelViewerPersist(
+        id: map.optIntOrNull('id'),
+        novelId: map.optInt('novel_id'),
+        offset: map.optDouble('offset'),
+      );
   factory NovelViewerPersist.fromJson(Map<String, dynamic> json) =>
-      _$NovelViewerPersistFromJson(json);
+      NovelViewerPersist.fromMap(json);
 
-  Map<String, dynamic> toJson() => _$NovelViewerPersistToJson(this);
+  Map<String, dynamic> toMap() => {
+        'id': id,
+        'novel_id': novelId,
+        'offset': offset,
+      };
+  Map<String, dynamic> toJson() => toMap();
+  bool get isEmpty => TypeUtil.allEmpty([id, novelId, offset]);
+
+  NovelViewerPersist copyWith({
+    Object? id = TypeUtil.unset,
+    int? novelId,
+    double? offset,
+  }) => NovelViewerPersist(
+        id: identical(id, TypeUtil.unset) ? this.id : id as int?,
+        novelId: novelId ?? this.novelId,
+        offset: offset ?? this.offset,
+      );
+
+  @override
+  bool operator ==(Object other) => other is NovelViewerPersist &&
+      TypeUtil.equal(toMap(), other.toMap());
+  @override
+  int get hashCode => TypeUtil.hash(toMap());
+  @override
+  String toString() => 'NovelViewerPersist(${toMap()})';
 }
 
 final String tableNovelViewerPersist = 'NovelViewerPersist';
@@ -66,15 +93,13 @@ create table $tableNovelViewerPersist (
 
   Future<NovelViewerPersist> insert(NovelViewerPersist todo) async {
     final result = await getNovelPersistById(todo.novelId);
-    if (result != null) {
-      todo.id = result.id;
-    }
-    todo.id = await db.insert(
+    final toInsert = result == null ? todo : todo.copyWith(id: result.id);
+    final id = await db.insert(
       tableNovelViewerPersist,
-      todo.toJson(),
+      toInsert.toJson(),
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
-    return todo;
+    return toInsert.copyWith(id: id);
   }
 
   Future<NovelViewerPersist?> getNovelPersistById(int Novel_id) async {

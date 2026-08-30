@@ -94,24 +94,26 @@ abstract class _SoupStoreBase with Store {
         if (!value.attributes['class']!.contains('illust')) {
           continue;
         }
-        AmWork amWork = AmWork();
+        AmWork amWork = const AmWork();
         for (var aa in value.getElementsByTagName('a')) {
           var a = aa.attributes['href'];
           var segments = Uri.parse(a!).pathSegments;
           if (a.startsWith('https') &&
               segments.length > 2 &&
               segments[segments.length - 2] == 'artworks') {
-            amWork.arworkLink = a;
-            amWork.showImage =
-                value.getElementsByTagName('img')[1].attributes['src']!;
-            amWork.title = value.getElementsByTagName('h3').first.text;
+            amWork = amWork.copyWith(
+              arworkLink: a,
+              showImage: value.getElementsByTagName('img')[1].attributes['src']!,
+              title: value.getElementsByTagName('h3').first.text,
+            );
           } else if (a.startsWith('https') &&
               segments.length > 2 &&
               segments[segments.length - 2] == 'users') {
-            amWork.userLink = a;
-            amWork.user = value.getElementsByTagName('p').first.text;
-            amWork.userImage =
-                value.getElementsByTagName('img').first.attributes['src']!;
+            amWork = amWork.copyWith(
+              userLink: a,
+              user: value.getElementsByTagName('p').first.text,
+              userImage: value.getElementsByTagName('img').first.attributes['src']!,
+            );
           }
         }
         if (amWork.userLink == null || amWork.arworkLink == null) {
@@ -157,19 +159,21 @@ abstract class _SoupStoreBase with Store {
         if (!value.attributes['class']!.contains('illust')) {
           continue;
         }
-        AmWork amWork = AmWork();
+        AmWork amWork = const AmWork();
         for (var aa in value.getElementsByTagName('a')) {
           var a = aa.attributes['href']!;
           if (a.contains('https://www.pixiv.net/artworks')) {
-            amWork.arworkLink = a;
-            amWork.showImage =
-                value.getElementsByTagName('img')[1].attributes['src']!;
-            amWork.title = value.getElementsByTagName('h3').first.text;
+            amWork = amWork.copyWith(
+              arworkLink: a,
+              showImage: value.getElementsByTagName('img')[1].attributes['src']!,
+              title: value.getElementsByTagName('h3').first.text,
+            );
           } else if (a.contains('https://www.pixiv.net/users')) {
-            amWork.userLink = a;
-            amWork.user = value.getElementsByTagName('p').first.text;
-            amWork.userImage =
-                value.getElementsByTagName('img').first.attributes['src']!;
+            amWork = amWork.copyWith(
+              userLink: a,
+              user: value.getElementsByTagName('p').first.text,
+              userImage: value.getElementsByTagName('img').first.attributes['src']!,
+            );
           }
         }
         if (amWork.userLink == null || amWork.arworkLink == null) {

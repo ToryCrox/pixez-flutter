@@ -534,14 +534,14 @@ class DownloadDatabaseProvider {
   // ============ Illusts 操作 ============
 
   Future<DownloadedIllust> insertIllust(DownloadedIllust illust) async {
-    await db.insert(
+    final id = await db.insert(
       DownloadedIllustColumns.tableName,
       illust.toJson(),
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
     // Sync tags
     updateTagsRelations(illust);
-    return illust;
+    return illust.copyWith(id: id);
   }
 
   Future<DownloadedIllust?> getIllustByIllustId(int illustId) async {
@@ -1615,8 +1615,9 @@ class DownloadDatabaseProvider {
   }
 
   Future<DownloadedImage> insertImage(DownloadedImage image) async {
+    var insertedId = image.id;
     await db.transaction((txn) async {
-      await txn.insert(
+      insertedId = await txn.insert(
         DownloadedImageColumns.tableName,
         image.toJson(),
         conflictAlgorithm: ConflictAlgorithm.replace,
@@ -1624,7 +1625,7 @@ class DownloadDatabaseProvider {
       // 重新计算统计信息（确保数据一致）
       await recalculateIllustStats(image.illustId, txn: txn);
     });
-    return image;
+    return image.copyWith(id: insertedId);
   }
 
   /// 删除单张图片（会自动更新插画统计信息）

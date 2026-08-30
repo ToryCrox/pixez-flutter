@@ -53,13 +53,21 @@ abstract class _UserStoreBase with Store {
     try {
       if (!follow) {
         await client.postUnFollowUser(id);
-        userDetail?.user.isFollowed = false;
-        user?.isFollowed = false;
+        if (userDetail != null) {
+          userDetail = userDetail!.copyWith(
+            user: userDetail!.user.copyWith(isFollowed: false),
+          );
+        }
+        user = user?.copyWith(isFollowed: false);
         isFollow = false;
       } else {
         await client.postUserFollowAdd(id, restrict);
-        userDetail?.user.isFollowed = true;
-        user?.isFollowed = true;
+        if (userDetail != null) {
+          userDetail = userDetail!.copyWith(
+            user: userDetail!.user.copyWith(isFollowed: true),
+          );
+        }
+        user = user?.copyWith(isFollowed: true);
         isFollow = true;
       }
     } on DioException catch (e) {
@@ -73,8 +81,12 @@ abstract class _UserStoreBase with Store {
     if (user!.isFollowed!) {
       try {
         await client.postUnFollowUser(id);
-        userDetail?.user.isFollowed = false;
-        user?.isFollowed = false;
+        if (userDetail != null) {
+          userDetail = userDetail!.copyWith(
+            user: userDetail!.user.copyWith(isFollowed: false),
+          );
+        }
+        user = user?.copyWith(isFollowed: false);
         isFollow = false;
       } on DioException catch (e) {
         if (e.response != null &&
@@ -85,8 +97,12 @@ abstract class _UserStoreBase with Store {
     if (needPrivate) {
       try {
         await client.postFollowUser(id, 'private');
-        userDetail?.user.isFollowed = true;
-        user?.isFollowed = true;
+        if (userDetail != null) {
+          userDetail = userDetail!.copyWith(
+            user: userDetail!.user.copyWith(isFollowed: true),
+          );
+        }
+        user = user?.copyWith(isFollowed: true);
         isFollow = true;
       } on DioException catch (e) {
         if (e.response != null &&
@@ -95,8 +111,12 @@ abstract class _UserStoreBase with Store {
     } else {
       try {
         await client.postFollowUser(id, 'public');
-        userDetail?.user.isFollowed = true;
-        user?.isFollowed = true;
+        if (userDetail != null) {
+          userDetail = userDetail!.copyWith(
+            user: userDetail!.user.copyWith(isFollowed: true),
+          );
+        }
+        user = user?.copyWith(isFollowed: true);
         isFollow = true;
       } on DioException catch (e) {
         if (e.response != null &&
@@ -115,7 +135,7 @@ abstract class _UserStoreBase with Store {
       Response response = await client.getUser(id);
       UserDetail userDetail = UserDetail.fromJson(response.data);
       this.userDetail = userDetail;
-      user?.isFollowed = userDetail.user.isFollowed;
+      user = user?.copyWith(isFollowed: userDetail.user.isFollowed);
       this.user = userDetail.user;
       this.isFollow = this.userDetail!.user.isFollowed ?? false;
     } on DioException catch (e) {

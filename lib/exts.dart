@@ -247,7 +247,7 @@ extension IllustExts on Illusts {
         }
       }
     }
-    if (muteStore.banAIIllust && illustAIType == 2 && !ai) {
+    if (muteStore.banAIIllust && illustAiType == 2 && !ai) {
       return true;
     }
     for (var t in muteStore.banTags) {

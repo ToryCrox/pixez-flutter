@@ -531,7 +531,7 @@ class _NovelViewerPageState extends State<NovelViewerPage> {
               spacing: 2,
               runSpacing: 0,
               children: [
-                if (_novelStore.novel!.NovelAIType == 2)
+                if (_novelStore.novel!.novelAiType == 2)
                   Text(
                     '${I18n.of(context).ai_generated}',
                     style: Theme.of(context).textTheme.bodySmall!.copyWith(

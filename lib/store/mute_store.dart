@@ -90,9 +90,7 @@ abstract class _MuteStoreBase with Store {
   Future<void> insertBanUserId(String id, String name) async {
     await banUserIdProvider.open();
     await banUserIdProvider.insert(
-      BanUserIdPersist()
-        ..userId = id
-        ..name = name,
+      BanUserIdPersist(userId: id, name: name),
     );
     await fetchBanUserIds();
   }

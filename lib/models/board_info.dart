@@ -3,47 +3,66 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
-import 'package:json_annotation/json_annotation.dart';
 import 'package:pixez/constants.dart';
+import 'package:pixez/custom/map_extension.dart';
+import 'package:pixez/custom/type_util.dart';
 import 'package:pixez/custom/log.dart';
 
-part 'board_info.g.dart';
-
-@JsonSerializable()
 class BoardInfo {
-  BoardInfo({
-    required this.title,
-    required this.content,
-    required this.startDate,
-    required this.endDate,
+  final String title;
+  final String content;
+  final String startDate;
+  final String? endDate;
+
+  const BoardInfo({
+    this.title = '',
+    this.content = '',
+    this.startDate = '',
+    this.endDate,
   });
 
-  String title;
-  String content;
-  String startDate;
-  String? endDate;
-
-  factory BoardInfo.fromJson(Map<String, dynamic> json) =>
-      _$BoardInfoFromJson(json);
-  Map<String, dynamic> toJson() => _$BoardInfoToJson(this);
+  factory BoardInfo.fromMap(Map<String, dynamic> map) => BoardInfo(
+        title: map.optString('title'),
+        content: map.optString('content'),
+        startDate: map.optString('start_date'),
+        endDate: map.optStringOrNull('end_date'),
+      );
+  factory BoardInfo.fromJson(Map<String, dynamic> json) => BoardInfo.fromMap(json);
+  Map<String, dynamic> toMap() => {
+        'title': title,
+        'content': content,
+        'start_date': startDate,
+        'end_date': endDate,
+      };
+  Map<String, dynamic> toJson() => toMap();
+  bool get isEmpty => TypeUtil.allEmpty([title, content, startDate, endDate]);
+  BoardInfo copyWith({
+    String? title,
+    String? content,
+    String? startDate,
+    Object? endDate = TypeUtil.unset,
+  }) =>
+      BoardInfo(
+        title: title ?? this.title,
+        content: content ?? this.content,
+        startDate: startDate ?? this.startDate,
+        endDate: identical(endDate, TypeUtil.unset) ? this.endDate : endDate as String?,
+      );
+  @override
+  bool operator ==(Object other) => other is BoardInfo && TypeUtil.equal(toMap(), other.toMap());
+  @override
+  int get hashCode => TypeUtil.hash(toMap());
+  @override
+  String toString() => 'BoardInfo(${toMap()})';
 
   static bool boardDataLoaded = false;
-
   static List<BoardInfo> boardList = [];
 
   static String path() {
-    if (kDebugMode) {
-      return "android.json";
-    }
-    if (Platform.isAndroid) {
-      if (Constants.isGooglePlay) {
-        return "android_play.json";
-      }
-      return "android.json";
-    } else if (Platform.isIOS) {
-      return "ios.json";
-    }
-    return "";
+    if (kDebugMode) return 'android.json';
+    if (Platform.isAndroid) return Constants.isGooglePlay ? 'android_play.json' : 'android.json';
+    if (Platform.isIOS) return 'ios.json';
+    return '';
   }
 
   static Future<List<BoardInfo>> load() async {
@@ -51,10 +70,11 @@ class BoardInfo {
     final request = await Dio().get(
       'https://raw.githubusercontent.com/Notsfsssf/pixez-flutter/refs/heads/master/.github/board/${path()}',
     );
-    final list =
-        (jsonDecode(request.data) as List)
-            .map((e) => BoardInfo.fromJson(e))
-            .toList();
+    final raw = request.data is String ? jsonDecode(request.data) : request.data;
+    final list = TypeUtil.parseList<BoardInfo>(
+      raw,
+      (e) => BoardInfo.fromMap(TypeUtil.parseMap(e)),
+    );
     boardList = list;
     return list;
   }

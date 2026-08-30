@@ -1,78 +1,105 @@
-/*
- * Copyright (C) 2020. by perol_notsf, All rights reserved
- *
- * This program is free software: you can redistribute it and/or modify it under
- * the terms of the GNU General Public License as published by the Free Software
- * Foundation, either version 3 of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT ANY
- * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
- * FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along with
- * this program. If not, see <http://www.gnu.org/licenses/>.
- *
- */
-
-// To parse this JSON data, do
-//
-//     final accountEditResponse = accountEditResponseFromJson(jsonString);
-
 import 'dart:convert';
 
+import 'package:pixez/custom/map_extension.dart';
+import 'package:pixez/custom/type_util.dart';
+
 AccountEditResponse accountEditResponseFromJson(String str) =>
-    AccountEditResponse.fromJson(json.decode(str));
+    AccountEditResponse.fromJson(TypeUtil.parseMap(json.decode(str)));
 
 String accountEditResponseToJson(AccountEditResponse data) =>
     json.encode(data.toJson());
 
 class AccountEditResponse {
-  bool error;
-  String message;
-  Body body;
+  final bool error;
+  final String message;
+  final Body body;
 
-  AccountEditResponse({
-    required this.error,
-    required this.message,
-    required this.body,
+  const AccountEditResponse({
+    this.error = false,
+    this.message = '',
+    this.body = const Body(),
   });
 
-  factory AccountEditResponse.fromJson(Map<String, dynamic> json) =>
+  factory AccountEditResponse.fromMap(Map<String, dynamic> map) =>
       AccountEditResponse(
-        error: json["error"],
-        message: json["message"],
-        body: Body.fromJson(json["body"]),
+        error: map.optBool('error'),
+        message: map.optString('message'),
+        body: Body.fromMap(map.optMap('body')),
       );
 
-  Map<String, dynamic> toJson() => {
-    "error": error,
-    "message": message,
-    "body": body.toJson(),
-  };
+  factory AccountEditResponse.fromJson(Map<String, dynamic> json) =>
+      AccountEditResponse.fromMap(json);
+
+  Map<String, dynamic> toMap() => {
+        'error': error,
+        'message': message,
+        'body': body.toMap(),
+      };
+  Map<String, dynamic> toJson() => toMap();
+  bool get isEmpty => !error && message.isEmpty && body.isEmpty;
+
+  AccountEditResponse copyWith({bool? error, String? message, Body? body}) =>
+      AccountEditResponse(
+        error: error ?? this.error,
+        message: message ?? this.message,
+        body: body ?? this.body,
+      );
+
+  @override
+  bool operator ==(Object other) => other is AccountEditResponse &&
+      TypeUtil.equal(toMap(), other.toMap());
+  @override
+  int get hashCode => TypeUtil.hash(toMap());
+  @override
+  String toString() => 'AccountEditResponse(${toMap()})';
 }
 
 class Body {
-  bool isSucceed;
-  ValidationErrors validationErrors;
+  final bool isSucceed;
+  final ValidationErrors validationErrors;
 
-  Body({required this.isSucceed, required this.validationErrors});
+  const Body({this.isSucceed = false, this.validationErrors = const ValidationErrors()});
 
-  factory Body.fromJson(Map<String, dynamic> json) => Body(
-    isSucceed: json["is_succeed"],
-    validationErrors: ValidationErrors.fromJson(json["validation_errors"]),
-  );
+  factory Body.fromMap(Map<String, dynamic> map) => Body(
+        isSucceed: map.optBool('is_succeed'),
+        validationErrors:
+            ValidationErrors.fromMap(map.optMap('validation_errors')),
+      );
 
-  Map<String, dynamic> toJson() => {
-    "is_succeed": isSucceed,
-    "validation_errors": validationErrors.toJson(),
-  };
+  factory Body.fromJson(Map<String, dynamic> json) => Body.fromMap(json);
+  Map<String, dynamic> toMap() => {
+        'is_succeed': isSucceed,
+        'validation_errors': validationErrors.toMap(),
+      };
+  Map<String, dynamic> toJson() => toMap();
+  bool get isEmpty => !isSucceed && validationErrors.isEmpty;
+  Body copyWith({bool? isSucceed, ValidationErrors? validationErrors}) => Body(
+        isSucceed: isSucceed ?? this.isSucceed,
+        validationErrors: validationErrors ?? this.validationErrors,
+      );
+  @override
+  bool operator ==(Object other) =>
+      other is Body && TypeUtil.equal(toMap(), other.toMap());
+  @override
+  int get hashCode => TypeUtil.hash(toMap());
+  @override
+  String toString() => 'Body(${toMap()})';
 }
 
 class ValidationErrors {
-  ValidationErrors();
-
+  const ValidationErrors();
+  factory ValidationErrors.fromMap(Map<String, dynamic> map) =>
+      const ValidationErrors();
   factory ValidationErrors.fromJson(Map<String, dynamic> json) =>
-      ValidationErrors();
-
-  Map<String, dynamic> toJson() => {};
+      const ValidationErrors();
+  Map<String, dynamic> toMap() => {};
+  Map<String, dynamic> toJson() => toMap();
+  bool get isEmpty => true;
+  ValidationErrors copyWith() => const ValidationErrors();
+  @override
+  bool operator ==(Object other) => other is ValidationErrors;
+  @override
+  int get hashCode => runtimeType.hashCode;
+  @override
+  String toString() => 'ValidationErrors({})';
 }

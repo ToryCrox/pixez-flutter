@@ -13,24 +13,52 @@
  * this program. If not, see <http://www.gnu.org/licenses/>.
  *
  */
-import 'package:json_annotation/json_annotation.dart';
 import 'package:path/path.dart';
+import 'package:pixez/custom/map_extension.dart';
+import 'package:pixez/custom/type_util.dart';
 import 'package:pixez/page/database/database_registry.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-part 'ban_tag.g.dart';
 
-@JsonSerializable()
 class BanTagPersist {
-  int? id;
-  String name;
-  @JsonKey(name: 'translate_name')
-  String translateName;
+  final int? id;
+  final String name;
+  final String translateName;
 
-  BanTagPersist({this.id, required this.name, required this.translateName});
+  const BanTagPersist({this.id, this.name = '', this.translateName = ''});
 
+  factory BanTagPersist.fromMap(Map<String, dynamic> map) => BanTagPersist(
+        id: map.optIntOrNull('id'),
+        name: map.optString('name'),
+        translateName: map.optString('translate_name'),
+      );
   factory BanTagPersist.fromJson(Map<String, dynamic> json) =>
-      _$BanTagPersistFromJson(json);
-  Map<String, dynamic> toJson() => _$BanTagPersistToJson(this);
+      BanTagPersist.fromMap(json);
+
+  Map<String, dynamic> toMap() => {
+        'id': id,
+        'name': name,
+        'translate_name': translateName,
+      };
+  Map<String, dynamic> toJson() => toMap();
+  bool get isEmpty => TypeUtil.allEmpty([id, name, translateName]);
+
+  BanTagPersist copyWith({
+    Object? id = TypeUtil.unset,
+    String? name,
+    String? translateName,
+  }) => BanTagPersist(
+        id: identical(id, TypeUtil.unset) ? this.id : id as int?,
+        name: name ?? this.name,
+        translateName: translateName ?? this.translateName,
+      );
+
+  @override
+  bool operator ==(Object other) =>
+      other is BanTagPersist && TypeUtil.equal(toMap(), other.toMap());
+  @override
+  int get hashCode => TypeUtil.hash(toMap());
+  @override
+  String toString() => 'BanTagPersist(${toMap()})';
 }
 
 extension BanTagPersistExtension on BanTagPersist {
@@ -80,12 +108,12 @@ create table $tableBanTag (
   }
 
   Future<BanTagPersist> insert(BanTagPersist todo) async {
-    todo.id = await db.insert(
+    final id = await db.insert(
       tableBanTag,
       todo.toJson(),
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
-    return todo;
+    return todo.copyWith(id: id);
   }
 
   Future<BanTagPersist?> getAccount(int id) async {
@@ -140,15 +168,17 @@ create table $tableBanTag (
   Future close() async => db.close();
 
   Future<List<BanTagPersist>> insertAll(List<BanTagPersist> list) async {
+    final result = <BanTagPersist>[];
     await db.transaction((txn) async {
-      for (var todo in list) {
-        todo.id = await txn.insert(
+      for (final todo in list) {
+        final id = await txn.insert(
           tableBanTag,
           todo.toJson(),
           conflictAlgorithm: ConflictAlgorithm.replace,
         );
+        result.add(todo.copyWith(id: id));
       }
     });
-    return list;
+    return result;
   }
 }

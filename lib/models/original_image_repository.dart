@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
+import 'package:pixez/custom/type_util.dart';
 import 'package:pixez/models/download_record.dart';
 import 'package:pixez/models/illust.dart';
 import 'package:pixez/models/original_image.dart';
@@ -28,6 +29,79 @@ class OriginalImageDraft {
     required this.sha256,
     this.perceptualHash = '',
   });
+
+  factory OriginalImageDraft.fromMap(Map<String, dynamic> map) =>
+      OriginalImageDraft(
+        sourceOrder: TypeUtil.parseInt(map['source_order']),
+        fileName: TypeUtil.parseString(map['file_name']),
+        relativePath: TypeUtil.parseString(map['relative_path']),
+        extension: TypeUtil.parseString(map['extension']),
+        fileSize: TypeUtil.parseInt(map['file_size']),
+        width: TypeUtil.parseNullableInt(map['width']),
+        height: TypeUtil.parseNullableInt(map['height']),
+        sha256: TypeUtil.parseString(map['sha256']),
+        perceptualHash: TypeUtil.parseString(map['perceptual_hash']),
+      );
+
+  factory OriginalImageDraft.fromJson(Map<String, dynamic> json) =>
+      OriginalImageDraft.fromMap(json);
+
+  Map<String, dynamic> toMap() => {
+        'source_order': sourceOrder,
+        'file_name': fileName,
+        'relative_path': relativePath,
+        'extension': extension,
+        'file_size': fileSize,
+        'width': width,
+        'height': height,
+        'sha256': sha256,
+        'perceptual_hash': perceptualHash,
+      };
+
+  Map<String, dynamic> toJson() => toMap();
+
+  bool get isEmpty =>
+      sourceOrder == 0 &&
+      fileName.isEmpty &&
+      relativePath.isEmpty &&
+      extension.isEmpty &&
+      fileSize == 0 &&
+      width == null &&
+      height == null &&
+      sha256.isEmpty &&
+      perceptualHash.isEmpty;
+
+  OriginalImageDraft copyWith({
+    int? sourceOrder,
+    String? fileName,
+    String? relativePath,
+    String? extension,
+    int? fileSize,
+    Object? width = TypeUtil.unset,
+    Object? height = TypeUtil.unset,
+    String? sha256,
+    String? perceptualHash,
+  }) => OriginalImageDraft(
+        sourceOrder: sourceOrder ?? this.sourceOrder,
+        fileName: fileName ?? this.fileName,
+        relativePath: relativePath ?? this.relativePath,
+        extension: extension ?? this.extension,
+        fileSize: fileSize ?? this.fileSize,
+        width: identical(width, TypeUtil.unset) ? this.width : width as int?,
+        height: identical(height, TypeUtil.unset) ? this.height : height as int?,
+        sha256: sha256 ?? this.sha256,
+        perceptualHash: perceptualHash ?? this.perceptualHash,
+      );
+
+  @override
+  bool operator ==(Object other) =>
+      other is OriginalImageDraft && TypeUtil.equal(toMap(), other.toMap());
+
+  @override
+  int get hashCode => TypeUtil.hash(toMap());
+
+  @override
+  String toString() => 'OriginalImageDraft(${toMap()})';
 }
 
 class OriginalMappingDraft {
@@ -44,6 +118,66 @@ class OriginalMappingDraft {
     required this.relationType,
     this.manuallyAdjusted = false,
   });
+
+  factory OriginalMappingDraft.fromMap(Map<String, dynamic> map) =>
+      OriginalMappingDraft(
+        displayOrder: TypeUtil.parseInt(map['display_order']),
+        downloadedPart: TypeUtil.parseNullableInt(map['downloaded_part']),
+        originalSourceOrder:
+            TypeUtil.parseNullableInt(map['original_source_order']),
+        relationType: OriginalRelationType.fromValue(
+          TypeUtil.parseString(map['relation_type']),
+        ),
+        manuallyAdjusted: TypeUtil.parseBool(map['manually_adjusted']),
+      );
+
+  factory OriginalMappingDraft.fromJson(Map<String, dynamic> json) =>
+      OriginalMappingDraft.fromMap(json);
+
+  Map<String, dynamic> toMap() => {
+        'display_order': displayOrder,
+        'downloaded_part': downloadedPart,
+        'original_source_order': originalSourceOrder,
+        'relation_type': relationType.value,
+        'manually_adjusted': manuallyAdjusted ? 1 : 0,
+      };
+
+  Map<String, dynamic> toJson() => toMap();
+
+  bool get isEmpty =>
+      displayOrder == 0 &&
+      downloadedPart == null &&
+      originalSourceOrder == null &&
+      relationType == OriginalRelationType.originalOnly &&
+      !manuallyAdjusted;
+
+  OriginalMappingDraft copyWith({
+    int? displayOrder,
+    Object? downloadedPart = TypeUtil.unset,
+    Object? originalSourceOrder = TypeUtil.unset,
+    OriginalRelationType? relationType,
+    bool? manuallyAdjusted,
+  }) => OriginalMappingDraft(
+        displayOrder: displayOrder ?? this.displayOrder,
+        downloadedPart: identical(downloadedPart, TypeUtil.unset)
+            ? this.downloadedPart
+            : downloadedPart as int?,
+        originalSourceOrder: identical(originalSourceOrder, TypeUtil.unset)
+            ? this.originalSourceOrder
+            : originalSourceOrder as int?,
+        relationType: relationType ?? this.relationType,
+        manuallyAdjusted: manuallyAdjusted ?? this.manuallyAdjusted,
+      );
+
+  @override
+  bool operator ==(Object other) => other is OriginalMappingDraft &&
+      TypeUtil.equal(toMap(), other.toMap());
+
+  @override
+  int get hashCode => TypeUtil.hash(toMap());
+
+  @override
+  String toString() => 'OriginalMappingDraft(${toMap()})';
 }
 
 class OriginalImageRepository {

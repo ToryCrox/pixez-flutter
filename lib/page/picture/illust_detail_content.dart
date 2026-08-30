@@ -383,7 +383,7 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
         spacing: 6,
         runSpacing: 6,
         children: [
-          if (data.illustAIType == 2)
+          if (data.illustAiType == 2)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
               decoration: BoxDecoration(
@@ -1254,7 +1254,12 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
         heroTag: this.hashCode.toString(),
       ),
     );
-    widget.illustStore.illusts!.user.isFollowed = userStore!.isFollow;
+    final current = widget.illustStore.illusts;
+    if (current != null) {
+      widget.illustStore.illusts = current.copyWith(
+        user: current.user.copyWith(isFollowed: userStore!.isFollow),
+      );
+    }
   }
 
   // 添加标签按钮
@@ -1475,8 +1480,14 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
                           heroTag: this.hashCode.toString(),
                         ),
                       );
-                      widget.illustStore.illusts!.user.isFollowed =
-                          userStore!.isFollow;
+                      final current = widget.illustStore.illusts;
+                      if (current != null) {
+                        widget.illustStore.illusts = current.copyWith(
+                          user: current.user.copyWith(
+                            isFollowed: userStore!.isFollow,
+                          ),
+                        );
+                      }
                     },
                   ),
                 ),
@@ -1520,15 +1531,27 @@ class _IllustDetailContentState extends State<IllustDetailContent> {
                 onPressed: () async {
                   await userStore?.follow();
                   if (userStore?.isFollow != null) {
-                    widget.illustStore.illusts?.user.isFollowed =
-                        userStore?.isFollow;
+                    final current = widget.illustStore.illusts;
+                    if (current != null) {
+                      widget.illustStore.illusts = current.copyWith(
+                        user: current.user.copyWith(
+                          isFollowed: userStore?.isFollow,
+                        ),
+                      );
+                    }
                   }
                 },
                 onConfirm: (follow, restrict) {
                   userStore?.followWithRestrict(follow, restrict);
                   if (userStore?.isFollow != null) {
-                    widget.illustStore.illusts?.user.isFollowed =
-                        userStore?.isFollow;
+                    final current = widget.illustStore.illusts;
+                    if (current != null) {
+                      widget.illustStore.illusts = current.copyWith(
+                        user: current.user.copyWith(
+                          isFollowed: userStore?.isFollow,
+                        ),
+                      );
+                    }
                   }
                 },
               ),

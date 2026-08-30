@@ -1,18 +1,33 @@
-import 'package:json_annotation/json_annotation.dart';
+import 'package:pixez/custom/map_extension.dart';
+import 'package:pixez/custom/type_util.dart';
 
-part 'follow_detail.g.dart';
-
-@JsonSerializable()
 class FollowDetail {
-  @JsonKey(name: 'is_followed')
   final bool isFollowed;
-  @JsonKey(name: 'restrict')
   final String restrict;
 
-  FollowDetail({required this.isFollowed, required this.restrict});
+  const FollowDetail({this.isFollowed = false, this.restrict = ''});
 
+  factory FollowDetail.fromMap(Map<String, dynamic> map) => FollowDetail(
+        isFollowed: map.optBool('is_followed'),
+        restrict: map.optString('restrict'),
+      );
   factory FollowDetail.fromJson(Map<String, dynamic> json) =>
-      _$FollowDetailFromJson(json);
-
-  Map<String, dynamic> toJson() => _$FollowDetailToJson(this);
+      FollowDetail.fromMap(json);
+  Map<String, dynamic> toMap() => {
+        'is_followed': isFollowed,
+        'restrict': restrict,
+      };
+  Map<String, dynamic> toJson() => toMap();
+  bool get isEmpty => TypeUtil.allEmpty([isFollowed, restrict]);
+  FollowDetail copyWith({bool? isFollowed, String? restrict}) => FollowDetail(
+        isFollowed: isFollowed ?? this.isFollowed,
+        restrict: restrict ?? this.restrict,
+      );
+  @override
+  bool operator ==(Object other) =>
+      other is FollowDetail && TypeUtil.equal(toMap(), other.toMap());
+  @override
+  int get hashCode => TypeUtil.hash(toMap());
+  @override
+  String toString() => 'FollowDetail(${toMap()})';
 }

@@ -54,7 +54,7 @@ class _NovelSearchPageState extends State<NovelSearchPage> {
       Response response = await apiClient.getNovelTrendTags();
       TrendingTag trendingTag = TrendingTag.fromJson(response.data);
       setState(() {
-        _tags = trendingTag.trend_tags;
+        _tags = trendingTag.trendTags;
       });
     } catch (e) {
       Log.e('Failed to fetch novel trend tags', error: e);

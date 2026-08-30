@@ -434,7 +434,7 @@ class _CommentPageState extends State<CommentPage> {
                   Padding(
                     padding: const EdgeInsets.only(right: 4.0),
                     child: PixivImage(
-                      comment.stamp!.stamp_url!,
+                      comment.stamp!.stampUrl!,
                       height: 100,
                       width: 100,
                     ),

@@ -221,7 +221,7 @@ class _SearchSuggestionPageState extends State<SearchSuggestionPage> {
                                                 word: tags[index].name,
                                                 translatedName:
                                                     tags[index]
-                                                        .translated_name ??
+                                                        .translatedName ??
                                                     "",
                                               ),
                                         ),
@@ -230,7 +230,7 @@ class _SearchSuggestionPageState extends State<SearchSuggestionPage> {
                                   },
                                   title: Text(tags[index].name),
                                   subtitle: Text(
-                                    tags[index].translated_name ?? "",
+                                    tags[index].translatedName ?? "",
                                   ),
                                 ),
                               );

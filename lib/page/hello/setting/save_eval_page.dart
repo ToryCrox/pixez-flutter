@@ -55,7 +55,7 @@ class _SaveEvalPageState extends State<SaveEvalPage> {
     isBookmarked: false,
     visible: true,
     isMuted: false,
-    illustAIType: 0,
+    illustAiType: 0,
   );
 
   String _exampleJson = "";

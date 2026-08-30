@@ -103,10 +103,14 @@ class _AccountEditPageState extends State<AccountEditPage> {
               if (success) {
                 if (accountStore.now != null) {
                   if (_passwordController.text.isNotEmpty) {
-                    accountStore.now!.passWord = _passwordController.text;
+                    accountStore.now = accountStore.now!.copyWith(
+                      passWord: _passwordController.text,
+                    );
                   }
                   if (_emailController.text.isNotEmpty) {
-                    accountStore.now!.mailAddress = _emailController.text;
+                    accountStore.now = accountStore.now!.copyWith(
+                      mailAddress: _emailController.text,
+                    );
                   }
                   accountStore.updateSingle(accountStore.now!);
                 }

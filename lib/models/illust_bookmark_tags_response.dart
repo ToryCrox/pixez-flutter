@@ -1,48 +1,71 @@
-/*
- * Copyright (C) 2020. by perol_notsf, All rights reserved
- *
- * This program is free software: you can redistribute it and/or modify it under
- * the terms of the GNU General Public License as published by the Free Software
- * Foundation, either version 3 of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT ANY
- * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
- * FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along with
- * this program. If not, see <http://www.gnu.org/licenses/>.
- *
- */
+import 'package:pixez/custom/map_extension.dart';
+import 'package:pixez/custom/type_util.dart';
 
-// To parse this JSON data, do
-//
-//     final illustBookmarkTagsResponse = illustBookmarkTagsResponseFromJson(jsonString);
-
-import 'package:json_annotation/json_annotation.dart';
-part 'illust_bookmark_tags_response.g.dart';
-
-@JsonSerializable()
 class IllustBookmarkTagsResponse {
-  @JsonKey(name: "bookmark_tags")
-  List<BookmarkTag> bookmarkTags;
-  @JsonKey(name: "next_url")
-  String? nextUrl;
+  final List<BookmarkTag> bookmarkTags;
+  final String? nextUrl;
 
-  IllustBookmarkTagsResponse({required this.bookmarkTags, this.nextUrl});
+  const IllustBookmarkTagsResponse({this.bookmarkTags = const [], this.nextUrl});
+
+  factory IllustBookmarkTagsResponse.fromMap(Map<String, dynamic> map) =>
+      IllustBookmarkTagsResponse(
+        bookmarkTags: map.optList(
+          'bookmark_tags',
+          (e) => BookmarkTag.fromMap(TypeUtil.parseMap(e)),
+        ),
+        nextUrl: map.optStringOrNull('next_url'),
+      );
   factory IllustBookmarkTagsResponse.fromJson(Map<String, dynamic> json) =>
-      _$IllustBookmarkTagsResponseFromJson(json);
-
-  Map<String, dynamic> toJson() => _$IllustBookmarkTagsResponseToJson(this);
+      IllustBookmarkTagsResponse.fromMap(json);
+  Map<String, dynamic> toMap() => {
+        'bookmark_tags': bookmarkTags.map((e) => e.toMap()).toList(),
+        'next_url': nextUrl,
+      };
+  Map<String, dynamic> toJson() => toMap();
+  bool get isEmpty => TypeUtil.allEmpty([bookmarkTags, nextUrl]);
+  IllustBookmarkTagsResponse copyWith({
+    List<BookmarkTag>? bookmarkTags,
+    Object? nextUrl = TypeUtil.unset,
+  }) => IllustBookmarkTagsResponse(
+        bookmarkTags: bookmarkTags == null
+            ? [...this.bookmarkTags]
+            : [...bookmarkTags],
+        nextUrl: identical(nextUrl, TypeUtil.unset)
+            ? this.nextUrl
+            : nextUrl as String?,
+      );
+  @override
+  bool operator ==(Object other) => other is IllustBookmarkTagsResponse &&
+      TypeUtil.equal(toMap(), other.toMap());
+  @override
+  int get hashCode => TypeUtil.hash(toMap());
+  @override
+  String toString() => 'IllustBookmarkTagsResponse(${toMap()})';
 }
 
-@JsonSerializable()
 class BookmarkTag {
-  String name;
-  int count;
+  final String name;
+  final int count;
 
-  BookmarkTag({required this.name, required this.count});
+  const BookmarkTag({this.name = '', this.count = 0});
+  factory BookmarkTag.fromMap(Map<String, dynamic> map) => BookmarkTag(
+        name: map.optString('name'),
+        count: map.optInt('count'),
+      );
   factory BookmarkTag.fromJson(Map<String, dynamic> json) =>
-      _$BookmarkTagFromJson(json);
-
-  Map<String, dynamic> toJson() => _$BookmarkTagToJson(this);
+      BookmarkTag.fromMap(json);
+  Map<String, dynamic> toMap() => {'name': name, 'count': count};
+  Map<String, dynamic> toJson() => toMap();
+  bool get isEmpty => TypeUtil.allEmpty([name, count]);
+  BookmarkTag copyWith({String? name, int? count}) => BookmarkTag(
+        name: name ?? this.name,
+        count: count ?? this.count,
+      );
+  @override
+  bool operator ==(Object other) =>
+      other is BookmarkTag && TypeUtil.equal(toMap(), other.toMap());
+  @override
+  int get hashCode => TypeUtil.hash(toMap());
+  @override
+  String toString() => 'BookmarkTag(${toMap()})';
 }

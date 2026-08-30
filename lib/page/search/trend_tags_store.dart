@@ -36,7 +36,7 @@ abstract class _TrendTagsStoreBase with Store {
       Response response = await apiClient.getIllustTrendTags();
       TrendingTag trendingTag = TrendingTag.fromJson(response.data);
       trendTags.clear();
-      trendTags.addAll(trendingTag.trend_tags);
+      trendTags.addAll(trendingTag.trendTags);
     } catch (e) {
       Log.e('Failed to fetch trend tags', error: e);
     }

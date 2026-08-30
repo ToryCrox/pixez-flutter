@@ -597,7 +597,10 @@ abstract class _IllustStoreBase with Store {
     try {
       if (!illusts!.user.isFollowed!) {
         await apiClient.postFollowUser(illusts!.user.id, "public");
-        return illusts!.user.isFollowed = true;
+        illusts = illusts!.copyWith(
+          user: illusts!.user.copyWith(isFollowed: true),
+        );
+        return true;
       }
     } catch (e) {
       Log.e('Failed to follow user', error: e);
@@ -616,7 +619,7 @@ abstract class _IllustStoreBase with Store {
     if (force || !illusts!.isBookmarked) {
       try {
         await apiClient.postLikeIllust(illusts!.id, restrict, tags);
-        illusts!.isBookmarked = true;
+        illusts = illusts!.copyWith(isBookmarked: true);
         isBookmark = true;
         state = 2;
         // 同步本地数据库收藏状态
@@ -630,7 +633,7 @@ abstract class _IllustStoreBase with Store {
     } else {
       try {
         await apiClient.postUnLikeIllust(illusts!.id);
-        illusts!.isBookmarked = false;
+        illusts = illusts!.copyWith(isBookmarked: false);
         isBookmark = false;
         state = 0;
         // 同步本地数据库收藏状态

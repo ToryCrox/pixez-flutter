@@ -1,58 +1,67 @@
 /*
  * Copyright (C) 2020. by perol_notsf, All rights reserved
- *
- * This program is free software: you can redistribute it and/or modify it under
- * the terms of the GNU General Public License as published by the Free Software
- * Foundation, either version 3 of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT ANY
- * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
- * FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along with
- * this program. If not, see <http://www.gnu.org/licenses/>.
- *
  */
 import 'package:path/path.dart';
+import 'package:pixez/custom/map_extension.dart';
+import 'package:pixez/custom/type_util.dart';
 import 'package:pixez/page/database/database_registry.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 class BanUserIdPersist {
-  String? userId;
-  int? id;
-  String? name;
+  final String? userId;
+  final int? id;
+  final String? name;
 
-  BanUserIdPersist({this.userId, this.name, this.id});
+  const BanUserIdPersist({this.userId, this.name, this.id});
 
-  factory BanUserIdPersist.fromJson(Map<String, dynamic> json) {
-    return BanUserIdPersist(
-      userId: json[columnUserId],
-      name: json[columnName],
-      id: json[columnId],
-    );
-  }
+  factory BanUserIdPersist.fromMap(Map<String, dynamic> map) =>
+      BanUserIdPersist(
+        userId: map.optStringOrNull(columnUserId),
+        name: map.optStringOrNull(columnName),
+        id: map.optIntOrNull(columnId),
+      );
 
-  Map<String, dynamic> toJson() {
-    final Map<String, dynamic> data = new Map<String, dynamic>();
-    data['id'] = this.id;
-    data[columnUserId] = this.userId;
-    data[columnName] = this.name;
-    return data;
-  }
+  factory BanUserIdPersist.fromJson(Map<String, dynamic> json) =>
+      BanUserIdPersist.fromMap(json);
+
+  Map<String, dynamic> toMap() => {
+        columnId: id,
+        columnUserId: userId,
+        columnName: name,
+      };
+  Map<String, dynamic> toJson() => toMap();
+  bool get isEmpty => TypeUtil.allEmpty([userId, id, name]);
+
+  BanUserIdPersist copyWith({
+    Object? userId = TypeUtil.unset,
+    Object? name = TypeUtil.unset,
+    Object? id = TypeUtil.unset,
+  }) => BanUserIdPersist(
+        userId: identical(userId, TypeUtil.unset) ? this.userId : userId as String?,
+        name: identical(name, TypeUtil.unset) ? this.name : name as String?,
+        id: identical(id, TypeUtil.unset) ? this.id : id as int?,
+      );
+
+  @override
+  bool operator ==(Object other) => other is BanUserIdPersist &&
+      TypeUtil.equal(toMap(), other.toMap());
+  @override
+  int get hashCode => TypeUtil.hash(toMap());
+  @override
+  String toString() => 'BanUserIdPersist(${toMap()})';
 }
 
 final String columnId = 'id';
 final String columnUserId = 'user_id';
 final String columnName = 'name';
-
 final String tableBanUserId = 'banuserid';
 
 class BanUserIdProvider {
   late Database db;
 
   Future open() async {
-    String databasesPath = (await getDatabasesPath());
-    String path = join(databasesPath, 'banuserid.db');
+    final databasesPath = await getDatabasesPath();
+    final path = join(databasesPath, 'banuserid.db');
     db = await openDatabase(
       path,
       version: 1,
@@ -66,80 +75,61 @@ create table $tableBanUserId (
 ''');
       },
     );
-    // 注册到数据库管理中心
     DatabaseRegistry.instance.register('用户屏蔽数据库', path, () => db);
   }
 
   Future<BanUserIdPersist> insert(BanUserIdPersist todo) async {
-    todo.id = await db.insert(
+    final id = await db.insert(
       tableBanUserId,
       todo.toJson(),
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
-    return todo;
+    return todo.copyWith(id: id);
   }
 
   Future<BanUserIdPersist?> getAccount(int id) async {
-    List<Map<String, dynamic>> maps = await db.query(
+    final maps = await db.query(
       tableBanUserId,
-      columns: [columnId, columnUserId],
+      columns: [columnId, columnUserId, columnName],
       where: '$columnId = ?',
       whereArgs: [id],
     );
-    if (maps.length > 0) {
-      return BanUserIdPersist.fromJson(maps.first);
-    }
-    return null;
+    return maps.isEmpty ? null : BanUserIdPersist.fromJson(maps.first);
   }
 
   Future<List<BanUserIdPersist>> getAllAccount() async {
-    List<BanUserIdPersist> result = [];
-    List<Map<String, dynamic>> maps = await db.query(
+    final maps = await db.query(
       tableBanUserId,
       columns: [columnId, columnUserId, columnName],
     );
-
-    if (maps.length > 0) {
-      maps.forEach((f) {
-        result.add(BanUserIdPersist.fromJson(f));
-      });
-    }
-    return result;
+    return maps.map(BanUserIdPersist.fromJson).toList();
   }
 
-  Future<int> delete(int id) async {
-    return await db.delete(
-      tableBanUserId,
-      where: '$columnId = ?',
-      whereArgs: [id],
-    );
-  }
+  Future<int> delete(int id) =>
+      db.delete(tableBanUserId, where: '$columnId = ?', whereArgs: [id]);
+  Future<int> deleteAll() => db.delete(tableBanUserId);
 
-  Future<int> deleteAll() async {
-    return await db.delete(tableBanUserId);
-  }
+  Future<int> update(BanUserIdPersist todo) => db.update(
+        tableBanUserId,
+        todo.toJson(),
+        where: '$columnId = ?',
+        whereArgs: [todo.id],
+      );
 
-  Future<int> update(BanUserIdPersist todo) async {
-    return await db.update(
-      tableBanUserId,
-      todo.toJson(),
-      where: '$columnId = ?',
-      whereArgs: [todo.id],
-    );
-  }
-
-  Future close() async => db.close();
+  Future close() => db.close();
 
   Future<List<BanUserIdPersist>> insertAll(List<BanUserIdPersist> list) async {
+    final result = <BanUserIdPersist>[];
     await db.transaction((txn) async {
-      for (var todo in list) {
-        todo.id = await txn.insert(
+      for (final todo in list) {
+        final id = await txn.insert(
           tableBanUserId,
           todo.toJson(),
           conflictAlgorithm: ConflictAlgorithm.replace,
         );
+        result.add(todo.copyWith(id: id));
       }
     });
-    return list;
+    return result;
   }
 }

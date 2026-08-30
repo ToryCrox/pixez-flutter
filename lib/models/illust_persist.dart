@@ -14,42 +14,92 @@
  *
  */
 
-import 'package:json_annotation/json_annotation.dart';
 import 'package:path/path.dart';
+import 'package:pixez/custom/map_extension.dart';
+import 'package:pixez/custom/type_util.dart';
 import 'package:pixez/page/database/database_registry.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
-part 'illust_persist.g.dart';
-
-@JsonSerializable()
 class IllustPersist {
-  int? id;
-  @JsonKey(name: 'illust_id')
-  int illustId;
-  @JsonKey(name: 'user_id')
-  int userId;
-  @JsonKey(name: 'picture_url')
-  String pictureUrl;
-  @JsonKey(name: 'user_name')
-  String? userName;
-  @JsonKey(name: "title")
-  String? title;
-  int time;
+  final int? id;
+  final int illustId;
+  final int userId;
+  final String pictureUrl;
+  final String? userName;
+  final String? title;
+  final int time;
 
-  IllustPersist({
+  const IllustPersist({
     this.id,
-    required this.illustId,
-    required this.userId,
-    required this.pictureUrl,
-    required this.time,
-    required this.title,
-    required this.userName,
+    this.illustId = 0,
+    this.userId = 0,
+    this.pictureUrl = '',
+    this.time = 0,
+    this.title,
+    this.userName,
   });
 
-  factory IllustPersist.fromJson(Map<String, dynamic> json) =>
-      _$IllustPersistFromJson(json);
+  factory IllustPersist.fromMap(Map<String, dynamic> map) => IllustPersist(
+        id: map.optIntOrNull('id'),
+        illustId: map.optInt('illust_id'),
+        userId: map.optInt('user_id'),
+        pictureUrl: map.optString('picture_url'),
+        time: map.optInt('time'),
+        title: map.optStringOrNull('title'),
+        userName: map.optStringOrNull('user_name'),
+      );
 
-  Map<String, dynamic> toJson() => _$IllustPersistToJson(this);
+  factory IllustPersist.fromJson(Map<String, dynamic> json) =>
+      IllustPersist.fromMap(json);
+
+  Map<String, dynamic> toMap() => {
+        'id': id,
+        'illust_id': illustId,
+        'user_id': userId,
+        'picture_url': pictureUrl,
+        'user_name': userName,
+        'title': title,
+        'time': time,
+      };
+
+  Map<String, dynamic> toJson() => toMap();
+  bool get isEmpty => TypeUtil.allEmpty([
+        id,
+        illustId,
+        userId,
+        pictureUrl,
+        userName,
+        title,
+        time,
+      ]);
+
+  IllustPersist copyWith({
+    Object? id = TypeUtil.unset,
+    int? illustId,
+    int? userId,
+    String? pictureUrl,
+    Object? userName = TypeUtil.unset,
+    Object? title = TypeUtil.unset,
+    int? time,
+  }) => IllustPersist(
+        id: identical(id, TypeUtil.unset) ? this.id : id as int?,
+        illustId: illustId ?? this.illustId,
+        userId: userId ?? this.userId,
+        pictureUrl: pictureUrl ?? this.pictureUrl,
+        userName: identical(userName, TypeUtil.unset)
+            ? this.userName
+            : userName as String?,
+        title: identical(title, TypeUtil.unset) ? this.title : title as String?,
+        time: time ?? this.time,
+      );
+
+  @override
+  bool operator ==(Object other) =>
+      other is IllustPersist && TypeUtil.equal(toMap(), other.toMap());
+  @override
+  int get hashCode => TypeUtil.hash(toMap());
+  @override
+  String toString() => 'IllustPersist(${toMap()})';
 }
 
 final String tableIllustPersist = 'illustpersist';
@@ -112,15 +162,13 @@ create table $tableIllustPersist (
 
   Future<IllustPersist> insert(IllustPersist todo) async {
     final result = await getAccount(todo.illustId);
-    if (result != null) {
-      todo.id = result.id;
-    }
-    todo.id = await db.insert(
+    final toInsert = result == null ? todo : todo.copyWith(id: result.id);
+    final id = await db.insert(
       tableIllustPersist,
-      todo.toJson(),
+      toInsert.toJson(),
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
-    return todo;
+    return toInsert.copyWith(id: id);
   }
 
   Future<IllustPersist?> getAccount(int illust_id) async {

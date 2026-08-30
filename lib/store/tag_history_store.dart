@@ -49,8 +49,8 @@ abstract class _TagHistoryStoreBase with Store {
         await tagsPersistProvider.delete(tags[i].id!);
       }
     }
-    tagsPersist.type = Constants.type;
-    await tagsPersistProvider.insert(tagsPersist);
+    final typedTagsPersist = tagsPersist.copyWith(type: Constants.type);
+    await tagsPersistProvider.insert(typedTagsPersist);
     await fetch();
   }
 
@@ -77,18 +77,19 @@ abstract class _TagHistoryStoreBase with Store {
     final decoder = JsonDecoder();
     final map = decoder.convert(json);
     final data = ExportData.fromJson(map);
-    if (data.tagHisotry == null) return;
+    if (data.tagHistory == null) return;
     final tagList = tags.map((element) => element.name);
-    data.tagHisotry!.removeWhere((element) => tagList.contains(element.name));
+    final history = [...data.tagHistory!];
+    history.removeWhere((element) => tagList.contains(element.name));
     await tagsPersistProvider.open();
-    await tagsPersistProvider.insertAll(data.tagHisotry!.toList());
+    await tagsPersistProvider.insertAll(history);
     await fetch();
   }
 
   Future<void> exportData(BuildContext context) async {
     await tagsPersistProvider.open();
     final exportData = ExportData(
-      tagHisotry: await tagsPersistProvider.getAllAccount(),
+      tagHistory: await tagsPersistProvider.getAllAccount(),
     );
     final uint8List = utf8.encode(jsonEncode(exportData));
     if (Platform.isIOS) {

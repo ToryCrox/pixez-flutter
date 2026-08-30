@@ -20,6 +20,14 @@ extension ModelMapExtension on Map<String, dynamic> {
     return TypeUtil.parseNullableDouble(this[key]);
   }
 
+  DateTime optDateTime(String key, [DateTime? defaultValue]) {
+    return TypeUtil.parseDateTime(this[key], defaultValue);
+  }
+
+  DateTime? optDateTimeOrNull(String key) {
+    return TypeUtil.parseNullableDateTime(this[key]);
+  }
+
   bool optBool(String key, [bool defaultValue = false]) {
     return TypeUtil.parseBool(this[key], defaultValue);
   }

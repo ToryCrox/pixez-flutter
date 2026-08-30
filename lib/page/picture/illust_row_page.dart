@@ -1855,8 +1855,14 @@ class _IllustRowPageState extends State<IllustRowPage>
                                   heroTag: this.hashCode.toString(),
                                 ),
                               );
-                              _illustStore.illusts!.user.isFollowed =
-                                  userStore!.isFollow;
+                              final current = _illustStore.illusts;
+                              if (current != null) {
+                                _illustStore.illusts = current.copyWith(
+                                  user: current.user.copyWith(
+                                    isFollowed: userStore!.isFollow,
+                                  ),
+                                );
+                              }
                             },
                           ),
                         ),

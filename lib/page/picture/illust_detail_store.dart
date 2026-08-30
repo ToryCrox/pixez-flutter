@@ -23,7 +23,7 @@ part 'illust_detail_store.g.dart';
 class IllustDetailStore = _IllustDetailStoreBase with _$IllustDetailStore;
 
 abstract class _IllustDetailStoreBase with Store {
-  final Illusts illust;
+  Illusts illust;
   @observable
   bool isFollow = false;
 
@@ -36,11 +36,15 @@ abstract class _IllustDetailStoreBase with Store {
     try {
       if (illust.user.isFollowed ?? false) {
         await apiClient.postUnFollowUser(illust.user.id);
-        illust.user.isFollowed = false;
+        illust = illust.copyWith(
+          user: illust.user.copyWith(isFollowed: false),
+        );
         isFollow = false;
       } else {
         await apiClient.postFollowUser(illust.user.id, 'public');
-        illust.user.isFollowed = true;
+        illust = illust.copyWith(
+          user: illust.user.copyWith(isFollowed: true),
+        );
         isFollow = true;
       }
     } catch (e) {}

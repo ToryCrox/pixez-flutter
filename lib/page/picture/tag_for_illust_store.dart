@@ -36,7 +36,7 @@ abstract class _TagForIllustStoreBase with Store {
 
   @action
   check(int index, bool value) {
-    tags[index].isRegistered = value;
+    tags[index] = tags[index].copyWith(isRegistered: value);
     checkList[index] = value;
   }
 

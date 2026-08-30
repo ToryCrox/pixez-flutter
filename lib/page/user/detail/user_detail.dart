@@ -122,7 +122,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
   Widget build(BuildContext context) {
     var detail = widget.userDetail;
     var profile = widget.userDetail?.profile;
-    var public = widget.userDetail?.profile_publicity;
+    var public = widget.userDetail?.profilePublicity;
     if (_isNewNested)
       return SafeArea(
         top: false,
@@ -241,7 +241,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
                   cells: [
                     DataCell(Text(I18n.of(context).total_follow_users)),
                     DataCell(
-                      Text(detail?.profile.total_follow_users.toString() ?? ""),
+                      Text(detail?.profile.totalFollowUsers.toString() ?? ""),
                       onTap: () {
                         Navigator.of(context).push(
                           MaterialPageRoute(
@@ -270,7 +270,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
                     DataCell(Text(I18n.of(context).total_mypixiv_users)),
                     DataCell(
                       Text(
-                        detail?.profile.total_mypixiv_users.toString() ?? "",
+                        detail?.profile.totalMypixivUsers.toString() ?? "",
                       ),
                       onTap: () {
                         Navigator.of(context).push(
@@ -297,9 +297,9 @@ class _UserDetailPageState extends State<UserDetailPage> {
                   cells: [
                     DataCell(Text(I18n.of(context).twitter_account)),
                     DataCell(
-                      Text(profile?.twitter_account ?? ""),
+                      Text(profile?.twitterAccount ?? ""),
                       onTap: () async {
-                        final url = profile?.twitter_url;
+                        final url = profile?.twitterUrl;
                         if (url != null) {
                           try {
                             if (Platform.isIOS) {
@@ -337,7 +337,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
                       Text(public?.pawoo != null ? 'Link' : 'none'),
                       onTap: () async {
                         if (public?.pawoo == null || !public!.pawoo) return;
-                        var url = detail?.profile.pawoo_url;
+                        var url = detail?.profile.pawooUrl;
                         try {
                           await launchUrlString(url!);
                         } catch (e) {}

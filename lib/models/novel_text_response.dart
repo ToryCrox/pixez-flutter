@@ -1,66 +1,85 @@
-/*
- * Copyright (C) 2020. by perol_notsf, All rights reserved
- *
- * This program is free software: you can redistribute it and/or modify it under
- * the terms of the GNU General Public License as published by the Free Software
- * Foundation, either version 3 of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT ANY
- * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
- * FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along with
- * this program. If not, see <http://www.gnu.org/licenses/>.
- *
- */
+import 'package:pixez/custom/map_extension.dart';
+import 'package:pixez/custom/type_util.dart';
 
-// To parse this JSON data, do
-//
-//     final novelTextResponse = novelTextResponseFromJson(jsonString);
-import 'package:json_annotation/json_annotation.dart';
-part 'novel_text_response.g.dart';
-
-@JsonSerializable()
 class NovelTextResponse {
-  @JsonKey(name: 'novel_marker')
-  NovelMarker novelMarker;
-  @JsonKey(name: 'novel_text')
-  String novelText;
-  @JsonKey(name: 'series_prev')
-  TextNovel? seriesPrev;
-  @JsonKey(name: 'series_next')
-  TextNovel? seriesNext;
+  final NovelMarker novelMarker;
+  final String novelText;
+  final TextNovel? seriesPrev;
+  final TextNovel? seriesNext;
 
-  NovelTextResponse({
-    required this.novelMarker,
-    required this.novelText,
-    required this.seriesPrev,
-    required this.seriesNext,
+  const NovelTextResponse({
+    this.novelMarker = const NovelMarker(),
+    this.novelText = '',
+    this.seriesPrev,
+    this.seriesNext,
   });
-
-  Map<String, dynamic> toJson() => _$NovelTextResponseToJson(this);
-
-  factory NovelTextResponse.fromJson(Map<String, dynamic> json) =>
-      _$NovelTextResponseFromJson(json);
+  factory NovelTextResponse.fromMap(Map<String, dynamic> map) => NovelTextResponse(
+        novelMarker: NovelMarker.fromMap(map.optMap('novel_marker')),
+        novelText: map.optString('novel_text'),
+        seriesPrev: map.optMapOrNull('series_prev') == null ? null : TextNovel.fromMap(map.optMap('series_prev')),
+        seriesNext: map.optMapOrNull('series_next') == null ? null : TextNovel.fromMap(map.optMap('series_next')),
+      );
+  factory NovelTextResponse.fromJson(Map<String, dynamic> json) => NovelTextResponse.fromMap(json);
+  Map<String, dynamic> toMap() => {
+        'novel_marker': novelMarker.toMap(), 'novel_text': novelText,
+        'series_prev': seriesPrev?.toMap(), 'series_next': seriesNext?.toMap(),
+      };
+  Map<String, dynamic> toJson() => toMap();
+  bool get isEmpty => novelMarker.isEmpty && novelText.isEmpty &&
+      (seriesPrev == null || seriesPrev!.isEmpty) && (seriesNext == null || seriesNext!.isEmpty);
+  NovelTextResponse copyWith({
+    NovelMarker? novelMarker, String? novelText,
+    Object? seriesPrev = TypeUtil.unset, Object? seriesNext = TypeUtil.unset,
+  }) => NovelTextResponse(
+        novelMarker: novelMarker ?? this.novelMarker, novelText: novelText ?? this.novelText,
+        seriesPrev: identical(seriesPrev, TypeUtil.unset) ? this.seriesPrev : seriesPrev as TextNovel?,
+        seriesNext: identical(seriesNext, TypeUtil.unset) ? this.seriesNext : seriesNext as TextNovel?,
+      );
+  @override
+  bool operator ==(Object other) => other is NovelTextResponse && TypeUtil.equal(toMap(), other.toMap());
+  @override
+  int get hashCode => TypeUtil.hash(toMap());
+  @override
+  String toString() => 'NovelTextResponse(${toMap()})';
 }
 
-@JsonSerializable()
 class NovelMarker {
-  int? page;
-
-  NovelMarker({this.page});
-
-  factory NovelMarker.fromJson(Map<String, dynamic> json) =>
-      _$NovelMarkerFromJson(json);
+  final int? page;
+  const NovelMarker({this.page});
+  factory NovelMarker.fromMap(Map<String, dynamic> map) => NovelMarker(page: map.optIntOrNull('page'));
+  factory NovelMarker.fromJson(Map<String, dynamic> json) => NovelMarker.fromMap(json);
+  Map<String, dynamic> toMap() => {'page': page};
+  Map<String, dynamic> toJson() => toMap();
+  bool get isEmpty => page == null || page == 0;
+  NovelMarker copyWith({Object? page = TypeUtil.unset}) =>
+      NovelMarker(page: identical(page, TypeUtil.unset) ? this.page : page as int?);
+  @override
+  bool operator ==(Object other) => other is NovelMarker && TypeUtil.equal(toMap(), other.toMap());
+  @override
+  int get hashCode => TypeUtil.hash(toMap());
+  @override
+  String toString() => 'NovelMarker(${toMap()})';
 }
 
-@JsonSerializable()
 class TextNovel {
-  int? id;
-  String? title;
-
-  TextNovel({this.id, this.title});
-
-  factory TextNovel.fromJson(Map<String, dynamic> json) =>
-      _$TextNovelFromJson(json);
+  final int? id;
+  final String? title;
+  const TextNovel({this.id, this.title});
+  factory TextNovel.fromMap(Map<String, dynamic> map) => TextNovel(
+        id: map.optIntOrNull('id'), title: map.optStringOrNull('title'),
+      );
+  factory TextNovel.fromJson(Map<String, dynamic> json) => TextNovel.fromMap(json);
+  Map<String, dynamic> toMap() => {'id': id, 'title': title};
+  Map<String, dynamic> toJson() => toMap();
+  bool get isEmpty => id == null && title == null;
+  TextNovel copyWith({Object? id = TypeUtil.unset, Object? title = TypeUtil.unset}) => TextNovel(
+        id: identical(id, TypeUtil.unset) ? this.id : id as int?,
+        title: identical(title, TypeUtil.unset) ? this.title : title as String?,
+      );
+  @override
+  bool operator ==(Object other) => other is TextNovel && TypeUtil.equal(toMap(), other.toMap());
+  @override
+  int get hashCode => TypeUtil.hash(toMap());
+  @override
+  String toString() => 'TextNovel(${toMap()})';
 }
