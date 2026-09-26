@@ -25,6 +25,14 @@ class Prefer {
     return _prefs?.getInt(key);
   }
 
+  static Future<void> setDouble(String key, double value) async {
+    await _prefs?.setDouble(key, value);
+  }
+
+  static double? getDouble(String key) {
+    return _prefs?.getDouble(key);
+  }
+
   static Future<void> setBool(String key, bool value) async {
     await _prefs?.setBool(key, value);
   }

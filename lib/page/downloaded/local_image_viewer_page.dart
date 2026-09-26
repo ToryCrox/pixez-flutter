@@ -120,6 +120,8 @@ class _NextImageIntent extends Intent {
 class _LocalImageViewerPageState extends State<LocalImageViewerPage> {
   static const _comparisonModePreferenceKey =
       'local_image_viewer_comparison_mode';
+  static const _comparisonSplitPreferenceKey =
+      'local_image_viewer_comparison_split';
   static const double _minScale = 0.1;
   static const double _maxScale = 8.0;
   static const double _stepScale = 1.25;
@@ -152,6 +154,10 @@ class _LocalImageViewerPageState extends State<LocalImageViewerPage> {
     super.initState();
     _currentIndex = _initialIndex;
     _comparisonMode = Prefer.getBool(_comparisonModePreferenceKey) ?? false;
+    _comparisonSplit =
+        (Prefer.getDouble(_comparisonSplitPreferenceKey) ?? 0.5)
+            .clamp(0.0, 1.0)
+            .toDouble();
     _showRightImage = _isRightImage(_currentItem);
     _file = File(_activeImagePath);
     _resolveImageInfo();
@@ -299,7 +305,6 @@ class _LocalImageViewerPageState extends State<LocalImageViewerPage> {
       _loadError = null;
       _initialScaleReady = false;
       _isFitMode = false;
-      _comparisonSplit = 0.5;
       _currentDesiredScale = 1.0;
       _transformController.value = Matrix4.identity();
     });
@@ -459,7 +464,6 @@ class _LocalImageViewerPageState extends State<LocalImageViewerPage> {
     if (!_hasComparison) return;
     setState(() {
       _comparisonMode = !_comparisonMode;
-      _comparisonSplit = 0.5;
     });
     unawaited(Prefer.setBool(_comparisonModePreferenceKey, _comparisonMode));
     _setDesiredScale(_fitScale(), resetPosition: true);
@@ -471,6 +475,12 @@ class _LocalImageViewerPageState extends State<LocalImageViewerPage> {
       _comparisonSplit =
           (_comparisonSplit + delta / width).clamp(0.0, 1.0).toDouble();
     });
+  }
+
+  void _persistComparisonSplit() {
+    unawaited(
+      Prefer.setDouble(_comparisonSplitPreferenceKey, _comparisonSplit),
+    );
   }
 
   void _zoomIn() {
@@ -880,6 +890,8 @@ class _LocalImageViewerPageState extends State<LocalImageViewerPage> {
                   onHorizontalDragUpdate:
                       (details) =>
                           _updateComparisonSplit(details.delta.dx, width),
+                  onHorizontalDragEnd: (_) => _persistComparisonSplit(),
+                  onHorizontalDragCancel: _persistComparisonSplit,
                   child: Center(child: _buildComparisonHandle()),
                 ),
               ),

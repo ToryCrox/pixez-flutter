@@ -1,9 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pixez/er/prefer.dart';
 import 'package:pixez/page/downloaded/local_image_viewer_page.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  const comparisonSplitPreferenceKey = 'local_image_viewer_comparison_split';
+
+  setUpAll(() async {
+    SharedPreferences.setMockInitialValues({});
+    await Prefer.init();
+  });
+
+  setUp(() async {
+    await (await Prefer.getInstance()).clear();
+  });
+
   testWidgets('本地图片查看器支持按钮和方向键切换页面', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
@@ -72,5 +85,21 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
     expect(find.byTooltip('退出左右对比'), findsOneWidget);
+  });
+
+  test('大图对比分隔比例支持浮点偏好读写', () async {
+    expect(Prefer.getDouble(comparisonSplitPreferenceKey), isNull);
+
+    await Prefer.setDouble(comparisonSplitPreferenceKey, 0.6);
+
+    expect(
+      Prefer.getDouble(comparisonSplitPreferenceKey),
+      closeTo(0.6, 0.0001),
+    );
+    await (await Prefer.getInstance()).reload();
+    expect(
+      Prefer.getDouble(comparisonSplitPreferenceKey),
+      closeTo(0.6, 0.0001),
+    );
   });
 }
