@@ -8,9 +8,12 @@
 PixEz 是一个使用 Flutter 构建的第三方 Pixiv 客户端，支持 Android、iOS、Windows 和 Linux 平台。该应用支持中国大陆地区直连。
 
 ## 构建命令
-flutter的构建版本为3.38.10
+Flutter 构建版本使用仓库 `.fvmrc` 配置的 3.47.1。
 
 ```bash
+# 查看当前 FVM Flutter 版本
+fvm flutter --version
+
 # 获取依赖
 fvm flutter pub get
 
@@ -33,6 +36,14 @@ fvm flutter run msix:create
 # 构建 iOS
 fvm flutter build ios
 ```
+
+Windows 桌面版使用仓库根目录的 PowerShell 脚本编译并部署：
+
+```powershell
+.\build_win.ps1
+```
+
+脚本会先运行 `fvm flutter build windows`，成功后关闭正在运行的 `pixez.exe`，再将产物复制到 `E:\Program Files\PixEz`。
 
 ## 架构
 
